@@ -33,7 +33,7 @@ public sealed class ProfileCliTests
     {
         using var fixture = new ProfileCliFixture();
 
-        var ex = Assert.Throws<UsageErrorException>(() => fixture.ExecuteCli(["login", identityFlag]));
+        var ex = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(["login", identityFlag]));
 
         Assert.Contains("subscription-id", ex.Message, StringComparison.Ordinal);
         Assert.Empty(await fixture.Profiles.GetAllProfilesAsync());
@@ -41,19 +41,42 @@ public sealed class ProfileCliTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Login_ManagedIdentity_ShouldPersistExplicitOrDefaultSubscription(bool useDefault)
+    [InlineData("browser")]
+    [InlineData("device-code")]
+    [InlineData("managed-identity")]
+    [InlineData("client-secret")]
+    [InlineData("federated")]
+    public async Task Login_WithoutExplicitSubscription_ShouldNotUseActiveProfile(string flow)
     {
         using var fixture = new ProfileCliFixture();
-        if (useDefault)
+        fixture.SeedActiveProfile("existing", ValidSubscriptionId, userPrincipalName: null);
+        string[] authArguments = flow switch
         {
-            fixture.SeedActiveProfile("existing", ValidSubscriptionId, userPrincipalName: null);
-        }
+            "browser" => [],
+            "device-code" => ["--use-device-code"],
+            "managed-identity" => ["--identity"],
+            "client-secret" => ["--client-id", ValidSubscriptionId, "--tenant-id", ValidSubscriptionId,
+                "--client-secret", "test-secret"],
+            "federated" => ["--service-principal", "--client-id", ValidSubscriptionId,
+                "--tenant-id", ValidSubscriptionId, "--federated-token", "test-assertion"],
+            _ => throw new ArgumentOutOfRangeException(nameof(flow)),
+        };
 
-        fixture.ExecuteCli(useDefault
-            ? ["login", "--identity"]
-            : ["login", "--identity", "--subscription-id", ValidSubscriptionId]);
+        var ex = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(["login", .. authArguments]));
+
+        Assert.Contains("missing mandatory [--subscription-id]", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(fixture.RawOutputs);
+        Assert.Equal("existing", await fixture.Profiles.GetActiveProfileNameAsync());
+        Assert.Single(await fixture.Profiles.GetAllProfilesAsync());
+    }
+
+    [Fact]
+    public async Task Login_ManagedIdentity_ShouldPersistExplicitSubscription()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedActiveProfile("existing", SecondValidSubscriptionId, userPrincipalName: null);
+
+        fixture.ExecuteCli(["login", "--identity", "--subscription-id", ValidSubscriptionId]);
 
         var profile = await fixture.Profiles.GetActiveProfileAsync();
         Assert.NotNull(profile);
@@ -171,6 +194,24 @@ public sealed class ProfileCliTests
         Assert.NotNull(prod);
         Assert.Equal(ValidSubscriptionId, prod!.SubscriptionId); // sourced from the existing profile
         Assert.Equal("prod", await fixture.Profiles.GetActiveProfileNameAsync());
+    }
+
+    [Theory]
+    [InlineData("--subscription-id")]
+    [InlineData("--subscription")]
+    [InlineData("-s")]
+    public async Task Login_WithProfileAndSubscription_ShouldRejectUnusedSubscription(string subscriptionFlag)
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", ValidSubscriptionId);
+
+        var ex = Assert.Throws<InvalidInputException>(() =>
+            fixture.ExecuteCli(["login", "--profile", "prod", subscriptionFlag, SecondValidSubscriptionId]));
+
+        Assert.Contains("does not allow [--subscription-id]", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(fixture.RawOutputs);
+        Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
+        Assert.Equal(ValidSubscriptionId, (await fixture.Profiles.GetProfileAsync("prod"))!.SubscriptionId);
     }
 
     [Theory]

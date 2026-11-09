@@ -38,8 +38,8 @@ For service principal client-secret sign-in, use either `-ClientId` with
 with `-Credential <PSCredential>` syntax. The credential username is the application
 ID and its password is the client secret. Both forms use the same authentication flow.
 
-Initial service principal sign-in requires a tenant ID and subscription ID. The
-subscription can also come from the current profile's default. Client-secret arguments
+Initial service principal sign-in requires a tenant ID and an explicit subscription ID.
+Login does not inherit argument defaults from the current profile. Client-secret arguments
 can't be combined with managed identity, device-code authentication, a federated token,
 or `-Profile`. Use `-OutProfile` to save a named profile.
 
@@ -234,7 +234,7 @@ HelpMessage: ''
 ### -Identity
 
 Sign in using a managed identity. System-assigned by default; combine with `-ClientId`, `-ObjectId`, or `-ResourceId` to select a specific user-assigned identity.
-Requires a subscription ID, supplied with `-SubscriptionId` or inherited from the current profile.
+Requires an explicit subscription ID supplied with `-SubscriptionId`.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -300,7 +300,8 @@ HelpMessage: ''
 
 ### -Profile
 
-Name of an existing named profile to sign into. Mutually exclusive with `-OutProfile`.
+Name of an existing named profile to sign into, using its saved subscription ID.
+Mutually exclusive with `-OutProfile` and `-SubscriptionId`.
 
 ```yaml
 Type: System.String
@@ -365,8 +366,8 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-Azure subscription ID. Required for initial sign-in, including managed identities,
-unless the current profile provides a default.
+Azure subscription ID. Must be supplied explicitly for initial sign-in, including
+managed identities. Can't be combined with `-Profile`.
 
 ```yaml
 Type: System.String

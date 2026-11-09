@@ -28,23 +28,43 @@ namespace Core.ArgumentParsing
                 throw AzclipsErrorException.UsageError(message);
             }
 
-            profileService.GetProfileKeysForDefault().ForEach(key =>
+            if (ShouldApplyProfileDefaults(processor.GetType().Name))
+            {
+                ApplyProfileDefaults(parsedArgs, canonicalParameters, profile);
+            }
+
+            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
+            return processor;
+        }
+
+        private static bool ShouldApplyProfileDefaults(string processorTypeName)
+        {
+            // TODO: hardcoded processor name; will replace with generic handling
+            return !string.Equals(processorTypeName, "LoginProcessor", StringComparison.Ordinal);
+        }
+
+        private void ApplyProfileDefaults(
+            IDictionary<string, (string, object)> parsedArgs,
+            IDictionary<string, ParameterMetadata> canonicalParameters,
+            Profile? profile)
+        {
+            var defaultKeys = profileService.GetProfileKeysForDefault();
+
+            defaultKeys.ForEach(key =>
             {
                 object? value = parsedArgs.TryGetValue(key, out var parsedArg) ? parsedArg.Item2 : null;
                 // Apply default property when not in args and in processor
                 if (value is null && canonicalParameters.ContainsKey(key))
                 {
                     string invocationName = canonicalParameters[key].InvocationName;
-                    if (profileService.GetProfileValueByKey(profile, key) is not {} profileValue)
+                    if (profileService.GetProfileValueByKey(profile, key) is not { } profileValue)
                     {
                         throw AzclipsErrorException.UsageError($"{invocationName} is not provided from input and not present in profile either");
                     }
+
                     parsedArgs[key] = (invocationName, profileValue);
                 }
             });
-
-            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
-            return processor;
         }
 
         private (string?, IList<string>?) ValidateParameterSets(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets)
@@ -57,7 +77,7 @@ namespace Core.ArgumentParsing
             List<string> errorList = new List<string>();
             HashSet<string> candidates = parameterSets.Select(kvp => kvp.Key).ToHashSet();
             HashSet<ParameterMetadata> argsMetadata = parsedArgs.Keys.Select(k => parameters[k]).ToHashSet();
-            
+
             // Validate whether the coming arg matches any remaining candidates, return error if none
             foreach (var metadata in argsMetadata)
             {
@@ -78,7 +98,7 @@ namespace Core.ArgumentParsing
 
             HashSet<ParameterSetMetadata> candidatesMetadata = candidates.Select(candidate => parameterSets[candidate]).ToHashSet();
             candidatesMetadata.RemoveWhere(candidate =>
-            {                
+            {
                 if (IsValidCandidate(argsMetadata, candidate))
                 {
                     return false;
@@ -106,7 +126,7 @@ namespace Core.ArgumentParsing
         private bool IsValidCandidate(HashSet<ParameterMetadata> args, ParameterSetMetadata candidate)
         {
             // filter 1. validate whether args have all required parameters for candidate
-            // filter 2. validate whether args have any extra parameters not defined in the candidate. 
+            // filter 2. validate whether args have any extra parameters not defined in the candidate.
             // for example: ps1->[subid, rg, name]; ps2->[subid, rg]; input {subid, rg, name} survives filter 1, will be filtered in filter 2
             // Defensive, for "metadata.ParameterSets is null" escaped previous check
             // filter 3. validate whether there is only one candidate left
@@ -125,7 +145,7 @@ namespace Core.ArgumentParsing
                     return false;
                 }
             }
-            
+
             return true;
         }
 

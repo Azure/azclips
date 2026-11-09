@@ -74,8 +74,8 @@ authority when no tenant is supplied — not a fixed corporate tenant
 | Client-secret service principal | `az login --service-principal --client-id <client> --client-secret <secret> --tenant-id <tenant> --subscription-id <sub>` | Confidential client with a secret |
 
 The required combinations are defined by `LoginProcessor.DefineParameterSets`; managed identity,
-browser, device-code, and new service-principal logins require a subscription ID, supplied
-explicitly or inherited from the current profile. Managed identity accepts at most one user-assigned selector
+browser, device-code, and new service-principal logins require an explicitly supplied subscription ID.
+Login does not inherit argument defaults from the active profile. Managed identity accepts at most one user-assigned selector
 (`src/Extensions/Accounts/Processors/LoginProcessor.cs:119`,
 `src/Extensions/Accounts/Processors/LoginProcessor.cs:426`).
 
