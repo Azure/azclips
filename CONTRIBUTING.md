@@ -1,6 +1,6 @@
 # Contributing to Azure CLI and PowerShell
 
-Thank you for your interest in Azure CLI and PowerShell. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from public preview to GA public release.
+Thank you for your interest in Azure CLI and PowerShell. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from public preview to GA release.
 
 During public preview, maintainers may limit pull request acceptance to scoped fixes, documentation updates, and changes aligned with preview goals.
 
@@ -60,7 +60,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter FullyQualifiedName~Configu
 
 ### Release Note Guidance
 
-Public preview releases ship fortnightly, and release notes are generated from pull request details during release preparation.
+Public preview releases ship every two weeks, and release notes are generated from pull request details during release preparation.
 
 - Start customer-facing PR titles with `[Component Name]`, for example `[CLI] Add resource group list output`.
 - Start non-customer-facing PR titles with `{Component Name}`, for example `{DevOps} Update release pipeline validation`.
