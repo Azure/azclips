@@ -1,14 +1,26 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Azclips.Help.Tool.Validation;
 using Core.Abstractions;
 using Core.Cli.Parser;
+using Core.Cli.Validation;
 
-namespace Azclips.Help.Tool.Tests;
+namespace Cli.Tests.Extensions;
 
 public sealed class CommandTreeConventionValidatorTests
 {
+    [Fact]
+    public void BuiltExtensions_FollowCommandTreeConventions()
+    {
+        var indexes = ExtensionIndexContractTests.Indexes()
+            .ToDictionary(entry => entry.Index, entry => entry.Instance, StringComparer.OrdinalIgnoreCase);
+        Assert.NotEmpty(indexes);
+
+        var errors = new CommandTreeConventionValidator().Validate(indexes);
+
+        Assert.True(errors.Count == 0, string.Join(Environment.NewLine, errors.Select(error => error.Message)));
+    }
+
     [Theory]
     [InlineData("sample item", "sample item show")]
     [InlineData("sample", "sample show")]
@@ -17,9 +29,8 @@ public sealed class CommandTreeConventionValidatorTests
     {
         var report = Validate(new StubIndex([parent, child]));
 
-        var error = Assert.Single(report.Errors);
-        Assert.True(report.HasErrors);
-        Assert.Equal(ProblemIds.CLI_CommandGroupCollision, error.ProblemId);
+        var error = Assert.Single(report);
+        Assert.Equal(CommandTreeConventionErrorKind.CommandGroupCollision, error.Kind);
         Assert.Contains("extension 'First'", error.Message);
         Assert.Contains("is also a group containing", error.Message);
         Assert.Contains("az sample", error.Message);
@@ -36,8 +47,8 @@ public sealed class CommandTreeConventionValidatorTests
             ["Second"] = new StubIndex(["sample item show"]),
         });
 
-        var error = Assert.Single(report.Errors);
-        Assert.Equal(ProblemIds.CLI_CommandGroupCollision, error.ProblemId);
+        var error = Assert.Single(report);
+        Assert.Equal(CommandTreeConventionErrorKind.CommandGroupCollision, error.Kind);
         Assert.Contains("'az sample item'", error.Message);
         Assert.Contains("'az sample item show'", error.Message);
         Assert.Contains("extension 'First'", error.Message);
@@ -49,8 +60,8 @@ public sealed class CommandTreeConventionValidatorTests
     {
         var report = Validate(new StubIndex(["sample", "sample item", "sample item show"]));
 
-        Assert.Equal(3, report.Errors.Count());
-        Assert.All(report.Errors, error => Assert.Equal(ProblemIds.CLI_CommandGroupCollision, error.ProblemId));
+        Assert.Equal(3, report.Count);
+        Assert.All(report, error => Assert.Equal(CommandTreeConventionErrorKind.CommandGroupCollision, error.Kind));
     }
 
     [Fact]
@@ -58,30 +69,7 @@ public sealed class CommandTreeConventionValidatorTests
     {
         var report = Validate(new StubIndex(["sample bar", "sample barcode", "sample other show", "login", "rest"]));
 
-        Assert.False(report.HasErrors);
-        Assert.Empty(report.Issues);
-    }
-
-    [Fact]
-    public void MigratedAgentTree_Passes()
-    {
-        var report = Validate(new StubIndex([
-            "agent tool docs list", "agent tool docs show", "agent tool docs generate",
-            "agent tool env show", "agent tool resource find", "agent tool resource show",
-            "agent tool resource sku", "agent tool resource tree", "agent tool resource refresh",
-        ]));
-
-        Assert.Empty(report.Issues);
-    }
-
-    [Fact]
-    public void FormerAgentTree_FailsBothRules()
-    {
-        var report = Validate(new StubIndex(["agent tool help", "agent tool help generate"]));
-
-        Assert.True(report.HasErrors);
-        Assert.Single(report.Errors, error => error.ProblemId == ProblemIds.CLI_CommandGroupCollision);
-        Assert.Equal(2, report.Errors.Count(error => error.ProblemId == ProblemIds.CLI_ReservedGlobalArgument));
+        Assert.Empty(report);
     }
 
     public static IEnumerable<object[]> GlobalNamesAtEveryDepth()
@@ -101,9 +89,8 @@ public sealed class CommandTreeConventionValidatorTests
     {
         var report = Validate(new StubIndex([command.ToUpperInvariant()]));
 
-        var error = Assert.Single(report.Errors);
-        Assert.True(report.HasErrors);
-        Assert.Equal(ProblemIds.CLI_ReservedGlobalArgument, error.ProblemId);
+        var error = Assert.Single(report);
+        Assert.Equal(CommandTreeConventionErrorKind.ReservedGlobalArgument, error.Kind);
         Assert.Contains($"reserved segment '{name}'", error.Message);
         Assert.Contains("global argument", error.Message);
         Assert.Contains("extension 'First'", error.Message);
@@ -117,15 +104,15 @@ public sealed class CommandTreeConventionValidatorTests
     {
         var report = Validate(new StubIndex([command]));
 
-        Assert.Equal(ProblemIds.CLI_ReservedGlobalArgument, Assert.Single(report.Errors).ProblemId);
+        Assert.Equal(CommandTreeConventionErrorKind.ReservedGlobalArgument, Assert.Single(report).Kind);
     }
 
     [Fact]
     public void InternalHyphensArePreserved_AndSimilarNamesPass()
     {
-        Assert.Equal(ProblemIds.CLI_ReservedGlobalArgument,
-            Assert.Single(Validate(new StubIndex(["sample no-cache show"])).Errors).ProblemId);
-        Assert.Empty(Validate(new StubIndex(["sample nocache show", "sample help-docs", "sample output-format"])).Issues);
+        Assert.Equal(CommandTreeConventionErrorKind.ReservedGlobalArgument,
+            Assert.Single(Validate(new StubIndex(["sample no-cache show"]))).Kind);
+        Assert.Empty(Validate(new StubIndex(["sample nocache show", "sample help-docs", "sample output-format"])));
     }
 
     [Fact]
@@ -135,8 +122,8 @@ public sealed class CommandTreeConventionValidatorTests
 
         var report = Validate(index);
 
-        Assert.Single(report.Errors, error => error.ProblemId == ProblemIds.CLI_CommandGroupCollision);
-        Assert.Single(report.Errors, error => error.ProblemId == ProblemIds.CLI_ReservedGlobalArgument);
+        Assert.Single(report, error => error.Kind == CommandTreeConventionErrorKind.CommandGroupCollision);
+        Assert.Single(report, error => error.Kind == CommandTreeConventionErrorKind.ReservedGlobalArgument);
     }
 
     [Fact]
@@ -144,7 +131,7 @@ public sealed class CommandTreeConventionValidatorTests
     {
         var report = Validate(new StubIndex(["sample help"], ["sample help", "SAMPLE HELP"]));
 
-        Assert.Single(report.Errors);
+        Assert.Single(report);
     }
 
     [Fact]
@@ -154,7 +141,7 @@ public sealed class CommandTreeConventionValidatorTests
         index.GetCommandMetadata("sample show", ClientType.CLI).Aliases.Add("sample help");
         Assert.NotEmpty(index.GetCommandTable(ClientType.PowerShell));
 
-        Assert.Empty(Validate(index).Issues);
+        Assert.Empty(Validate(index));
     }
 
     [Fact]
@@ -162,22 +149,18 @@ public sealed class CommandTreeConventionValidatorTests
     {
         var report = Validate(new StubIndex(["sample help"]));
 
-        Assert.Equal(ProblemIds.CLI_ReservedGlobalArgument, Assert.Single(report.Errors).ProblemId);
+        Assert.Equal(CommandTreeConventionErrorKind.ReservedGlobalArgument, Assert.Single(report).Kind);
     }
 
     [Fact]
-    public void MissingIndexesAndEmptyCommandPaths_FailExplicitly()
+    public void EmptyCommandPaths_FailExplicitly()
     {
-        var empty = new CommandTreeConventionValidator().Validate(new Dictionary<string, IExtensionIndex>());
-        Assert.True(empty.HasErrors);
-        Assert.Equal(ProblemIds.Tool_NoExtensionsFound, Assert.Single(empty.Errors).ProblemId);
-
         var invalid = Validate(new StubIndex([" "]));
-        Assert.Equal(ProblemIds.CLI_InvalidCommandPath, Assert.Single(invalid.Errors).ProblemId);
-        Assert.Contains("First", Assert.Single(invalid.Errors).Message);
+        Assert.Equal(CommandTreeConventionErrorKind.InvalidCommandPath, Assert.Single(invalid).Kind);
+        Assert.Contains("First", Assert.Single(invalid).Message);
     }
 
-    private static ValidationReport Validate(IExtensionIndex index) =>
+    private static IReadOnlyList<CommandTreeConventionError> Validate(IExtensionIndex index) =>
         new CommandTreeConventionValidator().Validate(new Dictionary<string, IExtensionIndex> { ["First"] = index });
 
     private sealed class StubIndex : IExtensionIndex

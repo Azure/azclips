@@ -4,19 +4,22 @@
 using Core.Abstractions;
 using Core.Cli.Parser;
 
-namespace Azclips.Help.Tool.Validation;
+namespace Core.Cli.Validation;
+
+public enum CommandTreeConventionErrorKind
+{
+    CommandGroupCollision,
+    ReservedGlobalArgument,
+    InvalidCommandPath,
+}
+
+public sealed record CommandTreeConventionError(CommandTreeConventionErrorKind Kind, string Message);
 
 public sealed class CommandTreeConventionValidator
 {
-    public ValidationReport Validate(IReadOnlyDictionary<string, IExtensionIndex> extensions)
+    public IReadOnlyList<CommandTreeConventionError> Validate(IReadOnlyDictionary<string, IExtensionIndex> extensions)
     {
-        var report = new ValidationReport();
-        if (extensions.Count == 0)
-        {
-            report.AddError(ProblemIds.Tool_NoExtensionsFound,
-                "No extension indexes were discovered. Build the extensions and check --artifacts-root before validating commands.");
-            return report;
-        }
+        var errors = new List<CommandTreeConventionError>();
 
         var reserved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var flag in KnownGlobalFlags.All)
@@ -34,12 +37,12 @@ public sealed class CommandTreeConventionValidator
                          .Concat(index.GetCommandKeys(ClientType.CLI))
                          .Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                var path = HelpCommandKey.Normalize(string.Join(' ',
-                    key.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)));
+                var path = string.Join(' ',
+                    key.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
                 if (path.Length == 0)
                 {
-                    report.AddError(ProblemIds.CLI_InvalidCommandPath,
-                        $"Extension '{extension}' exposes an empty CLI command path. Register a full command name including its verb.");
+                    errors.Add(new(CommandTreeConventionErrorKind.InvalidCommandPath,
+                        $"Extension '{extension}' exposes an empty CLI command path. Register a full command name including its verb."));
                     continue;
                 }
 
@@ -59,8 +62,8 @@ public sealed class CommandTreeConventionValidator
             {
                 if (reserved.TryGetValue(segment.TrimStart('-'), out var flag))
                 {
-                    report.AddError(ProblemIds.CLI_ReservedGlobalArgument,
-                        $"CLI command 'az {path}' from {FormatOwners(owners)} uses reserved segment '{segment}' from global argument '{flag}'. Rename this command/group segment; global argument names and aliases are not command names.");
+                    errors.Add(new(CommandTreeConventionErrorKind.ReservedGlobalArgument,
+                        $"CLI command 'az {path}' from {FormatOwners(owners)} uses reserved segment '{segment}' from global argument '{flag}'. Rename this command/group segment; global argument names and aliases are not command names."));
                 }
             }
 
@@ -69,13 +72,13 @@ public sealed class CommandTreeConventionValidator
                 var prefix = string.Join(' ', segments, 0, length);
                 if (commands.TryGetValue(prefix, out var parentOwners))
                 {
-                    report.AddError(ProblemIds.CLI_CommandGroupCollision,
-                        $"Executable CLI command 'az {prefix}' from {FormatOwners(parentOwners)} is also a group containing 'az {path}' from {FormatOwners(owners)}. Move the parent action beneath a group-only path.");
+                    errors.Add(new(CommandTreeConventionErrorKind.CommandGroupCollision,
+                        $"Executable CLI command 'az {prefix}' from {FormatOwners(parentOwners)} is also a group containing 'az {path}' from {FormatOwners(owners)}. Move the parent action beneath a group-only path."));
                 }
             }
         }
 
-        return report;
+        return errors;
     }
 
     private static string FormatOwners(IEnumerable<string> owners) =>

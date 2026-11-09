@@ -166,7 +166,7 @@ foreach (var dllPath in extensionDlls)
     manifestSets.Add((extensionName, verbManifests));
 }
 
-aggregateReport.Merge(new CommandTreeConventionValidator().Validate(indexesByExtension));
+aggregateReport.Merge(CommandTreeConventionValidation.Validate(indexesByExtension));
 
 var exampleSyntaxReport = new ExampleSyntaxValidator().Validate(repoRoot, indexesByCliGroup);
 aggregateReport.Merge(exampleSyntaxReport);

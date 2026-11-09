@@ -33,7 +33,7 @@ public class ExtensionIndexContractTests
     private static List<string> Unexpected(IEnumerable<string> problems) =>
         problems.Where(problem => !KnownIssues.Any(problem.StartsWith)).ToList();
 
-    private static IEnumerable<(string Index, IExtensionIndex Instance)> Indexes()
+    internal static IEnumerable<(string Index, IExtensionIndex Instance)> Indexes()
     {
         var directory = Path.GetDirectoryName(typeof(ExtensionIndexContractTests).Assembly.Location)!;
         foreach (var path in Directory.EnumerateFiles(directory, "Microsoft.Azure.Azclips.Extensions.*.dll"))

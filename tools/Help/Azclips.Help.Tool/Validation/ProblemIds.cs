@@ -48,7 +48,7 @@ namespace Azclips.Help.Tool.Validation
         // Every CLI example must include all required parameters on the routed command (mirrors PSL3).
         public const string CLI_L4_MissingRequiredFlag = "CLI_L4_MissingRequiredFlag";
 
-        // CommandTreeConventionValidator
+        // Shared CLI command convention errors, mapped by CommandTreeConventionValidation.
         public const string CLI_CommandGroupCollision = "CLI_CommandGroupCollision";
         public const string CLI_ReservedGlobalArgument = "CLI_ReservedGlobalArgument";
         public const string CLI_InvalidCommandPath = "CLI_InvalidCommandPath";

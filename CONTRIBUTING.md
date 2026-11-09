@@ -64,7 +64,9 @@ Extension-contributed CLI paths must follow these rules:
   Normal global flags on invocations and intrinsic CLI help/version handling
   are unchanged.
 
-The help tool validates the combined tree from each selected extension's
+The shared validator in [src/CLI/Validation](src/CLI/Validation) owns these CLI
+extension rules, with unit tests under [tests/Cli.Tests/Extensions](tests/Cli.Tests/Extensions).
+The help tool and CLI docs exporter invoke it on the combined tree from each selected extension's
 CLI command table and `GetCommandKeys(ClientType.CLI)`, including keys contributed
 by extensions that share a verb. Metadata-only aliases are not routed paths; an
 alias exposed as a command key is validated like any other path. Build-artifact discovery selects
@@ -76,7 +78,7 @@ Run locally after building:
 ```powershell
 dotnet build azclips.slnx
 dotnet run --project tools\Help\Azclips.Help.Tool\Azclips.Help.Tool.csproj --no-build -- --artifacts-root artifacts\Debug --output-root artifacts\help
-dotnet test tools\Help\Azclips.Help.Tool.Tests\Azclips.Help.Tool.Tests.csproj --filter "FullyQualifiedName~CommandTreeConvention"
+dotnet test tests\Cli.Tests\Cli.Tests.csproj --filter "FullyQualifiedName~CommandTreeConventionValidatorTests"
 ```
 
 The existing CI help-validation job and the CLI docs exporter run these checks.

@@ -114,7 +114,7 @@ internal static class Exporter
             return 1;
         }
 
-        var conventionReport = new CommandTreeConventionValidator().Validate(indexesByExtension);
+        var conventionReport = CommandTreeConventionValidation.Validate(indexesByExtension);
         if (conventionReport.HasErrors)
         {
             foreach (var error in conventionReport.Errors)
