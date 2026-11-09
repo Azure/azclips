@@ -12,4 +12,6 @@
 /.x/ @Azure/act-experience-enablement-squad
 /devops/ @Azure/act-platform-engineering-squad
 /.azure-pipelines/ @Azure/act-platform-engineering-squad
+/build/ @Azure/act-platform-engineering-squad
+/install/ @Azure/act-platform-engineering-squad
 /toolkit/ @Azure/act-codegen-extensibility-squad
