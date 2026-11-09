@@ -1,4 +1,4 @@
-# Azure CLI & Azure PowerShell — a unified command surface for Azure command line tools
+# Next-Generation Azure CLI & Azure PowerShell
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Build and Test](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml)
@@ -6,11 +6,11 @@
 
 > [!IMPORTANT]
 > **Public preview**
-> This new generation of Azure CLI & Azure PowerShell is in public preview. Commands, behavior, and packaging may change during the preview. See [Known limitations](#known-limitations) before getting started.
+> Next-Generation Azure CLI & Azure PowerShell is in public preview. Commands, behavior, and packaging may change during the preview. See [Known limitations](#known-limitations) before getting started.
 
-## What is Azure CLI & Azure PowerShell?
+## What is Next-Generation Azure CLI & Azure PowerShell?
 
-This new generation of command line tools provide a lightweight, efficient and intelligent set of commands to manage Azure resources.
+Next-Generation Azure CLI & Azure PowerShell provides a lightweight, efficient and intelligent set of commands to manage Azure resources.
 Depending on preferences, scripting environment or other requirements, you can use the native command or its PowerShell equivalent to obtain identical outcomes.
 
 The architecture used for these commands allows execution in secure, constrained environments and provides faster execution or a smaller disk footprint.
@@ -101,7 +101,7 @@ This is a public preview — expect rough edges and change between builds.
 
 - The preview focuses on **interactive user scenarios**. Non-interactive auth methods — Resource Owner Password Credentials (ROPC), service principals, and managed identities — aren't supported yet.
 - Supported shells are **PowerShell 7+, bash, and zsh**. The Azure PowerShell modules require **PowerShell 7.6+**. Windows PowerShell 5.1 and the PowerShell ISE aren't supported.
-- Azure CLI & Azure PowerShell installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
+- Next-Generation Azure CLI & Azure PowerShell installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
 - Commands, behavior, and packaging may change without notice during the preview.
 
 For known issues and workarounds, see [Troubleshooting](docs/azure-cli/docs-conceptual/troubleshooting.md).
