@@ -9,15 +9,39 @@ using Microsoft.Azure.AzClips.Extensions.StorageBlob.Models;
 namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
 {
     /// <summary>
-    /// Get Blob Properties is a HEAD whose whole answer is in response headers, which the body-only
-    /// default pipeline never reads. The workflow is rewritten to map the spec's response headers onto
-    /// <see cref="BlobItem"/>, the same shape List Blobs returns for each blob.
+    /// Get Blob Properties is a HEAD whose whole answer is in response headers, so the generated
+    /// <see cref="GetPropertiesBlobProcessor"/> declares no response type and writes nothing. This
+    /// processor sends it via <see cref="ProcessorBase.CreateExtendedProcessor{T}"/> and maps the spec's
+    /// response headers onto <see cref="BlobItem"/>, the same shape List Blobs returns for each blob.
     /// </summary>
-    public partial class GetPropertiesBlobProcessor
+    public class GetPropertiesBlobProcessor_Orchestrator : ProcessorBase<object, BlobItem>, ISasAuthorized
     {
         private const string MetadataPrefix = "x-ms-meta-";
         private const string ObjectReplicationPrefix = "x-ms-or-";
         private const string ObjectReplicationPolicyId = "x-ms-or-policy-id";
+
+        /// <summary>Container name, used with <see cref="ProcessorBase{TRequest, TResponse}.StorageAccountName"/> when <see cref="ProcessorBase.Url"/> is not set.</summary>
+        public string? ContainerName { get; set; }
+
+        /// <summary>Blob name, used with <see cref="ProcessorBase{TRequest, TResponse}.StorageAccountName"/> when <see cref="ProcessorBase.Url"/> is not set.</summary>
+        public string? BlobName { get; set; }
+
+        protected override string Endpoint => ResolveUrl((nameof(ContainerName), ContainerName), (nameof(BlobName), BlobName));
+
+        public string? SasToken { get; set; }
+        public string? Snapshot { get; set; }
+        public string? VersionId { get; set; }
+        public int? Timeout { get; set; }
+        public string? ClientRequestId { get; set; }
+        public string? LeaseId { get; set; }
+        public string? EncryptionKey { get; set; }
+        public string? EncryptionKeySha256 { get; set; }
+        public string? EncryptionAlgorithm { get; set; }
+        public string? IfModifiedSince { get; set; }
+        public string? IfUnmodifiedSince { get; set; }
+        public string? IfNoneMatch { get; set; }
+        public string? IfMatch { get; set; }
+        public string? IfTags { get; set; }
 
         public override async Task ProcessAsync()
         {
@@ -25,12 +49,24 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
             {
                 await BeforeProcessAsync();
                 await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-                using HttpResponseMessage response = await SendAsync();
-                BlobItem blob = ToBlobItem(response);
-                if (!await BeforeWriteOutputAsyncAndReturn(blob))
+                using HttpResponseMessage response = await CreateExtendedProcessor<GetPropertiesBlobProcessor>(p =>
                 {
-                    await WriteOutput(blob);
-                }
+                    p.Url = Endpoint;
+                    p.Snapshot = Snapshot;
+                    p.VersionId = VersionId;
+                    p.Timeout = Timeout;
+                    p.ClientRequestId = ClientRequestId;
+                    p.LeaseId = LeaseId;
+                    p.EncryptionKey = EncryptionKey;
+                    p.EncryptionKeySha256 = EncryptionKeySha256;
+                    p.EncryptionAlgorithm = EncryptionAlgorithm;
+                    p.IfModifiedSince = IfModifiedSince;
+                    p.IfUnmodifiedSince = IfUnmodifiedSince;
+                    p.IfNoneMatch = IfNoneMatch;
+                    p.IfMatch = IfMatch;
+                    p.IfTags = IfTags;
+                }).SendAsync();
+                await WriteOutput(ToBlobItem(response));
             }
             finally
             {
@@ -115,7 +151,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
         /// <summary>The blob name is the URL path after the container segment; a HEAD response does not echo it.</summary>
         private string? BlobNameFromUrl()
         {
-            string[] segments = new Uri(Url).AbsolutePath.TrimStart('/').Split('/', 2);
+            string[] segments = new Uri(Endpoint).AbsolutePath.TrimStart('/').Split('/', 2);
             return segments.Length == 2 && segments[1].Length > 0 ? Uri.UnescapeDataString(segments[1]) : null;
         }
     }

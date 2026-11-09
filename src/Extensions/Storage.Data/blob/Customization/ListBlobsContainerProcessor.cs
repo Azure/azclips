@@ -11,8 +11,15 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
     /// List Blobs answers in XML (<c>EnumerationResults</c>), while the generated models carry only JSON names,
     /// so the response is mapped by hand using the spec's <c>@Xml.name</c> element names.
     /// </summary>
-    public partial class ListBlobsContainerProcessor
+    public partial class ListBlobsContainerProcessor : ISasAuthorized
     {
+        public string? SasToken { get; set; }
+
+        /// <summary>Container name, used with <see cref="ProcessorBase{TRequest, TResponse}.StorageAccountName"/> when <see cref="ProcessorBase.Url"/> is not set.</summary>
+        public string? ContainerName { get; set; }
+
+        protected override string Endpoint => ResolveUrl((nameof(ContainerName), ContainerName));
+
         protected override Task<ListBlobsResponse?> DeserializeResponseAsync(string rawBody)
         {
             XElement root = XDocument.Parse(rawBody).Root!;
