@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: List groups in your Microsoft Entra tenant. Filter results by a display name prefix or an OData `$filter` expression.
+Description: List groups in your Microsoft Entra tenant. Filter results by a display name prefix or an OData `$filter` expression. Use `--consistency-level eventual` for advanced Graph filters such as `endswith(...)`.
 
 ### List all groups
 
@@ -23,4 +23,10 @@ az msgraph group list --display-name Sales
 
 ```bash
 az msgraph group list --filter "securityEnabled eq true"
+```
+
+### List groups with an advanced filter expression
+
+```bash
+az msgraph group list --filter "endswith(displayName,'Team')" --consistency-level eventual
 ```
