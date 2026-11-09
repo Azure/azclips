@@ -609,7 +609,7 @@ public sealed class ChatAgent : IAsyncDisposable
     }
     private static readonly string[] ValidEntrypoints = ["oneshot", "inline"];
 
-    private static string LoadSystemPrompt(string flavor, string entrypoint)
+    internal static string LoadSystemPrompt(string flavor, string entrypoint)
     {
         if (!ValidEntrypoints.Contains(entrypoint, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException(
@@ -631,7 +631,10 @@ public sealed class ChatAgent : IAsyncDisposable
                     : "Dev build bug — csproj should copy prompts/ to the build output."),
                 path);
         var content = File.ReadAllText(path);
-        return content.Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase);
+        content = content.Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase);
+        foreach (var (key, value) in AgentFlavor.PromptCommands(flavor))
+            content = content.Replace("{{" + key + "}}", value, StringComparison.OrdinalIgnoreCase);
+        return content;
     }
 
     public ValueTask DisposeAsync() => new(_sdkLifetime.DisposeAsync());

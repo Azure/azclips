@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Core.Telemetry\Core.Telemetry.csproj" />
+    <ProjectReference Include="..\..\src\Core\Core.AssemblyLoading\Core.AssemblyLoading.csproj" />
     <ProjectReference Include="..\Common\Tests.Common.csproj" />
   </ItemGroup>
 

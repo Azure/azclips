@@ -16,6 +16,8 @@ const {
   originalCliError,
   findRuntimePromptPath,
   readRuntimePrompt,
+  promptCommands,
+  renderPrompt,
   readAgentSettings,
   readModels,
   readJsonEnvironment,
@@ -150,6 +152,28 @@ test('resolves packaged and debug runtime prompt layouts', (context) => {
     path: debugPrompt,
     sha256: createHash('sha256').update('debug prompt').digest('hex'),
   });
+});
+
+test('prompt command placeholders match AgentFlavor.PromptCommands', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'AgentFlavor.cs'), 'utf8');
+  const [cli, powershell] = source
+    .split('new Dictionary<string, string>')
+    .slice(1)
+    .map((block) => Object.fromEntries([...block.matchAll(/\["(\w+)"\] = "([^"]*)"/g)].map((m) => [m[1], m[2]])));
+  assert.deepEqual(promptCommands('azure cli'), cli);
+  assert.deepEqual(promptCommands('azure powershell'), powershell);
+});
+
+test('renders flavor and command placeholders in the shipped prompts', () => {
+  for (const name of ['oneshot.md', 'inline.md']) {
+    const content = fs.readFileSync(path.join(__dirname, '..', '..', 'prompts', name), 'utf8');
+    const cli = renderPrompt(content, 'azure cli');
+    assert.doesNotMatch(cli, /\{\{/, name);
+    assert.match(cli, /`az rest`/, name);
+    const ps = renderPrompt(content, 'azure powershell');
+    assert.doesNotMatch(ps, /\{\{/, name);
+    assert.match(ps, /`Invoke-AzRestMethod`/, name);
+  }
 });
 
 test('builds an isolated flavor environment without mutating the parent', () => {

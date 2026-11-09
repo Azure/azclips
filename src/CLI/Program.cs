@@ -124,7 +124,6 @@ public class Program
         {
             _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             _configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-            _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
         Activity? activity = null;
@@ -155,6 +154,7 @@ public class Program
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             using (debugTiming.MeasureLocal("AzureCLI.Startup.Telemetry"))
             {
+                _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
                 invocationTelemetryEnabled = _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
@@ -453,7 +453,9 @@ public class Program
         using (var _ = _telemetryService!.StartActivity("AzureCLI.DispatchVersion"))
         using (debugTiming.MeasureLocal("AzureCLI.DispatchVersion"))
         {
-            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format, query);
+            var exit = new RuntimeVersionDispatcher(
+                _configurationService!, Console.Out, AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>())
+                .Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
             return exit;
         }

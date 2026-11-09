@@ -2,6 +2,31 @@
 
 Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations and exports them to local files, Azure Application Insights.
 
+CLI and PowerShell register an `IProductVersionProvider` through dependency injection.
+CLI uses `DefaultAssemblyVersionProvider` from Core.AssemblyLoading to read the
+entry assembly's informational version. Assembly-loading services register it
+with `TryAddSingleton<IProductVersionProvider, DefaultAssemblyVersionProvider>`, allowing
+clients to supply their own provider. PowerShell registers `PSVersionProvider` in
+`ModuleInitializer.OnImport` to read `ModuleVersion` from the Accounts manifest
+when the provider is resolved. Local builds read `Accounts.psd1` beside
+the binary; packaged modules read `Az.Accounts.psd1` in the parent of the binary's
+`bin` directory. Missing or invalid manifests fail module initialization instead
+of falling back to an assembly or host version. Root and child activities use the
+same provider-supplied version, including isolated telemetry layers. CLI version
+output and CLI/PowerShell User-Agent headers obtain it through
+`IAssemblyLoadingService.GetProductVersion()`, which delegates to the registered provider.
+Missing CLI informational versions use `0.0.0`, not the numeric assembly version.
+The `az survey` and `Open-AzSurvey` feedback links also obtain the client product
+version through this service, rather than reading the Accounts extension assembly version.
+CLI resolves the telemetry service inside its startup error-handling scope so
+invalid configuration encountered during service construction is reported as a
+normal command error rather than an unhandled exception.
+
+The standard HTTP pipeline creates `x-ms-client-request-id` before User-Agent and
+authentication handlers run. It is prepended last because the last prepended step
+executes first. Correlation headers are preserved when already supplied, and retry
+attempts reuse the same request ID.
+
 ## Glossary
 
 | Term                     | Definition                                                                                                                                                                                                                                                                      |
@@ -83,7 +108,7 @@ Neither `uploadRegion` nor `dataBoundaryOutcome` is allowed in new trace tags.
 |---------------------------|--------|-------------|
 | `installationId`          | All | Stable per-machine identifier (hashed) |
 | `productName`             | All | Emitting client surface: `CLI`, `PowerShell`, `TUI`, or a managed layer such as `Agent` |
-| `productVersion`          | All | Product version number |
+| `productVersion`          | All | Product version number; PowerShell uses the Accounts module version, not the PowerShell host version |
 | `schemaVersion`           | All | Common telemetry schema version |
 | `telemetryVersion`        | All | Telemetry assembly version |
 | `commandName`             | CLI/PS | Command name only, e.g., `group list` |

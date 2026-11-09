@@ -14,13 +14,15 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
     private readonly IConfigurationService _configuration;
     private readonly TelemetryLayerCatalog _catalog;
     private readonly TelemetryLayerScopeOptions _options;
+    private readonly IAssemblyLoadingService _assemblyLoadingService;
 
     public TelemetryLayerScopeFactory(
         ITraceDirectoryProvider traceDirectory,
         IConfigurationService configuration,
+        IAssemblyLoadingService assemblyLoadingService,
         TelemetryLayerCatalog? catalog = null,
         TimeProvider? timeProvider = null)
-        : this(traceDirectory, configuration, catalog,
+        : this(traceDirectory, configuration, assemblyLoadingService, catalog,
             new TelemetryLayerScopeOptions { TimeProvider = timeProvider ?? TimeProvider.System })
     {
     }
@@ -28,6 +30,7 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
     internal TelemetryLayerScopeFactory(
         ITraceDirectoryProvider traceDirectory,
         IConfigurationService configuration,
+        IAssemblyLoadingService assemblyLoadingService,
         TelemetryLayerCatalog? catalog,
         TelemetryLayerScopeOptions options)
     {
@@ -35,6 +38,7 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _catalog = catalog ?? new TelemetryLayerCatalog();
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _assemblyLoadingService = assemblyLoadingService ?? throw new ArgumentNullException(nameof(assemblyLoadingService));
     }
 
     public LayerTelemetryScope CreateScope(
@@ -64,7 +68,8 @@ public sealed class TelemetryLayerScopeFactory : ITelemetryLayerScopeFactory
         return new LayerTelemetryScope(
             descriptor, context, id, _traceDirectory, _configuration, _options,
             disabled: !enabled, unavailable: enabled && owner is null,
-            releaseSource: owner is null ? null : () => Release(descriptor.SourceName, owner));
+            releaseSource: owner is null ? null : () => Release(descriptor.SourceName, owner),
+            productVersion: _assemblyLoadingService.GetProductVersion());
     }
 
     ITelemetryLayerScope ITelemetryLayerScopeFactory.CreateScope(
