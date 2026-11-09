@@ -4,10 +4,10 @@
   "extension": "MANAGEDSERVICEIDENTITY",
   "product": "PS",
   "source": {
-    "commit": "31076691ce28b81d0a1883e09dce8e0edc72d10f",
+    "commit": "3c26ba80b0ad907c0171c4b9279c1a23a722a6d7",
     "ref": "refs/heads/main",
-    "run_id": "42548676203",
-    "generated": "2026-11-09T03:01:28Z"
+    "run_id": "42561345466",
+    "generated": "2026-11-09T05:19:48Z"
   },
   "traces": 100,
   "diagnostics": {
@@ -23,7 +23,7 @@
           0
         ]
       ],
-      "avg_ms": 1.7324919999999986,
+      "avg_ms": 1.6801819999999994,
       "occurrences": 100,
       "offset_ms": 0.0
     },
@@ -38,9 +38,9 @@
           0
         ]
       ],
-      "avg_ms": 1.5101040000000001,
+      "avg_ms": 1.4671750000000001,
       "occurrences": 100,
-      "offset_ms": 0.21993
+      "offset_ms": 0.2103099999999999
     },
     {
       "path": [
@@ -53,9 +53,9 @@
           0
         ]
       ],
-      "avg_ms": 0.8254289999999999,
+      "avg_ms": 0.800731,
       "occurrences": 100,
-      "offset_ms": 0.8667599999999994
+      "offset_ms": 0.8400200000000002
     },
     {
       "path": [
@@ -68,9 +68,9 @@
           0
         ]
       ],
-      "avg_ms": 0.26773199999999997,
+      "avg_ms": 0.2586329999999999,
       "occurrences": 100,
-      "offset_ms": 0.9034799999999998
+      "offset_ms": 0.8753100000000003
     },
     {
       "path": [
@@ -83,9 +83,9 @@
           0
         ]
       ],
-      "avg_ms": 0.2448749999999999,
+      "avg_ms": 0.235352,
       "occurrences": 100,
-      "offset_ms": 0.9218100000000004
+      "offset_ms": 0.8938600000000004
     }
   ]
 }
