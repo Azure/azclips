@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794201594186,
+  "lastUpdate": 1794201690372,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -24574,6 +24574,66 @@ window.BENCHMARK_DATA = {
             "value": 3896567.6614793856,
             "unit": "ns",
             "range": "± 112434.0211854026"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3c26ba80b0ad907c0171c4b9279c1a23a722a6d7",
+          "message": "[Agent] Restructure tool commands into docs and environment action groups (#1335)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n`az agent tool docs list`, `az agent tool docs show`, `az agent tool\ndocs generate`, `az agent tool env show`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nRestructure the Agent extension's command paths as agreed with the Agent\nauthor, so every immediate child of `az agent tool` is a group and\nexecutable actions appear beneath it. This removes the\nexecutable-command/command-group overlap blocking Microsoft Learn\nintegration and avoids using `help` as an extension command name.\n\n| Previous invocation | Replacement |\n| --- | --- |\n| `az agent tool help` | `az agent tool docs list` |\n| `az agent tool help --name \"vm create\"` | `az agent tool docs show\n--name \"vm create\"` |\n| `az agent tool help generate` | `az agent tool docs generate` |\n| `az agent tool env` | `az agent tool env show` |\n\n- Add distinct list/show processor types with shared catalog-reading\nimplementation. Distinct types are necessary because the help-manifest\nbuilder emits one command per processor type.\n- Require `docs show --name` through the existing parameter-set\nvalidation mechanism.\n- Update the Agent's automatic regeneration subprocess and error\nguidance, evaluation callers, CLI help corpus, and explanatory\ndocumentation.\n- Preserve JSON contracts, catalog/cache paths, generation behavior,\nenvironment snapshot behavior, internal AI tool names, and existing\nresource/troubleshoot commands.\n- Do not retain executable aliases for the removed paths, since they\nwould undermine the new conventions.\n- Add real CLI routing/error tests and actual Agent docs-export\nassertions covering group-only nodes, unique exported identities, all\ndocs actions, and required lookup metadata.\n\nRelated tracking: Azure/CLIPS#926. Preventive repository-wide linting is\na separate follow-up in Azure/CLIPS#994 and is not implemented or closed\nby this PR.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\nValidated locally with the SDK pinned by `global.json`:\n\n```powershell\ndotnet build azclips.slnx --no-restore -v quiet\n# Passed: final incremental build, 0 warnings and 0 errors\n\ndotnet test Agent\\tests\\Core.Agent.Tests\\Core.Agent.Tests.csproj --no-build --no-restore --filter \"FullyQualifiedName~DirectReadCommandTests|FullyQualifiedName~HelpCatalogProviderTests|FullyQualifiedName~AgentProcessHelpTests|FullyQualifiedName~ShellOutHelperTests|FullyQualifiedName~HelpLookupTests|FullyQualifiedName~PlanCommandNormalizerTests|FullyQualifiedName~PlanGateTests|FullyQualifiedName~EnvSnapshotFormatterTests\" -v minimal\n# Passed: 142 tests\n\ndotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-build --no-restore --filter \"FullyQualifiedName~ExtensionDispatcherTests|FullyQualifiedName~ExtensionHelpManifestBuilderTests|FullyQualifiedName~RuntimeHelpDispatcherTests\" -v minimal\n# Passed: 68 tests\n\ndotnet test tools\\Help\\Azclips.Help.Tool.Tests\\Azclips.Help.Tool.Tests.csproj --no-build --no-restore --filter \"FullyQualifiedName~HelpCompletenessValidatorTests|FullyQualifiedName~ExampleSyntaxValidatorTests|FullyQualifiedName~HelpFileMapperTests|FullyQualifiedName~CliExportFixturesTests\" -v minimal\n# Passed: 128 tests, including actual Agent export assertions\n\ngit diff --check\n# Passed\n```\n\nAdditional CI-fix validation: from `Agent/eval`, `npm ci\n--legacy-peer-deps` passed and `npm test` passed all 307 offline tests.\nThe revised PR body also passed\n`devops/scripts/ci/check_pull_request.py` locally.\n\nThe existing help tool also validated the actual rebuilt corpus with no\nissues. Its generated output was temporary and removed after validation.\n\nRegression sensitivity was verified by temporarily restoring an\nexecutable env group, a shared docs processor type, and the obsolete\nregeneration subprocess path: three Agent regressions and the export\nregression failed as expected. All mutations were reverted before the\nfinal passing runs. The missing-name test also failed before required\nparameter-set metadata was wired.\n\nEarlier builds emitted pre-existing warnings outside this change. Live\ninstalled-package/Azure-login smoke tests and the full unfiltered .NET\ntest suites were not run.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n[Agent] BREAKING CHANGE: `az agent tool help`: Replace the list\ninvocation with docs list and the name lookup with docs show\n\n[Agent] BREAKING CHANGE: `az agent tool help generate`: Move catalog\ngeneration to docs generate\n\n[Agent] BREAKING CHANGE: `az agent tool env`: Move environment snapshots\nto env show and make env a group only\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-09T04:21:06Z",
+          "tree_id": "70e18b4ce82236a846470af7522056c25203c396",
+          "url": "https://github.com/Azure/azclips/commit/3c26ba80b0ad907c0171c4b9279c1a23a722a6d7"
+        },
+        "date": 1794201678267,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 3710350.2431388493,
+            "unit": "ns",
+            "range": "± 135442.63218100034"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3591406.793531326,
+            "unit": "ns",
+            "range": "± 124559.53079601743"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 4002358.7995115,
+            "unit": "ns",
+            "range": "± 140948.19726273156"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 5969673.302897368,
+            "unit": "ns",
+            "range": "± 150917.9791289711"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 4227748.568767908,
+            "unit": "ns",
+            "range": "± 141326.0687172544"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 4036374.458638957,
+            "unit": "ns",
+            "range": "± 140299.4202910061"
           }
         ]
       }
