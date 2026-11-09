@@ -27,6 +27,13 @@ namespace Core.Cli
         public object ConvertToType(string propertyName, string value, Type targetType)
         {
             loggingService.Verbose($"Converting property '{propertyName}' to type '{targetType.Name}'");
+
+            // Unwrap Nullable<T> (e.g. int?) to its underlying type
+            if (Nullable.GetUnderlyingType(targetType) is { } underlyingType)
+            {
+                return ConvertToType(propertyName, value, underlyingType);
+            }
+
             switch (targetType)
             {
                 case var t when t == typeof(string):
