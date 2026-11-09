@@ -34,6 +34,10 @@
       "file": "\\tests\\Benchmark\\PS\\VirtualMachineBenchmarks.cs",
       "hash": "CpibArNpM0XN6TEe6kMtb/Edr5df6bg5Rlg7HxX4OZA=",
       "_justification": "Benchmarking vm creation scenarios end to end. This is not a real credential."
+    },
+    {
+      "placeholder": "c2Vuc2l0aXZlLWtleS12YWx1ZQ==",
+      "_justification": "Shared fake storage key for tests; decodes to 'sensitive-key-value'. Reuse this value in tests."
     }
   ]
 }

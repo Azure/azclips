@@ -282,6 +282,40 @@ public class RecordingSanitizerTests
         Assert.Equal(uri, RecordingSanitizers.Default.Apply(uri));
     }
 
+    [Theory]
+    [InlineData("""{"keyName":"key1","value":"fixture-secret"}""")]
+    [InlineData("""{"value":"fixture-secret","keyName":"key1"}""")]
+    [InlineData("""{"keyName":"key1","permissions":"FULL","value":"fixture-secret"}""")]
+    public void StorageAccountKeysAreRedactedRegardlessOfPropertyOrder(string key)
+    {
+        string body = "{\"keys\":[" + key + "],\"value\":\"ordinary-data\"}";
+        string sanitized = RecordingSanitizers.Default.Apply(body);
+        Assert.DoesNotContain("fixture-secret", sanitized);
+        Assert.Contains(RecordingSanitizers.FakeStorageKey, sanitized);
+        Assert.Contains("ordinary-data", sanitized);
+        Assert.Equal(sanitized, RecordingSanitizers.Default.Apply(sanitized));
+    }
+
+    [Theory]
+    [InlineData("&", "=")]
+    [InlineData(@"\u0026", "=")]
+    [InlineData("&amp;", "=")]
+    [InlineData("%26", "%3D")]
+    public void StorageSasSecretsAreRedactedWithoutRemovingOtherQueryParameters(string separator, string equals)
+    {
+        string keyIds = string.Join(separator, new[] { "skoid", "sktid", "saoid", "suoid", "sduoid", "scid" }
+            .Select(name => $"{name}{equals}{LiveTenantId}"));
+        string uri = $"https://example.invalid/blob?sv{equals}2023-11-03{separator}{keyIds}" +
+            $"{separator}sig{equals}fixture-signature%2B%2F%3D{separator}sp{equals}r";
+        string expected = uri.Replace(LiveTenantId, RecordingSanitizers.PlaceholderGuid)
+            .Replace("fixture-signature%2B%2F%3D", "[redacted]");
+
+        string sanitized = RecordingSanitizers.Default.Apply(uri);
+
+        Assert.Equal(expected, sanitized);
+        Assert.Equal(sanitized, RecordingSanitizers.Default.Apply(sanitized));
+    }
+
     [Fact]
     public void ResourceGroupListSanitizer_KeepsOnlyTheScenarioGroup()
     {

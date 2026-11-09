@@ -98,6 +98,122 @@ fails with `StorageAccountAlreadyTaken`; change the name in the test and re-reco
 deletes the account itself, so a re-record does not collide with the previous run, but the
 resource group (`scenario-storage-lifecycle-rg`) is left behind and should be removed afterwards.
 
+The Storage data-plane scenarios
+(`--filter FullyQualifiedName~StorageDataPlaneScenarioTests`) run Blob and Files commands
+against resources that each record run creates and deletes itself. Record mode creates the group
+`scenario-storage-dp-rg-t<8 hex>` and an Australia East StorageV2 Standard_LRS account `azclipsdpt<8 hex>` with
+azclips commands, then the share `scenario-files` and the scenario's containers; it deletes the
+group when the run ends, pass or fail. Account names allow no hyphen, so the account carries the
+run id after a `t`; the sanitisers strip it and the recordings keep `azclipsdp`. They record from
+the CLI surface, with supplemental public PowerShell Blob downloads in `BlobUploadDownload`
+and `BlobCopyStart`. These readbacks share the CLI interceptor so they observe the same workflow
+and consume its remaining download responses. Playback also runs each independent PowerShell body
+against a fresh interceptor over the recording.
+`BlobPowerShellPipeline` records the PowerShell surface itself. Before recording it live, the
+signed-in identity needs Storage Blob Data Owner and Storage File Data Privileged Contributor at
+subscription scope, because the commands use `--auth-mode login` on an account that does not
+exist until the run starts. The tests do not create role assignments. The identity also needs to
+create resource groups and list account keys (for example Contributor). Record one scenario at a
+time, for example
+`--filter FullyQualifiedName~StorageDataPlaneScenarioTests.BlobCopyStart`. If a record run is
+interrupted, the group `scenario-storage-dp-rg-t<8 hex>` can be left behind; delete it. The
+sanitisers redact SAS signatures and signed key IDs without removing subsequent query parameters,
+including in JSON-escaped sensitive bodies. Account keys and the user delegation key use the fake
+value `veryFakedStorageAccountKey==`, as azure-cli does. Playback moves the delegation key's
+validity window around the current time, because the product checks it against the clock.
+Live recording of the supplemental PowerShell readbacks requires both the CLI and PowerShell
+sign-in applications to be authenticated and authorized; playback needs neither.
+
+Core uses the same credential authentication step for invocation-default and explicitly scoped
+pipelines. The legacy auth-override API remains a compatibility adapter for KeyVault and MsGraph.
+Credentials bind an identity without creating a token cache; null scopes retain the auth service's
+default audience, while the pipeline factory requires explicit scopes. Storage selects its context's
+identity and the Storage or ARM audience through that factory. Source-account key lookup retains the
+source context when creating its ARM child processor, without changing the invocation profile or
+introducing a separately authenticated processor context.
+
+The scenarios route all 12 added CLI commands and eight added PowerShell cmdlets through public
+command dispatch or the real cmdlet binder. `FileAndDirectory` uses CLI file upload's supported
+parent-directory creation for setup; PowerShell replays those directory requests through
+`New-AzStorageDirectory`, then exercises `Get-AzStorageFile` listing, exact file/directory lookup,
+native directory pipeline input and creation with `-WhatIf`. Cleanup errors fail the run; when
+both the workflow and cleanup fail, both exceptions are reported.
+`Get-AzStorageBlobContent` covers exact byte readbacks for Block, Page, Append and empty blobs,
+native Blob/container pipeline input, multiple piped blobs, destination directories, URI/Path
+aliases, overwrite and `WhatIf`. Block upload/download and batch download use representative
+three-worker configurations. Storage playback matches staged block payloads and range headers as well as
+normalized URIs, so concurrent requests cannot consume a response for another chunk. Captured
+outgoing requests assert block ordering/payloads, transactional MD5, content settings, metadata,
+page ranges, Files payloads, backup intent and trailing-dot policy. Assertion diagnostics do not
+dump captured request headers containing credentials.
+
+Storage CLI metadata declares one default parameter set containing every existing parameter,
+with required inputs and aliases unchanged. Missing required inputs are rejected by the shared
+parameter-set binder before processor execution. PowerShell keeps its existing cmdlet parameter
+sets and native-context handling. Storage data-plane recordings live under
+`Storage/Records/StorageDataPlaneScenarioTests/`, following the repository recording helper.
+
+The recorder decodes textual bodies using their declared charset or Unicode BOM before
+sanitization; binary bodies use `BodyBase64`. Body-sensitive matching compares binary bytes,
+including the distinction between an absent and an empty binary body. Storage matching preserves
+case-sensitive resource paths and query values while normalizing generated block IDs.
+
+Storage customizations follow Compute's entry-point convention: each handwritten public
+command binds to a `*Processor_Orchestrator` in the `Storage.Processors` namespace, with its own
+matching file under `src/Extensions/Storage/Customization`. Separate PowerShell orchestrators
+remain where native binding, confirmation or output differs from the CLI. Command-specific
+listing, copy, metadata and Files-transfer logic lives in those orchestrators, not in paired
+command/workflow classes. PowerShell reuses typed operations on the same orchestrators without
+running CLI parsing or projection. Only shared Block/Page/Append Blob uploads, Blob downloads and
+explicit copy-source account-key lookup retain `*Workflow` helpers in `Storage.Customization`,
+alongside focused authorization, wire-format and output helpers. The generated Blob/Files/Management REST
+processors are unchanged. Public command names, parameter sets and recording paths are unchanged;
+registration tests enforce the orchestrator boundary and metadata/property mappings.
+
+The 24 Blob/Files customizations inherit only `StorageDataPlaneProcessorBase` for technical
+runtime plumbing and declare their own bound inputs. Resource resolution, CLI normalization,
+upload validation/completion and PowerShell write confirmation are composed through typed
+options contracts and focused operation helpers, rather than container/target/upload/frontend
+base classes. Files and directory listing share a listing helper, not an inheritance chain.
+Native preflight still resolves supplied contexts before consulting runtime profiles, so local
+validation and frozen PowerShell plans do not require initialization or authentication.
+
+The removed commands' orphaned adapters, stdout-binary plumbing, Files-upload preflight,
+CLI directory-create boolean output and account-key enumeration/Kerberos modes are removed.
+Retained batch/PowerShell Blob downloads write to destination files. The account-key workflow
+still supplies a validated collection for explicit copy-source lookup. Shared Blob/Files
+workflow regression tests remain under `Extensions.Storage.Tests`.
+Copy scenarios cover unsigned Blob sources, explicit Files source-key lookup, requested tier,
+completion, returned length and exact downloaded bytes. Same-account copies with the same profile
+reuse destination authorization without requesting a delegation key; different source profiles
+still authorize independently. `BlobCopyTagConditionsPlayback` checks the source `TagCondition`
+(and `SourceTagCondition` alias), destination `DestTagCondition`, and outgoing headers through
+the public PowerShell frontend. `BlobCopySuppliedAuthorizationPlayback`
+additionally routes synthetic supplied Blob/Files SAS, supplied Files keys, signed URIs and SAS
+precedence over invalid key/lookup settings through both real public frontends, using the dedicated
+[supplied-authorization playback fixture](Storage/Records/StorageDataPlaneScenarioTests/BlobCopySuppliedAuthorizationPlayback.json).
+Refreshing `BlobCopyStart` only rewrites its live-flow recording, not these playback-only variants.
+`BlobCopySourceProfilePlayback` checks independent native PowerShell source
+and destination profiles in the same tenant. `FileCopySourceKeyLookupProfilePlayback` covers
+PowerShell Files-to-Blob copy with a source-profile ARM key lookup, destination-profile Storage
+authentication, and a subsequent destination read that retains its profile and audience. It
+reuses the existing copy recording without rewriting it. `SuppliedSourceSasFailureNeverFallsBackPlayback`
+checks that a recorded copy failure does not trigger source-key lookup or delegation requests.
+These named playback tests always use stub authentication and never record, even when
+`AZURE_TEST_MODE=Record`. They verify public binding and outgoing source authorization, not live
+acceptance of the synthetic credentials. Live supplied-credential and cross-account/cross-tenant
+fixtures still require separate approval and provisioning: the strict command table has no public
+source-key/SAS fixture generator. Do not add a public command or a raw-HTTP credential helper to
+work around that prerequisite. The documented share/container/snapshot provisioning exception
+remains unchanged.
+
+Existing recordings are replayed without manual changes. Re-record changed lifecycles only
+after separate live-test approval; offline playback is not fresh live acceptance. The four
+cleanup regression tests in this class do not contact Azure or create recordings.
+Matcher regressions are also offline-only. Mid-transfer 412, cancellation, retry/reconciliation,
+corrupt checksums and partial-file cleanup retain dedicated workflow unit coverage; these small
+scenarios verify correctness, not live large-transfer performance or working-set limits.
+
 The VNet scenarios have two live recordings: `CreateShowListDeleteVirtualNetwork` covers the CLI
 dispatcher and PowerShell processor invocations, while
 `PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets` runs the real PowerShell cmdlets,
@@ -123,11 +239,16 @@ anything that looks like a leak: auth headers, bearer tokens or JWTs, non-placeh
 subscription/tenant ids, key material (storage keys, SAS, client secrets, OpenAI keys), passwords.
 Findings report file, line and rule only, never the value.
 
+The gate first runs the scanner's regression tests. Storage rules recognize both
+literal and JSON-escaped SAS separators and XML delimiters, while allowing the
+approved fake keys/identity IDs and redacted signatures.
+
 Run it locally the same way:
 
 ```
 python3 devops/scripts/ci/scan_recordings.py --all
 python3 devops/scripts/ci/scan_recordings.py --base origin/main
+python3 -B -m unittest discover -s devops/scripts/ci -p test_scan_recordings.py -v
 ```
 
 Azure CLI runs an incremental secret scan over its recordings; we keep that approach (scan only

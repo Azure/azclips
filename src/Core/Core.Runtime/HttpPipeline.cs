@@ -67,7 +67,7 @@ namespace Core.Runtime
         public async Task<HttpResponseMessage> Retry429(HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
         {
             var cloneRequest = await request.CloneWithContent();
-            var response = await next.SendAsync(request, callback);
+            var response = await SendTrackedAsync(request, callback, next);
             int count = 0;
             while (shouldRetry429(response) && count++ < _maxRetryFor429)
             {
@@ -76,8 +76,17 @@ namespace Core.Runtime
                 TimeSpan Delta = retryAfter?.Delta ?? TimeSpan.FromSeconds(0);
                 await Task.Delay(Delta, callback.Token);
                 await callback.Publish("Debug", $"Start to retry {count} time(s) on status code 429 after waiting {Delta.TotalSeconds} seconds.");
-                response = await next.SendAsync(request, callback);
+                response = await SendTrackedAsync(request, callback, next);
             }
+            return response;
+        }
+
+        private static async Task<HttpResponseMessage> SendTrackedAsync(HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
+        {
+            request.Options.TryGetValue(RequestAttemptState.OptionsKey, out var state);
+            state?.RecordAttempt();
+            var response = await next.SendAsync(request, callback);
+            state?.RecordResponse(response.StatusCode);
             return response;
         }
 
@@ -285,7 +294,6 @@ namespace Core.Runtime
         public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback) => Pipeline.SendAsync(request, callback);
     }
 }
-
 
 
 

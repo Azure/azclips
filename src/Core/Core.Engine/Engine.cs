@@ -4,6 +4,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using Core.Authentication;
 using System.Globalization;
 using Core.Engine.Utils;
 using Core.Runtime;
@@ -135,30 +136,35 @@ namespace Core.Engine
                 WriteOutput = session.ProcessorOutputWriter
             };
 
-            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-                httpTransportFactory,
-                session.Option.Http.MaxRetries,
-                session.Option.Http.MaxRetriesFor429)
+            IRuntimeHttpPipeline CreatePipeline(SendAsyncStep authentication)
             {
-                // TODO(Yabo): Get this from config service
-                PollingInterval = GetPollingIntervalTemp()
-            };
+                IRuntimeHttpPipeline pipeline = new HttpPipeline(
+                    httpTransportFactory,
+                    session.Option.Http.MaxRetries,
+                    session.Option.Http.MaxRetriesFor429)
+                {
+                    // TODO(Yabo): Get this from config service
+                    PollingInterval = GetPollingIntervalTemp()
+                };
+                pipeline.Prepend(authentication);
+                pipeline.Prepend(httpPipelineService.HttpAddClientRequestIdStep);
+                pipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
+                pipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
+                pipeline.Append(httpPipelineService.HttpPipelineTerminatingStep);
+                return pipeline;
+            }
+
             ProcessorContext context = new ProcessorContext
             (
-                HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),
+                HttpPipeline: CreatePipeline(authHandler.SendAsync),
                 Publisher: session.EventBus,
                 AuthHandler: authHandler,
                 OutputHandler: outputHandler,
                 Profile:session.Profile
-            );
-            // stamp a per-request ARM correlation ID before the request enters retry handling
-            httpPipeline.Prepend(httpPipelineService.HttpAddClientRequestIdStep);
-            // stamp User-Agent header on every outgoing request
-            httpPipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
-            // trace every http request message, record/playback request during test
-            httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
-            // passthrough by default, terminate during client mocking
-            httpPipeline.Append(httpPipelineService.HttpPipelineTerminatingStep);
+            )
+            {
+                HttpPipelineFactory = new HttpPipelineFactory(authService.CreateCredential, CreatePipeline)
+            };
 
             // Announce the created context; the ProcessorContextCreated subscriber enriches the
             // telemetry root span with profile-derived tags (subscription, tenant, auth type).

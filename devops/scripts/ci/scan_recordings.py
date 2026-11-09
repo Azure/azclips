@@ -19,16 +19,24 @@
 #   scan_recordings.py --all                 scan every recording in the repo
 #   scan_recordings.py <file> [<file> ...]   scan the given files
 
+import json
 import re
 import subprocess
 import sys
 
 PLACEHOLDER_GUID = "00000000-0000-0000-0000-000000000000"
+# Mirror RecordingSanitizers.FakeStorageKey / FakeObjectId.
+FAKE_STORAGE_KEY_VALUE = "veryFakedStorageAccountKey=="
+FAKE_STORAGE_KEY = re.escape(FAKE_STORAGE_KEY_VALUE)
+FAKE_OBJECT_ID = "00000000-0000-0000-0000-000000000001"
 GUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 
 # A double quote as it can appear inside a recorded body: bare, backslash-escaped,
 # or unicode-escaped the way System.Text.Json writes it (backslash-u0022).
 Q = r'(?:\\u0022|\\"|")'
+SAS_SEPARATOR = r"(?:\?|(?:&|\\u0026)(?:amp;)?|%26)"
+XML_LT = r"(?:<|\\u003[Cc])"
+XML_GT = r"(?:>|\\u003[Ee])"
 
 RECORDING_PATH = re.compile(r"^tests/.+/Records/.+\.json$")
 
@@ -44,8 +52,21 @@ RULES = {
     "tenant id": re.compile(r"/tenants/(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "aad authority tenant": re.compile(r"login\.microsoftonline\.com/(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "tenant or object id pair": re.compile(r"(tenantId|objectId)=(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
-    "storage account key": re.compile(r"AccountKey=", re.IGNORECASE),
-    "shared access signature": re.compile(r"SharedAccessSignature|[?&]sig=", re.IGNORECASE),
+    # Connection-string keys; the fake key value itself ends in "AccountKey==" and is allowed.
+    "storage account key": re.compile(r"(?<!veryFakedStorage)AccountKey=", re.IGNORECASE),
+    "shared access signature": re.compile(r"SharedAccessSignature|" + SAS_SEPARATOR + r"sig(?:=|%3D)(?!\[redacted\])", re.IGNORECASE),
+    "sas signed key ids": re.compile(SAS_SEPARATOR + r"s(?:koid|ktid|aoid|uoid|duoid|cid)(?:=|%3D)(?!" + PLACEHOLDER_GUID + "|" + FAKE_OBJECT_ID + ")" + GUID, re.IGNORECASE),
+    # Scoped to the UserDelegationKey element, so other XML values (blob tags) are not secrets.
+    "user delegation key": re.compile(
+        XML_LT + "UserDelegationKey" + XML_GT
+        + r"(?:(?!" + XML_LT + "/UserDelegationKey" + XML_GT + r").)*?"
+        + r"(?:" + XML_LT + "Value" + XML_GT + r"(?!" + FAKE_STORAGE_KEY + XML_LT + r")"
+        + "|" + XML_LT + "SignedOid" + XML_GT + r"(?!" + FAKE_OBJECT_ID + XML_LT + r")"
+        + "|" + XML_LT + "(?:SignedTid|SignedDelegatedUserTid)" + XML_GT
+        + r"(?!" + PLACEHOLDER_GUID + XML_LT + r"))",
+        re.DOTALL,
+    ),
+    "encryption key header": re.compile(Q + "x-ms-encryption-key" + Q + r"\s*:", re.IGNORECASE),
     # Mirrors the arm-operation-signature sanitiser, which is path-agnostic: resource providers
     # poll different paths (/operationresults/, /operationstatuses/, Storage's /asyncoperations/).
     "operation URL signature": re.compile(r"(?:\\u0026|[?&])[csh]=[A-Za-z0-9_\-%.=]{40,}", re.IGNORECASE),
@@ -75,6 +96,26 @@ def all_recordings():
     return [f for f in files.stdout.splitlines() if RECORDING_PATH.match(f)]
 
 
+def account_key_values(value):
+    if isinstance(value, dict):
+        properties = {key.lower(): item for key, item in value.items()}
+        key_value = properties.get("value")
+        if isinstance(properties.get("keyname"), str) and isinstance(key_value, str) \
+                and key_value != FAKE_STORAGE_KEY_VALUE:
+            yield key_value
+        for item in value.values():
+            yield from account_key_values(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from account_key_values(item)
+    elif isinstance(value, str) and value.lstrip().startswith(("{", "[")):
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return
+        yield from account_key_values(decoded)
+
+
 def scan(path):
     findings = 0
     try:
@@ -84,11 +125,24 @@ def scan(path):
         error(f"{path}: cannot read: {e}")
         return 1
 
+    try:
+        recording = json.loads("".join(lines))
+    except json.JSONDecodeError as e:
+        error(f"{path}:{e.lineno}: invalid recording JSON: {e.msg}")
+        return 1
+
     for number, line in enumerate(lines, start=1):
         for rule, pattern in RULES.items():
             if pattern.search(line):
                 error(f"{path}:{number}: possible {rule} in recording")
                 findings += 1
+    for value in account_key_values(recording):
+        encoded = json.dumps(value)[1:-1]
+        escaped = json.dumps(encoded)[1:-1]
+        number = next((index for index, line in enumerate(lines, start=1)
+                       if encoded in line or escaped in line), 1)
+        error(f"{path}:{number}: possible storage account key value in recording")
+        findings += 1
     return findings
 
 

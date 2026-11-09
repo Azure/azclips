@@ -32,6 +32,15 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/signing/`    | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping.                                                                                               |
 | `publishing/`           | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`).                                                                                                                 |
 
+`packaging/powershell/validate_ps_modules.ps1` includes Storage in its selectable
+and default module set. Storage packaging discovers its source manifest and all
+eleven declared exports through the existing module-definition machinery.
+
+`ci/test_scan_recordings.py` verifies raw serialized recordings with literal and
+JSON-escaped SAS/XML, rejecting synthetic secrets while permitting approved
+placeholders and blob tags. The GitHub Actions `recording-secret-scan` job runs
+these tests before scanning changed recordings.
+
 ## Credential Scanner Suppressions
 
 `compliance/CredScanSuppressions.json` records file paths, scanner-provided SARIF

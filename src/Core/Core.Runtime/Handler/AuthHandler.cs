@@ -6,10 +6,9 @@ namespace Core.Runtime.Handler
     using Core.Abstractions;
     using Core.Abstractions.Runtime;
     using Core.Abstractions.Runtime.Handler;
-    using System.Net.Http.Headers;
 
     /// <summary>
-    /// Implementation of IAuthHandler.
+    /// Compatibility adapter for processor overrides over the shared credential authentication step.
     /// </summary>
     public class AuthHandler : IAuthHandler
     {
@@ -29,16 +28,17 @@ namespace Core.Runtime.Handler
         {
             // When no profile is resolved, acquire no token. Commands that require a profile
             // (and therefore an authenticated call) fail at point of use with a clear error.
-            if (this.Profile is not null)
+            var profile = this.Profile;
+            if (profile is not null)
             {
-                await callback.Publish(Events.AuthBeforeTokenAcquisition);
-                AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null
+                AcquireTokenAsyncDelegate tokenAcquirer =
+                    this.ApplyOverride && this.AcquireTokenAsyncOverride != null
                         ? this.AcquireTokenAsyncOverride
                         : this.AcquireTokenAsyncDefault;
-                var authResult = await tokenAcquirer(null, this.Profile.TenantId, false, default, this.Profile);
-                this.Profile = this.Profile.WithRuntimeMetadata(authResult);
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authResult.AccessToken);
-                await callback.Publish(Events.AuthAfterTokenAcquisition, new EventData { Payload = this.Profile });
+                var authentication = new CredentialAuthHandler(
+                    new ProfileCredential(profile, tokenAcquirer),
+                    onAuthenticated: authenticatedProfile => this.Profile = authenticatedProfile);
+                return await authentication.SendAsync(request, callback, next);
             }
             return await next.SendAsync(request, callback);
         };

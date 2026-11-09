@@ -16,6 +16,7 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added `New-AzStorageContext`, `Get-AzStorageBlob`, `Remove-AzStorageBlob`, `Set-AzStorageBlobContent`, `Get-AzStorageBlobContent`, `Start-AzStorageBlobCopy`, `Get-AzStorageFile` and `New-AzStorageDirectory`
 
 ## Version 0.1.0
 

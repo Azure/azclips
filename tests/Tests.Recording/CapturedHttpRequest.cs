@@ -12,6 +12,9 @@ namespace Tests.Recording;
 /// </summary>
 public sealed record CapturedHttpRequest(string Method, string Uri, IReadOnlyDictionary<string, string[]> Headers, string? Body)
 {
+    /// <summary>Binary body bytes; <see cref="Body"/> is null then.</summary>
+    public byte[]? BinaryBody { get; init; }
+
     /// <summary>
     /// Snapshots <paramref name="request"/> as it stands right now (method, URI, all headers,
     /// buffered body). Shared by every interceptor that sits at the tracing seam.
@@ -21,10 +24,13 @@ public sealed record CapturedHttpRequest(string Method, string Uri, IReadOnlyDic
         // Read the body before enumerating content headers: buffering the content is what
         // materializes Content-Length, and every capture must see the same header set.
         string? body = null;
+        byte[]? binary = null;
         var headers = new SortedDictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
         if (request.Content is not null)
         {
-            body = await request.Content.ReadAsStringAsync();
+            var bytes = await request.Content.ReadAsByteArrayAsync();
+            body = await RecordedBody.ReadTextAsync(request.Content, bytes);
+            if (body is null) binary = bytes;
             foreach (var (name, values) in request.Content.Headers)
             {
                 headers[name] = [.. values];
@@ -40,7 +46,10 @@ public sealed record CapturedHttpRequest(string Method, string Uri, IReadOnlyDic
             request.Method.Method,
             request.RequestUri?.AbsoluteUri ?? string.Empty,
             headers,
-            body);
+            body)
+        {
+            BinaryBody = binary,
+        };
     }
 
     /// <summary>

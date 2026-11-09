@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "StorageDataPlaneScenarioTests/AccountKeysList"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-storage-dp-rg/providers/Microsoft.Storage/storageAccounts/azclipsdp/listKeys?api-version=2025-08-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "5e2f6bb5-1258-4735-9081-cb40dab11fb6"
+          ],
+          "Date": [
+            "Fri, 30 Oct 2026 03:52:26 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "body": "{\u0022keys\u0022:[{\u0022creationTime\u0022:\u00222026-10-30T03:52:03.4351418Z\u0022,\u0022keyName\u0022:\u0022key1\u0022,\u0022value\u0022:\u0022veryFakedStorageAccountKey==\u0022,\u0022permissions\u0022:\u0022FULL\u0022},{\u0022creationTime\u0022:\u00222026-10-30T03:52:03.4351418Z\u0022,\u0022keyName\u0022:\u0022key2\u0022,\u0022value\u0022:\u0022veryFakedStorageAccountKey==\u0022,\u0022permissions\u0022:\u0022FULL\u0022}]}"
+      }
+    }
+  ]
+}

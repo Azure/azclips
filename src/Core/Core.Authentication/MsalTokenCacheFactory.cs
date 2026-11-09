@@ -156,7 +156,10 @@ internal static class MsalTokenCacheFactory
             return await PlaintextResolutionAsync(prefix, directory);
         }
 
-        var helper = await MsalCacheHelper.CreateAsync(BuildProtectedProperties(prefix, directory, type));
+        var properties = BuildProtectedProperties(prefix, directory, type);
+        var helper = await MsalCacheHelper.CreateAsync(properties);
+        // MSAL verifies through a shared throwaway store; concurrent checks can spuriously select plaintext.
+        using var verificationLock = AcquirePersistenceVerificationLock(properties);
 
         try
         {
@@ -183,6 +186,9 @@ internal static class MsalTokenCacheFactory
             return await PlaintextResolutionAsync(prefix, directory);
         }
     }
+
+    internal static CrossPlatLock AcquirePersistenceVerificationLock(StorageCreationProperties properties) =>
+        new(properties.CacheFilePath + ".lockfile", properties.LockRetryDelay, properties.LockRetryCount);
 
     private static async Task<TokenCacheResolution> PlaintextResolutionAsync(string prefix, string directory) =>
         new()

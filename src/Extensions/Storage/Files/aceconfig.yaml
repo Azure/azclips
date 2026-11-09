@@ -1,0 +1,11 @@
+schema-version: 1
+output-dir: .
+tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/f1f796502a81c1cf4d44fe97109e8a71fe8ba485/specification/storage/data-plane/FileStorage
+entrypoints:
+  - path: main.tsp
+    api-version: "2026-06-06"
+
+service-name: Storage
+root-namespace: Microsoft.Azure.Azclips.Extensions.Storage.Files
+project-name: Microsoft.Azure.Azclips.Extensions.Storage
+description: Storage file data-plane extension for AzClips

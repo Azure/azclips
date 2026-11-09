@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Extensions.Storage</AssemblyName>
-        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
         <RootNamespace>Microsoft.Azure.Azclips.Extensions.Storage</RootNamespace>
         <ExtName>Microsoft.Azure.Azclips.Extensions.Storage</ExtName>
 
@@ -18,6 +18,13 @@
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Extensions.Storage.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Extensions.Storage.Tests" />
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >

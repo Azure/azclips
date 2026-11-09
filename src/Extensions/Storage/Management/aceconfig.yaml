@@ -1,0 +1,11 @@
+schema-version: 1
+output-dir: .
+tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/f1f796502a81c1cf4d44fe97109e8a71fe8ba485/specification/storage/resource-manager/Microsoft.Storage/Storage
+entrypoints:
+  - path: main.tsp
+    api-version: "2025-08-01"
+
+service-name: Storage
+root-namespace: Microsoft.Azure.Azclips.Extensions.Storage.Management
+project-name: Microsoft.Azure.Azclips.Extensions.Storage
+description: Storage ARM account-key listing dependency for Azclips

@@ -7,6 +7,7 @@ using Core.Cli.Parser;
 using Core.Configuration.Abstractions;
 using Core.DependencyInjection;
 using Core.Extensions;
+using Core.Abstractions.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Recording;
 using Tests.Common.Stubs;
@@ -248,7 +249,7 @@ internal sealed class ScenarioHost : IDisposable
         return Execute(invocation, useAsyncSession: false);
     }
 
-    public IReadOnlyList<object> RunPowerShellCmdlet<TCmdlet>(IDictionary<string, object> parameters) where TCmdlet : PSCmdlet
+    public IReadOnlyList<object> RunPowerShellCmdlet<TCmdlet>(IDictionary<string, object> parameters, IEnumerable<object>? pipelineInput = null) where TCmdlet : PSCmdlet
     {
         if (_clientType != ClientType.PowerShell) throw new InvalidOperationException("A PowerShell host is required.");
         var attribute = (CmdletAttribute)Attribute.GetCustomAttribute(typeof(TCmdlet), typeof(CmdletAttribute))!;
@@ -261,7 +262,7 @@ internal sealed class ScenarioHost : IDisposable
         shell.Runspace = runspace;
         shell.AddCommand(command);
         foreach (var parameter in parameters) shell.AddParameter(parameter.Key, parameter.Value);
-        var results = shell.Invoke();
+        var results = pipelineInput is null ? shell.Invoke() : shell.Invoke(pipelineInput);
         if (shell.HadErrors) throw new InvalidOperationException(string.Join(Environment.NewLine, shell.Streams.Error));
         return results.Select(result => result.BaseObject).ToArray();
     }
