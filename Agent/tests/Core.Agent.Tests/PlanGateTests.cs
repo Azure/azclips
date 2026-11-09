@@ -203,7 +203,7 @@ public class PlanGateTests
         Assert.False(state.SubmittedThisTurn);
     }
 
-    // `az agent tool help` output that lists the given CLI command names.
+    // `az agent tool docs list` output that lists the given CLI command names.
     private static string Catalog(params string[] cliNames) => JsonSerializer.Serialize(new
     {
         groups = Array.Empty<object>(),

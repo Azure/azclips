@@ -336,10 +336,12 @@ public class ExtensionDispatcherTests
     [InlineData(new[] { "agent" }, "agent", new string[0])]
     [InlineData(new[] { "agent", "tool" }, "agent", new[] { "tool" })]
     [InlineData(new[] { "agent", "tool", "resource" }, "agent", new[] { "tool", "resource" })]
+    [InlineData(new[] { "agent", "tool", "docs" }, "agent", new[] { "tool", "docs" })]
+    [InlineData(new[] { "agent", "tool", "env" }, "agent", new[] { "tool", "env" })]
     public void Parse_ShouldThrowCommandNotFound_WhenResolvedVerbLandsOnCommandGroup(
         string[] args, string expectedVerb, string[] expectedPath)
     {
-        var registry = BuildAgentRegistry(["tool env", "tool resource find", "tool resource show"]);
+        var registry = BuildAgentRegistry(["tool env show", "tool docs list", "tool docs show", "tool docs generate", "tool resource find", "tool resource show"]);
         var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
         var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
 
@@ -357,7 +359,7 @@ public class ExtensionDispatcherTests
     {
         // The resolved-extension path throws from a different site than the verb-only fallback,
         // so it needs its own coverage that trailing flags survive into the message.
-        var registry = BuildAgentRegistry(["tool env", "tool resource find"]);
+        var registry = BuildAgentRegistry(["tool env show", "tool resource find"]);
         var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
         var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
 
@@ -368,17 +370,21 @@ public class ExtensionDispatcherTests
         Assert.DoesNotContain("'az agent' is not a recognized command", ex.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Parse_ShouldRouteRunnableLeaf_UnderCommandGroupVerb()
+    [Theory]
+    [InlineData(new[] { "agent", "tool", "env", "show" }, "agent tool env show")]
+    [InlineData(new[] { "agent", "tool", "docs", "list" }, "agent tool docs list")]
+    [InlineData(new[] { "agent", "tool", "docs", "show" }, "agent tool docs show")]
+    [InlineData(new[] { "agent", "tool", "docs", "generate" }, "agent tool docs generate")]
+    public void Parse_ShouldRouteRunnableLeaf_UnderCommandGroupVerb(string[] args, string expectedCommand)
     {
         // The group gate must not swallow a valid leaf under the same verb.
-        var registry = BuildAgentRegistry(["tool env", "tool resource find"]);
+        var registry = BuildAgentRegistry(["tool env show", "tool docs list", "tool docs show", "tool docs generate", "tool resource find"]);
         var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry));
         var dispatcher = new ExtensionDispatcher(resolver, () => LeafIndex.Build(registry));
 
-        var invocation = dispatcher.Parse(["agent", "tool", "env"]);
+        var invocation = dispatcher.Parse(args);
 
-        Assert.Equal("agent tool env", invocation.CommandName);
+        Assert.Equal(expectedCommand, invocation.CommandName);
     }
 
     [Fact]

@@ -23,7 +23,7 @@ internal sealed class SessionState
     // start with `az`; false for the PowerShell flavor (steps are cmdlets).
     public bool IsCliFlavor { get; set; }
 
-    // Reads the live help catalog as JSON (`az agent tool help`, the list_commands
+    // Reads the live help catalog as JSON (`az agent tool docs list`, the list_commands
     // source). The plan hook uses it to tell an azclips command that lost its `az`
     // from prose or another program. Null when none is wired: no step changes.
     public Func<CancellationToken, Task<string>>? ReadCommandCatalog { get; set; }

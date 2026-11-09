@@ -20,7 +20,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
 
         private static readonly CommandMetadata s_env_CLI = new(
             Name: "EnvProcessor",
-            InvocationName: "agent tool env",
+            InvocationName: "agent tool env show",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.EnvProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
@@ -29,18 +29,40 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ParameterAliases: new Dictionary<string, string>()
         );
 
-        private static readonly CommandMetadata s_help_CLI = new(
-            Name: "HelpProcessor",
-            InvocationName: "agent tool help",
+        private static readonly CommandMetadata s_docsList_CLI = new(
+            Name: "DocsListProcessor",
+            InvocationName: "agent tool docs list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.HelpProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.DocsListProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
-            ProcessorType: typeof(HelpProcessor),
+            ProcessorType: typeof(DocsListProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_docsShow_CLI = new(
+            Name: "DocsShowProcessor",
+            InvocationName: "agent tool docs show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.DocsShowProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(DocsShowProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["name"] = new("Name", "name", typeof(string), "Command name to look up (e.g. 'vm create'). Omit to list all known commands.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), "Command name to look up (e.g. 'vm create').", IsRequired: true, Aliases: [], AllowedValues: [],
+                    ParameterSets: new Dictionary<string, ParameterSetReference>
+                    {
+                        ["(All)"] = new("(All)", IsRequired: true),
+                    }),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>(),
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["(All)"] = new("(All)", IsDefault: true, Parameters: new Dictionary<string, ParameterReference>
+                {
+                    ["Name"] = new("Name", IsRequired: true),
+                }),
+            }
         );
 
         private static readonly CommandMetadata s_resourceFind_CLI = new(
@@ -63,7 +85,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
 
         private static readonly CommandMetadata s_helpGenerate_CLI = new(
             Name: "HelpGenerateProcessor",
-            InvocationName: "agent tool help generate",
+            InvocationName: "agent tool docs generate",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.HelpGenerateProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
@@ -181,9 +203,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
 
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["agent tool env"]            = s_env_CLI,
-            ["agent tool help"]           = s_help_CLI,
-            ["agent tool help generate"]  = s_helpGenerate_CLI,
+            ["agent tool env show"]       = s_env_CLI,
+            ["agent tool docs list"]      = s_docsList_CLI,
+            ["agent tool docs show"]      = s_docsShow_CLI,
+            ["agent tool docs generate"]  = s_helpGenerate_CLI,
             ["agent tool resource find"]  = s_resourceFind_CLI,
             ["agent tool resource sku"]   = s_resourceSku_CLI,
             ["agent tool resource tree"]  = s_resourceTree_CLI,
