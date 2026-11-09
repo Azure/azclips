@@ -17,6 +17,7 @@ List all configuration settings.
 
 ## SYNTAX
 
+### __AllParameterSets
 
 ```
 Get-AzConfigList [-IncludeDefaults] [<CommonParameters>]

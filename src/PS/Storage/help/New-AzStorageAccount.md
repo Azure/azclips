@@ -17,6 +17,7 @@ Create an Azure Storage account.
 
 ## SYNTAX
 
+### __AllParameterSets
 
 ```
 New-AzStorageAccount [-ResourceGroupName] <string> [-Name] <string> [-SkuName] <string>

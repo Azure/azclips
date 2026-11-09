@@ -4,9 +4,11 @@ Runbook for [build/Sync-AzclipsPowerShellDocs.ps1](../../build/Sync-AzclipsPower
 
 ## What it does
 
-Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<TargetRepo>/<Moniker>/Az.<Module>/` and generates a per-module landing page (`Az.<Module>.md`). The sync rewrites only the frontmatter `Module Name:` to match the packaged module name (for example, `Accounts` becomes `Az.Accounts`); Markdown body content and line endings are preserved. Missing or duplicate module-name fields fail explicitly. The target repo's docfx build (via `PSMD2Yaml`) handles rendering.
+Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<TargetRepo>/<Moniker>/Az.<Module>/` and generates a per-module landing page (`Az.<Module>.md`). The sync rewrites the frontmatter `Module Name:` to match the packaged module name (for example, `Accounts` becomes `Az.Accounts`) and removes the internal `### __AllParameterSets` heading only within the SYNTAX section, outside code fences. Explicit named parameter sets and default markers, other body content, and line endings are preserved. Missing or duplicate module-name fields fail explicitly. The target repo's docfx build (via `PSMD2Yaml`) handles rendering.
 
-The moniker is a rolling preview: every `-Force` run makes it match the source exactly.
+This is a one-way Learn presentation transformation. Source help stays in PlatyPS's native format, including internal unnamed-set headings; scaffolding, refresh, metadata drift validation and local MAML generation are unchanged. The published Markdown is not an input to those tools.
+
+The moniker is a rolling preview: every `-Force` run makes it match the transformed source.
 
 - **Stale pages are removed.** Files under `<Moniker>/Az.*/` that the plan no longer produces (a renamed or deleted cmdlet or module) are deleted in the same commit. A `-Module` subset run only reconciles the selected modules' folders; folders not named `Az.*` are never touched.
 - **The service map is regenerated.** If `mapping/monikerMapping.json` has a `serviceMap` for the moniker, that file is rewritten as `"<Cmdlet>": "<Group>"` entries, which Learn uses to group the reference TOC. The group is the source module name unless `serviceGroupNames` in the config overrides it.

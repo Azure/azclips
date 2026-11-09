@@ -17,6 +17,7 @@ Delete all versions of a secret without purging it.
 
 ## SYNTAX
 
+### __AllParameterSets
 
 ```
 Remove-AzKeyVaultSecret -Name <string> [-VaultName <string>] [-VaultUrl <string>]

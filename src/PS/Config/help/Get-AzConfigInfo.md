@@ -17,6 +17,7 @@ Display information about valid configuration keys.
 
 ## SYNTAX
 
+### __AllParameterSets
 
 ```
 Get-AzConfigInfo [-KeysOnly] [<CommonParameters>]

@@ -17,6 +17,7 @@ Preview the changes an ARM or Bicep deployment would make to a resource group wi
 
 ## SYNTAX
 
+### __AllParameterSets
 
 ```
 New-AzResourceGroupDeploymentWhatIf -ResourceGroupName <string> -Name <string>

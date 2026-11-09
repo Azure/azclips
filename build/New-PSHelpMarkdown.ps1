@@ -24,7 +24,6 @@ param(
 $ErrorActionPreference = 'Stop'
 
 Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
-. (Join-Path $PSScriptRoot 'Convert-PSHelpSyntax.ps1')
 
 # Replaces PlatyPS `{{ Fill in ... }}` placeholders with TODO-flagged defaults
 # derived from the cmdlet name + required parameters.
@@ -147,7 +146,7 @@ $exampleLine
             return $header + "`n" + $body
         })
 
-    return Convert-PSHelpSyntax -Content $merged
+    return $merged
 }
 
 $repoRoot = Resolve-Path "$PSScriptRoot/.."
@@ -231,9 +230,7 @@ foreach ($name in $modules)
             # Update-MarkdownCommandHelp against each existing md, then reflects on the module
             # to capture required parameters as JSON for the placeholder post-processor.
             pwsh -NoProfile -Command {
-                param($manifestPath, $mdPaths, $tempDir, $moduleName, $syntaxHelper)
-                $ErrorActionPreference = 'Stop'
-                . $syntaxHelper
+                param($manifestPath, $mdPaths, $tempDir, $moduleName)
                 Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
                 # Name-form RequiredModules refer to sibling modules; import them first.
                 foreach ($required in @((Import-PowerShellDataFile $manifestPath).RequiredModules))
@@ -248,10 +245,7 @@ foreach ($name in $modules)
                 $mod = Import-Module $manifestPath -Force -PassThru
                 foreach ($p in $mdPaths)
                 {
-                    $tempMd = Join-Path $tempDir ([IO.Path]::GetFileName($p))
-                    $content = Convert-PSHelpSyntax -Content (Get-Content -LiteralPath $p -Raw) -ForPlatyPS
-                    Set-Content -LiteralPath $tempMd -Value $content -NoNewline
-                    Update-MarkdownCommandHelp -Path $tempMd -NoBackup | Out-Null
+                    Update-MarkdownCommandHelp -Path $p -NoBackup | Out-Null
                 }
 
                 $cmdletInfo = @{}
@@ -273,9 +267,7 @@ foreach ($name in $modules)
                 }
 
                 $cmdletInfo | ConvertTo-Json -Depth 3 | Set-Content -Path (Join-Path $tempDir '_cmdlet-info.json') -Encoding utf8
-            } -Args $manifestPath, $mdFiles.FullName, $tempDir, $name, (Join-Path $PSScriptRoot 'Convert-PSHelpSyntax.ps1')
-
-            if ($LASTEXITCODE -ne 0) { throw "PlatyPS refresh failed for module '$name' (exit $LASTEXITCODE)." }
+            } -Args $manifestPath, $mdFiles.FullName, $tempDir, $name
 
             $cmdletInfoPath = Join-Path $tempDir '_cmdlet-info.json'
             $cmdletInfo = if (Test-Path $cmdletInfoPath) {
@@ -289,7 +281,7 @@ foreach ($name in $modules)
             $refreshed = 0
             foreach ($file in $mdFiles)
             {
-                $content = [System.IO.File]::ReadAllText((Join-Path $tempDir $file.Name))
+                $content = [System.IO.File]::ReadAllText($file.FullName)
                 $cmdletName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
                 $required = if ($cmdletInfo.ContainsKey($cmdletName)) { $cmdletInfo[$cmdletName] } else { @() }
 

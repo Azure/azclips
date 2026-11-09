@@ -217,6 +217,7 @@ function New-ModuleIndexContent
 # source module name (bare, e.g. 'Config') to the packaged name ('Az.Config'). Docs.ms's
 # PSMD2Yaml prebuild requires the module name in the frontmatter to match the folder;
 # leaving it bare fails with PSMD2Yaml_FileProcessFailed.
+# Only the Learn copy omits internal unnamed syntax headings; PlatyPS source stays intact.
 function Copy-CmdletMarkdownWithRewrite
 {
     [CmdletBinding()]
@@ -234,8 +235,32 @@ function Copy-CmdletMarkdownWithRewrite
         throw "Expected YAML frontmatter with exactly one 'Module Name:' field in '$SourcePath'."
     }
 
+    $body = [System.Text.StringBuilder]::new()
+    $inSyntax = $false
+    $fence = ''
+    foreach ($match in [regex]::Matches($content.Substring($frontmatter.Length), '[^\r\n]*(?:\r\n|\n|\r|$)'))
+    {
+        $line = $match.Value.TrimEnd("`r", "`n")
+        if ($line -match '^[ \t]*(`{3,}|~{3,})')
+        {
+            $marker = $Matches[1]
+            if (-not $fence) { $fence = $marker }
+            elseif ($marker[0] -eq $fence[0] -and $marker.Length -ge $fence.Length -and
+                $line.Trim() -eq $marker)
+            {
+                $fence = ''
+            }
+        }
+        elseif (-not $fence)
+        {
+            if ($line -cmatch '^##[ \t]+SYNTAX[ \t]*$') { $inSyntax = $true }
+            elseif ($line -match '^#{1,2}[ \t]+') { $inSyntax = $false }
+            elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$') { continue }
+        }
+        [void]$body.Append($match.Value)
+    }
     $rewritten = $moduleNamePattern.Replace($frontmatter.Value, { "Module Name: $TargetModuleName" }, 1) +
-        $content.Substring($frontmatter.Length)
+        $body.ToString()
     Set-Content -LiteralPath $TargetPath -Value $rewritten -NoNewline
 }
 

@@ -161,21 +161,13 @@ function ConvertTo-AzclipsModuleMaml
     )
 
     pwsh -NoProfile -Command {
-        param($helpDirArg, $outDirArg, $syntaxHelper)
+        param($helpDirArg, $outDirArg)
         $ErrorActionPreference = 'Stop'
         Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
-        . $syntaxHelper
-        $inputDir = Join-Path $outDirArg 'markdown'
-        New-Item -ItemType Directory -Path $inputDir -Force | Out-Null
         Get-ChildItem -Path $helpDirArg -Filter *.md -File |
-            ForEach-Object {
-                $path = Join-Path $inputDir $_.Name
-                $content = Convert-PSHelpSyntax -Content (Get-Content -LiteralPath $_.FullName -Raw) -ForPlatyPS
-                Set-Content -LiteralPath $path -Value $content -NoNewline
-                Import-MarkdownCommandHelp -Path $path
-            } |
+            ForEach-Object { Import-MarkdownCommandHelp -Path $_.FullName } |
             Export-MamlCommandHelp -OutputFolder $outDirArg -Force | Out-Null
-    } -Args $HelpDir, $OutputFolder, (Join-Path $PSScriptRoot 'Convert-PSHelpSyntax.ps1')
+    } -Args $HelpDir, $OutputFolder
 
     if ($LASTEXITCODE -ne 0)
     {

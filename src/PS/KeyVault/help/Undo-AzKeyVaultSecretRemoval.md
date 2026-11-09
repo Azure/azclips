@@ -17,6 +17,7 @@ Recover a soft-deleted secret and its versions.
 
 ## SYNTAX
 
+### __AllParameterSets
 
 ```
 Undo-AzKeyVaultSecretRemoval -Name <string> [-VaultName <string>] [-VaultUrl <string>]

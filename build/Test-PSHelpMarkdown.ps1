@@ -95,11 +95,10 @@ foreach ($moduleName in $modules)
         # Run PlatyPS in an isolated child pwsh (mirrors Publish-AzclipsHelpArtifacts in build.ps1) to
         # avoid YamlDotNet assembly conflicts and to guarantee a clean module unload between iterations.
         pwsh -NoProfile -Command {
-        param($manifest, $helpDir, $pathRoot, $syntaxHelper)
+        param($manifest, $helpDir, $pathRoot)
         $ErrorActionPreference = 'Continue'
 
         Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1 -ErrorAction Stop
-        . $syntaxHelper
         # Name-form RequiredModules refer to sibling modules; import them first.
         foreach ($required in @((Import-PowerShellDataFile $manifest).RequiredModules))
         {
@@ -163,6 +162,8 @@ foreach ($moduleName in $modules)
 
             try
             {
+                $old = Import-MarkdownCommandHelp -Path $md -ErrorAction Stop 2>$null
+
                 # Update-CommandHelp returns syntax parameters in reflection/declaration order,
                 # while Markdown uses canonical PowerShell syntax order (mandatory before optional).
                 # Round-trip a temporary copy through the same writer used by -Refresh so comparison
@@ -172,9 +173,7 @@ foreach ($moduleName in $modules)
                 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
                 try
                 {
-                    $content = Convert-PSHelpSyntax -Content (Get-Content -LiteralPath $md -Raw) -ForPlatyPS
-                    Set-Content -LiteralPath $tempMd -Value $content -NoNewline
-                    $old = Import-MarkdownCommandHelp -Path $tempMd -ErrorAction Stop 2>$null
+                    Copy-Item -Path $md -Destination $tempMd -Force
                     Update-MarkdownCommandHelp -Path $tempMd -NoBackup -ErrorAction Stop | Out-Null
                     $new = Import-MarkdownCommandHelp -Path $tempMd -ErrorAction Stop 2>$null
                 }
@@ -220,7 +219,7 @@ foreach ($moduleName in $modules)
         }
 
         exit $errorCount
-    } -Args $manifest, $helpDir, $pathRoot, (Join-Path $PSScriptRoot 'Convert-PSHelpSyntax.ps1')
+    } -Args $manifest, $helpDir, $pathRoot
 
         # $LASTEXITCODE from a child pwsh block is the child's exit code = its error count.
         $totalErrors += [int]$LASTEXITCODE
