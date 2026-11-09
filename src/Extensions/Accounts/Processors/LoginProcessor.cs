@@ -115,8 +115,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         {
             Resolver.DefineSet(ParamSet.ManagedIdentity)
                 .WithMandatory(c => ((LoginProcessor)c).Identity)
-                // The subscription is optional; the tenant is not applicable (the MI token carries it).
-                .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
+                .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).ClientId)
                 .WithOptional(c => ((LoginProcessor)c).ObjectId)
                 .WithOptional(c => ((LoginProcessor)c).ResourceId)

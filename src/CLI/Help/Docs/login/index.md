@@ -22,19 +22,19 @@ az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-cod
 ### Login with a managed identity
 
 ```bash
-az login --identity
+az login --identity --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Login with a user-assigned managed identity
 
 ```bash
-az login --identity --client-id 11111111-1111-1111-1111-111111111111
+az login --identity --client-id 11111111-1111-1111-1111-111111111111 --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Login with a managed identity using short flags
 
 ```bash
-az login -i
+az login -i --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Login with a service principal using a secret

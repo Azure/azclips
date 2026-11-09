@@ -92,6 +92,10 @@ This example uses the profile saved by either service principal example above.
 Connect-AzAccount -Profile ci
 ```
 
+### Sign in with a managed identity
+
+Sign in using a managed identity. This is typically used when running in an Azure environment that supports managed identities, such as an Azure VM, App Service, or Function App. Tenant ID will be resolved automatically from the environment.
+
 ## PARAMETERS
 
 ### -ClientId
