@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: List users in your Microsoft Entra tenant. Filter results by a display name prefix, exact user principal name, or an OData `$filter` expression.
+Description: List users in your Microsoft Entra tenant. Filter results by a display name prefix, exact user principal name, or an OData `$filter` expression. Use `--consistency-level eventual` for advanced Graph filters such as `endswith(...)`.
 
 ### List all users
 
@@ -28,5 +28,5 @@ az msgraph user list --upn ada@contoso.com
 ### List users with a custom filter expression
 
 ```bash
-az msgraph user list --filter "endswith(mail,'@contoso.com')"
+az msgraph user list --filter "endswith(mail,'@contoso.com')" --consistency-level eventual
 ```

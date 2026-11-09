@@ -67,8 +67,8 @@ public class ExtensionIndexTests
     {
         var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
 
-        Assert.Equal(3, metadata.Parameters.Count);
-        foreach (var expected in new[] { "display-name", "filter", "upn" })
+        Assert.Equal(4, metadata.Parameters.Count);
+        foreach (var expected in new[] { "display-name", "filter", "upn", "consistency-level" })
         {
             Assert.True(metadata.Parameters.ContainsKey(expected), $"missing '{expected}' parameter");
             Assert.False(metadata.Parameters[expected].IsRequired, $"'{expected}' should be optional");
@@ -82,6 +82,14 @@ public class ExtensionIndexTests
         var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
 
         Assert.Equal("DisplayNamePrefix", metadata.Parameters["display-name"].Name);
+    }
+
+    [Fact]
+    public void CliTable_ListConsistencyLevel_ShouldMapToProcessorConsistencyLevel()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
+
+        Assert.Equal("ConsistencyLevel", metadata.Parameters["consistency-level"].Name);
     }
 
     [Theory]
