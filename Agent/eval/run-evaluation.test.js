@@ -34,7 +34,7 @@ if (Test-Path -LiteralPath $startConfigurationPath -PathType Leaf) {
     }
 }
 Add-Content (Join-Path $root 'telemetry-states.txt') "$($args -join ' ')|$telemetryState"
-if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env') {
+if ($args.Count -eq 4 -and $args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env' -and $args[3] -eq 'show') {
     if ($scenario.environmentWarning) { Write-Error 'Environment diagnostic on stderr' -ErrorAction Continue }
     $signedIn = $scenario.signedOut -ne $true
     $subscription = if ($scenario.missingSubscription) { '' } else { '11111111-1111-4111-8111-111111111111' }
@@ -431,7 +431,7 @@ test('every azclips process the wrapper starts finds product telemetry already o
   ]) {
     await context.test(name, (context) => {
       const result = runWrapper(context, options);
-      assert.match(result.telemetryStates[0] ?? '', /^agent tool env\|off$/, result.telemetryStates.join('\n'));
+      assert.match(result.telemetryStates[0] ?? '', /^agent tool env show\|off$/, result.telemetryStates.join('\n'));
       assert.deepEqual(result.telemetryStates.filter((state) => !state.endsWith('|off')), []);
       assert.deepEqual(result.configurationBytes, expectedBytes);
       assert.deepEqual(result.backups, []);
@@ -652,7 +652,7 @@ test('wrapper setup commands cannot start AI recovery and leave the guard unset 
   const result = runWrapper(context, { listedKeys: ['agent.provider', 'telemetry.enabled'] });
   assert.equal(result.status, 0, result.summary.error);
   const commands = result.agentModeGuards.map((line) => line.slice(0, line.lastIndexOf('|')));
-  for (const expected of ['agent tool env', 'agent tool resource refresh', 'config set', 'config info --keys-only', 'config get']) {
+  for (const expected of ['agent tool env show', 'agent tool resource refresh', 'config set', 'config info --keys-only', 'config get']) {
     assert.ok(commands.some((command) => command.startsWith(expected)), `${expected} was not guarded`);
   }
   assert.ok(result.agentModeGuards.every((line) => line.endsWith('|1')), result.agentModeGuards.join('\n'));

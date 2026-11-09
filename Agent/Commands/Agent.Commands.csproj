@@ -50,13 +50,13 @@
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
         <!-- Assembly.GetExtensionIndex() extension method — invokes the extension's
-             IExtensionIndex constructor. HelpGenerateProcessor uses it to walk every
+             IExtensionIndex constructor. DocsGenerateProcessor uses it to walk every
              discovered bundled/installed extension and aggregate its command tables. -->
         <ProjectReference Include="..\..\src\Core\Core.Runtime\Core.Runtime.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <!-- ExtensionCandidateSelector and FileExtensionRegistryStore: HelpGenerateProcessor
+        <!-- ExtensionCandidateSelector and FileExtensionRegistryStore: DocsGenerateProcessor
              selects one copy per package with the same pins as CLI routing. -->
         <ProjectReference Include="..\..\src\Core\Core.Extensions\Core.Extensions.csproj">
             <Private>false</Private>
@@ -71,7 +71,7 @@
         <!-- Daniel's help pipeline: ExtensionHelpManifestBuilder + MarkdownCommandHelpProvider
              turn per-extension IExtensionIndex instances into HelpManifest / HelpIndex JSON
              with examples pulled from the packaged markdown corpus under <baseDir>/help/.
-             HelpGenerateProcessor reuses this pipeline instead of maintaining a parallel implementation.
+             DocsGenerateProcessor reuses this pipeline instead of maintaining a parallel implementation.
              Agent.Commands uses this CLI help pipeline from Core.Cli. -->
         <ProjectReference Include="..\..\src\CLI\Core.Cli.csproj">
             <Private>false</Private>
