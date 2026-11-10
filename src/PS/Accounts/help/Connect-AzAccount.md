@@ -52,7 +52,34 @@ Managed identity sign-in also requires a subscription ID, supplied with `-Subscr
 Launches the interactive browser sign-in experience and persists the resulting account context for the specified subscription. Use this on a workstation with a default browser available.
 
 ```powershell
-Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111'
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000'
+```
+
+### Create a named profile
+
+Save the subscription and tenant context as `dev` and make it the active profile.
+
+```powershell
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000' -OutProfile dev
+```
+
+### Switch the active profile
+
+Sign in as `dev`, then switch to an already saved `prod` profile for subsequent commands. The `prod` profile can use a different subscription and tenant.
+
+```powershell
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000' -OutProfile dev
+Set-AzProfile -Name prod
+Get-AzResourceGroup
+```
+
+### Use a profile for one command
+
+Sign in as `dev`, then use an already saved `prod` profile's subscription and tenant for one command, leaving `dev` active.
+
+```powershell
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000' -OutProfile dev
+Get-AzResourceGroup -Profile prod
 ```
 
 ### Sign in with device code on a host without a browser
@@ -60,7 +87,7 @@ Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -Tenant
 Uses the device-code authentication flow — prints a code and verification URL to the console so you can complete the sign-in from another device. Useful for SSH sessions, containers, and headless build agents.
 
 ```powershell
-Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111' -UseDeviceCode
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000' -UseDeviceCode
 ```
 
 ### Sign in with a service principal client secret
@@ -70,7 +97,7 @@ The `-ServicePrincipal` switch is optional with `-ClientSecret`.
 
 ```powershell
 $clientSecret = $Host.UI.ReadLineAsSecureString()
-Connect-AzAccount -ClientId '22222222-2222-2222-2222-222222222222' -ClientSecret $clientSecret -Tenant '11111111-1111-1111-1111-111111111111' -Subscription '00000000-0000-0000-0000-000000000000' -OutProfile ci
+Connect-AzAccount -ClientId '00000000-0000-0000-0000-000000000000' -ClientSecret $clientSecret -Tenant '00000000-0000-0000-0000-000000000000' -Subscription '00000000-0000-0000-0000-000000000000' -OutProfile ci
 ```
 
 ### Sign in with a backward-compatible service principal credential
@@ -81,8 +108,8 @@ is the client secret. This form requires `-ServicePrincipal`; don't also pass
 
 ```powershell
 $clientSecret = $Host.UI.ReadLineAsSecureString()
-$credential = [System.Management.Automation.PSCredential]::new('22222222-2222-2222-2222-222222222222', $clientSecret)
-Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant '11111111-1111-1111-1111-111111111111' -Subscription '00000000-0000-0000-0000-000000000000' -OutProfile ci
+$credential = [System.Management.Automation.PSCredential]::new('00000000-0000-0000-0000-000000000000', $clientSecret)
+Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant '00000000-0000-0000-0000-000000000000' -Subscription '00000000-0000-0000-0000-000000000000' -OutProfile ci
 ```
 
 ### Re-authenticate a client-secret profile
@@ -107,7 +134,7 @@ Connect-AzAccount -Identity -SubscriptionId '00000000-0000-0000-0000-00000000000
 Select a user-assigned identity by client ID and persist the specified subscription.
 
 ```powershell
-Connect-AzAccount -Identity -ClientId '22222222-2222-2222-2222-222222222222' -SubscriptionId '00000000-0000-0000-0000-000000000000'
+Connect-AzAccount -Identity -ClientId '00000000-0000-0000-0000-000000000000' -SubscriptionId '00000000-0000-0000-0000-000000000000'
 ```
 
 ## PARAMETERS
