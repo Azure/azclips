@@ -50,7 +50,7 @@ command contract: `--subscription-id` is optional for these VM/deployment comman
 because the active profile supplies it.
 
 The target package must also expose the Network, managed-identity, and MsGraph
-creation commands used below. Check their metadata with `az agent tool help`
+creation commands used below. Check their metadata with `az agent tool docs show --name`
 before a model baseline run. A command present in source but absent from the
 installed catalog is a package prerequisite failure, not an Agent quality score.
 Do not replace it with a similarly named classic Azure CLI command.

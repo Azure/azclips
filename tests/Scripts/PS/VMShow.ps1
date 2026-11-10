@@ -10,9 +10,24 @@
 #   3. Get-AzVM -Id                        -> id-addressed get
 #   4. Get-AzVM -Id -UserData              -> id-addressed get with expand
 #   5. Get-AzVM -ResourceGroupName         -> list in the resource group
+#   6. Get-AzVM -ResourceGroupName -Name -Status
+#                                          -> GET ...?$expand=instanceView; the VM keeps
+#                                             its instance view in Properties.InstanceView;
+#                                             VM running
+#   7. Get-AzVM -Status -UserData          -> one GET ...?$expand=instanceView,userData
+#   8. Get-AzVM -Status:$false             -> plain GET, as in case 1
+#   9. Stop-AzVM -StayProvisioned, then
+#      Get-AzVM -Status                    -> VM stopped
+#  10. Stop-AzVM, then Get-AzVM -Id -Status -> VM deallocated
+#  11. Start-AzVM, then Get-AzVM -Status   -> VM running
 #
-# --show-details stays CLI-only. PowerShell's detail view is -Status, which applies
-# to the list parameter sets only and is covered by VMList.ps1.
+# Cases 6, 7 and 9-11 check the power state in Properties.InstanceView.Statuses, and
+# that it was not flattened onto the VM; case 8 checks there is no instance view. The
+# script fails if any check fails. Stop-AzVM runs with -Force so its confirmation
+# prompt does not block.
+#
+# --show-details stays CLI-only. -Status on the list parameter sets flattens the power
+# state onto each VM instead, and is covered by VMList.ps1.
 #
 # Prereqs: build the solution with dotnet build, then import the modules:
 #     Import-Module ./src/PS/Accounts/Accounts.psd1
@@ -30,6 +45,9 @@
 #     az group delete --name <group> --yes
 # Set $env:AZCLIPS_DELETE_GROUP = '1' to have this script attempt that automatically.
 #
+# Set $env:AZCLIPS_LOCATION and $env:AZCLIPS_VM_SIZE to override the region (westus2)
+# and the VM size (Standard_D2s_v3).
+#
 # Usage: ./tests/Scripts/PS/VMShow.ps1
 
 $ErrorActionPreference = 'Stop'
@@ -40,7 +58,8 @@ if ([string]::IsNullOrWhiteSpace($subscriptionId))
     throw 'AZCLIPS_SUBSCRIPTION_ID must be set.'
 }
 
-$location      = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_LOCATION)) { 'westus2' } else { $env:AZCLIPS_LOCATION }
+$location      = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_LOCATION)) { 'australiaeast' } else { $env:AZCLIPS_LOCATION }
+$vmSize        = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_VM_SIZE)) { 'Standard_D2s_v3' } else { $env:AZCLIPS_VM_SIZE }
 $suffix        = $PID
 $resourceGroup = if ($env:AZCLIPS_RESOURCE_GROUP) { $env:AZCLIPS_RESOURCE_GROUP } else { "azclips-vmshow-rg-$suffix" }
 $vmName        = "vmshw-vm-$suffix"
@@ -60,6 +79,8 @@ $requiredCommands = [ordered]@{
     'New-AzResourceGroup' = 'Resources'
     'New-AzVM'            = 'Compute'
     'Get-AzVM'            = 'Compute'
+    'Stop-AzVM'           = 'Compute'
+    'Start-AzVM'          = 'Compute'
     'Remove-AzVM'         = 'Compute'
 }
 
@@ -87,6 +108,40 @@ foreach ($requiredCommand in $requiredCommands.Keys)
     }
 }
 
+$failures = [System.Collections.Generic.List[string]]::new()
+
+function Add-Failure([string]$Message)
+{
+    Write-Host "FAIL: $Message"
+    $failures.Add($Message)
+}
+
+# Get-AzVM -Status for one VM returns the VM with its instance view in place, in
+# Properties.InstanceView. Checks the power state there, and that it was not flattened
+# onto the VM the way the list forms flatten it.
+function Test-InstanceView([string]$Label, $Output, [string]$ExpectedPowerState)
+{
+    $vms = @($Output | Where-Object { $null -ne $_ })
+    if ($vms.Count -ne 1)
+    {
+        Add-Failure "${Label}: expected one VM, got $($vms.Count)"
+        return
+    }
+
+    $powerState = ($vms[0].Properties.InstanceView.Statuses | Where-Object Code -like 'PowerState/*').DisplayStatus
+    Write-Host "${Label}: $powerState"
+
+    if ($powerState -ne $ExpectedPowerState)
+    {
+        Add-Failure "${Label}: expected power state '$ExpectedPowerState', got '$powerState'"
+    }
+
+    if ($null -ne $vms[0].PowerState)
+    {
+        Add-Failure "${Label}: expected the instance view in place, but the power state was flattened onto the VM"
+    }
+}
+
 # Guards the cleanup block: without it, a failure before the VM exists triggers a
 # Remove-AzVM that 404s and masks the real error.
 $vmCreated = $false
@@ -103,7 +158,7 @@ try
         -ResourceGroupName $resourceGroup `
         -Name $vmName `
         -Location $location `
-        -VmSize Standard_D2s_v3 `
+        -VmSize $vmSize `
         -AdminUsername Artemis `
         -AdminPassword $env:AZCLIPS_VM_ADMIN_PASSWORD `
         -NetworkInterfaceName "azclips-vmshow-nic-$suffix" `
@@ -130,6 +185,41 @@ try
     Write-Host '== 5. Get-AzVM -ResourceGroupName (list) =='
     Get-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup
 
+    Write-Host '== 6. Get-AzVM -ResourceGroupName -Name -Status (instance view in Properties.InstanceView; expect VM running) =='
+    $vm = Get-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Status
+    $vm.Properties.InstanceView
+    Test-InstanceView '6. -Status' $vm 'VM running'
+
+    Write-Host '== 7. Get-AzVM -Status -UserData (one GET for both expands; expect VM running) =='
+    Test-InstanceView '7. -Status -UserData' (Get-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Status -UserData) 'VM running'
+
+    Write-Host '== 8. Get-AzVM -Status:$false (plain GET, no instance view) =='
+    $vm = Get-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Status:$false
+    if ($null -eq $vm.Properties.InstanceView)
+    {
+        Write-Host '8. -Status:$false: plain VM'
+    }
+    else
+    {
+        Add-Failure '8. -Status:$false: expected the plain VM, but it has an instance view'
+    }
+
+    Write-Host '== 9. Stop-AzVM -StayProvisioned, then Get-AzVM -Status (expect VM stopped) =='
+    Stop-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -StayProvisioned -Force
+    Test-InstanceView '9. after Stop-AzVM -StayProvisioned' (Get-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Status) 'VM stopped'
+
+    Write-Host '== 10. Stop-AzVM, then Get-AzVM -Id -Status (expect VM deallocated) =='
+    Stop-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Force
+    Test-InstanceView '10. after Stop-AzVM' (Get-AzVM -Id $vmId -Status) 'VM deallocated'
+
+    Write-Host '== 11. Start-AzVM, then Get-AzVM -Status (expect VM running) =='
+    Start-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName
+    Test-InstanceView '11. after Start-AzVM' (Get-AzVM -SubscriptionId $subscriptionId -ResourceGroupName $resourceGroup -Name $vmName -Status) 'VM running'
+
+    if ($failures.Count -gt 0)
+    {
+        throw "Get-AzVM smoke test finished with $($failures.Count) failure(s)."
+    }
     Write-Host '== Get-AzVM smoke test finished =='
 }
 finally

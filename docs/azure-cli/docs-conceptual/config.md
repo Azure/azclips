@@ -101,9 +101,9 @@ gateway. The Agent always chooses the gateway from your tenant's data boundary:
 
 | Tenant data boundary | Gateway |
 | -------------------- | ------- |
-| `Global` | East US (`azclis-copilot-apim-ppe-eus.azure-api.net`) |
-| `EU` | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
-| Not known | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
+| `Global` | East US (`azclis-copilot-apim-prod-eus.azure-api.net`) |
+| `EU` | West Europe (`azclis-copilot-apim-prod-weu.azure-api.net`) |
+| Not known | West Europe (`azclis-copilot-apim-prod-weu.azure-api.net`) |
 
 The boundary is "not known" when the lookup fails or times out. It is also not
 known for managed identity sign-in, because that profile has no tenant ID.

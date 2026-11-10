@@ -85,7 +85,7 @@ function Invoke-AzclipsCommand {
 function Invoke-Azclips {
     param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
 
-    # Keep stderr diagnostics out of structured stdout such as agent tool env.
+    # Keep stderr diagnostics out of structured stdout such as agent tool env show.
     $output = Invoke-AzclipsCommand @Arguments | Out-String
     if ($LASTEXITCODE -ne 0) {
         throw "azclips exited with $LASTEXITCODE while running: $($Arguments -join ' ')`n$output"
@@ -261,7 +261,7 @@ try {
     # process starts: `config set` would itself start with telemetry on and report that command.
     Set-ConfigurationTelemetryOff $configurationPath
 
-    $runtimeEnvironment = Invoke-Azclips agent tool env | ConvertFrom-Json
+    $runtimeEnvironment = Invoke-Azclips agent tool env show | ConvertFrom-Json
     $subscriptionId = [guid]::Empty
     if ($runtimeEnvironment.signedIn -ne $true -or
         -not [guid]::TryParse($runtimeEnvironment.subscriptionId, [ref]$subscriptionId) -or
@@ -271,7 +271,7 @@ try {
 
     $targetVersion = [string]$runtimeEnvironment.azclipsVersion
     if ([string]::IsNullOrWhiteSpace($targetVersion)) {
-        throw 'agent tool env did not report azclipsVersion; the evaluated target build cannot be identified.'
+        throw 'agent tool env show did not report azclipsVersion; the evaluated target build cannot be identified.'
     }
     $target = [ordered]@{ version = $targetVersion.Trim() }
     $packageFingerprint = Get-PackageFingerprint (Split-Path -Parent $AzclipsExe)

@@ -15,6 +15,7 @@ public class ClientRequestIdHandlerTests
     public async Task SendAsync_AddsGuidHeader_AndPreservesItAcrossRetries()
     {
         var observedIds = new List<string>();
+        var userAgentObservedIds = new List<string>();
         var sendCount = 0;
         var terminal = new SendAsyncTerminalFactory((request, _) =>
         {
@@ -24,6 +25,13 @@ public class ClientRequestIdHandlerTests
                 sendCount == 1 ? System.Net.HttpStatusCode.InternalServerError : System.Net.HttpStatusCode.OK));
         });
         var pipeline = new HttpPipeline(terminal, maxRetry: 1, maxRetryFor429: 0);
+        pipeline.Prepend((request, callback, next) =>
+        {
+            var requestId = Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName));
+            userAgentObservedIds.Add(requestId);
+            request.Headers.UserAgent.ParseAdd($"test-client/{requestId}");
+            return next.SendAsync(request, callback);
+        });
         pipeline.Prepend(new ClientRequestIdHandler().SendAsync);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://management.azure.com/");
@@ -36,6 +44,7 @@ public class ClientRequestIdHandlerTests
         Assert.Equal(2, observedIds.Count);
         Assert.True(Guid.TryParse(observedIds[0], out _));
         Assert.Equal(observedIds[0], observedIds[1]);
+        Assert.Equal(observedIds[0], Assert.Single(userAgentObservedIds));
     }
 
     [Fact]

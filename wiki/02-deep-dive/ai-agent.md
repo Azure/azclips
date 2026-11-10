@@ -105,8 +105,8 @@ not advertised `az config` keys. The options still feed `BuiltinProviderConfig.B
 For `builtin`, `AgentStartupBoundary` acquires one Azure access token silently and uses it
 for the tenant data-boundary lookup (`Agent/AgentMode/AgentStartupBoundary.cs`).
 `BuiltinEndpointResolver.Choose` then picks the gateway (`Agent/Providers/BuiltinEndpointResolver.cs`).
-The boundary always picks the gateway (there is no endpoint override setting): a confirmed `Global` boundary selects the PPE East US gateway; `EU`, an
-unknown boundary, a failed lookup, and a managed-identity profile (no tenant) select PPE West
+The boundary always picks the gateway (there is no endpoint override setting): a confirmed `Global` boundary selects the production East US gateway; `EU`, an
+unknown boundary, a failed lookup, and a managed-identity profile (no tenant) select production West
 Europe. `BuiltinProviderConfig.Build` reuses the same token and builds a `ProviderConfig {
 Type = "azure", WireApi = "responses", BaseUrl = <resolved url>, BearerToken = ... }`
 (`Agent/Providers/BuiltinProviderConfig.cs`). The agent
@@ -305,7 +305,7 @@ likewise validated in the hook so the model gets a correction prompt instead of 
 ### Direct-read help catalog
 
 Help lookups should not start another CLI process on every tool call.
-`HelpTools` and `az agent tool help [--name <name>]` therefore share
+`HelpTools`, `az agent tool docs list`, and `az agent tool docs show --name <name>` therefore share
 `HelpCatalogProvider.ListJsonAsync` / `GetJsonAsync`. The public result remains the
 baseline camelCase `HelpIndex`, single `HelpCommand`, or `not_found` object with
 suggestions; the catalog header is never returned to the model. `get_command`
@@ -319,13 +319,13 @@ still accepts one string `name`, including case-insensitive PowerShell names
 | Expected generation/read failure | Return an explicit `help_catalog_*` error; never substitute an empty catalog or reuse stale help. A later call can retry. Unexpected defects propagate to the host's error handling. |
 
 The default is **on-demand generation**, not a prewarmed installation.
-`az agent tool help generate` uses the current `IAssemblyLoadingService` discovery
+`az agent tool docs generate` uses the current `IAssemblyLoadingService` discovery
 and `ExtensionHelpManifestBuilder`, preserving installed-version selection and
 registry pins. Failed extension loads abort generation rather than publishing
 partial help as complete. CLI help regenerates in process; the standalone agent
 invokes that generation command only when needed
-(`Agent/Commands/Processors/HelpGenerateProcessor.cs:30`,
-`Agent/Commands/Processors/HelpProcessor.cs:16`).
+(`Agent/Commands/Processors/DocsGenerateProcessor.cs:30`,
+`Agent/Commands/Processors/DocsProcessorBase.cs:16`).
 
 `IAssemblyLoadingService.LoadAllExtensions` documents `null` as no discovered
 extensions, so that result legitimately produces an empty catalog. A discovery
@@ -423,7 +423,7 @@ always-on in `ConsoleAgentRenderer`, independent of tracing (`TraceAgentRenderer
 ## Environment probes & hooks
 
 Before the model's first turn (and on each user prompt), `EnvSnapshotProvider.GetJsonAsync`
-builds a live `EnvironmentSnapshot` **in process**, without running `az agent tool env`
+builds a live `EnvironmentSnapshot` **in process**, without running `az agent tool env show`
 or reading a separate snapshot file. The CLI env command uses the same provider
 (`Agent/Tools/Env/EnvSnapshotProvider.cs:14`, `Agent/Commands/Processors/EnvProcessor.cs`).
 The JSON is injected by `SessionHooks.OnSessionStart` / `OnUserPromptSubmitted`

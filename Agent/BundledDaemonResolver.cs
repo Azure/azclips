@@ -6,7 +6,7 @@ namespace Core.Agent;
 /// Resolves the bundled Copilot CLI executable from the SDK NuGet package.
 /// The SDK kills the daemon by PID (<c>Process.Kill(entireProcessTree: true)</c>),
 /// so renaming the shipped binary for Task Manager attribution isn't worth the
-/// write — MSIX install dirs are read-only and the copy fails there.
+/// write — install directories may be read-only and the copy would fail there.
 /// </summary>
 internal static class BundledDaemonResolver
 {

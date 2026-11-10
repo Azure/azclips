@@ -7,9 +7,6 @@ using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
 namespace Cmdlets.Tests;
 
-/// <summary>
-/// Tests for the composition root (means the central place where dependencies are registered and wired up) of the PowerShell application.
-/// </summary>
 [Collection("Azclips Service Provider Tests")]
 public class CompositionRootClientMetadataTests
 {

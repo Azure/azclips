@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace Core.Agent.Common;
 
 /// <summary>
-/// Formats the JSON emitted by <c>az agent tool env</c> into the
+/// Formats the JSON emitted by <c>az agent tool env show</c> into the
 /// <c>&lt;environment&gt;...&lt;/environment&gt;</c> block injected as system
 /// context every turn. Kept alongside the SDK-hook wire-up (not in the shared
 /// tool library) because only the agent host consumes it — the CLI processor

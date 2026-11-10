@@ -32,7 +32,8 @@ public static class DIRegisterExtensions
         services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
         services.AddSingleton<IProfileService, ProfileService>();
         services.AddSingleton<IFailureHistoryStore>(provider =>
-            new EncryptedFailureHistoryStore(provider.GetRequiredService<IFailureHistoryKeyStore>()));
+            new EncryptedFailureHistoryStore(
+                provider.GetRequiredService<IFailureHistoryKeyStore>(), logger: provider.GetService<ILoggingService>()));
         services.AddKeyedSingleton<IConfigurationChangeHandler, RecoveryConfigurationChangeHandler>(
             RecoveryConfigurationChangeHandler.TriggerKey);
         return services;

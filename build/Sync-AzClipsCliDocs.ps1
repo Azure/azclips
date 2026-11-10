@@ -18,6 +18,8 @@
 #                         target. Defaults to $true because our current service_name.json produces
 #                         a single broken page with unresolvable xrefs (tracked as follow-up to
 #                         Azure/CLIPS#588). Pass `-SkipServicePages:$false` once upstream is fixed.
+#                         When on, TOC.yml is also regenerated as a command-group tree
+#                         (Write-CommandGroupToc), since CLI2Yaml's TOC points at the stripped service page.
 #
 # Preflight: requires CLI2Yaml NuGet package to be resolvable — either already in the local
 # NuGet cache under ~/.nuget/packages/cli2yaml/ or fetchable from the internal apidrop feed
@@ -362,6 +364,116 @@ function Remove-ServicePageOutput
         Remove-Item -Recurse -Force $servicePageDir
         Write-Host "  → Removed service-page/ ($count file(s)) — SkipServicePages is on" -ForegroundColor DarkGray
     }
+}
+
+# Rewrites OutputVersionFolder/latest/TOC.yml as a command-group tree derived from the generated
+# YAML layout (agent.yml + agent/tool.yml → "Agent" > Commands, Tool), including root commands
+# embedded in reference-index.yml. CLI2Yaml's own TOC hangs every
+# command under service pages, which AzClips doesn't use; once service pages are stripped that TOC
+# only holds a dangling sp-azure-cli entry. The layout mirrors azure-cli-latest's reference TOC.
+function Write-CommandGroupToc
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$OutputVersionFolder
+    )
+
+    $latest = Join-Path $OutputVersionFolder 'latest'
+    if (-not (Test-Path $latest)) { throw "CLI2Yaml output folder '$latest' does not exist." }
+
+    $tocPath = Join-Path $latest 'TOC.yml'
+    $newline = "`n"
+    if ((Test-Path $tocPath) -and ([IO.File]::ReadAllText($tocPath).Contains("`r`n"))) { $newline = "`r`n" }
+
+    function Read-GroupHeader([string]$Path)
+    {
+        $text = [IO.File]::ReadAllText($Path)
+        $uid  = [regex]::Match($text, '(?m)^uid:[ \t]*(\S+)[ \t]*\r?$')
+        if (-not $uid.Success) { throw "Generated reference file '$Path' has no top-level uid." }
+        $name = [regex]::Match($text, '(?m)^name:[ \t]*(.+?)[ \t]*\r?$')
+        [pscustomobject]@{
+            Uid  = $uid.Groups[1].Value
+            Name = if ($name.Success) { $name.Groups[1].Value } else { $uid.Groups[1].Value }
+        }
+    }
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $rootCommands = @{}
+    $index = Join-Path $latest 'reference-index.yml'
+    if (Test-Path $index)
+    {
+        # CLI2Yaml places root commands inside the index, not in separate group files.
+        $text = [IO.File]::ReadAllText($index)
+        $block = [regex]::Match($text, '(?ms)^directCommands:\r?\n(.*?)(?=^[A-Za-z]|\z)')
+        foreach ($command in [regex]::Matches($block.Groups[1].Value, '(?ms)^- uid:[ \t]*(\S+)[ \t]*\r?\n(.*?)(?=^- uid:|\z)'))
+        {
+            $name = [regex]::Match($command.Groups[2].Value, '(?m)^  name:[ \t]*az ([^ \t\r\n]+)[ \t]*\r?$')
+            if (-not $name.Success) { throw "Root command '$($command.Groups[1].Value)' has no valid name in '$index'." }
+            $rootCommands.Add($name.Groups[1].Value, [pscustomobject]@{
+                Uid = $command.Groups[1].Value
+                Name = "az $($name.Groups[1].Value)"
+            })
+        }
+    }
+
+    function Add-Groups([string]$Folder, [string]$Indent)
+    {
+        $files = @(Get-ChildItem -Path $Folder -Filter '*.yml' -File |
+            Where-Object { $_.Name -notin @('TOC.yml', 'reference-index.yml') })
+        $dirs  = @(Get-ChildItem -Path $Folder -Directory)
+        $segments = @($files | ForEach-Object { $_.BaseName }) + @($dirs | ForEach-Object { $_.Name })
+        if ($Folder -eq $latest) { $segments += @($rootCommands.Keys) }
+        $segments = $segments |
+            Sort-Object -Unique -Culture ([cultureinfo]::InvariantCulture)
+
+        foreach ($segment in $segments)
+        {
+            $file  = Join-Path $Folder "$segment.yml"
+            $child = Join-Path $Folder $segment
+            $header = if (Test-Path $file -PathType Leaf) { Read-GroupHeader $file } else { $null }
+            $hasChildren = (Test-Path $child -PathType Container) -and
+                @(Get-ChildItem -Path $child -Recurse -Filter '*.yml' -File).Count -gt 0
+
+            if ($Folder -eq $latest -and $rootCommands.ContainsKey($segment))
+            {
+                if ($header -or $hasChildren) { throw "Root command '$segment' conflicts with a generated group." }
+                $header = $rootCommands[$segment]
+            }
+            $lines.Add("$Indent- name: $segment")
+            if ($hasChildren)
+            {
+                $lines.Add("$Indent  items:")
+                if ($header)
+                {
+                    $lines.Add("$Indent  - name: Commands")
+                    $lines.Add("$Indent    uid: $($header.Uid)")
+                    $lines.Add("$Indent    displayName: $($header.Name)")
+                }
+                Add-Groups -Folder $child -Indent "$Indent  "
+            }
+            elseif ($header)
+            {
+                $lines.Add("$Indent  uid: $($header.Uid)")
+                $lines.Add("$Indent  displayName: $($header.Name)")
+            }
+            $lines.Add("$Indent  no-loc:")
+            $lines.Add("$Indent  - $segment")
+        }
+    }
+
+    $lines.Add('- name: CLI reference')
+    $lines.Add('  displayName: CLI reference')
+    $lines.Add('  items:')
+    if (Test-Path $index)
+    {
+        $lines.Add('  - name: List A - Z')
+        $lines.Add("    uid: $((Read-GroupHeader $index).Uid)")
+        $lines.Add('    displayName: List A - Z')
+    }
+    Add-Groups -Folder $latest -Indent '  '
+
+    [IO.File]::WriteAllText($tocPath, ($lines -join $newline) + $newline, [Text.UTF8Encoding]::new($false))
+    Write-Host "  → Wrote command-group TOC.yml ($($lines.Count) lines)" -ForegroundColor DarkGray
 }
 
 # ── Target-repo helpers ─────────────────────────────────────────────────────────
@@ -726,7 +838,11 @@ if ($Force)
             -SourceRepoUrl $effectiveSourceRepoUrl `
             -SourceBranch $effectiveSourceBranch
 
-        if ($SkipServicePages) { Remove-ServicePageOutput -OutputVersionFolder $targetVersionFolder }
+        if ($SkipServicePages)
+        {
+            Remove-ServicePageOutput -OutputVersionFolder $targetVersionFolder
+            Write-CommandGroupToc -OutputVersionFolder $targetVersionFolder
+        }
 
         $effectiveTimestamp = if ($Timestamp) { $Timestamp } else { [DateTime]::UtcNow.ToString('yyyyMMddHHmm') }
         Write-Host ''
@@ -795,7 +911,11 @@ Invoke-Cli2Yaml `
     -SourceRepoUrl $effectiveSourceRepoUrl `
     -SourceBranch $effectiveSourceBranch
 
-if ($SkipServicePages) { Remove-ServicePageOutput -OutputVersionFolder $scratchOutput }
+if ($SkipServicePages)
+{
+    Remove-ServicePageOutput -OutputVersionFolder $scratchOutput
+    Write-CommandGroupToc -OutputVersionFolder $scratchOutput
+}
 
 Write-DryRunReport -ScratchOutput $scratchOutput -Moniker $effectiveMoniker -VersionFolder $effectiveVersionFolder -SourceRepoUrl $effectiveSourceRepoUrl -SourceBranch $effectiveSourceBranch
 

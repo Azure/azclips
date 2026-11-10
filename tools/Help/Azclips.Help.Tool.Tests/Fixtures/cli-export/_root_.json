@@ -3,6 +3,7 @@
     "command": "",
     "type": "group",
     "short_summary": "AzClips CLI.",
-    "long_summary": ""
+    "long_summary": "",
+    "preview_info": ""
   }
 ]

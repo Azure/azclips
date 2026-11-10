@@ -7,6 +7,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Tools.Env;
 using Core.Agent.Tools.Help;
+using Core.Cli.Help;
 using Core.Runtime;
 using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
@@ -24,9 +25,9 @@ public sealed class DirectReadCommandTests
         using var fixture = new HelpCatalogFixture();
         var home = await CreateChildHomeAsync(fixture);
         var cli = BuiltCliPath();
-        using (var cold = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "help", "--name", "agent tool help"], fixture.Root)))
-            Assert.Equal("agent tool help", cold.RootElement.GetProperty("cliName").GetString());
-        var generated = await RunCliAsync(cli, home, ["agent", "tool", "help", "generate"], fixture.Root);
+        using (var cold = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "docs", "show", "--name", "agent tool docs show"], fixture.Root)))
+            Assert.Equal("agent tool docs show", cold.RootElement.GetProperty("cliName").GetString());
+        var generated = await RunCliAsync(cli, home, ["agent", "tool", "docs", "generate"], fixture.Root);
         using (var document = JsonDocument.Parse(generated))
             Assert.True(document.RootElement.GetProperty("generated").GetBoolean());
         Assert.False(File.Exists(Path.Combine(home, "extensions", "registry.json")));
@@ -34,20 +35,20 @@ public sealed class DirectReadCommandTests
         var provider = new HelpCatalogProvider(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName),
             _ => throw new InvalidOperationException("A warm read must not invoke az."));
         HelpCatalogProviderTests.AssertJsonEqual(
-            await RunCliAsync(cli, home, ["agent", "tool", "help"], fixture.Root), await provider.ListJsonAsync());
+            await RunCliAsync(cli, home, ["agent", "tool", "docs", "list"], fixture.Root), await provider.ListJsonAsync());
         HelpCatalogProviderTests.AssertJsonEqual(
-            await RunCliAsync(cli, home, ["agent", "tool", "help", "--name", "agent tool help"], fixture.Root),
-            await provider.GetJsonAsync("agent tool help"));
+            await RunCliAsync(cli, home, ["agent", "tool", "docs", "show", "--name", "agent tool docs show"], fixture.Root),
+            await provider.GetJsonAsync("agent tool docs show"));
         var path = Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName, HelpCatalogProvider.IndexFileName);
         await File.WriteAllTextAsync(path, "{broken");
         HelpCatalogProviderTests.AssertJsonEqual(
-            await RunCliAsync(cli, home, ["agent", "tool", "help"], fixture.Root), await provider.ListJsonAsync());
+            await RunCliAsync(cli, home, ["agent", "tool", "docs", "list"], fixture.Root), await provider.ListJsonAsync());
 
         var index = new Microsoft.Azure.Azclips.Extensions.Agent.ExtensionIndex();
-        Assert.Equal(typeof(HelpGenerateProcessor), index.GetCommandMetadata("agent tool help generate", ClientType.CLI).ProcessorType);
-        Assert.Empty(index.GetCommandMetadata("agent tool help", ClientType.CLI).ParameterAliases);
-        Assert.Equal(new[] { "name" }, index.GetCommandMetadata("agent tool help", ClientType.CLI).Parameters.Keys);
-        Assert.Empty(index.GetCommandMetadata("agent tool help generate", ClientType.CLI).Parameters);
+        Assert.Equal(typeof(DocsGenerateProcessor), index.GetCommandMetadata("agent tool docs generate", ClientType.CLI).ProcessorType);
+        Assert.Empty(index.GetCommandMetadata("agent tool docs show", ClientType.CLI).ParameterAliases);
+        Assert.Equal(new[] { "name" }, index.GetCommandMetadata("agent tool docs show", ClientType.CLI).Parameters.Keys);
+        Assert.Empty(index.GetCommandMetadata("agent tool docs generate", ClientType.CLI).Parameters);
     }
 
     [Fact]
@@ -67,7 +68,7 @@ public sealed class DirectReadCommandTests
                     SubscriptionId = "11111111-1111-1111-1111-111111111111",
                 });
 
-            using var command = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "env"], fixture.Root));
+            using var command = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "env", "show"], fixture.Root));
             using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli));
             foreach (var field in new[] { "os", "shell", "sshSession", "browserAvailable", "signedIn", "subscriptionId", "tenantId", "flavor", "azclipsVersion" })
                 Assert.True(JsonElement.DeepEquals(command.RootElement.GetProperty(field), direct.RootElement.GetProperty(field)), field);
@@ -84,22 +85,24 @@ public sealed class DirectReadCommandTests
         fixture.Install("NoIndex", "1.0.0", typeof(AgentOptions).Assembly);
         var home = await CreateChildHomeAsync(fixture);
 
-        var output = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "help"], fixture.Root);
+        var output = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "docs", "list"], fixture.Root);
 
         HelpCatalogProviderTests.AssertError(output, "help_catalog_regeneration_failed");
         Assert.False(File.Exists(Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName, HelpCatalogProvider.IndexFileName)));
     }
 
-    [Fact]
-    public async Task HelpLeafShowsCatalogRegenerationGuidance()
+    [Theory]
+    [InlineData("list")]
+    [InlineData("show")]
+    public async Task DocsLeafShowsCatalogRegenerationGuidance(string action)
     {
         using var fixture = new HelpCatalogFixture();
         var home = await CreateChildHomeAsync(fixture);
 
-        var output = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "help", "--help"], fixture.Root);
+        var output = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "docs", action, "--help"], fixture.Root);
 
         Assert.Contains("local help catalog", output, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("az agent tool help generate", output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("az agent tool docs generate", output, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -109,7 +112,7 @@ public sealed class DirectReadCommandTests
         var home = await CreateChildHomeAsync(fixture);
         var cli = BuiltCliPath();
         var results = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ =>
-            RunCliAsync(cli, home, ["agent", "tool", "help", "generate"], fixture.Root)));
+            RunCliAsync(cli, home, ["agent", "tool", "docs", "generate"], fixture.Root)));
         foreach (var result in results)
         {
             using var generated = JsonDocument.Parse(result);
@@ -118,14 +121,74 @@ public sealed class DirectReadCommandTests
 
         var provider = new HelpCatalogProvider(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName),
             _ => throw new InvalidOperationException("Concurrent publishers must leave a fresh catalog."));
-        using var command = JsonDocument.Parse(await provider.GetJsonAsync("agent tool help generate"));
-        Assert.Equal("agent tool help generate", command.RootElement.GetProperty("cliName").GetString());
+        using var command = JsonDocument.Parse(await provider.GetJsonAsync("agent tool docs generate"));
+        Assert.Equal("agent tool docs generate", command.RootElement.GetProperty("cliName").GetString());
+    }
+
+    [Fact]
+    public void DocsRegistrationsAndManifest_ExposeDistinctActionsWithRequiredLookupName()
+    {
+        var index = new Microsoft.Azure.Azclips.Extensions.Agent.ExtensionIndex();
+        var list = index.GetCommandMetadata("agent tool docs list", ClientType.CLI);
+        var show = index.GetCommandMetadata("agent tool docs show", ClientType.CLI);
+        Assert.Equal(typeof(DocsListProcessor), list.ProcessorType);
+        Assert.Equal(typeof(DocsShowProcessor), show.ProcessorType);
+        Assert.Empty(list.Parameters);
+        Assert.Empty(list.ParameterAliases);
+        Assert.True(Assert.Single(show.Parameters).Value.IsRequired);
+        Assert.True(Assert.Single(Assert.Single(show.ParameterSets!).Value.Parameters!).Value.IsRequired);
+        Assert.Empty(index.GetCommandMetadata("agent tool env show", ClientType.CLI).Parameters);
+
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "agent");
+        var docs = manifest.Commands.Where(command => command.CliName.StartsWith("agent tool docs ", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(new[] { "agent tool docs generate", "agent tool docs list", "agent tool docs show" },
+            docs.Select(command => command.CliName));
+        Assert.Empty(docs.Single(command => command.CliName == "agent tool docs list").Parameters);
+        Assert.True(Assert.Single(docs.Single(command => command.CliName == "agent tool docs show").Parameters).Required);
+    }
+
+    [Theory]
+    [InlineData("docs", "list", "show", "generate")]
+    [InlineData("env", "show")]
+    public async Task ToolGroups_OnlyExposeActionsThroughHelp(string group, params string[] actions)
+    {
+        using var fixture = new HelpCatalogFixture();
+        var home = await CreateChildHomeAsync(fixture);
+        var index = new Microsoft.Azure.Azclips.Extensions.Agent.ExtensionIndex();
+        Assert.Throws<KeyNotFoundException>(() => index.GetCommandMetadata($"agent tool {group}", ClientType.CLI));
+        var help = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", group, "--help"], fixture.Root);
+        foreach (var action in actions)
+            Assert.Contains(action, help, StringComparison.Ordinal);
+        var error = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", group], fixture.Root, expectedExitCode: 4);
+        Assert.Contains("CommandNotFound", error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("help")]
+    [InlineData("help", "generate")]
+    public async Task RetiredHelpPaths_AreNotExecutable(params string[] path)
+    {
+        using var fixture = new HelpCatalogFixture();
+        var home = await CreateChildHomeAsync(fixture);
+        var error = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", .. path], fixture.Root, expectedExitCode: 4);
+        Assert.Contains("CommandNotFound", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DocsShowWithoutName_ReportsMissingRequiredFlag()
+    {
+        using var fixture = new HelpCatalogFixture();
+        var home = await CreateChildHomeAsync(fixture);
+        var error = await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "docs", "show"], fixture.Root, expectedExitCode: 2);
+        Assert.Contains("UsageError", error, StringComparison.Ordinal);
+        Assert.Contains("candidate: [name]", error, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName, HelpCatalogProvider.IndexFileName)));
     }
 
     [Fact]
     public void AgentProcessorCancellation_IsAvailableToReadAndGeneratePaths()
     {
-        foreach (var processor in new AgentProcessorBase[] { new HelpGenerateProcessor(), new HelpProcessor(), new EnvProcessor() })
+        foreach (var processor in new AgentProcessorBase[] { new DocsGenerateProcessor(), new DocsListProcessor(), new DocsShowProcessor(), new EnvProcessor() })
         {
             Assert.False(processor.Token.IsCancellationRequested);
             processor.Cancel();
@@ -157,7 +220,7 @@ public sealed class DirectReadCommandTests
             OperatingSystem.IsWindows() ? "az.exe" : "az");
     }
 
-    private static async Task<string> RunCliAsync(string cli, string home, string[] arguments, string callerDirectory)
+    private static async Task<string> RunCliAsync(string cli, string home, string[] arguments, string callerDirectory, int expectedExitCode = 0)
     {
         var start = new ProcessStartInfo(cli)
         {
@@ -189,7 +252,8 @@ public sealed class DirectReadCommandTests
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
         }
-        Assert.True(process.ExitCode == 0, await errors);
-        return await output;
+        var stderr = await errors;
+        Assert.True(process.ExitCode == expectedExitCode, $"Expected exit {expectedExitCode}, got {process.ExitCode}.\n{stderr}");
+        return expectedExitCode == 0 ? await output : await output + stderr;
     }
 }

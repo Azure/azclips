@@ -5,6 +5,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
+using Core.Runtime;
 
 namespace Core.Engine.Tests;
 
@@ -64,6 +65,106 @@ public class ExecutionSessionSeamTests
             ResolveUploadRegionAsync = (_, _) => Task.FromResult(UploadRegion.EU),
         };
         return session;
+    }
+
+    [Fact]
+    public async Task Timing_SeparatesPreparationFromInvocation_WithoutProcessorEventsOrForcedLoads()
+    {
+        var clock = new ManualClock();
+        var timeline = new CommandTimingRecorder(clock);
+        using var session = CreateSession(ClientType.CLI);
+        session.Performance = timeline;
+        session.LoadAssembly = (_, _) => throw new InvalidOperationException("A cached index must not load a DLL.");
+        session.ResolveProfileAsync = _ =>
+        {
+            clock.Advance(10);
+            return Task.FromResult<Profile?>(null);
+        };
+        session.BindProcessor = (_, _, _, _) =>
+        {
+            clock.Advance(20);
+            return new ActionProcessor(async () =>
+            {
+                var invocation = Assert.Single(timeline.Capture().Measurements, p => p.Name == "Command invocation");
+                Assert.False(invocation.IsComplete);
+                clock.Advance(30);
+                await Task.Yield();
+            });
+        };
+
+        await session.RunAsync();
+
+        var rows = timeline.Capture().Measurements;
+        var preparation = Assert.Single(rows, p => p.Name.StartsWith("Dispatch preparation"));
+        var invocation = Assert.Single(rows, p => p.Name == "Command invocation");
+        Assert.Equal(TimeSpan.FromMilliseconds(30), preparation.Duration);
+        Assert.Equal(TimeSpan.FromMilliseconds(30), invocation.Duration);
+        Assert.Equal(preparation.End, invocation.Start);
+        Assert.DoesNotContain(rows, p => p.Name == "Selected-extension loading");
+        Assert.All(rows, p => Assert.True(p.IsComplete));
+    }
+
+    [Fact]
+    public async Task Timing_LoadFailureClosesLoadingAndPreparation_WithoutInvocation()
+    {
+        var clock = new ManualClock();
+        var timeline = new CommandTimingRecorder(clock);
+        using var session = CreateSession(ClientType.CLI);
+        session.Performance = timeline;
+        session.CacheGetOrAdd = (_, _, factory) => factory();
+        session.LoadAssembly = (_, _) =>
+        {
+            clock.Advance(25);
+            throw new InvalidOperationException("Load failed.");
+        };
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(session.RunAsync);
+
+        Assert.Equal("Load failed.", error.Message);
+        var rows = timeline.Capture().Measurements;
+        var loading = Assert.Single(rows, p => p.Name == "Selected-extension loading");
+        Assert.Equal(TimeSpan.FromMilliseconds(25), loading.Duration);
+        Assert.Equal(1, loading.Depth);
+        Assert.DoesNotContain(rows, p => p.Name == "Command invocation");
+        Assert.All(rows, p => Assert.True(p.IsComplete));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Timing_FailureOrCancellationClosesInvocationAndPreservesException(bool canceled)
+    {
+        var clock = new ManualClock();
+        var timeline = new CommandTimingRecorder(clock);
+        using var session = CreateSession(ClientType.CLI);
+        session.Performance = timeline;
+        Exception expected = canceled ? new OperationCanceledException() : new InvalidOperationException("Processor failed.");
+        session.BindProcessor = (_, _, _, _) => new ActionProcessor(() =>
+        {
+            clock.Advance(17);
+            return Task.FromException(expected);
+        });
+
+        var error = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Same(expected, error);
+        var invocation = Assert.Single(timeline.Capture().Measurements, p => p.Name == "Command invocation");
+        Assert.True(invocation.IsComplete);
+        Assert.Equal(TimeSpan.FromMilliseconds(17), invocation.Duration);
+    }
+
+    private sealed class ActionProcessor(Func<Task> process) : IProcessor
+    {
+        public IProcessor Init(ProcessorContext context) => this;
+        public Task ProcessAsync() => process();
+    }
+
+    private sealed class ManualClock : TimeProvider
+    {
+        private long _timestamp;
+        public override long GetTimestamp() => _timestamp;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public void Advance(int milliseconds) => _timestamp += TimeSpan.FromMilliseconds(milliseconds).Ticks;
     }
 
     // The engine publishes Events.ProcessorAcquired at the lifecycle seam: after the command

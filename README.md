@@ -97,7 +97,7 @@ Start here, then follow the pointers into `./docs`.
 
 ## Known limitations
 
-This is an early private preview — expect rough edges and change between builds.
+This is an early public preview — expect rough edges and change between builds.
 
 - The preview focuses on **interactive user scenarios**. Non-interactive auth methods — Resource Owner Password Credentials (ROPC), service principals, and managed identities — aren't supported yet.
 - Supported shells are **PowerShell 7+, bash, and zsh**. Windows PowerShell 5.1 and the PowerShell ISE aren't supported.
@@ -124,7 +124,6 @@ We review on a regular cadence. For quick collaboration with the Product Group, 
 ```
 azclips/
 ├── Agent/            # Agent host, chat/agent-mode entry, hooks, and tools
-├── assets/           # Shared static assets
 ├── build/            # Build scripts (build.ps1, module staging, help gen)
 ├── devops/           # DevOps helper scripts
 ├── docs/             # Documentation (getting-started & reference), being consolidated
