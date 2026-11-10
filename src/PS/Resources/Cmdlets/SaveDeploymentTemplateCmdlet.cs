@@ -5,10 +5,11 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsData.Save, "AzDeploymentTemplate", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsData.Save, "AzDeploymentTemplate", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = "SaveByDeploymentName")]
 [Alias("Save-AzSubscriptionDeploymentTemplate")]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeploymentTemplateSaveResult")]
 public class SaveDeploymentTemplateCmdlet : PSCmdlet
@@ -17,12 +18,16 @@ public class SaveDeploymentTemplateCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, ParameterSetName = "SaveByDeploymentName")]
     public string SubscriptionId { get; set; } = "";
 
+    // No pipeline binding: a piped deployment must route to -InputObject so its Id (with subscription) is used.
     [Alias("DeploymentName")]
-    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true)]
-    public string Name { get; set; } = "";
+    [Parameter(Mandatory = true, ParameterSetName = "SaveByDeploymentName", HelpMessage = "The name of the deployment.")]
+    public string? Name { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = "SaveByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
+    public DeploymentExtended? InputObject { get; set; }
 
     [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true)]
     public string? Path { get; set; }
@@ -41,7 +46,7 @@ public class SaveDeploymentTemplateCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        if (!ShouldProcess($"deployment '{Name}'", "Save template"))
+        if (!ShouldProcess($"deployment '{Name ?? InputObject?.Id}'", "Save template"))
         {
             return;
         }
@@ -53,10 +58,24 @@ public class SaveDeploymentTemplateCmdlet : PSCmdlet
         // which can differ from the process working directory the processor would otherwise see.
         var parameters = new Dictionary<string, object>
         {
-            { "Name", Name },
             { "Path", ResolveOutputPath() },
         };
 
+        if (Name is not null)
+        {
+            parameters.Add("Name", Name);
+        }
+        if (InputObject is not null)
+        {
+            // The piped deployment's Id carries its own subscription; the profile's subscription may differ.
+            if (DeploymentObjectResolver.ParseSubscriptionDeploymentId(InputObject.Id) is not { } deployment)
+            {
+                WriteError(DeploymentObjectResolver.InvalidSubscriptionDeploymentIdError(InputObject));
+                return;
+            }
+            parameters.Add("SubscriptionId", deployment.SubscriptionId);
+            parameters.Add("Name", deployment.Name);
+        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
             parameters.Add("SubscriptionId", SubscriptionId);

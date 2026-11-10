@@ -17,10 +17,17 @@ Save the template used for a subscription-scope deployment to a file.
 
 ## SYNTAX
 
-### __AllParameterSets
+### SaveByDeploymentName (Default)
 
 ```
 Save-AzDeploymentTemplate -Name <string> [-SubscriptionId <string>] [-Path <string>] [-Force]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### SaveByInputObject
+
+```
+Save-AzDeploymentTemplate -InputObject <DeploymentExtended> [-Path <string>] [-Force]
  [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -33,7 +40,7 @@ This cmdlet has the following aliases,
 
 Exports the Azure Resource Manager template that a subscription-scoped deployment was created from and writes it to a file on disk. The operation is read-only: it never creates or modifies resources. Azure Resource Manager returns the template exactly as it was submitted, with parameters and variables left unresolved, so the saved file can be fed straight back into `New-AzDeployment -TemplateFile`.
 
-The cmdlet emits an object carrying the full path of the file that was written. Exporting a deployment that does not exist fails with `DeploymentNotFound`. The subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
+The cmdlet emits an object carrying the full path of the file that was written. Exporting a deployment that does not exist fails with `DeploymentNotFound`. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzDeployment`; a piped deployment is read from the subscription in its `Id`. With `-Name`, the subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
 
 `-Path` follows the same rules as the legacy cmdlet: when it names an existing directory the file is written there as `<deployment name>.json`; any other value is treated as the file itself and gains a `.json` extension when it lacks one. A relative path is resolved against the current PowerShell location, and any missing parent directories are created. When `-Path` is omitted the file is written to the current location as `<deployment name>.json`.
 
@@ -63,6 +70,14 @@ Without `-Force` a second run against the same destination fails instead of repl
 
 ```powershell
 Save-AzDeploymentTemplate -Name sub-infra-2026-06-18 -Path .\sub-infra.json -Force
+```
+
+### Save the template of a piped deployment
+
+The deployment's `Id` carries its subscription, so the template is read from that subscription even when it is not the active one.
+
+```powershell
+Get-AzDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 | Save-AzDeploymentTemplate -Path C:\templates
 ```
 
 ## PARAMETERS
@@ -110,6 +125,28 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -InputObject
+
+A deployment object returned by `Get-AzDeployment`.
+Its `Id` identifies the subscription and deployment whose template to save. Accepts pipeline input.
+
+```yaml
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: SaveByInputObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: true
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -Name
 
 The name of the deployment whose template to save.
@@ -121,11 +158,11 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: (All)
+- Name: SaveByDeploymentName
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -184,7 +221,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
+- Name: SaveByDeploymentName
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -226,9 +263,13 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+
+Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
+
 ### System.String
 
-You can pipe the **Name** and **Path** values to this cmdlet by property name, for example the output of `Get-AzDeployment`.
+You can pipe the **Path** value to this cmdlet by property name.
 
 ## OUTPUTS
 

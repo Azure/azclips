@@ -31,6 +31,12 @@ Get-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
+### GetByInputObject
+
+```
+Get-AzDeployment -InputObject <DeploymentExtended> [-Profile <string>] [<CommonParameters>]
+```
+
 ## ALIASES
 
 This cmdlet has the following aliases,
@@ -38,7 +44,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Retrieves Azure Resource Manager deployments scoped to a subscription. Supply `-Name` to get a single deployment; omit it to list every subscription-scope deployment. Resource group deployments are not included; use `Get-AzResourceGroupDeployment` for those. The subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
+Retrieves Azure Resource Manager deployments scoped to a subscription. Supply `-Name` to get a single deployment; omit it to list every subscription-scope deployment. Pipe a deployment object to read it again from the subscription in its `Id`, for example to refresh its provisioning state. Resource group deployments are not included; use `Get-AzResourceGroupDeployment` for those. With `-Name` or no name, the subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
 
 ## EXAMPLES
 
@@ -58,7 +64,37 @@ Omit `-Name` to enumerate all subscription-scope deployments.
 Get-AzDeployment -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
+### Refresh a piped deployment
+
+Read each listed deployment again from the subscription in its `Id`.
+
+```powershell
+Get-AzDeployment -SubscriptionId 00000000-0000-0000-0000-000000000000 | Get-AzDeployment
+```
+
 ## PARAMETERS
+
+### -InputObject
+
+A deployment object returned by `Get-AzDeployment`.
+Its `Id` identifies the subscription and deployment to retrieve. Accepts pipeline input.
+
+```yaml
+Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: GetByInputObject
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: true
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
 
 ### -Name
 
@@ -75,13 +111,13 @@ ParameterSets:
   Position: 0
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 - Name: List
   Position: 0
   IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -145,15 +181,15 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### System.String
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-You can pipe the **Name** value to this cmdlet by property name, for example the output of `Get-AzDeployment`.
+Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
 
 ## OUTPUTS
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-A `DeploymentExtended` for each matching deployment. The `Get` parameter set emits exactly one object; the `List` parameter set emits one object per deployment, following paged results automatically.
+A `DeploymentExtended` for each matching deployment. The `Get` and `GetByInputObject` parameter sets emit exactly one object per deployment; the `List` parameter set emits one object per deployment, following paged results automatically.
 
 ## NOTES
 

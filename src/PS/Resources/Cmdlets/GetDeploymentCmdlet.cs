@@ -5,6 +5,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Common;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
@@ -21,10 +22,14 @@ public class GetDeploymentCmdlet : PSCmdlet
     [Parameter(ParameterSetName = "List", Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
-    [Parameter(ParameterSetName = "Get", Position = 0, Mandatory = true, ValueFromPipelineByPropertyName = true)]
-    [Parameter(ParameterSetName = "List", Position = 0, Mandatory = false, ValueFromPipelineByPropertyName = true)]
+    // No pipeline binding: a piped deployment must route to -InputObject so its Id (with subscription) is used.
+    [Parameter(ParameterSetName = "Get", Position = 0, Mandatory = true)]
+    [Parameter(ParameterSetName = "List", Position = 0, Mandatory = false)]
     [Alias("DeploymentName")]
     public string? Name { get; set; }
+
+    [Parameter(Mandatory = true, ParameterSetName = "GetByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
+    public DeploymentExtended? InputObject { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -48,14 +53,24 @@ public class GetDeploymentCmdlet : PSCmdlet
         {
             parameters.Add("Name", Name!);
         }
+        if (InputObject is not null)
+        {
+            // The piped deployment's Id carries its own subscription; the profile's subscription may differ.
+            if (DeploymentObjectResolver.ParseSubscriptionDeploymentId(InputObject.Id) is not { } deployment)
+            {
+                WriteError(DeploymentObjectResolver.InvalidSubscriptionDeploymentIdError(InputObject));
+                return;
+            }
+            parameters.Add("SubscriptionId", deployment.SubscriptionId);
+            parameters.Add("Name", deployment.Name);
+        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
             parameters.Add("Profile", Profile!);
         }
 
-        // Name may arrive via pipeline after the default "List" set is already chosen.
-        var setName = ParameterSetName == "List" && parameters.ContainsKey("Name") ? "Get" : ParameterSetName;
-        var commandName = $"Get-AzDeployment_{setName}";
+        // -Name is also in the default "List" set, so choose Get by the presence of a name, not by set.
+        var commandName = parameters.ContainsKey("Name") ? "Get-AzDeployment_Get" : "Get-AzDeployment_List";
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

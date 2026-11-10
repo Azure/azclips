@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Management.Automation;
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
@@ -191,6 +193,109 @@ public sealed class SubscriptionDeploymentScenarioTests
         using (var ps = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), extensions: s_extensions))
         {
             RunPowerShellWorkflow(ps);
+        }
+    }
+
+    // Without --name the command names the deployment after the template file or URI. These cases
+    // return a canned ARM response instead of calling Azure. A null expected name means a GUID.
+    [Theory]
+    [InlineData(ClientType.CLI, "main.json", null, "main")]
+    [InlineData(ClientType.PowerShell, "main.json", null, "main")]
+    [InlineData(ClientType.CLI, null, "https://example.com/templates/azuredeploy.json", "azuredeploy")]
+    [InlineData(ClientType.PowerShell, null, "https://example.com/templates/azuredeploy.json", "azuredeploy")]
+    [InlineData(ClientType.CLI, "bad name!.json", null, null)]
+    [InlineData(ClientType.PowerShell, "bad name!.json", null, null)]
+    public void ValidateWithoutName_NamesDeploymentAfterTemplate(ClientType surface, string? templateFileName, string? templateUri, string? expectedName)
+    {
+        var directory = Directory.CreateTempSubdirectory().FullName;
+        var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent($$$"""{"properties":{"provisioningState":"{{{State.Succeeded}}}"}}""", Encoding.UTF8, "application/json"),
+        });
+        try
+        {
+            string? templateFile = templateFileName is null ? null : WriteFile(directory, templateFileName, FileTemplate);
+            using var host = new ScenarioHost(surface, http, extensions: s_extensions);
+            if (surface == ClientType.CLI)
+            {
+                string[] template = templateFile is not null
+                    ? ["--template-file", templateFile, "--parameter", $"greeting={FileGreeting}"]
+                    : ["--template-uri", templateUri!, "--query-string", QueryString];
+                host.RunCli(["deployment", "sub", "validate", "--subscription-id", SubscriptionId, "--location", Location, .. template]);
+            }
+            else
+            {
+                var parameters = new Dictionary<string, object>
+                {
+                    ["SubscriptionId"] = SubscriptionId,
+                    ["Location"] = Location,
+                };
+                if (templateFile is not null)
+                {
+                    parameters["TemplateFile"] = templateFile;
+                    parameters["Parameter"] = new[] { $"greeting={FileGreeting}" };
+                }
+                else
+                {
+                    parameters["TemplateUri"] = templateUri!;
+                    parameters["QueryString"] = QueryString;
+                }
+                host.RunPowerShell("Test-AzDeployment", parameters);
+            }
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+
+        var request = http.Captured[0];
+        const string Prefix = $"https://management.azure.com/subscriptions/{SubscriptionId}/providers/Microsoft.Resources/deployments/";
+        const string Suffix = "/validate?api-version=2025-04-01";
+        Assert.Equal("POST", request.Method);
+        Assert.StartsWith(Prefix, request.Uri);
+        Assert.EndsWith(Suffix, request.Uri);
+        string name = request.Uri[Prefix.Length..^Suffix.Length];
+        if (expectedName is null)
+        {
+            Assert.True(Guid.TryParse(name, out _), $"Expected a generated GUID deployment name, got '{name}'.");
+        }
+        else
+        {
+            Assert.Equal(expectedName, name);
+        }
+    }
+
+    // A piped deployment keeps its own subscription from its Id, even when the profile's subscription
+    // (SubscriptionId) differs. Playback sanitizes every subscription to SubscriptionId, so a canned
+    // ARM response stands in for the recording.
+    [Fact]
+    public void PipedDeploymentFromAnotherSubscription_IsReadAndSavedFromThatSubscription()
+    {
+        const string OtherSubscriptionId = "11111111-1111-1111-1111-111111111111";
+        string id = DeploymentId(OtherSubscriptionId, DeploymentName);
+        var http = new CapturingTracingInterceptor(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent($$$"""{"id":"{{{id}}}","name":"{{{DeploymentName}}}","template":{}}""", Encoding.UTF8, "application/json"),
+        });
+        var piped = new DeploymentExtended { Id = id, Name = DeploymentName };
+        var directory = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            using (var host = new ScenarioHost(ClientType.PowerShell, http, extensions: s_extensions))
+            {
+                Assert.Equal([DeploymentName], CmdletDeploymentNames(host.RunPowerShellCmdlet<GetDeploymentCmdlet>(new Dictionary<string, object>(), pipelineInput: piped)));
+                host.RunPowerShellCmdlet<SaveDeploymentTemplateCmdlet>(new Dictionary<string, object> { ["Path"] = directory }, pipelineInput: piped);
+            }
+
+            Assert.Equal(
+                [("GET", DeploymentUri(OtherSubscriptionId, DeploymentName)),
+                 ("POST", $"https://management.azure.com{id}/exportTemplate?api-version=2025-04-01")],
+                http.Captured.Select(request => (request.Method, request.Uri)));
+            Assert.True(File.Exists(Path.Combine(directory, DeploymentName + ".json")));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
         }
     }
 
@@ -906,6 +1011,10 @@ public sealed class SubscriptionDeploymentScenarioTests
     // The list command writes every page as one collected List<DeploymentExtended>.
     private static List<string?> DeploymentNames(IReadOnlyList<object> outputs) =>
         [.. Assert.IsType<List<DeploymentExtended>>(Assert.Single(outputs)).Select(d => d.Name)];
+
+    // The cmdlet enumerates that list, so it writes one DeploymentExtended per deployment.
+    private static List<string?> CmdletDeploymentNames(IReadOnlyList<object> outputs) =>
+        [.. outputs.Select(o => Assert.IsType<DeploymentExtended>(o).Name)];
 
     private static int RestStatusCode(IReadOnlyList<object> outputs) =>
         Assert.IsType<RestResponse>(Assert.Single(outputs)).StatusCode;
