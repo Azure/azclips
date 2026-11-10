@@ -116,6 +116,16 @@ public class RecoverySessionPolicyTests
         }
     }
 
+    [Fact]
+    public async Task CtrlC_OverridesNonCancellationSendFailure()
+    {
+        var failed = Task.FromException(new IOException("offline send failure"));
+        var turn = AgentModeEntry.AwaitTurnAsync(
+            failed, () => null, redirected: false, userAbortContinues: false, () => true);
+        var oce = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => turn);
+        Assert.IsType<IOException>(oce.InnerException);
+    }
+
     private static SessionConfig CreateConfig(
         RecoveryTrigger trigger, string style, ConsoleApprovalPrompt approval, HttpClient http, CancellationToken ct)
     {

@@ -415,6 +415,8 @@ public sealed class ConsoleApprovalPrompt
         catch (OperationCanceledException)
         {
             readCancelled = true;
+            // The request token may not be cancelled yet; complete the request so its waiter does not hang.
+            pending.Result.TrySetCanceled(sessionCt);
             throw;
         }
         finally

@@ -133,6 +133,36 @@ public class ConsoleApprovalPromptCancelTests
     }
 
     [Fact]
+    public async Task SessionCancel_WhileReadingLine_CompletesRequestNotYetCancelled()
+    {
+        var prompt = new ConsoleApprovalPrompt();
+        var reader = new BlockingReader();
+        var prevIn = Console.In;
+        var prevOut = Console.Out;
+        Console.SetIn(reader);
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            using var session = new CancellationTokenSource();
+            // The request token has not observed the session cancel yet.
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var pump = Task.Run(() => prompt.PumpOneAsync(session.Token, session.Token));
+            Assert.True(reader.Entered.Wait(TimeSpan.FromSeconds(10)));
+
+            session.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pump.WaitAsync(TimeSpan.FromSeconds(10)));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => toolTask.WaitAsync(TimeSpan.FromSeconds(10)));
+        }
+        finally
+        {
+            reader.Release.Set();
+            Console.SetIn(prevIn);
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Fact]
     public async Task QueueCancel_WhileReadingLine_KeepsReading_AndHonorsAnswer()
     {
         var prompt = new ConsoleApprovalPrompt();

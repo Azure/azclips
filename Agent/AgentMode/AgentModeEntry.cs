@@ -614,10 +614,11 @@ public static class AgentModeEntry
         Func<bool> sessionCancelled)
     {
         try { await sendTask.ConfigureAwait(false); }
-        catch (OperationCanceledException) when (sessionCancelled())
+        catch (Exception ex) when (sessionCancelled())
         {
-            // Ctrl+C ends the session as cancelled, even after an SDK error.
-            throw;
+            // Ctrl+C ends the session as cancelled, even after an SDK error or a failed send.
+            if (ex is OperationCanceledException) throw;
+            throw new OperationCanceledException("Session cancelled by Ctrl+C.", ex);
         }
         catch (OperationCanceledException) when (lastError() is { } err)
         {
