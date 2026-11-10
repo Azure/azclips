@@ -258,7 +258,7 @@ function Copy-CmdletMarkdownWithRewrite
             elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$')
             {
                 # Keep the heading: heading-free modern Markdown corrupts empty aliases on import.
-                [void]$body.Append(($match.Value -creplace '__AllParameterSets', 'Syntax'))
+                [void]$body.Append(($match.Value -creplace '__AllParameterSets', 'All parameters'))
                 continue
             }
         }

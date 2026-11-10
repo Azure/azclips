@@ -189,7 +189,7 @@ Module Name: fake in a code block
 
         Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Config'
 
-        $expected = $content.Replace('### __AllParameterSets', '### Syntax').
+        $expected = $content.Replace('### __AllParameterSets', '### All parameters').
             Replace('Module Name: Config', 'Module Name: Az.Config')
         Get-Content -LiteralPath $dst -Raw | Should -BeExactly $expected
         (Get-FileHash -LiteralPath $src).Hash | Should -BeExactly $sourceHash
@@ -303,7 +303,7 @@ Describe 'New-SyncPlan' {
             $source = Get-Content -LiteralPath $entry.SourcePath -Raw
             $headingCount += [regex]::Matches($source, '(?m)^### __AllParameterSets\r?$').Count
             $expected = $source.Replace("Module Name: $($entry.ModuleName)", "Module Name: $($entry.TargetModule)")
-            $expected = $expected -creplace '(?m)^### __AllParameterSets(?=\r?$)', '### Syntax'
+            $expected = $expected -creplace '(?m)^### __AllParameterSets(?=\r?$)', '### All parameters'
             Get-Content -LiteralPath $target -Raw | Should -BeExactly $expected
             (Get-FileHash -LiteralPath $entry.SourcePath).Hash | Should -BeExactly $sourceHash
         }
@@ -333,7 +333,7 @@ Describe 'Learn copy PlatyPS parsing compatibility' {
         @($published.Parameters).Count | Should -Be @($original.Parameters).Count
         for ($i = 0; $i -lt $Count; $i++) {
             $expectedName = if ($original.Syntax[$i].ParameterSetName -eq '__AllParameterSets') {
-                'Syntax'
+                'All parameters'
             } else {
                 $original.Syntax[$i].ParameterSetName
             }
