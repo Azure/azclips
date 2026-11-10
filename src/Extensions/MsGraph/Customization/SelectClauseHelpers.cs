@@ -60,7 +60,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
             string message = ex.Message;
             bool isUnsupportedQuery = message.IndexOf("Request_UnsupportedQuery", StringComparison.OrdinalIgnoreCase) >= 0;
             bool missingConsistencyLevel = message.IndexOf("ConsistencyLevel:eventual", StringComparison.OrdinalIgnoreCase) >= 0;
-            if (!isUnsupportedQuery && !missingConsistencyLevel)
+            if (isUnsupportedQuery && missingConsistencyLevel)
             {
 
                 throw AzclipsErrorException.InvalidInput(
