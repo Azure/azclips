@@ -66,6 +66,54 @@
     </Task>
   </UsingTask>
 
+  <!-- DownloadFile does not retry HTTP 503/504, which is the failure this file exists to avoid. -->
+  <UsingTask
+    TaskName="DownloadCopilotCliFile"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <SourceUrl ParameterType="System.String" Required="true" />
+      <DestinationFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Net.Http" />
+      <Using Namespace="System.Threading" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        const int attempts = 6;
+        using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
+        {
+          for (int attempt = 1; ; attempt++)
+          {
+            try
+            {
+              using (var response = client.GetAsync(SourceUrl, HttpCompletionOption.ResponseHeadersRead).GetAwaiter().GetResult())
+              {
+                response.EnsureSuccessStatusCode();
+                using (var file = File.Create(DestinationFile))
+                {
+                  response.Content.CopyToAsync(file).GetAwaiter().GetResult();
+                }
+              }
+              break;
+            }
+            catch (Exception ex) when (attempt < attempts)
+            {
+              Log.LogMessage(MessageImportance.High, "Download of {0} failed (attempt {1} of {2}): {3} Retrying.", SourceUrl, attempt, attempts, ex.Message);
+              Thread.Sleep(10000);
+            }
+            catch (Exception ex)
+            {
+              Log.LogError("Download of {0} failed after {1} attempts: {2}", SourceUrl, attempts, ex.Message);
+              return false;
+            }
+          }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
   <Target Name="FetchCopilotCliFromFeed"
           BeforeTargets="_DownloadCopilotCli"
           Condition="'$(TargetFramework)' != '' And '$(CopilotCliBinaryPath)' == '' And '$(CopilotSkipCliDownload)' != 'true' And '$(_CopilotPlatform)' != ''">
@@ -84,12 +132,10 @@
     <RemoveDir Directories="$(_CopilotFeedDir)" Condition="!Exists('$(_CopilotFeedMarker)')" />
     <MakeDir Directories="$(_CopilotFeedDir)" Condition="!Exists('$(_CopilotFeedMarker)')" />
     <Message Importance="high" Text="Downloading Copilot CLI $(CopilotCliVersion) for $(_CopilotPlatform) from $(CopilotCliFeedUrl)..." Condition="!Exists('$(_CopilotFeedMarker)')" />
-    <DownloadFile SourceUrl="$(_CopilotFeedMetadataUrl)" DestinationFolder="$(_CopilotFeedDir)" DestinationFileName="metadata.json"
-                  Retries="5" RetryDelayMilliseconds="10000"
-                  Condition="!Exists('$(_CopilotFeedMarker)')" />
-    <DownloadFile SourceUrl="$(_CopilotFeedPackageUrl)" DestinationFolder="$(_CopilotFeedDir)" DestinationFileName="copilot.tgz"
-                  Retries="5" RetryDelayMilliseconds="10000"
-                  Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <DownloadCopilotCliFile SourceUrl="$(_CopilotFeedMetadataUrl)" DestinationFile="$(_CopilotFeedMetadata)"
+                            Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <DownloadCopilotCliFile SourceUrl="$(_CopilotFeedPackageUrl)" DestinationFile="$(_CopilotFeedArchive)"
+                            Condition="!Exists('$(_CopilotFeedMarker)')" />
     <VerifyNpmPackageShasum MetadataFile="$(_CopilotFeedMetadata)" PackageFile="$(_CopilotFeedArchive)" Version="$(CopilotCliVersion)"
                             Condition="!Exists('$(_CopilotFeedMarker)')" />
     <Exec Command="&quot;$(_CopilotFeedTar)&quot; -xzf &quot;$(_CopilotFeedArchive)&quot; --strip-components=1 -C &quot;$(_CopilotFeedDir)&quot;"
