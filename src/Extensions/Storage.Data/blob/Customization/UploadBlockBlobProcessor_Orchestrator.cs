@@ -64,7 +64,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
                 Dictionary<string, string> metadata = BlobWireFormat.ParsePairs(Metadata, nameof(Metadata));
                 Dictionary<string, string> tags = BlobWireFormat.ParsePairs(Tags, nameof(Tags));
 
-                using var file = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using FileStream file = BlobFile.OpenRead(FilePath);
                 using HttpResponseMessage response = file.Length <= MaxSinglePutSize
                     ? await PutBlobAsync(file, metadata, tags)
                     : await PutBlocksAsync(file, metadata, tags);
@@ -78,8 +78,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
 
         private async Task<HttpResponseMessage> PutBlobAsync(FileStream file, Dictionary<string, string> metadata, Dictionary<string, string> tags)
         {
-            byte[] data = new byte[file.Length];
-            file.ReadExactly(data);
+            byte[] data = BlobFile.ReadAll(file);
             return await CreateExtendedProcessor<PutBlobRequest>(p =>
             {
                 p.Url = Endpoint;
@@ -112,17 +111,14 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
             // Block IDs must have one length per blob; a per-upload prefix keeps them apart from another upload's uncommitted blocks.
             string uploadId = Guid.NewGuid().ToString("N");
             List<byte[]> blockIds = [];
-            byte[] buffer = new byte[BlockSize];
-            for (int index = 0; index < blockCount; index++)
+            foreach (byte[] block in BlobFile.ReadChunks(file, BlockSize))
             {
-                int read = file.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
-                byte[] block = read == buffer.Length ? buffer : buffer[..read];
-                byte[] blockId = Encoding.ASCII.GetBytes($"{uploadId}{index:D6}");
+                byte[] blockId = Encoding.ASCII.GetBytes($"{uploadId}{blockIds.Count:D6}");
                 using HttpResponseMessage staged = await CreateExtendedProcessor<StageBlockBlockBlobProcessor>(p =>
                 {
                     p.Url = Endpoint;
                     p.BlockId = blockId;
-                    p.ContentLength = read;
+                    p.ContentLength = block.Length;
                     p.Body = block;
                     p.EncryptionScope = EncryptionScope;
                     p.Timeout = Timeout;

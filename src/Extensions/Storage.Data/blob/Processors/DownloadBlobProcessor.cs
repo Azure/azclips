@@ -55,7 +55,7 @@ public partial class DownloadBlobProcessor : ProcessorBase<object, byte[]>
     internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/".WithQuery("snapshot", Snapshot).WithQuery("versionid", VersionId).WithQuery("timeout", Timeout);
+    protected override string CreateRequestUri() => $"{Endpoint}".WithQuery("snapshot", Snapshot).WithQuery("versionid", VersionId).WithQuery("timeout", Timeout);
     protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
         request.Headers.TryAddWithoutValidation("x-ms-version", "2027-03-07");

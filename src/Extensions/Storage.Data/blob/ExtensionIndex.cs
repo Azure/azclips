@@ -167,6 +167,39 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata cliStorageBlobDownload = new(
+            Name: nameof(DownloadBlobProcessor_Orchestrator),
+            InvocationName: "storage blob download",
+            Aliases: [],
+            FullName: typeof(DownloadBlobProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(DownloadBlobProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(DownloadBlobProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The blob URL. Alternative to --account-name, --container-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container and blob name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
+                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["file"] = new("FilePath", "file", typeof(string), "Path of the local file to create. An existing file is not overwritten.", IsRequired: true, Aliases: ["f"], AllowedValues: []),
+                ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The snapshot of the blob to download.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["version-id"] = new("VersionId", "version-id", typeof(string), "The version ID of the blob to download.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "If specified, the operation only succeeds if the blob's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["encryption-key"] = new("EncryptionKey", "encryption-key", typeof(string), "The customer-provided key the blob was encrypted with.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["encryption-key-sha256"] = new("EncryptionKeySha256", "encryption-key-sha256", typeof(string), "The SHA-256 hash of the provided encryption key. Must be provided if the encryption key is provided.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["encryption-algorithm"] = new("EncryptionAlgorithm", "encryption-algorithm", typeof(string), "The algorithm used to produce the encryption key hash. Must be provided if the encryption key is provided.", IsRequired: false, Aliases: [], AllowedValues: ["AES256"]),
+                ["if-modified-since"] = new("IfModifiedSince", "if-modified-since", typeof(string), "Download only if the blob has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-unmodified-since"] = new("IfUnmodifiedSince", "if-unmodified-since", typeof(string), "Download only if the blob has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-match"] = new("IfMatch", "if-match", typeof(string), "Download only if the blob's ETag matches this value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-none-match"] = new("IfNoneMatch", "if-none-match", typeof(string), "Download only if the blob's ETag does not match this value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags-condition"] = new("IfTags", "tags-condition", typeof(string), "A SQL where clause on blob tags; download only if it matches.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         private static readonly CommandMetadata cliStorageBlobDelete = new(
             Name: nameof(DeleteBlobProcessor),
             InvocationName: "storage blob delete",
@@ -255,6 +288,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
             cliStorageBlobCopyStart,
             cliStorageBlobUpload,
             cliStorageBlobUploadFromUrl,
+            cliStorageBlobDownload,
             cliStorageBlobDelete,
             cliStorageContainerCreate,
             cliStorageContainerDelete
