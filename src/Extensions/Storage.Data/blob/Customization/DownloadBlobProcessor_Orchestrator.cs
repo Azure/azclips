@@ -71,8 +71,8 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
                     p.ClientRequestId = ClientRequestId;
                 }).SendAsync();
 
-                await using Stream content = await response.Content.ReadAsStreamAsync(Token);
-                long written = await BlobFile.WriteNewAsync(path, content, Token);
+                await using Stream content = await response.Content.ReadAsStreamAsync(Publisher.Token);
+                long written = await BlobFile.WriteNewAsync(path, content, Publisher.Token);
                 await WriteOutput(BlobDownloadResult.From(response, path, written));
             }
             finally
