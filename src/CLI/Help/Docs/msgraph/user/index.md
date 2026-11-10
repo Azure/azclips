@@ -7,6 +7,12 @@ online version:
 
 Description: Look up or list users in your Microsoft Entra tenant.
 
+### Show the signed-in user
+
+```bash
+az msgraph user signed-in
+```
+
 ### List users in the signed-in tenant
 
 ```bash
