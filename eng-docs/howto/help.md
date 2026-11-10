@@ -86,6 +86,10 @@ scaffolding or refreshing help:
     Fill in any new `{{ Fill ... }}` placeholders and review the diff for unrelated
     date, formatting, or PlatyPS-generated changes before committing.
 
+    Keep PlatyPS's internal `__AllParameterSets` headings in source help. Only the
+    [Learn docs sync](ps-docs-sync.md) relabels those headings as `Default (Default)` in published copies;
+    local help generation and metadata validation use the original source.
+
 2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. Our post-processor (`Convert-PlatyPSPlaceholders` in [build/New-PSHelpMarkdown.ps1](../../build/New-PSHelpMarkdown.ps1)) replaces PlatyPS's `{{ Fill in the Synopsis }}` placeholders with `TODO -` markers and seeds at least one fenced example using the cmdlet's mandatory parameters shaped as `-Param <typename>`. Both shapes fail CI on purpose — search for `TODO` and replace each marker plus every `<typename>` placeholder in the example fence with real content. See [Placeholder rules](#placeholder-rules) below for the documented escape hatches.
 
 3. **Validate + generate MAML:**
