@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using Core.Telemetry;
 using Microsoft.Extensions.AI;
 using OpenTelemetry.Trace;
@@ -48,7 +49,9 @@ internal sealed class AgentTraceCapture : IDisposable
     {
         _provider = new Provider(sourceName);
         Configuration = new AgentTestConfiguration(enabled);
-        Telemetry = new TelemetryService(_provider, Configuration, new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+        Telemetry = new TelemetryService(_provider, Configuration,
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
+            new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
         if (listen)
         {
             _listener = new ActivityListener
@@ -113,7 +116,9 @@ internal sealed class AgentLayerTestHarness
     {
         DirectoryPath = Path.Combine(AppContext.BaseDirectory, "TestArtifacts", "AgentLayers", Guid.NewGuid().ToString("N"));
         Configuration = new AgentTestConfiguration(enabled);
-        Factory = new TelemetryLayerScopeFactory(new TraceDirectory(DirectoryPath), Configuration, timeProvider: timeProvider);
+        Factory = new TelemetryLayerScopeFactory(new TraceDirectory(DirectoryPath), Configuration,
+            new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()),
+            timeProvider: timeProvider);
         Context = context ?? new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled);
     }
 

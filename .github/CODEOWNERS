@@ -1,3 +1,15 @@
 # See for instructions on this file https://help.github.com/articles/about-codeowners/
 
+/.github/ @isra-fel @VeryEarly @NoriZC @necusjz @naga-nandyala @wangzelin007
 /src/Core/Core.Telemetry/ @Azure/act-observability-squad
+/src/Core/Core.Authentication/ @Azure/act-identity-squad
+/src/Extensions/Accounts/ @Azure/act-identity-squad @Azure/act-observability-squad
+/src/PS/Accounts/ @Azure/act-identity-squad @Azure/act-observability-squad
+/src/Core/Core.Configuration/ @Azure/act-quality-productivity-squad
+/src/Extensions/Config/ @Azure/act-quality-productivity-squad
+/src/PS/Config/ @Azure/act-quality-productivity-squad
+/Agent/ @Azure/act-experience-enablement-squad
+/.x/ @Azure/act-experience-enablement-squad
+/devops/ @Azure/act-platform-engineering-squad
+/.azure-pipelines/ @Azure/act-platform-engineering-squad
+/toolkit/ @Azure/act-codegen-extensibility-squad

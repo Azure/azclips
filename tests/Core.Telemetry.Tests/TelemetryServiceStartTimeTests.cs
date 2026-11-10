@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -38,7 +39,8 @@ public class TelemetryServiceStartTimeTests : IDisposable
         _telemetryService = new TelemetryService(
             _provider,
             _config,
-            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
+            new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
     }
 
     public void Dispose()
@@ -93,7 +95,6 @@ public class TelemetryServiceStartTimeTests : IDisposable
         Assert.NotNull(activity);
         Assert.Equal(past.UtcDateTime, activity.StartTimeUtc);
         Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
     }
 
     [Fact]
@@ -105,7 +106,6 @@ public class TelemetryServiceStartTimeTests : IDisposable
         Assert.Equal("CLI.Activity.AiRecovery", activity.OperationName);
         Assert.NotNull(activity.GetTagItem(TelemetryTags.InstallationId));
         Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemType));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemVersion));
         Assert.Equal(

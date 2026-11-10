@@ -145,7 +145,7 @@ namespace Core.Extensions.Tests
 
         // ── IsCommandGroup ──
         // An extension whose only leaf is its root (Login: (login, "")) is runnable; one that owns
-        // longer leaves (Agent: (agent, "tool env"), …) is a group at the root and at every
+        // longer leaves (Agent: (agent, "tool env show"), …) is a group at the root and at every
         // intermediate path.
 
         private static LeafIndex BuildAgentAndAccountsIndex()
@@ -165,7 +165,7 @@ namespace Core.Extensions.Tests
                         Contributions =
                         {
                             new Contribution { Verb = "agent", Path = "" },
-                            new Contribution { Verb = "agent", Path = "tool env" },
+                            new Contribution { Verb = "agent", Path = "tool env show" },
                             new Contribution { Verb = "agent", Path = "tool resource find" },
                             new Contribution { Verb = "agent", Path = "tool resource show" },
                         },
@@ -183,6 +183,7 @@ namespace Core.Extensions.Tests
 
             Assert.True(index.IsCommandGroup("agent", ""));                 // az agent
             Assert.True(index.IsCommandGroup("agent", "tool"));             // az agent tool
+            Assert.True(index.IsCommandGroup("agent", "tool env"));         // az agent tool env
             Assert.True(index.IsCommandGroup("agent", "tool resource"));    // az agent tool resource
         }
 
@@ -191,7 +192,7 @@ namespace Core.Extensions.Tests
         {
             var index = BuildAgentAndAccountsIndex();
 
-            Assert.False(index.IsCommandGroup("agent", "tool env"));            // runnable leaf
+            Assert.False(index.IsCommandGroup("agent", "tool env show"));       // runnable leaf
             Assert.False(index.IsCommandGroup("agent", "tool resource find"));  // runnable leaf
         }
 
@@ -231,4 +232,3 @@ namespace Core.Extensions.Tests
         }
     }
 }
-

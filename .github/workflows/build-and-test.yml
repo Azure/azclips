@@ -169,6 +169,10 @@ jobs:
         shell: pwsh
         run: Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser -Force -SkipPublisherCheck
 
+      - name: Install PlatyPS
+        shell: pwsh
+        run: ./build/Install-BuildDependencies.ps1
+
       - name: Run PS docs sync Pester tests
         shell: pwsh
         run: |

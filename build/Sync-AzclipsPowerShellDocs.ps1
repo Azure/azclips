@@ -213,10 +213,57 @@ function New-ModuleIndexContent
 
 # ── Plan ────────────────────────────────────────────────────────────────────────
 
+function ConvertTo-LearnParameterSetHeading
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Body
+    )
+
+    # PlatyPS exposes PowerShell's internal unnamed-set name as a heading on Learn.
+    # Relabel only the published copy; source help and local help generation stay unchanged.
+    # Keep the heading itself: removing it pulled Description text into an empty
+    # Aliases section. Use "Default (Default)" as the Learn-only name/default label;
+    # this does not change runtime metadata or explicitly named parameter sets.
+    # (Daniel) this is a workaround introduced until a more "native" solution
+    # can be introduced
+    $output = [System.Text.StringBuilder]::new()
+    $inSyntax = $false
+    $fence = ''
+    # Preserve line endings and skip fenced examples; only touch the exact name in SYNTAX.
+    foreach ($match in [regex]::Matches($Body, '[^\r\n]*(?:\r\n|\n|\r|$)'))
+    {
+        $line = $match.Value.TrimEnd("`r", "`n")
+        if ($line -match '^[ \t]*(`{3,}|~{3,})')
+        {
+            $marker = $Matches[1]
+            if (-not $fence) { $fence = $marker }
+            elseif ($marker[0] -eq $fence[0] -and $marker.Length -ge $fence.Length -and
+                $line.Trim() -eq $marker)
+            {
+                $fence = ''
+            }
+        }
+        elseif (-not $fence)
+        {
+            if ($line -cmatch '^##[ \t]+SYNTAX[ \t]*$') { $inSyntax = $true }
+            elseif ($line -match '^#{1,2}[ \t]+') { $inSyntax = $false }
+            elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$')
+            {
+                [void]$output.Append(($match.Value -creplace '__AllParameterSets', 'Default (Default)'))
+                continue
+            }
+        }
+        [void]$output.Append($match.Value)
+    }
+    return $output.ToString()
+}
+
 # Copies a cmdlet PlatyPS .md file, rewriting the frontmatter `Module Name:` from the
 # source module name (bare, e.g. 'Config') to the packaged name ('Az.Config'). Docs.ms's
 # PSMD2Yaml prebuild requires the module name in the frontmatter to match the folder;
 # leaving it bare fails with PSMD2Yaml_FileProcessFailed.
+# Only the Learn copy relabels internal unnamed syntax headings; PlatyPS source stays intact.
 function Copy-CmdletMarkdownWithRewrite
 {
     [CmdletBinding()]
@@ -234,8 +281,9 @@ function Copy-CmdletMarkdownWithRewrite
         throw "Expected YAML frontmatter with exactly one 'Module Name:' field in '$SourcePath'."
     }
 
+    $body = ConvertTo-LearnParameterSetHeading -Body $content.Substring($frontmatter.Length)
     $rewritten = $moduleNamePattern.Replace($frontmatter.Value, { "Module Name: $TargetModuleName" }, 1) +
-        $content.Substring($frontmatter.Length)
+        $body
     Set-Content -LiteralPath $TargetPath -Value $rewritten -NoNewline
 }
 

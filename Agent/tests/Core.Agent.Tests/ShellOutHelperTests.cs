@@ -39,7 +39,7 @@ public class ShellOutHelperTests
     {
         var bogus = Path.Combine(Path.GetTempPath(), $"does-not-exist-{Guid.NewGuid():N}.exe");
 
-        var result = await ShellOutHelper.InvokeAzAsync(bogus, new[] { "agent", "tool", "env" });
+        var result = await ShellOutHelper.InvokeAzAsync(bogus, new[] { "agent", "tool", "env", "show" });
 
         using var doc = JsonDocument.Parse(result);
         Assert.Equal("shell_out_spawn_failed", doc.RootElement.GetProperty("error").GetString());

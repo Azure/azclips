@@ -121,7 +121,9 @@ public class VirtualMachineProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UserData { get; set; }
 
-    // Returned only with $expand=instanceView; cleared once --show-details has read the power state.
+    // Returned only with $expand=instanceView. vm get-instance-view, and Get-AzVM -Status for one VM,
+    // return it intact; the detail switches (--show-details, list -Status) flatten what they need onto
+    // VirtualMachine, then clear it.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public VirtualMachineInstanceView? InstanceView { get; set; }
 
@@ -366,47 +368,5 @@ public class DiagnosticsProfile
 public class BootDiagnostics
 {
     public bool Enabled { get; set; }
-    public override string ToString() => JsonNode.FromObject(this).ToString();
-}
-public class VirtualMachineInstanceView
-{
-    public List<InstanceViewStatus> Statuses { get; set; } = [];
-
-    // Returned inside $expand=instanceView. Flattened onto VirtualMachine by -Status, then dropped.
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? OsName { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? OsVersion { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? HyperVGeneration { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public MaintenanceRedeployStatus? MaintenanceRedeployStatus { get; set; }
-
-    public override string ToString() => JsonNode.FromObject(this).ToString();
-}
-
-/// <summary>
-/// ARM's maintenance and redeploy status block, returned inside <c>$expand=instanceView</c>.
-/// Surfaced by <c>Get-AzVM -Status</c> only.
-/// </summary>
-public class MaintenanceRedeployStatus
-{
-    public bool? IsCustomerInitiatedMaintenanceAllowed { get; set; }
-    public string? PreMaintenanceWindowStartTime { get; set; }
-    public string? PreMaintenanceWindowEndTime { get; set; }
-    public string? MaintenanceWindowStartTime { get; set; }
-    public string? MaintenanceWindowEndTime { get; set; }
-    public string? LastOperationResultCode { get; set; }
-    public string? LastOperationMessage { get; set; }
-    public override string ToString() => JsonNode.FromObject(this).ToString();
-}
-
-public class InstanceViewStatus
-{
-    public string? Code { get; set; }
-    public string? DisplayStatus { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
