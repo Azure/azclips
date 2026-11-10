@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Get GitHub Actions OIDC token
         id: idtoken
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           result-encoding: string
           script: return await core.getIDToken('api://AzureADTokenExchange')
