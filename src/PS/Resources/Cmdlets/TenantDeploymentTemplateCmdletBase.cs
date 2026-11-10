@@ -21,7 +21,7 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
     [Parameter(Mandatory = false)]
     public string? TemplateUri { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The path to a local ARM JSON or Bicep template, resolved against the PowerShell session's current file-system location.")]
     public string? TemplateFile { get; set; }
 
     [Parameter(Mandatory = false)]
@@ -33,7 +33,7 @@ public abstract class TenantDeploymentTemplateCmdletBase : TenantDeploymentCmdle
     [Parameter(Mandatory = false)]
     public string? ParametersUri { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The path to a local ARM JSON or .bicepparam parameters file, resolved against the PowerShell session's current file-system location.")]
     public string? ParametersFile { get; set; }
 
     [Parameter(Mandatory = false)]

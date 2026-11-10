@@ -13,6 +13,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary>
 /// <c>az deployment tenant wait</c>: GETs the deployment every <see cref="Interval"/> seconds until the requested
 /// condition holds or <see cref="Timeout"/> seconds elapse, following azure-cli's generic wait command. Writes no output.
+/// Polling uses an elapsed-time deadline; an in-flight request is not interrupted by the timeout.
 /// </summary>
 public class WaitTenantDeploymentProcessor_Orchestrator : GetAtTenantScopeDeploymentsProcessor
 {
@@ -29,6 +30,7 @@ public class WaitTenantDeploymentProcessor_Orchestrator : GetAtTenantScopeDeploy
 
     public int Interval { get; set; } = 30;
 
+    /// <summary>Maximum polling wait in seconds. Zero times out without sending a request.</summary>
     public int Timeout { get; set; } = 3600;
 
     private bool HasCustom => !string.IsNullOrWhiteSpace(Custom);
@@ -51,17 +53,35 @@ public class WaitTenantDeploymentProcessor_Orchestrator : GetAtTenantScopeDeploy
             await BeforeProcessAsync();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
+            TimeSpan timeout = TimeSpan.FromSeconds(Timeout);
+            TimeSpan interval = TimeSpan.FromSeconds(Interval);
             Stopwatch elapsed = Stopwatch.StartNew();
-            while (!await IsConditionMetAsync())
+            while (elapsed.Elapsed < timeout)
             {
-                if (elapsed.Elapsed.TotalSeconds >= Timeout)
+                bool matched = await IsConditionMetAsync();
+                TimeSpan remaining = timeout - elapsed.Elapsed;
+                if (remaining <= TimeSpan.Zero)
                 {
-                    throw new InvalidOperationException($"Wait operation timed-out after {Timeout} seconds");
+                    break;
                 }
 
-                await Publisher.Publish(Events.DelayPolling, $"Delaying {Interval} seconds before polling.");
-                await Task.Delay(TimeSpan.FromSeconds(Interval), Publisher.Token);
+                if (matched)
+                {
+                    return;
+                }
+
+                TimeSpan delay = interval < remaining ? interval : remaining;
+                await Publisher.Publish(Events.DelayPolling, $"Delaying {delay.TotalSeconds} seconds before polling.");
+                remaining = timeout - elapsed.Elapsed;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    break;
+                }
+
+                await Task.Delay(delay < remaining ? delay : remaining, Publisher.Token);
             }
+
+            throw new InvalidOperationException($"Wait operation timed-out after {Timeout} seconds");
         }
         finally
         {

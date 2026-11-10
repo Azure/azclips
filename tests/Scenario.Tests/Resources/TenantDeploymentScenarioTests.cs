@@ -1,11 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Management.Automation;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Recording;
@@ -14,15 +17,19 @@ using Tests.Recording;
 namespace Scenario.Tests;
 
 /// <summary>
-/// Tenant-scope deployment scenarios, one per upstream azure-cli tenant test. Each test has its own recording,
+/// Tenant-scope deployment scenarios derived from Azure CLI and Azure PowerShell tests. Each test has its own recording,
 /// template file, run-scoped names and sanitizers. Record mode runs the CLI surface against live Azure; playback
-/// replays the recording on both surfaces with body matching, so PowerShell must send the same requests.
+/// replays the recording through the CLI and public PowerShell cmdlets with body matching.
+/// Offline cmdlet regressions use an in-memory backend and never access Azure.
 /// <para>
 /// Recording needs:
 /// <list type="bullet">
 /// <item><see cref="TenantDeploymentLifecycle"/> (T1): <c>Microsoft.Resources/deployments/write</c> at the tenant root
 /// (<c>/</c>) and resource-group create rights in the signed-in subscription.</item>
 /// <item><see cref="TenantDeploymentWhatIf"/> (T2): permission to run what-if at the tenant root (<c>/</c>).</item>
+/// <item><see cref="TenantDeploymentFromTemplateSpecWithParametersFile"/> (T3): tenant deployment rights and
+/// resource-group and Template Spec create/delete rights in the signed-in subscription.</item>
+/// <item>T4 and T5: the same what-if permissions as T2; neither creates resources.</item>
 /// </list>
 /// </para>
 /// </summary>
@@ -49,6 +56,25 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
     private const string ResourceGroupBaseName = "scenario-tenant-deployment-rg";
     private const string WhatIfDeploymentBaseName = "scenario-tenant-what-if";
     private const string WhatIfResourceGroupBaseName = "scenario-tenant-what-if-rg";
+    private const string TemplateSpecDeploymentBaseName = "scenario-tenant-template-spec";
+    private const string TemplateSpecResourceGroupBaseName = "scenario-tenant-template-spec-rg";
+    private const string TemplateSpecApiVersion = "api-version=2022-02-01";
+    private const string TemplateSpecParameters = """{"foo":{"value":"abc"},"bar":{"value":"xyz"}}""";
+    private const string TemplateSpecTemplate = """
+        {
+          "$schema": "https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "foo": { "type": "string" },
+            "bar": { "type": "string" }
+          },
+          "resources": [],
+          "outputs": {
+            "foo": { "type": "string", "value": "[parameters('foo')]" },
+            "bar": { "type": "string", "value": "[parameters('bar')]" }
+          }
+        }
+        """;
 
     // The only resource is a nested subscription deployment that creates one resource group, so the scenarios need no
     // management group and no tenant-level role or policy. The trailing comment is dropped from the request body.
@@ -64,7 +90,7 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
             {
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2021-04-01",
-              "name": "sub-nested",
+              "name": "[parameters('nestedRG')]",
               "subscriptionId": "[parameters('nestedSubId')]",
               "location": "East US 2",
               "properties": {
@@ -103,7 +129,7 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
             {
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2021-04-01",
-              "name": "sub-nested",
+              "name": "[parameters('nestedRG')]",
               "subscriptionId": "[parameters('nestedSubId')]",
               "location": "East US 2",
               "properties": {
@@ -128,7 +154,7 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
               "name": "[format('slow-{0}', copyIndex())]",
               "subscriptionId": "[parameters('nestedSubId')]",
               "resourceGroup": "[parameters('nestedRG')]",
-              "dependsOn": [ "sub-nested" ],
+              "dependsOn": [ "[parameters('nestedRG')]" ],
               "copy": { "name": "slow", "count": 10, "mode": "serial", "batchSize": 1 },
               "properties": {
                 "mode": "Incremental",
@@ -146,6 +172,8 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
     private static readonly ExtensionUnderTest[] s_lifecycleExtensions = [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments];
 
     private static readonly ExtensionUnderTest[] s_whatIfExtensions = [ExtensionUnderTest.ResourcesDeployments];
+    private static readonly ExtensionUnderTest[] s_templateSpecExtensions =
+        [ExtensionUnderTest.Resources, ExtensionUnderTest.ResourcesDeployments, ExtensionUnderTest.Rest];
 
     private readonly RecorderMode _mode = RecorderModeResolver.FromEnvironment();
 
@@ -166,6 +194,10 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
     private string WhatIfDeployment => TestRun.ScopedName(WhatIfDeploymentBaseName, _mode);
 
     private string WhatIfResourceGroup => TestRun.ScopedName(WhatIfResourceGroupBaseName, _mode);
+
+    private string TemplateSpecDeployment => TestRun.ScopedName(TemplateSpecDeploymentBaseName, _mode);
+
+    private string TemplateSpecResourceGroup => TestRun.ScopedName(TemplateSpecResourceGroupBaseName, _mode);
 
     // T1: verifies "T1 Tenant deployment lifecycle: validate, create, list, show, export, delete, then cancel and wait on
     // a second deployment" of resources-deployments-tests (requirement "Create validates, then deploys and waits").
@@ -226,9 +258,9 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         }
     }
 
-    // T2: verifies "T2 Tenant deployment what-if with the default result format" of resources-deployments-tests
-    // (requirement "What-if a deployment").
+    // T2/T4/T5: default, ResourceIdOnly and ProviderNoRbac what-if share one recording.
     // Upstream: azure-cli test_resource.py DeploymentWhatIfAtTenantScopeTest.test_tenant_level_what_if.
+    // PowerShell: DeploymentWhatIfTests.ps1 Test-WhatIfWithResourceIdOnlyAtTenantScope and Test-WhatIfProviderNoRbacAtTenantScope.
     [Fact]
     public void TenantDeploymentWhatIf()
     {
@@ -246,7 +278,7 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
             using var host = new ScenarioHost(ClientType.CLI, requests, useLiveAuth: true, extensions: s_whatIfExtensions);
             string liveSubscriptionId = host.LiveSubscriptionId();
             subscriptionSanitizer.SubscriptionId = liveSubscriptionId;
-            RunCliWhatIf(host, requests, liveSubscriptionId);
+            RunWhatIfWorkflow(host, requests, liveSubscriptionId, powerShell: false);
             recording.Save();
             return;
         }
@@ -254,12 +286,308 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         RecordPlaybackInterceptor cliRequests = recording.CreateInterceptor();
         using (var cli = new ScenarioHost(ClientType.CLI, cliRequests, extensions: s_whatIfExtensions))
         {
-            RunCliWhatIf(cli, cliRequests, SubscriptionId);
+            RunWhatIfWorkflow(cli, cliRequests, SubscriptionId, powerShell: false);
         }
 
-        using (var ps = new ScenarioHost(ClientType.PowerShell, recording.CreateInterceptor(), extensions: s_whatIfExtensions))
+        RecordPlaybackInterceptor psRequests = recording.CreateInterceptor();
+        using (var ps = new ScenarioHost(ClientType.PowerShell, psRequests, extensions: s_whatIfExtensions))
         {
-            AssertWhatIfResult(ps.RunPowerShell("Get-AzTenantDeploymentWhatIfResult", DeployParameters(WhatIfDeployment, SubscriptionId, WhatIfResourceGroup)));
+            RunWhatIfWorkflow(ps, psRequests, SubscriptionId, powerShell: true);
+        }
+    }
+
+    private void RunWhatIfWorkflow(ScenarioHost host, RecordPlaybackInterceptor requests, string subscriptionId, bool powerShell)
+    {
+        foreach (var (resultFormat, validationLevel) in new (string?, string?)[]
+        {
+            (null, null),
+            ("ResourceIdOnly", null),
+            (null, "ProviderNoRbac"),
+        })
+        {
+            if (!powerShell)
+            {
+                RunCliWhatIf(host, requests, subscriptionId, resultFormat, validationLevel);
+                continue;
+            }
+
+            Dictionary<string, object> parameters = DeployParameters(WhatIfDeployment, subscriptionId, WhatIfResourceGroup);
+            if (resultFormat is not null)
+            {
+                parameters["ResultFormat"] = resultFormat;
+            }
+            if (validationLevel is not null)
+            {
+                parameters["ValidationLevel"] = validationLevel;
+            }
+
+            int sent = requests.Sent.Count;
+            AssertWhatIfResult(host.RunPowerShellCmdlet<GetTenantDeploymentWhatIfResultCmdlet>(parameters), resultFormat);
+            AssertWhatIfRequest(Since(requests, sent)[0], resultFormat, validationLevel);
+        }
+    }
+
+    // T3: upstream DeploymentTests.ps1 Test-NewTenantDeploymentFromTemplateSpec.
+    [Fact]
+    public void TenantDeploymentFromTemplateSpecWithParametersFile()
+    {
+        using var parametersFile = new TemplateFile(TemplateSpecParameters);
+        var subscriptionSanitizer = new LiveSubscriptionSanitizer();
+        var recording = SessionRecordFiles.OpenSession(
+            typeof(TenantDeploymentScenarioTests),
+            nameof(TenantDeploymentFromTemplateSpecWithParametersFile),
+            new DefaultRequestMatcher(matchBody: true),
+            Sanitizers(subscriptionSanitizer));
+
+        if (recording.Mode == RecorderMode.Record)
+        {
+            RecordPlaybackInterceptor requests = recording.CreateInterceptor();
+            using var host = new ScenarioHost(ClientType.CLI, requests, useLiveAuth: true, extensions: s_templateSpecExtensions);
+            string subscriptionId = host.LiveSubscriptionId();
+            subscriptionSanitizer.SubscriptionId = subscriptionId;
+            bool workflowSucceeded = false;
+            try
+            {
+                RunTemplateSpecDeployment(host, requests, subscriptionId, parametersFile.Path, powerShell: false);
+                recording.Save();
+                workflowSucceeded = true;
+            }
+            finally
+            {
+                var failures = new List<Exception>();
+                TryCleanUp(failures, "tenant deployment", TemplateSpecDeployment,
+                    () => host.RunCli("deployment", "tenant", "delete", "--name", TemplateSpecDeployment));
+                TryCleanUp(failures, "resource group", TemplateSpecResourceGroup,
+                    () => host.RunCli("group", "delete", "--subscription-id", subscriptionId, "--name", TemplateSpecResourceGroup));
+                if (workflowSucceeded && failures.Count > 0)
+                {
+                    throw new AggregateException("Record-mode cleanup failed; delete the named resources manually.", failures);
+                }
+            }
+            return;
+        }
+
+        RecordPlaybackInterceptor cliRequests = recording.CreateInterceptor();
+        using (var cli = new ScenarioHost(ClientType.CLI, cliRequests, extensions: s_templateSpecExtensions))
+        {
+            RunTemplateSpecDeployment(cli, cliRequests, SubscriptionId, parametersFile.Path, powerShell: false);
+        }
+
+        RecordPlaybackInterceptor psRequests = recording.CreateInterceptor();
+        using (var ps = new ScenarioHost(ClientType.PowerShell, psRequests, extensions: s_templateSpecExtensions))
+        {
+            RunTemplateSpecDeployment(ps, psRequests, SubscriptionId, parametersFile.Path, powerShell: true);
+        }
+    }
+
+    private void RunTemplateSpecDeployment(
+        ScenarioHost host, RecordPlaybackInterceptor requests, string subscriptionId, string parametersFile, bool powerShell)
+    {
+        IReadOnlyList<object> groupOutput = powerShell
+            ? host.RunPowerShell("New-AzResourceGroup", new Dictionary<string, object>
+            {
+                ["Name"] = TemplateSpecResourceGroup,
+                ["Location"] = Location,
+            })
+            : host.RunCli("group", "create", "--name", TemplateSpecResourceGroup, "--location", Location);
+        var group = Assert.IsType<ResourceGroup>(Assert.Single(groupOutput));
+        Assert.Equal(TemplateSpecResourceGroup, group.Name);
+        Assert.Equal("Succeeded", group.Properties?.ProvisioningState);
+
+        string specId = $"/subscriptions/{subscriptionId}/resourceGroups/{TemplateSpecResourceGroup}/providers/Microsoft.Resources/templateSpecs/{TemplateSpecDeployment}";
+        string versionId = $"{specId}/versions/v1";
+        var spec = new JsonObject { ["location"] = Location, ["properties"] = new JsonObject() };
+        var version = new JsonObject
+        {
+            ["location"] = Location,
+            ["properties"] = new JsonObject { ["mainTemplate"] = JsonNode.Parse(TemplateSpecTemplate) },
+        };
+        foreach (var (id, body) in new[] { (specId, spec), (versionId, version) })
+        {
+            string uri = $"https://management.azure.com{id}?{TemplateSpecApiVersion}";
+            int sent = requests.Sent.Count;
+            IReadOnlyList<object> output = powerShell
+                ? host.RunPowerShell("Invoke-AzRestMethod", new Dictionary<string, object>
+                {
+                    ["Method"] = "PUT",
+                    ["Uri"] = uri,
+                    ["Payload"] = body.ToJsonString(),
+                })
+                : host.RunCli("rest", "--method", "PUT", "--uri", uri, "--body", body.ToJsonString());
+            var response = Assert.IsType<RestResponse>(Assert.Single(output));
+            Assert.True(response.StatusCode is 200 or 201, $"Template Spec setup returned HTTP {response.StatusCode}.");
+            CapturedHttpRequest request = Assert.Single(Since(requests, sent));
+            AssertRequest(request, "PUT", uri);
+            Assert.True(JsonNode.DeepEquals(body, RequestBody(request)));
+        }
+
+        int beforeCreate = requests.Sent.Count;
+        IReadOnlyList<object> created = powerShell
+            ? host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(new Dictionary<string, object>
+            {
+                ["Name"] = TemplateSpecDeployment,
+                ["Location"] = Location,
+                ["TemplateSpecId"] = versionId,
+                ["ParametersFile"] = parametersFile,
+            })
+            : host.RunCli("deployment", "tenant", "create", "--name", TemplateSpecDeployment, "--location", Location,
+                "--template-spec-id", versionId, "--parameters-file", parametersFile);
+        var deployment = AssertDeployment(created, TemplateSpecDeployment, "Succeeded");
+        Assert.NotNull(deployment.Properties?.Outputs);
+        Assert.Equal("abc", deployment.Properties.Outputs["foo"].Value);
+        Assert.Equal("xyz", deployment.Properties.Outputs["bar"].Value);
+
+        IReadOnlyList<CapturedHttpRequest> createRequests = Since(requests, beforeCreate);
+        AssertValidateThenPut(createRequests, TemplateSpecDeployment);
+        foreach (CapturedHttpRequest request in createRequests.Where(request => request.Method is "POST" or "PUT"))
+        {
+            JsonNode body = RequestBody(request);
+            Assert.Equal(Location, body["location"]?.GetValue<string>());
+            JsonNode properties = body["properties"]!;
+            Assert.Equal("Incremental", properties["mode"]?.GetValue<string>());
+            Assert.Equal(versionId, properties["templateLink"]?["id"]?.GetValue<string>());
+            Assert.Null(properties["template"]);
+            Assert.Null(properties["parametersLink"]);
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse(TemplateSpecParameters), properties["parameters"]));
+        }
+
+        Assert.Empty(powerShell
+            ? host.RunPowerShellCmdlet<RemoveTenantDeploymentCmdlet>(Named(TemplateSpecDeployment))
+            : host.RunCli("deployment", "tenant", "delete", "--name", TemplateSpecDeployment));
+    }
+
+    [Theory]
+    [InlineData("Name")]
+    [InlineData("DeploymentName")]
+    [InlineData("Filter")]
+    [InlineData("")]
+    public void PowerShellCmdlets_BindReadParameters_AndEnumeratePages(string parameter)
+    {
+        bool list = parameter is "" or "Filter";
+        string uri = $"{DeploymentsUri}{(list ? "" : "/" + Deployment)}?{ApiVersion}";
+        if (parameter == "Filter")
+        {
+            uri += $"&$filter={Uri.EscapeDataString(SucceededFilter)}";
+        }
+        string nextLink = $"{DeploymentsUri}?{ApiVersion}&$skiptoken=second-page";
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var backend = new CmdletBackend(request => CmdletResponse(!list
+            ? CmdletDeploymentBody(Deployment)
+            : request.RequestUri!.AbsoluteUri == nextLink
+                ? $$"""{"value":[{{CmdletDeploymentBody("second-deployment")}}]}"""
+                : $$"""{"value":[{{CmdletDeploymentBody(Deployment)}}],"nextLink":"{{nextLink}}"}"""));
+        using var host = new ScenarioHost(ClientType.PowerShell, requests, backendHandler: backend, extensions: s_whatIfExtensions);
+        var parameters = new Dictionary<string, object>();
+        if (parameter.Length > 0)
+        {
+            parameters[parameter] = parameter == "Filter" ? SucceededFilter : Deployment;
+        }
+
+        IReadOnlyList<object> output = host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(parameters);
+
+        Assert.Equal(list ? [Deployment, "second-deployment"] : new[] { Deployment },
+            output.Select(item => Assert.IsType<DeploymentExtended>(item).Name));
+        Assert.Equal(list ? 2 : 1, requests.Sent.Count);
+        AssertRequest(requests.Sent[0], "GET", uri);
+        if (list)
+        {
+            AssertRequest(requests.Sent[1], "GET", nextLink);
+        }
+    }
+
+    [Fact]
+    public void PowerShellCmdlets_EmptyList_EnumeratesNoObjects()
+    {
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var backend = new CmdletBackend(_ => CmdletResponse("""{"value":[]}"""));
+        using var host = new ScenarioHost(ClientType.PowerShell, requests, backendHandler: backend, extensions: s_whatIfExtensions);
+
+        Assert.Empty(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(new Dictionary<string, object>()));
+        AssertRequest(Assert.Single(requests.Sent), "GET", $"{DeploymentsUri}?{ApiVersion}");
+    }
+
+    [Fact]
+    public void PowerShellCmdlets_BindDeploymentNameAlias_ParameterArray_AndNoWaitSwitch()
+    {
+        string specId = $"/subscriptions/{SubscriptionId}/resourceGroups/{TemplateSpecResourceGroup}/providers/Microsoft.Resources/templateSpecs/{TemplateSpecDeployment}/versions/v1";
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var backend = new CmdletBackend(request => CmdletResponse(request.Method == HttpMethod.Post
+            ? """{"properties":{"provisioningState":"Succeeded"}}"""
+            : CmdletDeploymentBody(Deployment, "Accepted")));
+        using var host = new ScenarioHost(ClientType.PowerShell, requests, backendHandler: backend, extensions: s_whatIfExtensions);
+
+        var output = host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(new Dictionary<string, object>
+        {
+            ["DeploymentName"] = Deployment,
+            ["Location"] = Location,
+            ["TemplateSpecId"] = specId,
+            ["Parameter"] = new[] { "message=from-binding", "count=3" },
+            ["NoWait"] = new SwitchParameter(true),
+        });
+
+        AssertDeployment(output, Deployment, "Accepted");
+        Assert.Equal(2, requests.Sent.Count);
+        AssertValidateThenPut(requests.Sent, Deployment);
+        foreach (CapturedHttpRequest request in requests.Sent)
+        {
+            JsonNode properties = RequestBody(request)["properties"]!;
+            Assert.Equal(specId, properties["templateLink"]?["id"]?.GetValue<string>());
+            Assert.Equal("from-binding", properties["parameters"]?["message"]?["value"]?.GetValue<string>());
+            Assert.Equal(3, properties["parameters"]?["count"]?["value"]?.GetValue<int>());
+        }
+    }
+
+    [Fact]
+    public void PowerShellCmdlets_ConflictingParameterSets_AreRejectedBeforeSendingRequests()
+    {
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var backend = new CmdletBackend(_ => throw new InvalidOperationException("No request expected."));
+        using var host = new ScenarioHost(ClientType.PowerShell, requests, backendHandler: backend, extensions: s_whatIfExtensions);
+
+        var error = Record.Exception(() => host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(
+            new Dictionary<string, object> { ["Name"] = Deployment, ["Filter"] = SucceededFilter }));
+
+        Assert.NotNull(error);
+        Assert.Contains("parameter set", error.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(requests.Sent);
+    }
+
+    [Fact]
+    public void PowerShellCmdlets_BindWhatIfOptions()
+    {
+        var requests = new RecordPlaybackInterceptor(RecorderMode.Record, new SessionRecord());
+        using var backend = new CmdletBackend(_ => CmdletResponse("""
+            {"status":"Succeeded","properties":{"changes":[
+              {"resourceId":"/providers/Microsoft.Management/managementGroups/scenario-predicted","changeType":"Create"}
+            ]}}
+            """));
+        using var host = new ScenarioHost(ClientType.PowerShell, requests, backendHandler: backend, extensions: s_whatIfExtensions);
+        var parameters = DeployParameters(WhatIfDeployment, SubscriptionId, WhatIfResourceGroup);
+        parameters["ResultFormat"] = "ResourceIdOnly";
+        parameters["ValidationLevel"] = "ProviderNoRbac";
+
+        AssertWhatIfResult(host.RunPowerShellCmdlet<GetTenantDeploymentWhatIfResultCmdlet>(parameters), "ResourceIdOnly");
+        AssertWhatIfRequest(Assert.Single(requests.Sent), "ResourceIdOnly", "ProviderNoRbac");
+    }
+
+    private static string CmdletDeploymentBody(string name, string provisioningState = "Succeeded") => JsonSerializer.Serialize(new
+    {
+        id = $"/providers/Microsoft.Resources/deployments/{name}",
+        name,
+        location = Location,
+        properties = new { provisioningState },
+    });
+
+    private static HttpResponseMessage CmdletResponse(string body) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+
+    private sealed class CmdletBackend(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            HttpResponseMessage response = respond(request);
+            response.RequestMessage = request;
+            return Task.FromResult(response);
         }
     }
 
@@ -340,23 +668,23 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
     private void RunPowerShellLifecycle(ScenarioHost host, string slowTemplateFile)
     {
         var validation = Assert.IsType<DeploymentValidateResult>(Assert.Single(
-            host.RunPowerShell("Test-AzTenantDeployment", DeployParameters(Deployment, SubscriptionId, ResourceGroup))));
+            host.RunPowerShellCmdlet<TestTenantDeploymentCmdlet>(DeployParameters(Deployment, SubscriptionId, ResourceGroup))));
         Assert.Null(validation.Error);
         Assert.Equal("Succeeded", validation.Properties?.ProvisioningState);
 
-        var created = AssertDeployment(host.RunPowerShell("New-AzTenantDeployment", DeployParameters(Deployment, SubscriptionId, ResourceGroup)), Deployment, "Succeeded");
+        var created = AssertDeployment(host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(DeployParameters(Deployment, SubscriptionId, ResourceGroup)), Deployment, "Succeeded");
         Assert.Equal(DeploymentMode.Incremental, created.Properties?.Mode);
 
-        AssertListed(host.RunPowerShell("Get-AzTenantDeployment_List", new Dictionary<string, object>()), Deployment, live: false);
-        AssertListed(host.RunPowerShell("Get-AzTenantDeployment_List", new Dictionary<string, object> { ["Filter"] = SucceededFilter }), Deployment, live: false);
-        AssertDeployment(host.RunPowerShell("Get-AzTenantDeployment_Get", Named(Deployment)), Deployment, "Succeeded");
+        AssertDeployment(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(new Dictionary<string, object>()), Deployment, "Succeeded");
+        AssertDeployment(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(new Dictionary<string, object> { ["Filter"] = SucceededFilter }), Deployment, "Succeeded");
+        AssertDeployment(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(Named(Deployment)), Deployment, "Succeeded");
 
         // An existing folder receives "<deployment>.json".
         string folder = Path.Combine(Path.GetTempPath(), $"azclips-tenant-export-{Guid.NewGuid():N}");
         Directory.CreateDirectory(folder);
         try
         {
-            var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(host.RunPowerShell("Save-AzTenantDeploymentTemplate", new Dictionary<string, object>
+            var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(host.RunPowerShellCmdlet<SaveTenantDeploymentTemplateCmdlet>(new Dictionary<string, object>
             {
                 ["DeploymentName"] = Deployment,
                 ["Path"] = folder,
@@ -373,22 +701,22 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
             Directory.Delete(folder, recursive: true);
         }
 
-        Assert.Empty(host.RunPowerShell("Remove-AzTenantDeployment", Named(Deployment)));
+        Assert.Empty(host.RunPowerShellCmdlet<RemoveTenantDeploymentCmdlet>(Named(Deployment)));
 
         Dictionary<string, object> submit = DeployParameters(CancelDeployment, SubscriptionId, ResourceGroup, slowTemplateFile);
         submit["NoWait"] = true;
-        AssertSubmitted(host.RunPowerShell("New-AzTenantDeployment", submit), CancelDeployment);
+        AssertSubmitted(host.RunPowerShellCmdlet<NewTenantDeploymentCmdlet>(submit), CancelDeployment);
 
         // Like the CLI workflow, cancel only once Running: a cancel sent while still Accepted can be dropped by ARM.
         Assert.Equal("Running", PollUntil(host, "Running"));
 
-        Assert.Empty(host.RunPowerShell("Stop-AzTenantDeployment", Named(CancelDeployment)));
+        Assert.Empty(host.RunPowerShellCmdlet<StopTenantDeploymentCmdlet>(Named(CancelDeployment)));
 
-        AssertCancelPending(host.RunPowerShell("Get-AzTenantDeployment_Get", Named(CancelDeployment)), CancelDeployment);
+        AssertCancelPending(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(Named(CancelDeployment)), CancelDeployment);
 
         Assert.Equal("Canceled", PollUntil(host, "Canceled"));
 
-        AssertDeployment(host.RunPowerShell("Get-AzTenantDeployment_Get", Named(CancelDeployment)), CancelDeployment, "Canceled");
+        AssertDeployment(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(Named(CancelDeployment)), CancelDeployment, "Canceled");
     }
 
     // PowerShell has no wait command, so it polls show; playback serves the GETs the matching CLI wait recorded.
@@ -397,21 +725,36 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         string? state = null;
         for (int attempt = 0; attempt < MaxWaitPolls && state != expectedState; attempt++)
         {
-            state = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShell("Get-AzTenantDeployment_Get", Named(CancelDeployment)))).Properties?.ProvisioningState;
+            state = Assert.IsType<DeploymentExtended>(Assert.Single(host.RunPowerShellCmdlet<GetTenantDeploymentCmdlet>(Named(CancelDeployment)))).Properties?.ProvisioningState;
         }
         return state;
     }
 
-    private void RunCliWhatIf(ScenarioHost host, RecordPlaybackInterceptor requests, string subscriptionId)
+    private void RunCliWhatIf(
+        ScenarioHost host, RecordPlaybackInterceptor requests, string subscriptionId, string? resultFormat, string? validationLevel)
     {
-        int sent = requests.Sent.Count;
-        AssertWhatIfResult(host.RunCli(DeployArguments("what-if", WhatIfDeployment, subscriptionId, WhatIfResourceGroup)));
+        var arguments = new List<string>(DeployArguments("what-if", WhatIfDeployment, subscriptionId, WhatIfResourceGroup));
+        if (resultFormat is not null)
+        {
+            arguments.AddRange(["--result-format", resultFormat]);
+        }
+        if (validationLevel is not null)
+        {
+            arguments.AddRange(["--validation-level", validationLevel]);
+        }
 
-        CapturedHttpRequest whatIf = Since(requests, sent)[0];
+        int sent = requests.Sent.Count;
+        AssertWhatIfResult(host.RunCli([.. arguments]), resultFormat);
+        AssertWhatIfRequest(Since(requests, sent)[0], resultFormat, validationLevel);
+    }
+
+    private void AssertWhatIfRequest(CapturedHttpRequest whatIf, string? resultFormat, string? validationLevel)
+    {
         AssertRequest(whatIf, "POST", $"{DeploymentsUri}/{WhatIfDeployment}/whatIf?{ApiVersion}");
         JsonNode properties = RequestBody(whatIf)["properties"]!;
-        Assert.Equal("FullResourcePayloads", properties["whatIfSettings"]?["resultFormat"]?.GetValue<string>());
+        Assert.Equal(resultFormat ?? "FullResourcePayloads", properties["whatIfSettings"]?["resultFormat"]?.GetValue<string>());
         Assert.Equal("Incremental", properties["mode"]?.GetValue<string>());
+        Assert.Equal(validationLevel, properties["validationLevel"]?.GetValue<string>());
     }
 
     private string[] DeployArguments(string command, string deployment, string subscriptionId, string resourceGroup, string? templateFile = null) =>
@@ -446,7 +789,7 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         }
     }
 
-    private static void AssertWhatIfResult(IReadOnlyList<object> output)
+    private static void AssertWhatIfResult(IReadOnlyList<object> output, string? resultFormat = null)
     {
         var result = Assert.IsType<WhatIfOperationResult>(Assert.Single(output));
         Assert.Equal("Succeeded", result.Status);
@@ -454,6 +797,16 @@ public sealed class TenantDeploymentScenarioTests : IDisposable
         // The nested resource group never exists, so every predicted change is a Create.
         Assert.NotEmpty(result.Properties?.Changes ?? []);
         Assert.All(result.Properties!.Changes!, change => Assert.Equal("Create", change.ChangeType));
+        if (resultFormat == "ResourceIdOnly")
+        {
+            Assert.All(result.Properties.Changes!, change =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(change.ResourceId));
+                Assert.Null(change.Before);
+                Assert.Null(change.After);
+                Assert.Null(change.Delta);
+            });
+        }
     }
 
     private static DeploymentExtended AssertDeployment(IReadOnlyList<object> output, string name, string provisioningState)

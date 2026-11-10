@@ -12,6 +12,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         where TRequest : class
         where TResponse : class
     {
+        // TODO: Consolidate common send/tracing and polling behavior in HttpRuntime, with forwarding support
+        // in ProcessorBaseGenerator. Keep deployment-specific response/error interpretation in the orchestrators.
+
         /// <summary>
         /// POSTs, then polls Location until it stops answering 202 and returns that response untouched.
         /// Used by what-if: the shared LRO poller turns ARM's 200 "status: Failed" body into a body-less

@@ -27,10 +27,23 @@ public abstract class TenantDeploymentCmdletBase : PSCmdlet
         engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
     }
 
-    protected Dictionary<string, object> GetBoundParameters() =>
-        MyInvocation.BoundParameters
+    protected Dictionary<string, object> GetBoundParameters()
+    {
+        var parameters = MyInvocation.BoundParameters
             .Where(p => !CommonParameters.Contains(p.Key) && !OptionalCommonParameters.Contains(p.Key))
             .ToDictionary(p => p.Key, p => p.Value is SwitchParameter s ? s.IsPresent : p.Value);
+
+        // PowerShell's current location can differ from the process working directory used by System.IO.File.
+        foreach (string name in new[] { "TemplateFile", "ParametersFile" })
+        {
+            if (parameters.TryGetValue(name, out object? value) && value is string path)
+            {
+                parameters[name] = GetUnresolvedProviderPathFromPSPath(path);
+            }
+        }
+
+        return parameters;
+    }
 
     protected void Invoke(string commandName, Dictionary<string, object> parameters)
     {

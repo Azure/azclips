@@ -43,7 +43,12 @@ public class SaveTenantDeploymentTemplateProcessor_Orchestrator : ExportTenantDe
             Directory.CreateDirectory(directory);
         }
 
-        await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(template, s_indented));
+        await using (var stream = new FileStream(outputPath, Force ? FileMode.Create : FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+        await using (var writer = new StreamWriter(stream))
+        {
+            await writer.WriteAsync(JsonSerializer.Serialize(template, s_indented));
+        }
+
         await WriteOutput(new DeploymentTemplateSaveResult { Path = outputPath });
         return true;
     }
