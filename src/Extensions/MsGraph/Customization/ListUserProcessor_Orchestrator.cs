@@ -3,7 +3,6 @@
 
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Models;
-using System.Net.Http;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
@@ -112,15 +111,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
                 p.ConsistencyLevel = ConsistencyLevel;
             });
             // Full pipeline: unwraps the OData envelope and follows @odata.nextLink. Do not swap for SendAsync.
-            try
-            {
-                await atomic.ProcessAsync();
-            }
-            catch (HttpRequestException ex)
-            {
-                SelectClauseHelpers.RethrowMissingConsistencyLevelAsInvalidInput(ex);
-                throw;
-            }
+            await atomic.ProcessAsync();
         }
     }
 }

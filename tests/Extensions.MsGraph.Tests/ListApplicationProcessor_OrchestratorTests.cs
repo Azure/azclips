@@ -110,14 +110,14 @@ public class ListApplicationProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_AdvancedFilterWithoutConsistencyLevel_ShouldThrowHelpfulError()
+    public async Task ProcessAsync_AdvancedFilterWithoutConsistencyLevel_ShouldPreserveOriginalGraphMessage()
     {
         const string graphError = "{\"error\":{\"code\":\"Request_UnsupportedQuery\",\"message\":\"Operator 'endsWith' is not supported because the 'ConsistencyLevel:eventual' header is missing.\"}}";
         var (orch, _) = Create(
             new ListApplicationProcessor_Orchestrator { Filter = "endswith(displayName,'app')" },
             _ => FakeGraphHttpPipeline.JsonResponse(graphError, HttpStatusCode.BadRequest));
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
-        Assert.Contains("ConsistencyLevel 'eventual'", ex.Message);
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(() => orch.ProcessAsync());
+        Assert.Contains("'ConsistencyLevel:eventual' header is missing", ex.Message);
     }
 }
