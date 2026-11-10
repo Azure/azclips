@@ -379,12 +379,24 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
                                     Parameters: new Dictionary<string, ParameterReference>
                                     {
                                         ["Group"] = new("Group", IsRequired: true),
+                                        ["Filter"] = new("Filter", IsRequired: false),
+                                        ["Select"] = new("Select", IsRequired: false),
+                                        ["Expand"] = new("Expand", IsRequired: false),
+                                        ["Orderby"] = new("Orderby", IsRequired: false),
+                                        ["Search"] = new("Search", IsRequired: false),
+                                        ["ConsistencyLevel"] = new("ConsistencyLevel", IsRequired: false),
                                     }),
                 ["ByDisplayName"] = new("ByDisplayName",
                                     IsDefault: false,
                                     Parameters: new Dictionary<string, ParameterReference>
                                     {
                                         ["GroupDisplayName"] = new("GroupDisplayName", IsRequired: true),
+                                        ["Filter"] = new("Filter", IsRequired: false),
+                                        ["Select"] = new("Select", IsRequired: false),
+                                        ["Expand"] = new("Expand", IsRequired: false),
+                                        ["Orderby"] = new("Orderby", IsRequired: false),
+                                        ["Search"] = new("Search", IsRequired: false),
+                                        ["ConsistencyLevel"] = new("ConsistencyLevel", IsRequired: false),
                                     }),
             }
         );
