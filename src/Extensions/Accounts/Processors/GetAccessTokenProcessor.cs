@@ -132,7 +132,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                         $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
                         + "You may not be signed in to that tenant, or it requires additional sign-in "
                         + "(for example, multi-factor authentication or a conditional access policy). "
-                        + $"Run '{InteractiveSignInCommand(targetTenant, subscription)}' to authenticate, then retry.",
+                        + $"Run '{InteractiveSignInCommand(targetTenant, string.Equals(targetTenant, profile.TenantId, StringComparison.OrdinalIgnoreCase) ? subscription : "<subscription-id>")}' to authenticate, then retry.",
                         innerException: ex);
                 }
 
