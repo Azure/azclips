@@ -5,10 +5,17 @@ extern alias CmdletsCompute;
 
 using System.Collections;
 using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using Core.Abstractions;
+using Core.DependencyInjection;
 using CmdletsCompute::Microsoft.Azure.Azclips.Cmdlets.Compute;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
+using AccountsModuleInitializer = Microsoft.Azure.Azclips.Cmdlets.Accounts.ModuleInitializer;
 
 namespace Cmdlets.Tests;
 
+[Collection("Azclips Service Provider Tests")]
 public class NewVMCmdletTests
 {
     [Fact]
@@ -101,6 +108,71 @@ public class NewVMCmdletTests
     }
 
     [Fact]
+    public void SshKeyValues_BindWithoutAdminPassword()
+    {
+        var adminPasswordParameter = Assert.Single(
+            typeof(NewVMCmdlet)
+                .GetProperty(nameof(NewVMCmdlet.AdminPassword))!
+                .GetCustomAttributes(typeof(ParameterAttribute), inherit: true)
+                .Cast<ParameterAttribute>());
+        Assert.False(adminPasswordParameter.Mandatory);
+
+        var bound = Bind($"{BaseInvocationWithoutAuthentication} -SshKeyValues key-one,key-two");
+
+        Assert.False(bound.ContainsKey(nameof(NewVMCmdlet.AdminPassword)));
+        Assert.Equal(["key-one", "key-two"], Assert.IsType<string[]>(bound[nameof(NewVMCmdlet.SshKeyValues)]));
+    }
+
+    [Fact]
+    public void SshKeyValues_AreForwardedWithoutAdminPassword()
+    {
+        AzclipsServiceProvider.Dispose();
+        var session = new Mock<ISession>();
+        var engine = new Mock<IEngine>();
+        CommandInvocation? captured = null;
+        engine.Setup(engine => engine.OpenExecutionSession(
+                It.IsAny<CommandInvocation>(), It.IsAny<OutputStreams>(), It.IsAny<CancellationToken>()))
+            .Callback<CommandInvocation, OutputStreams, CancellationToken>((invocation, _, _) => captured = invocation)
+            .Returns(session.Object);
+
+        try
+        {
+            AzclipsServiceProvider.OverrideRegistration(services =>
+            {
+                services.AddSingleton(engine.Object);
+                services.AddSingleton(Mock.Of<ITelemetryService>());
+            });
+            new AccountsModuleInitializer().OnImport();
+            var state = InitialSessionState.CreateDefault2();
+            state.Commands.Add(new SessionStateCmdletEntry("New-AzVM", typeof(NewVMCmdlet), null));
+            using var runspace = RunspaceFactory.CreateRunspace(state);
+            runspace.Open();
+            using var shell = PowerShell.Create();
+            shell.Runspace = runspace;
+            shell.AddCommand("New-AzVM")
+                .AddParameter("Name", "vm")
+                .AddParameter("Location", "eastus")
+                .AddParameter("ResourceGroupName", "rg")
+                .AddParameter("VmSize", "Standard_D2s_v3")
+                .AddParameter("AdminUsername", "azadmin")
+                .AddParameter("SshKeyValues", new[] { "key-one", "key-two" })
+                .AddParameter("NetworkInterfaceName", "nic");
+
+            Assert.Empty(shell.Invoke());
+
+            Assert.Empty(shell.Streams.Error);
+            Assert.NotNull(captured);
+            Assert.False(captured.Parameters.ContainsKey("AdminPassword"));
+            Assert.Equal(["key-one", "key-two"], Assert.IsType<List<string>>(captured.Parameters["SshKeyValues"]));
+            session.Verify(session => session.Run(), Times.Once);
+        }
+        finally
+        {
+            AzclipsServiceProvider.Dispose();
+        }
+    }
+
+    [Fact]
     public void OSDiskDeleteOption_PassesValueThrough()
     {
         var bound = Bind($"{BaseInvocation} -OSDiskDeleteOption FutureOption");
@@ -108,6 +180,7 @@ public class NewVMCmdletTests
     }
 
     private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass -NetworkInterfaceName nic";
+    private const string BaseInvocationWithoutAuthentication = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -NetworkInterfaceName nic";
 
     private static Hashtable Bind(string invocation)
     {

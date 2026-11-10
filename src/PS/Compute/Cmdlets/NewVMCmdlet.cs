@@ -68,8 +68,11 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string AdminUsername { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string AdminPassword { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string[]? SshKeyValues { get; set; }
 
     [Parameter(Mandatory = true, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string NetworkInterfaceName { get; set; } = "";
@@ -128,8 +131,8 @@ public class NewVMCmdlet : PSCmdlet
             { "ResourceGroupName", ResourceGroupName },
             { "VmSize", VmSize },
             { "AdminUsername", AdminUsername },
-            { "AdminPassword", AdminPassword },
         };
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(AdminPassword)))                  { parameters.Add("AdminPassword", AdminPassword); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Zone)))                           { parameters.Add("Zone", Zone!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(StorageSku)))                     { parameters.Add("StorageSku", StorageSku!); }
@@ -140,6 +143,7 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecureVMDiskEncryptionSet))){ parameters.Add("OsDiskSecureVMDiskEncryptionSet", OSDiskSecureVMDiskEncryptionSet!); }
         if (EnableSecureBoot.HasValue)                                                        { parameters.Add("EnableSecureBoot", EnableSecureBoot.Value); }
         if (EnableVtpm.HasValue)                                                              { parameters.Add("EnableVtpm", EnableVtpm.Value); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SshKeyValues)))                   { parameters.Add("SshKeyValues", SshKeyValues!.ToList()); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))           { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))             { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetName)))                     { parameters.Add("SubnetName", SubnetName!); }

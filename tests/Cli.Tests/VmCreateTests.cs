@@ -21,6 +21,18 @@ public class VmCreateTests
     }
 
     [Fact]
+    public void NewAzVM_ExposesSshKeyValuesAndOptionalAdminPassword()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("New-AzVM", ClientType.PowerShell);
+
+        Assert.True(metadata.Parameters.TryGetValue("SshKeyValues", out var sshKeyValues));
+        Assert.Equal("SshKeyValues", sshKeyValues.Name);
+        Assert.Equal(typeof(List<string>), sshKeyValues.ParameterType);
+        Assert.False(sshKeyValues.IsRequired);
+        Assert.False(metadata.Parameters["AdminPassword"].IsRequired);
+    }
+
+    [Fact]
     public void VmCreate_ExposesImageParameter()
     {
         var metadata = new ExtensionIndex().GetCommandMetadata("vm create", ClientType.CLI);
