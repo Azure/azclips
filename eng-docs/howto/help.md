@@ -86,6 +86,12 @@ scaffolding or refreshing help:
     Fill in any new `{{ Fill ... }}` placeholders and review the diff for unrelated
     date, formatting, or PlatyPS-generated changes before committing.
 
+    For generic `-WhatIf` help, retain PowerShell's generated wording:
+    "Runs the command in a mode that only reports what would happen without performing the actions."
+    PlatyPS 1.0.1 appends the runtime description whenever it differs from the
+    authored text, so alternative generic wording accumulates duplicates on refresh.
+    Preserve command-specific WhatIf guidance where needed and review its refresh diff.
+
     Keep PlatyPS's internal `__AllParameterSets` headings in source help. Only the
     [Learn docs sync](ps-docs-sync.md) relabels those headings as `Default (Default)` in published copies;
     local help generation and metadata validation use the original source.
