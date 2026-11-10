@@ -189,7 +189,7 @@ Module Name: fake in a code block
 
         Copy-CmdletMarkdownWithRewrite -SourcePath $src -TargetPath $dst -TargetModuleName 'Az.Config'
 
-        $expected = $content.Replace('### __AllParameterSets', '### All parameters').
+        $expected = $content.Replace('### __AllParameterSets', '### Default (Default)').
             Replace('Module Name: Config', 'Module Name: Az.Config')
         Get-Content -LiteralPath $dst -Raw | Should -BeExactly $expected
         (Get-FileHash -LiteralPath $src).Hash | Should -BeExactly $sourceHash
@@ -303,7 +303,7 @@ Describe 'New-SyncPlan' {
             $source = Get-Content -LiteralPath $entry.SourcePath -Raw
             $headingCount += [regex]::Matches($source, '(?m)^### __AllParameterSets\r?$').Count
             $expected = $source.Replace("Module Name: $($entry.ModuleName)", "Module Name: $($entry.TargetModule)")
-            $expected = $expected -creplace '(?m)^### __AllParameterSets(?=\r?$)', '### All parameters'
+            $expected = $expected -creplace '(?m)^### __AllParameterSets(?=\r?$)', '### Default (Default)'
             Get-Content -LiteralPath $target -Raw | Should -BeExactly $expected
             (Get-FileHash -LiteralPath $entry.SourcePath).Hash | Should -BeExactly $sourceHash
         }
@@ -333,12 +333,17 @@ Describe 'Learn copy PlatyPS parsing compatibility' {
         @($published.Parameters).Count | Should -Be @($original.Parameters).Count
         for ($i = 0; $i -lt $Count; $i++) {
             $expectedName = if ($original.Syntax[$i].ParameterSetName -eq '__AllParameterSets') {
-                'All parameters'
+                'Default'
             } else {
                 $original.Syntax[$i].ParameterSetName
             }
             $published.Syntax[$i].ParameterSetName | Should -BeExactly $expectedName
-            $published.Syntax[$i].IsDefaultParameterSet | Should -Be $original.Syntax[$i].IsDefaultParameterSet
+            $expectedDefault = if ($original.Syntax[$i].ParameterSetName -eq '__AllParameterSets') {
+                $true
+            } else {
+                $original.Syntax[$i].IsDefaultParameterSet
+            }
+            $published.Syntax[$i].IsDefaultParameterSet | Should -Be $expectedDefault
         }
     }
 }

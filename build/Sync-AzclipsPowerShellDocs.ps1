@@ -222,9 +222,11 @@ function ConvertTo-LearnParameterSetHeading
 
     # PlatyPS exposes PowerShell's internal unnamed-set name as a heading on Learn.
     # Relabel only the published copy; source help and local help generation stay unchanged.
-    # Keep the heading itself: removing it made Learn invent "Default (Default)" and
-    # pull Description text into an empty Aliases section. "All parameters" avoids
-    # that parsing bug without repeating Learn's existing "Syntax" section title.
+    # Keep the heading itself: removing it pulled Description text into an empty
+    # Aliases section. Use "Default (Default)" as the Learn-only name/default label;
+    # this does not change runtime metadata or explicitly named parameter sets.
+    # (Daniel) this is a workaround introduced until a more "native" solution
+    # can be introduced
     $output = [System.Text.StringBuilder]::new()
     $inSyntax = $false
     $fence = ''
@@ -248,7 +250,7 @@ function ConvertTo-LearnParameterSetHeading
             elseif ($line -match '^#{1,2}[ \t]+') { $inSyntax = $false }
             elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$')
             {
-                [void]$output.Append(($match.Value -creplace '__AllParameterSets', 'All parameters'))
+                [void]$output.Append(($match.Value -creplace '__AllParameterSets', 'Default (Default)'))
                 continue
             }
         }
