@@ -1297,6 +1297,86 @@ public class VmCreateOrchestrationTests
             .GetProperty("osDisk").GetProperty("managedDisk").GetProperty("storageAccountType").GetString();
     }
 
+    [Theory]
+    [InlineData("Delete", "Delete")]
+    [InlineData("detach", "detach")]
+    [InlineData("FutureOption", "FutureOption")]
+    public void OsDiskDeleteOption_Cli_WritesOsDiskDeleteOption(string input, string expected)
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--os-disk-delete-option", input]);
+
+        Assert.Equal(expected, OsDiskDeleteOption(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
+    public void OsDiskDeleteOption_PowerShell_WritesOsDiskDeleteOption()
+    {
+        var parameters = PsParameters();
+        parameters["OSDiskDeleteOption"] = "delete";
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        Assert.Equal("delete", OsDiskDeleteOption(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
+    public void OsDiskDeleteOption_PowerShell_PassesUnknownValueThrough()
+    {
+        var parameters = PsParameters();
+        parameters["OSDiskDeleteOption"] = "FutureOption";
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        Assert.Equal("FutureOption", OsDiskDeleteOption(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OsDiskDeleteOption_Unset_IsOmittedFromExistingOsDiskBlock(bool confidentialVm)
+    {
+        string[] options = confidentialVm
+            ? ["--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "VMGuestStateOnly"]
+            : ["--storage-sku", "Premium_LRS"];
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, .. options]);
+
+        using var document = JsonDocument.Parse(PutBody(record, "/virtualMachines/"));
+        var osDisk = document.RootElement.GetProperty("properties").GetProperty("storageProfile").GetProperty("osDisk");
+        Assert.Equal(JsonValueKind.Object, osDisk.ValueKind);
+        Assert.False(osDisk.TryGetProperty("deleteOption", out _));
+    }
+
+    [Theory]
+    [InlineData("Premium_LRS")]
+    [InlineData("os=Premium_LRS")]
+    public void OsDiskDeleteOption_CombinesWithStorageSkuAndConfidentialVmDiskSecurity(string storageSku)
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId),
+            [.. s_cliArgs, "--os-disk-delete-option", "Delete", "--storage-sku", storageSku,
+                "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "DiskWithVMGuestState",
+                "--os-disk-secure-vm-disk-encryption-set", "mydes"]);
+
+        using var document = JsonDocument.Parse(PutBody(record, "/virtualMachines/"));
+        var properties = document.RootElement.GetProperty("properties");
+        var osDisk = properties.GetProperty("storageProfile").GetProperty("osDisk");
+        var managedDisk = osDisk.GetProperty("managedDisk");
+        var securityProfile = managedDisk.GetProperty("securityProfile");
+
+        Assert.Equal("FromImage", osDisk.GetProperty("createOption").GetString());
+        Assert.Equal("Delete", osDisk.GetProperty("deleteOption").GetString());
+        Assert.Equal("Premium_LRS", managedDisk.GetProperty("storageAccountType").GetString());
+        Assert.Equal("ConfidentialVM", properties.GetProperty("securityProfile").GetProperty("securityType").GetString());
+        Assert.Equal("DiskWithVMGuestState", securityProfile.GetProperty("securityEncryptionType").GetString());
+        Assert.Equal(
+            $"/subscriptions/{SubscriptionId}/resourceGroups/scenario-vm-rg/providers/Microsoft.Compute/diskEncryptionSets/mydes",
+            securityProfile.GetProperty("diskEncryptionSet").GetProperty("id").GetString());
+    }
+
+    private static string? OsDiskDeleteOption(string body)
+    {
+        using var document = JsonDocument.Parse(body);
+        return document.RootElement.GetProperty("properties").GetProperty("storageProfile")
+            .GetProperty("osDisk").GetProperty("deleteOption").GetString();
+    }
+
     [Fact]
     public void FailedDetailRead_FailsVmCreate_AfterTheVmIsCreated()
     {

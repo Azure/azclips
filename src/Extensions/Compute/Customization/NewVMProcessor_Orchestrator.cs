@@ -26,6 +26,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string? StorageSku { get; set; }
 
+        public string? OsDiskDeleteOption { get; set; }
+
         [ParameterGroup("Security Arguments")]
         public string? SecurityType { get; set; }
 
@@ -184,6 +186,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanPublisher = plan?.Publisher;
                 p.Zones = string.IsNullOrWhiteSpace(Zone) ? [] : [Zone];
                 p.OsDiskStorageAccountType = osDiskStorageAccountType;
+                p.OsDiskDeleteOption = OsDiskDeleteOption;
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
                 p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
