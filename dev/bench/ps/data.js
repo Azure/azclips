@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794273589273,
+  "lastUpdate": 1794273661450,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -25012,6 +25012,66 @@ window.BENCHMARK_DATA = {
             "value": 4126906.2512087026,
             "unit": "ns",
             "range": "± 145116.96326944404"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f792edcc05499f43df1f33163fe29078574e253",
+          "message": "{Packaging} Remove obsolete MSIX packaging and build workflow (#1346)\n\n**Related command**\nNot applicable — packaging cleanup\n\n**Description**\n- Delete the disabled legacy build workflow.\n- Remove obsolete MSIX packaging: manual guide, manifest, and three logo\nassets.\n- Clean up related documentation, ignore rules, and source comments.\n- Leave active distribution pipelines and runtime behavior unchanged.\n\n**Testing Guide**\n- Whitespace checks passed.\n- No remaining MSIX/AppX or deleted-workflow references in tracked text\nfiles.\n- Runtime tests not run — no executable code changes.\n\n---\n\n- [x] Title uses the internal `{Packaging}` prefix with no trailing\npunctuation.\n- [x] Customer-facing command release note not applicable.\n- [x] Runtime test changes not applicable.\n- [x] Related documentation updated.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-10T11:18:02+11:00",
+          "tree_id": "31192c45ae2bf1a29b421cdec0bcec3eeea5f69d",
+          "url": "https://github.com/Azure/azclips/commit/4f792edcc05499f43df1f33163fe29078574e253"
+        },
+        "date": 1794273650015,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.SetSecret",
+            "value": 3501916.3347107437,
+            "unit": "ns",
+            "range": "± 100988.43921513086"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetSecret",
+            "value": 3347973.618693467,
+            "unit": "ns",
+            "range": "± 95338.06015401396"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListSecrets",
+            "value": 3701076.5197461215,
+            "unit": "ns",
+            "range": "± 99058.43838551505"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.CreateCertificate",
+            "value": 5657970.424058323,
+            "unit": "ns",
+            "range": "± 108987.18000754992"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.GetCertificate",
+            "value": 3917641.8112562816,
+            "unit": "ns",
+            "range": "± 98629.2257518963"
+          },
+          {
+            "name": "Benchmark.PS.KeyVaultBenchmarks.ListCertificates",
+            "value": 3750645.4081304087,
+            "unit": "ns",
+            "range": "± 100354.88247116636"
           }
         ]
       }
