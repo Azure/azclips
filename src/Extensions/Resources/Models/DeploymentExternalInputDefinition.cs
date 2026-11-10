@@ -10,7 +10,7 @@ public partial class DeploymentExternalInputDefinition
 {
     /// <summary>The kind of external input.</summary>
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = null!;
 
     /// <summary>Configuration for the external input.</summary>
     [JsonPropertyName("config")]

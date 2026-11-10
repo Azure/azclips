@@ -11,11 +11,11 @@ public partial class KeyVaultParameterReference
     /// <summary>Azure Key Vault reference.</summary>
     [JsonPropertyName("keyVault")]
     [JsonInclude]
-    internal KeyVaultReference KeyVault { get; set; }
+    internal KeyVaultReference KeyVault { get; set; } = null!;
 
     /// <summary>Azure Key Vault secret name.</summary>
     [JsonPropertyName("secretName")]
-    public string SecretName { get; set; }
+    public string SecretName { get; set; } = null!;
 
     /// <summary>Azure Key Vault secret version.</summary>
     [JsonPropertyName("secretVersion")]

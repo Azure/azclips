@@ -10,5 +10,5 @@ public partial class DeploymentExternalInput
 {
     /// <summary>External input value.</summary>
     [JsonPropertyName("value")]
-    public object Value { get; set; }
+    public object Value { get; set; } = null!;
 }

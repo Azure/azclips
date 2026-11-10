@@ -32,12 +32,12 @@ public abstract partial class ProcessorBase : IProcessor
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
-    protected IRuntimeHttpPipeline HttpPipeline { get; private set; } = null !;
-    protected IEventPublisher Publisher { get; private set; } = null !;
-    protected JsonSerializerOptions JsonOptions { get; private set; } = null !;
-    protected OutputStreamDelegate WriteOutput { get; private set; } = null !;
-    protected IAuthHandler AuthHandler { get; private set; } = null !;
-    protected ProfileModel? ResolvedProfile { get; private set; } = null !;
+    protected IRuntimeHttpPipeline HttpPipeline { get; private set; } = null!;
+    protected IEventPublisher Publisher { get; private set; } = null!;
+    protected JsonSerializerOptions JsonOptions { get; private set; } = null!;
+    protected OutputStreamDelegate WriteOutput { get; private set; } = null!;
+    protected IAuthHandler AuthHandler { get; private set; } = null!;
+    protected ProfileModel? ResolvedProfile { get; private set; } = null!;
     public string? Profile { get; set; }
 
     protected virtual void BeforeInit()
@@ -76,6 +76,15 @@ public abstract partial class ProcessorBase : IProcessor
     protected virtual string CreateRequestUri() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestUri)}.");
     /// <summary>Builds the request body (serialized with JsonOptions by its runtime type). Null (no content) by default; override for create/update.</summary>
     protected virtual object? CreateRequestBody() => null;
+    partial void OverrideCreateRequestContentBase(object body, ref HttpContent? content);
+    /// <summary>Serializes the request body into HTTP content. JSON by default; a partial implementation of OverrideCreateRequestContentBase that sets content takes precedence.</summary>
+    protected virtual HttpContent CreateRequestContent(object body)
+    {
+        HttpContent? content = null;
+        OverrideCreateRequestContentBase(body, ref content);
+        return content ?? JsonContent.Create(body, body.GetType(), options: JsonOptions);
+    }
+
     /// <summary>Adds request headers beyond what the pipeline supplies. No-op by default.</summary>
     protected virtual void CreateRequestHeaders(HttpRequestMessage request)
     {
@@ -86,9 +95,9 @@ public abstract partial class ProcessorBase : IProcessor
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
-        if (CreateRequestBody()is { } body)
+        if (CreateRequestBody() is { } body)
         {
-            request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
+            request.Content = CreateRequestContent(body);
         }
 
         CreateRequestHeaders(request);
@@ -126,6 +135,11 @@ public abstract partial class ProcessorBase : IProcessor
     {
         return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);
     }
+
+    /// <summary>OAuth2 authorization URL from the spec's authentication, or null when no declared flow has one. Virtual so a sovereign cloud or test host can override it without regenerating.</summary>
+    protected virtual string? AuthorizationUrl => "https://login.microsoftonline.com/common/oauth2/authorize";
+    /// <summary>OAuth2 scopes from the spec's authentication. Virtual so a sovereign cloud or test host can override them without regenerating.</summary>
+    protected virtual string[] AuthScopes => ["https://management.azure.com/.default"];
 }
 
 /// <summary>Generic processor base: default ProcessAsync pipeline (SendAsync -&gt; deserialize TResponse -&gt; WriteOutput), with a typed TRequest body seam.</summary>
@@ -138,6 +152,21 @@ public partial class ProcessorBase<TRequest, TResponse> : ProcessorBase where TR
     {
         OverrideBeforeProcessBase();
         return Task.CompletedTask;
+    }
+
+    partial void OverrideDeserializeResponseBase(string rawBody, ref TResponse? body, ref bool returnNow);
+    /// <summary>Deserializes a non-empty response body into TResponse. JSON by default; a partial implementation of OverrideDeserializeResponseBase that sets returnNow takes precedence.</summary>
+    protected virtual async Task<TResponse?> DeserializeResponseAsync(string rawBody)
+    {
+        TResponse? body = default;
+        bool returnNow = false;
+        OverrideDeserializeResponseBase(rawBody, ref body, ref returnNow);
+        if (returnNow)
+        {
+            return body;
+        }
+
+        return JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
     }
 
     /// <summary>Hook before writing output. Return true to suppress the default WriteOutput (e.g. a processor that writes its own paginated output).</summary>
@@ -163,12 +192,12 @@ public partial class ProcessorBase<TRequest, TResponse> : ProcessorBase where TR
             {
                 try
                 {
-                    body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                    body = await DeserializeResponseAsync(rawBody);
                 }
-                catch (JsonException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                    await Publisher.Publish(Events.ResponseInvalidJson, $"response could not be deserialized for {response.RequestMessage?.RequestUri}");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
                 }
             }
 

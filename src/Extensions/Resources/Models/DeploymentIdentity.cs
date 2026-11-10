@@ -11,7 +11,7 @@ public partial class DeploymentIdentity
     /// <summary>The identity type.</summary>
     /// <remarks>Known values (extensible enum DeploymentIdentityType): "None", "UserAssigned".</remarks>
     [JsonPropertyName("type")]
-    public string Type { get; set; }
+    public string Type { get; set; } = null!;
 
     /// <summary>The set of user assigned identities associated with the resource.</summary>
     [JsonPropertyName("userAssignedIdentities")]
