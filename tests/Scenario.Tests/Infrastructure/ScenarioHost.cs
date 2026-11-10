@@ -251,7 +251,11 @@ internal sealed class ScenarioHost : IDisposable
         return Execute(invocation, useAsyncSession: false);
     }
 
-    public IReadOnlyList<object> RunPowerShellCmdlet<TCmdlet>(IDictionary<string, object> parameters, object? pipelineInput = null) where TCmdlet : PSCmdlet
+    /// <summary>
+    /// Runs <typeparamref name="TCmdlet"/> in a real runspace, so PowerShell binds its parameters.
+    /// <paramref name="location"/> sets the runspace's current location, which relative paths resolve against.
+    /// </summary>
+    public IReadOnlyList<object> RunPowerShellCmdlet<TCmdlet>(IDictionary<string, object> parameters, object? pipelineInput = null, string? location = null) where TCmdlet : PSCmdlet
     {
         if (_clientType != ClientType.PowerShell) throw new InvalidOperationException("A PowerShell host is required.");
         var attribute = (CmdletAttribute)Attribute.GetCustomAttribute(typeof(TCmdlet), typeof(CmdletAttribute))!;
@@ -260,6 +264,7 @@ internal sealed class ScenarioHost : IDisposable
         state.Commands.Add(new SessionStateCmdletEntry(command, typeof(TCmdlet), null));
         using var runspace = RunspaceFactory.CreateRunspace(state);
         runspace.Open();
+        if (location is not null) runspace.SessionStateProxy.Path.SetLocation(location);
         using var shell = PowerShell.Create();
         shell.Runspace = runspace;
         shell.AddCommand(command);

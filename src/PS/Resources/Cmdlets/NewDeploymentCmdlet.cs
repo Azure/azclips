@@ -90,7 +90,7 @@ public class NewDeploymentCmdlet : PSCmdlet
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateFile)))
         {
-            parameters.Add("TemplateFile", TemplateFile!);
+            parameters.Add("TemplateFile", GetUnresolvedProviderPathFromPSPath(TemplateFile!));
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateSpecId)))
         {
@@ -110,7 +110,7 @@ public class NewDeploymentCmdlet : PSCmdlet
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ParametersFile)))
         {
-            parameters.Add("ParametersFile", ParametersFile!);
+            parameters.Add("ParametersFile", GetUnresolvedProviderPathFromPSPath(ParametersFile!));
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Parameter)))
         {
