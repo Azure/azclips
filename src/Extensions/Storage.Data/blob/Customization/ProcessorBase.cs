@@ -28,13 +28,13 @@ namespace  Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
         private const string BlobEndpointSuffix = "blob.core.windows.net";
 
         /// <summary>Storage account access key (base64) used to sign requests with Shared Key.</summary>
-        public string StorageAccountKey { get; set; } = string.Empty;
+        public virtual string StorageAccountKey { get; set; } = string.Empty;
 
         /// <summary>
         /// Storage account name. Builds the endpoint when <see cref="ProcessorBase.Url"/> is not set, and names the
         /// account in the Shared Key signature.
         /// </summary>
-        public string? StorageAccountName { get; set; }
+        public virtual string? StorageAccountName { get; set; }
 
         /// <summary><see cref="ProcessorBase.Url"/> when set; otherwise the account endpoint.</summary>
         protected override string Endpoint => ResolveUrl();
