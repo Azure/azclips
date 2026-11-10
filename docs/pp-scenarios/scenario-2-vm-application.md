@@ -50,7 +50,7 @@ az network public-ip create --subscription-id "$sub" --resource-group "$rg" --na
 
 ```bash
 ssh-keygen -t ed25519 -f "$key" -C "azclips-$run"
-az vm create --subscription-id "$sub" --resource-group "$rg" --name "$vm" --location "$location" --size Standard_D2s_v3 --image "$image" --admin-username "$admin" --ssh-key-values "$key.pub" --network-interface-name "$vm-nic" --virtual-network-name "$vm-vnet" --address-prefixes 10.0.0.0/16 --subnet-names app --subnet-address-prefixes 10.0.2.0/24 --nsg "$nsg_id" --public-ip-address "$pip"
+az vm create --subscription-id "$sub" --resource-group "$rg" --name "$vm" --location "$location" --size Standard_D2s_v5 --image "$image" --admin-username "$admin" --ssh-key-values "$key.pub" --network-interface-name "$vm-nic" --virtual-network-name "$vm-vnet" --address-prefixes 10.0.0.0/16 --subnet-names app --subnet-address-prefixes 10.0.2.0/24 --nsg "$nsg_id" --public-ip-address "$pip"
 az vm show --subscription-id "$sub" --resource-group "$rg" --name "$vm"
 ```
 
@@ -119,7 +119,7 @@ az network public-ip create @scope --name $pip --location $location --sku Standa
 
 ```powershell
 ssh-keygen -t ed25519 -f $key -C "azclips-$run"
-az vm create @scope --name $vm --location $location --size Standard_D2s_v3 --image $image --admin-username $admin --ssh-key-values "$key.pub" --network-interface-name "$vm-nic" --virtual-network-name "$vm-vnet" --address-prefixes 10.0.0.0/16 --subnet-names app --subnet-address-prefixes 10.0.2.0/24 --nsg $nsgId --public-ip-address $pip
+az vm create @scope --name $vm --location $location --size Standard_D2s_v5 --image $image --admin-username $admin --ssh-key-values "$key.pub" --network-interface-name "$vm-nic" --virtual-network-name "$vm-vnet" --address-prefixes 10.0.0.0/16 --subnet-names app --subnet-address-prefixes 10.0.2.0/24 --nsg $nsgId --public-ip-address $pip
 az vm show @scope --name $vm
 ```
 
@@ -193,7 +193,7 @@ New-AzPublicIpAddress -SubscriptionId $sub -ResourceGroupName $rg -Name $pip -Lo
 ```powershell
 $secure = Read-Host 'Choose an admin password' -AsSecureString
 $password = [System.Net.NetworkCredential]::new('', $secure).Password
-New-AzVM @psVm -Location $location -VmSize 'Standard_D2s_v3' -Image $image -AdminUsername $admin -AdminPassword $password -NetworkInterfaceName "$vm-nic" -VirtualNetworkName "$vm-vnet" -AddressPrefixes '10.0.0.0/16' -SubnetNames 'app' -SubnetAddressPrefixes '10.0.2.0/24' -SecurityGroupName $nsgId -PublicIpAddressName $pip
+New-AzVM @psVm -Location $location -VmSize 'Standard_D2s_v5' -Image $image -AdminUsername $admin -AdminPassword $password -NetworkInterfaceName "$vm-nic" -VirtualNetworkName "$vm-vnet" -AddressPrefixes '10.0.0.0/16' -SubnetNames 'app' -SubnetAddressPrefixes '10.0.2.0/24' -SecurityGroupName $nsgId -PublicIpAddressName $pip
 Get-AzVM @psVm
 ```
 
