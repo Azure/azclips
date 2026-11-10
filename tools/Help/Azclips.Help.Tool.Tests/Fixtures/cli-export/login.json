@@ -23,15 +23,15 @@
       },
       {
         "short_summary": "Login with a managed identity",
-        "command": "az login --identity"
+        "command": "az login --identity --subscription-id 00000000-0000-0000-0000-000000000000"
       },
       {
         "short_summary": "Login with a user-assigned managed identity",
-        "command": "az login --identity --client-id 11111111-1111-1111-1111-111111111111"
+        "command": "az login --identity --client-id 11111111-1111-1111-1111-111111111111 --subscription-id 00000000-0000-0000-0000-000000000000"
       },
       {
         "short_summary": "Login with a managed identity using short flags",
-        "command": "az login -i"
+        "command": "az login -i --subscription-id 00000000-0000-0000-0000-000000000000"
       },
       {
         "short_summary": "Login with a service principal using a secret",

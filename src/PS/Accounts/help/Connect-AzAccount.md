@@ -38,10 +38,12 @@ For service principal client-secret sign-in, use either `-ClientId` with
 with `-Credential <PSCredential>` syntax. The credential username is the application
 ID and its password is the client secret. Both forms use the same authentication flow.
 
-Initial service principal sign-in requires a tenant ID and subscription ID. The
-subscription can also come from the current profile's default. Client-secret arguments
+Initial service principal sign-in requires a tenant ID and an explicit subscription ID.
+Login does not inherit argument defaults from the current profile. Client-secret arguments
 can't be combined with managed identity, device-code authentication, a federated token,
 or `-Profile`. Use `-OutProfile` to save a named profile.
+
+Managed identity sign-in also requires a subscription ID, supplied with `-SubscriptionId`. The managed identity environment determines the tenant; don't supply `-TenantId` with `-Identity`.
 
 ## EXAMPLES
 
@@ -90,6 +92,22 @@ This example uses the profile saved by either service principal example above.
 
 ```powershell
 Connect-AzAccount -Profile ci
+```
+
+### Sign in with a managed identity
+
+Sign in using a managed identity. This is typically used when running in an Azure environment that supports managed identities, such as an Azure VM, App Service, or Function App. Tenant ID will be resolved automatically from the environment.
+
+```powershell
+Connect-AzAccount -Identity -SubscriptionId '00000000-0000-0000-0000-000000000000'
+```
+
+### Sign in with a user-assigned managed identity
+
+Select a user-assigned identity by client ID and persist the specified subscription.
+
+```powershell
+Connect-AzAccount -Identity -ClientId '22222222-2222-2222-2222-222222222222' -SubscriptionId '00000000-0000-0000-0000-000000000000'
 ```
 
 ## PARAMETERS
@@ -216,6 +234,7 @@ HelpMessage: ''
 ### -Identity
 
 Sign in using a managed identity. System-assigned by default; combine with `-ClientId`, `-ObjectId`, or `-ResourceId` to select a specific user-assigned identity.
+Requires an explicit subscription ID supplied with `-SubscriptionId`.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -281,7 +300,8 @@ HelpMessage: ''
 
 ### -Profile
 
-Name of an existing named profile to sign into. Mutually exclusive with `-OutProfile`.
+Name of an existing named profile to sign into, using its saved subscription ID.
+Mutually exclusive with `-OutProfile` and `-SubscriptionId`.
 
 ```yaml
 Type: System.String
@@ -346,7 +366,8 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure subscription ID. Must be supplied explicitly for initial sign-in, including
+managed identities. Can't be combined with `-Profile`.
 
 ```yaml
 Type: System.String
