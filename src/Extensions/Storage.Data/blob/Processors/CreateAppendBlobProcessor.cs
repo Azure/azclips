@@ -78,7 +78,7 @@ public partial class CreateAppendBlobProcessor : ProcessorBase<object, object>
     public string BlobType { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Put;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/".WithQuery("timeout", Timeout);
+    protected override string CreateRequestUri() => $"{Endpoint}".WithQuery("timeout", Timeout);
     protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
         request.Headers.TryAddWithoutValidation("x-ms-version", "2027-03-07");

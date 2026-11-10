@@ -13,4 +13,4 @@ entrypoints:                             # relative to tsp-location
 service-name: StorageBlob
 root-namespace: Microsoft.Azure.AzClips.Extensions.StorageBlob
 project-name: Microsoft.Azure.AzClips.Extensions.StorageBlob
-description: Storage extension for AzClips
+description: Storage blob extension for AzClips

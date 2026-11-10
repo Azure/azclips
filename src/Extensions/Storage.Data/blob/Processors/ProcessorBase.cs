@@ -38,7 +38,7 @@ public abstract partial class ProcessorBase : IProcessor
     protected OutputStreamDelegate WriteOutput { get; private set; } = null!;
     protected IAuthHandler AuthHandler { get; private set; } = null!;
     protected ProfileModel? ResolvedProfile { get; private set; } = null!;
-    public string? Profile { get; set; }
+    public virtual string? Profile { get; set; }
 
     protected virtual void BeforeInit()
     {
@@ -137,7 +137,7 @@ public abstract partial class ProcessorBase : IProcessor
     }
 
     /// <summary>'Url' component of the service endpoint. The spec declares no default, so the caller supplies it.</summary>
-    public string Url { get; set; } = string.Empty;
+    public virtual string Url { get; set; } = string.Empty;
     /// <summary>OAuth2 authorization URL from the spec's authentication, or null when no declared flow has one. Virtual so a sovereign cloud or test host can override it without regenerating.</summary>
     protected virtual string? AuthorizationUrl => "https://login.microsoftonline.com/common/oauth2/authorize";
     /// <summary>OAuth2 scopes from the spec's authentication. Virtual so a sovereign cloud or test host can override them without regenerating.</summary>
