@@ -371,7 +371,7 @@ public sealed class ExtensionAddPlannerTests : IDisposable
         // tests/Fixtures/<name>/bin/<Configuration>/net10.0/. The fixture is built as a normal
         // class-library output (default SDK layout, AppendTargetFrameworkToOutputPath=true).
         // Configuration is mirrored from the test assembly's own bin path so Debug/Release
-        // matrix builds (see .github/workflows/build.yml) both resolve correctly.
+        // builds both resolve correctly.
         var configuration = InferConfigurationFromBaseDirectory() ?? "Debug";
         var probe = AppContext.BaseDirectory;
         for (int i = 0; i < 10 && !string.IsNullOrEmpty(probe); i++)

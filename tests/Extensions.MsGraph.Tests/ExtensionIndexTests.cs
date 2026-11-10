@@ -120,7 +120,6 @@ public class ExtensionIndexTests
         Assert.Equal(typeof(string[]), metadata.Parameters["expand"].ParameterType);
         Assert.Equal(typeof(bool), metadata.Parameters["append-selected"].ParameterType);
     }
-
     [Theory]
     [InlineData("Get-AzMsGraphUser_Get", "Id")]
     [InlineData("Get-AzMsGraphUser_Mail", "Mail")]

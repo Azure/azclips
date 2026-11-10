@@ -103,7 +103,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 DepProp("OutputStreamDelegate", "WriteOutput", "null!"),
                 DepProp("IAuthHandler", "AuthHandler", "null!"),
                 DepProp("ProfileModel?", "ResolvedProfile", "null!"),
-                AutoProp("string?", "Profile", null, SyntaxKind.PublicKeyword),
+                AutoProp("string?", "Profile", null, SyntaxKind.PublicKeyword, SyntaxKind.VirtualKeyword),
                 MethodDeclaration(ParseTypeName("void"), Identifier("BeforeInit"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
                     .WithBody(Block()),
@@ -166,6 +166,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .WithRawBody("return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);"))
             // Server parameters the spec left without a default. Public because only the caller can
             // supply them, and because argument binding and help reflect over public properties.
+            // Public members are virtual so a derived processor can redeclare one to attach its own
+            // attributes (e.g. per-dialect visibility) without touching the base.
             .AddMembers([.. endpointInputs.Select(EndpointInputProperty)])
             .AddMembers([.. AuthMembers(auth)]);
 
@@ -199,7 +201,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
     /// </remarks>
     private static PropertyDeclarationSyntax EndpointMember(ServerSupport.ResolvedEndpoint? endpoint) =>
         endpoint is null
-            ? AutoProp("string", ServerSupport.EndpointMember, "string.Empty", SyntaxKind.PublicKeyword)
+            ? AutoProp("string", ServerSupport.EndpointMember, "string.Empty", SyntaxKind.PublicKeyword, SyntaxKind.VirtualKeyword)
                 .WithLeadingXmlDoc(
                     "Service endpoint every request URI is built from. The IR declares no server endpoint, " +
                     "so there is no default to derive and the caller must supply one.")
@@ -212,7 +214,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
 
     /// <summary>A server parameter the spec gave no default: a public input the endpoint interpolates.</summary>
     private static PropertyDeclarationSyntax EndpointInputProperty(string name) =>
-        AutoProp("string", name, "string.Empty", SyntaxKind.PublicKeyword)
+        AutoProp("string", name, "string.Empty", SyntaxKind.PublicKeyword, SyntaxKind.VirtualKeyword)
             .WithLeadingXmlDoc(
                 $"'{name}' component of the service endpoint. The spec declares no default, so the caller supplies it.");
 
