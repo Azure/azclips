@@ -166,6 +166,53 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+
+        private static readonly CommandMetadata cliStorageContainerCreate = new(
+            Name: nameof(CreateContainerProcessor_Orchestrator),
+            InvocationName: "storage container create",
+            Aliases: [],
+            FullName: typeof(CreateContainerProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(CreateContainerProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(CreateContainerProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The container URL. Alternative to --account-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("ContainerName", "name", typeof(string), "The container name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["public-access"] = new("PublicAccess", "public-access", typeof(string), "The public access level. Omit for private access.", IsRequired: false, Aliases: [], AllowedValues: ["blob", "container"]),
+                ["default-encryption-scope"] = new("DefaultEncryptionScope", "default-encryption-scope", typeof(string), "The default encryption scope for all writes to the container.", IsRequired: false, Aliases: ["d"], AllowedValues: []),
+                ["prevent-encryption-scope-override"] = new("PreventEncryptionScopeOverride", "prevent-encryption-scope-override", typeof(bool), "Block writes that specify an encryption scope other than the container default.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata cliStorageContainerDelete = new(
+            Name: nameof(DeleteContainerProcessor),
+            InvocationName: "storage container delete",
+            Aliases: [],
+            FullName: typeof(DeleteContainerProcessor).FullName!,
+            AssemblyName: typeof(DeleteContainerProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(DeleteContainerProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The container URL. Alternative to --account-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("ContainerName", "name", typeof(string), "The container name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "If specified, the operation only succeeds if the container's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-modified-since"] = new("IfModifiedSince", "if-modified-since", typeof(string), "Delete only if the container has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-unmodified-since"] = new("IfUnmodifiedSince", "if-unmodified-since", typeof(string), "Delete only if the container has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         #endregion
 
         #region Command Tables
@@ -176,7 +223,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
             cliStorageBlobShow,
             cliStorageBlobCopyStart,
             cliStorageBlobUpload,
-            cliStorageBlobUploadFromUrl
+            cliStorageBlobUploadFromUrl,
+            cliStorageContainerCreate,
+            cliStorageContainerDelete
         );
 
         private static Dictionary<string, CommandMetadata> BuildCommandTable(params CommandMetadata[] commands) =>
