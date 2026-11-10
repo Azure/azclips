@@ -230,6 +230,83 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
                 ["g"] = "resource-group",
                 ["n"] = "name",
                 ["l"] = "location",
+            },
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["Default"] = new("Default", IsDefault: true, Parameters: new Dictionary<string, ParameterReference>
+                {
+                    ["SubscriptionId"] = new("SubscriptionId"),
+                    ["ResourceGroupName"] = new("ResourceGroupName", IsRequired: true),
+                    ["AccountName"] = new("AccountName", IsRequired: true),
+                    ["Location"] = new("Location"),
+                    ["SkuName"] = new("SkuName"),
+                    ["Kind"] = new("Kind"),
+                    ["Tags"] = new("Tags"),
+                    ["AccessTier"] = new("AccessTier"),
+                    ["MinimumTlsVersion"] = new("MinimumTlsVersion"),
+                    ["PublicNetworkAccess"] = new("PublicNetworkAccess"),
+                    ["AllowedCopyScope"] = new("AllowedCopyScope"),
+                    ["LargeFileSharesState"] = new("LargeFileSharesState"),
+                    ["EnableLargeFileShare"] = new("EnableLargeFileShare"),
+                    ["DnsEndpointType"] = new("DnsEndpointType"),
+                    ["SupportsHttpsTrafficOnly"] = new("SupportsHttpsTrafficOnly"),
+                    ["AllowBlobPublicAccess"] = new("AllowBlobPublicAccess"),
+                    ["AllowSharedKeyAccess"] = new("AllowSharedKeyAccess"),
+                    ["IsHnsEnabled"] = new("IsHnsEnabled"),
+                    ["IsSftpEnabled"] = new("IsSftpEnabled"),
+                    ["IsLocalUserEnabled"] = new("IsLocalUserEnabled"),
+                    ["EnableExtendedGroups"] = new("EnableExtendedGroups"),
+                    ["IsNfsV3Enabled"] = new("IsNfsV3Enabled"),
+                    ["AllowCrossTenantReplication"] = new("AllowCrossTenantReplication"),
+                    ["DefaultToOAuthAuthentication"] = new("DefaultToOAuthAuthentication"),
+                    ["EdgeZone"] = new("EdgeZone"),
+                    ["IdentityType"] = new("IdentityType"),
+                    ["UserIdentityId"] = new("UserIdentityId"),
+                    ["Zones"] = new("Zones"),
+                    ["ZonePlacementPolicy"] = new("ZonePlacementPolicy"),
+                    ["RoutingChoice"] = new("RoutingChoice"),
+                    ["PublishMicrosoftEndpoints"] = new("PublishMicrosoftEndpoints"),
+                    ["PublishInternetEndpoints"] = new("PublishInternetEndpoints"),
+                    ["PublishIpv6Endpoint"] = new("PublishIpv6Endpoint"),
+                    ["EnableBlobGeoPriorityReplication"] = new("EnableBlobGeoPriorityReplication"),
+                    ["KeyExpirationPeriodInDays"] = new("KeyExpirationPeriodInDays"),
+                    ["SasExpirationPeriod"] = new("SasExpirationPeriod"),
+                    ["SasExpirationAction"] = new("SasExpirationAction"),
+                    ["EnableAlw"] = new("EnableAlw"),
+                    ["ImmutabilityPeriodSinceCreationInDays"] = new("ImmutabilityPeriodSinceCreationInDays"),
+                    ["ImmutabilityPolicyState"] = new("ImmutabilityPolicyState"),
+                    ["AllowProtectedAppendWrites"] = new("AllowProtectedAppendWrites"),
+                    ["Bypass"] = new("Bypass"),
+                    ["DefaultAction"] = new("DefaultAction"),
+                    ["Subnet"] = new("Subnet"),
+                    ["VnetName"] = new("VnetName"),
+                    ["Action"] = new("Action"),
+                    ["IpAddress"] = new("IpAddress"),
+                    ["Ipv6Address"] = new("Ipv6Address"),
+                    ["EnableFilesAadds"] = new("EnableFilesAadds"),
+                    ["EnableFilesAadkerb"] = new("EnableFilesAadkerb"),
+                    ["EnableFilesAdds"] = new("EnableFilesAdds"),
+                    ["DomainName"] = new("DomainName"),
+                    ["NetBiosDomainName"] = new("NetBiosDomainName"),
+                    ["ForestName"] = new("ForestName"),
+                    ["DomainGuid"] = new("DomainGuid"),
+                    ["DomainSid"] = new("DomainSid"),
+                    ["AzureStorageSid"] = new("AzureStorageSid"),
+                    ["SamAccountName"] = new("SamAccountName"),
+                    ["AccountType"] = new("AccountType"),
+                    ["DefaultSharePermission"] = new("DefaultSharePermission"),
+                    ["EnableSmbOauth"] = new("EnableSmbOauth"),
+                    ["EncryptionKeySource"] = new("EncryptionKeySource"),
+                    ["EncryptionKeyVault"] = new("EncryptionKeyVault"),
+                    ["EncryptionKeyName"] = new("EncryptionKeyName"),
+                    ["EncryptionKeyVersion"] = new("EncryptionKeyVersion"),
+                    ["RequireInfrastructureEncryption"] = new("RequireInfrastructureEncryption"),
+                    ["KeyVaultUserIdentityId"] = new("KeyVaultUserIdentityId"),
+                    ["KeyVaultFederatedClientId"] = new("KeyVaultFederatedClientId"),
+                    ["EncryptionKeyTypeForTable"] = new("EncryptionKeyTypeForTable"),
+                    ["EncryptionKeyTypeForQueue"] = new("EncryptionKeyTypeForQueue"),
+                    ["CustomDomainName"] = new("CustomDomainName"),
+                }),
             }
         );
 
@@ -251,6 +328,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             {
                 ["g"] = "resource-group",
                 ["n"] = "name",
+            },
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["Default"] = new("Default", IsDefault: true, Parameters: new Dictionary<string, ParameterReference>
+                {
+                    ["SubscriptionId"] = new("SubscriptionId"),
+                    ["ResourceGroupName"] = new("ResourceGroupName", IsRequired: true),
+                    ["AccountName"] = new("AccountName", IsRequired: true),
+                    ["Expand"] = new("Expand"),
+                }),
             }
         );
 
@@ -269,6 +356,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             ParameterAliases: new Dictionary<string, string>
             {
                 ["g"] = "resource-group",
+            },
+            // One set per API operation: StorageAccounts_List and StorageAccounts_ListByResourceGroup.
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["List"] = new("List", IsDefault: true, Parameters: new Dictionary<string, ParameterReference>
+                {
+                    ["SubscriptionId"] = new("SubscriptionId"),
+                }),
+                ["ListByResourceGroup"] = new("ListByResourceGroup", Parameters: new Dictionary<string, ParameterReference>
+                {
+                    ["SubscriptionId"] = new("SubscriptionId"),
+                    ["ResourceGroupName"] = new("ResourceGroupName", IsRequired: true),
+                }),
             }
         );
 
@@ -289,6 +389,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             {
                 ["g"] = "resource-group",
                 ["n"] = "name",
+            },
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["Default"] = new("Default", IsDefault: true, Parameters: new Dictionary<string, ParameterReference>
+                {
+                    ["SubscriptionId"] = new("SubscriptionId"),
+                    ["ResourceGroupName"] = new("ResourceGroupName", IsRequired: true),
+                    ["AccountName"] = new("AccountName", IsRequired: true),
+                }),
             }
         );
 
@@ -322,6 +431,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
             foreach (var metadata in s_cliTable.Values)
             {
                 metadata.Parameters.TryAdd("profile", new ParameterMetadata("Profile", "profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
+
+                // Parameter set resolution rejects any argument outside the resolved set, so the
+                // injected parameter must also be a member of every set.
+                foreach (var parameterSet in metadata.ParameterSets?.Values ?? [])
+                {
+                    parameterSet.Parameters?.TryAdd("Profile", new ParameterReference("Profile"));
+                }
             }
             foreach (var metadata in s_psTable.Values)
             {
