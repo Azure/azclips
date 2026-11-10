@@ -9,6 +9,10 @@ namespace Core.Runtime.Persistence;
 /// <summary>Filesystem persistence rooted at the Azclips home, with atomic file replacement.</summary>
 public sealed class FilePersistenceStore : IPersistenceStore
 {
+    private const int ErrorAccessDenied = 5;
+    private const int ErrorSharingViolation = 32;
+    private const int ErrorLockViolation = 33;
+
     public FilePersistenceStore(string? rootDirectory = null)
     {
         RootDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(
@@ -113,7 +117,7 @@ public sealed class FilePersistenceStore : IPersistenceStore
             catch (Exception exception) when (
                 OperatingSystem.IsWindows() &&
                 exception is IOException or UnauthorizedAccessException &&
-                (exception.HResult & 0xFFFF) is 5 or 32 or 33 &&
+                (exception.HResult & 0xFFFF) is ErrorAccessDenied or ErrorSharingViolation or ErrorLockViolation &&
                 File.Exists(source) && File.Exists(target) &&
                 elapsed.Elapsed < TimeSpan.FromSeconds(2))
             {
