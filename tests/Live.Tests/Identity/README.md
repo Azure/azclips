@@ -11,6 +11,15 @@ set your `ALIAS`.
 - Azure CLI and GitHub CLI installed and signed in:
   - `az login --tenant <yourBAMITenant>` if you have not already login
   - `gh auth login` & `gh auth status` if you have not already login
+- Your current branch must have an upstream tracking branch with the **same name**,
+  pushed to your own fork (not `Azure/azclips`) - e.g. `git push -u origin
+  $(git branch --show-current)`. `bug-bash-identity-env.sh` reads the remote/repo from
+  that tracking info and refuses to run if no tracking branch is set, the tracked
+  branch name differs from your local branch
+- Your branch must be in sync with its remote counterpart -
+  `bootstrap-and-run.sh` triggers the workflow via
+  `gh workflow run --ref <your-branch>`, which runs whatever is committed on the
+  remote branch, not your local uncommitted changes.
 
 ## One-time setup
 

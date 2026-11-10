@@ -10,7 +10,8 @@ namespace Ace.Generator.Generators;
 /// <summary>
 /// Emits the shared processor base every generated processor derives from — a non-generic
 /// marker (<c>ProcessorBase</c>) plus the generic <c>ProcessorBase&lt;TRequest, TResponse&gt;</c>.
-/// This stage is "template-like": almost no IR input (only the package namespace), mostly fixed
+/// This stage is "template-like": little IR input (the package namespace, the server endpoint, and
+/// the service's OAuth2 authorization URL and scopes), mostly fixed
 /// runtime wiring (dependency init, request assembly, the standard <c>ProcessAsync</c> pipeline).
 /// The long-running-operation machinery lives in the runtime library (<c>HttpRuntime</c>); the base
 /// only delegates to it.
@@ -46,14 +47,15 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         string ns = context.Placement.ProcessorsNamespace;
         yield return new GeneratedFile(
             context.Placement.ProcessorFile(BaseTypeName),
-            Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir)),
+            Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir), AuthSupport.Dominant(context.Ir)),
             BaseTypeName);
     }
 
     private static string Emit(
         string @namespace,
         ServerSupport.ResolvedEndpoint? endpoint,
-        IReadOnlyList<string> endpointInputs)
+        IReadOnlyList<string> endpointInputs,
+        AuthSupport.ResolvedAuth? auth)
     {
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
@@ -70,8 +72,9 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
-                .AddMembers(MarkerBaseClass(endpoint, endpointInputs), GenericBaseClass()))
-            .NormalizeWhitespace();
+                .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass()))
+            .NormalizeWhitespace()
+            .FixNormalizerSpacing();
 
         var sb = new StringBuilder();
         sb.AppendLine(Banner);
@@ -86,7 +89,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
 
     private static ClassDeclarationSyntax MarkerBaseClass(
         ServerSupport.ResolvedEndpoint? endpoint,
-        IReadOnlyList<string> endpointInputs) =>
+        IReadOnlyList<string> endpointInputs,
+        AuthSupport.ResolvedAuth? auth) =>
         ClassDeclaration(BaseTypeName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.AbstractKeyword), Token(SyntaxKind.PartialKeyword))
             .WithBaseList(BaseOf("IProcessor"))
@@ -123,6 +127,17 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .WithLeadingXmlDoc("Builds the request URI. Override this seam alone for most read/delete operations."),
                 ArrowMethod("object?", "CreateRequestBody", "null", SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
                     .WithLeadingXmlDoc("Builds the request body (serialized with JsonOptions by its runtime type). Null (no content) by default; override for create/update."),
+                MethodDeclaration(ParseTypeName("void"), Identifier("OverrideCreateRequestContentBase"))
+                    .AddModifiers(Token(SyntaxKind.PartialKeyword))
+                    .AddParameterListParameters(
+                        Parameter(Identifier("body")).WithType(ParseTypeName("object")),
+                        Parameter(Identifier("content")).WithType(ParseTypeName("HttpContent?")).AddModifiers(Token(SyntaxKind.RefKeyword)))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                MethodDeclaration(ParseTypeName("HttpContent"), Identifier("CreateRequestContent"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
+                    .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName("object")))
+                    .WithRawBody(CreateRequestContentBody)
+                    .WithLeadingXmlDoc("Serializes the request body into HTTP content. JSON by default; a partial implementation of OverrideCreateRequestContentBase that sets content takes precedence."),
                 MethodDeclaration(ParseTypeName("void"), Identifier("CreateRequestHeaders"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
                     .AddParameterListParameters(Parameter(Identifier("request")).WithType(ParseTypeName("HttpRequestMessage")))
@@ -151,7 +166,28 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .WithRawBody("return await HttpRuntime.SendAsyncLRO(CreateRequestMessage, Publisher, HttpPipeline, GetFinalUri, GetOperationLocationUri, GetAsyncOperationUri, GetLocationUri);"))
             // Server parameters the spec left without a default. Public because only the caller can
             // supply them, and because argument binding and help reflect over public properties.
-            .AddMembers([.. endpointInputs.Select(EndpointInputProperty)]);
+            .AddMembers([.. endpointInputs.Select(EndpointInputProperty)])
+            .AddMembers([.. AuthMembers(auth)]);
+
+    /// <summary>
+    /// The service's OAuth2 authorization URL and scopes, carried from the IR so token acquisition
+    /// can use the scopes the spec declares. Omitted when the spec declares no OAuth2 scheme.
+    /// </summary>
+    private static IEnumerable<MemberDeclarationSyntax> AuthMembers(AuthSupport.ResolvedAuth? auth)
+    {
+        if (auth is null) yield break;
+
+        yield return ArrowProp("string?", AuthSupport.AuthorizationUrlMember, AuthSupport.AuthorizationUrlExpression(auth),
+                SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+            .WithLeadingXmlDoc(
+                "OAuth2 authorization URL from the spec's authentication, or null when no declared flow has one. " +
+                "Virtual so a sovereign cloud or test host can override it without regenerating.");
+        yield return ArrowProp("string[]", AuthSupport.ScopesMember, AuthSupport.ScopesExpression(auth),
+                SyntaxKind.ProtectedKeyword, SyntaxKind.VirtualKeyword)
+            .WithLeadingXmlDoc(
+                "OAuth2 scopes from the spec's authentication. " +
+                "Virtual so a sovereign cloud or test host can override them without regenerating.");
+    }
 
     /// <summary>The endpoint seam every generated URI interpolates.</summary>
     /// <remarks>
@@ -203,6 +239,20 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 MethodDeclaration(ParseTypeName("Task"), Identifier("BeforeProcessAsync"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword))
                     .WithRawBody("OverrideBeforeProcessBase(); return Task.CompletedTask;"),
+                // Same two-way pattern as BeforeProcessAsync: a child overrides the virtual, a customization
+                // partial implements the partial. `ref` outputs because a partial void can't return a value.
+                MethodDeclaration(ParseTypeName("void"), Identifier("OverrideDeserializeResponseBase"))
+                    .AddModifiers(Token(SyntaxKind.PartialKeyword))
+                    .AddParameterListParameters(
+                        Parameter(Identifier("rawBody")).WithType(ParseTypeName("string")),
+                        Parameter(Identifier("body")).WithType(ParseTypeName("TResponse?")).AddModifiers(Token(SyntaxKind.RefKeyword)),
+                        Parameter(Identifier("returnNow")).WithType(ParseTypeName("bool")).AddModifiers(Token(SyntaxKind.RefKeyword)))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                MethodDeclaration(ParseTypeName("Task<TResponse?>"), Identifier("DeserializeResponseAsync"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
+                    .AddParameterListParameters(Parameter(Identifier("rawBody")).WithType(ParseTypeName("string")))
+                    .WithRawBody(DeserializeResponseBody)
+                    .WithLeadingXmlDoc("Deserializes a non-empty response body into TResponse. JSON by default; a partial implementation of OverrideDeserializeResponseBase that sets returnNow takes precedence."),
                 // Maintainer note (from the reference base): an async method can't take a `ref` parameter,
                 // and this override typically needs to WriteOutput (so it's async) — hence it returns
                 // Task<bool> (true = suppress the default WriteOutput) rather than mutating a ref.
@@ -349,21 +399,33 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         return this;
         """;
 
-    // NOTE(cosmetic): NormalizeWhitespace renders `CreateRequestBody() is { }` as
-    // `CreateRequestBody()is { }` (it drops the space before `is` when it follows `)`).
-    // This is valid C# and parses/compiles correctly — only the emitted spacing is off.
-    // If pristine output is wanted, rewrite as `object? body = CreateRequestBody(); if (body is not null)`
-    // to avoid the `)`-then-`is` adjacency.
-    private const string CreateRequestMessageBody = """
+        private const string CreateRequestMessageBody = """
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         HttpRequestMessage request = new HttpRequestMessage(Method, CreateRequestUri());
         if (CreateRequestBody() is { } body)
         {
-            request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
+            request.Content = CreateRequestContent(body);
         }
         CreateRequestHeaders(request);
         await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
+        """;
+
+    private const string CreateRequestContentBody = """
+        HttpContent? content = null;
+        OverrideCreateRequestContentBase(body, ref content);
+        return content ?? JsonContent.Create(body, body.GetType(), options: JsonOptions);
+        """;
+
+    private const string DeserializeResponseBody = """
+        TResponse? body = default;
+        bool returnNow = false;
+        OverrideDeserializeResponseBase(rawBody, ref body, ref returnNow);
+        if (returnNow)
+        {
+            return body;
+        }
+        return JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
         """;
 
     private const string CreateExtendedProcessorBody = """
@@ -401,12 +463,12 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
             {
                 try
                 {
-                    body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                    body = await DeserializeResponseAsync(rawBody);
                 }
-                catch (JsonException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                    await Publisher.Publish(Events.ResponseInvalidJson, $"response could not be deserialized for {response.RequestMessage?.RequestUri}");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
                 }
             }
             if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)

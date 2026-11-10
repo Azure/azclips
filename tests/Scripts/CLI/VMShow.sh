@@ -33,7 +33,8 @@ AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az"
 [[ -x "$AZ" ]] || AZ="$REPO_ROOT/artifacts/Debug/Core.Cli/az.exe"
 
 SUBSCRIPTION_ID="${AZCLIPS_SUBSCRIPTION_ID:?Set AZCLIPS_SUBSCRIPTION_ID before running}"
-LOCATION="${AZCLIPS_LOCATION:-eastus}"
+LOCATION="${AZCLIPS_LOCATION:-australiaeast}"
+VM_SIZE="${AZCLIPS_VM_SIZE:-Standard_D2ds_v6}"
 SUFFIX="$$"
 RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-vmshow-rg-$SUFFIX}"
 VM_NAME="vmshw-vm-$SUFFIX"
@@ -43,7 +44,7 @@ VM_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/
 
 # Run unattended: disable the interactive agent so a command error surfaces a classic
 # non-zero exit instead of handing off to the agent-mode TUI, which would block on input.
-"$AZ" config set --key agent.enabled --value false
+"$AZ" config set --key agent.recovery.trigger --value off
 
 cleanup()
 {
@@ -73,7 +74,7 @@ trap cleanup EXIT
     --resource-group "$RESOURCE_GROUP" \
     --name "$VM_NAME" \
     --location "$LOCATION" \
-    --size Standard_D2s_v3 \
+    --size "$VM_SIZE" \
     --admin-username Artemis \
     --admin-password "$ADMIN_PASSWORD" \
     --network-interface-name "azclips-vmshow-nic-$SUFFIX" \

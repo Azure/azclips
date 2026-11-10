@@ -88,7 +88,9 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity",
         typeof(Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex).Assembly,
         "identity",
-        ["create", "list", "show", "update", "delete"]);
+        ["create", "list", "show", "update", "delete",
+            "federated-credential create", "federated-credential list", "federated-credential show",
+            "federated-credential update", "federated-credential delete"]);
 
     public static readonly ExtensionUnderTest Storage = new(
         "Storage",

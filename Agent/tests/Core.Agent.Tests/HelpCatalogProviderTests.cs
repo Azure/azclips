@@ -325,7 +325,7 @@ public sealed class HelpCatalogProviderTests
         var loader = fixture.CreateLoader();
         Assert.Null(loader.LoadAllExtensions());
 
-        using var generated = JsonDocument.Parse(HelpGenerateProcessor.Generate(
+        using var generated = JsonDocument.Parse(DocsGenerateProcessor.Generate(
             loader, fixture.Configuration, fixture.Executable, fixture.CacheDirectory));
         Assert.True(generated.RootElement.GetProperty("generated").GetBoolean());
         Assert.Equal(0, generated.RootElement.GetProperty("commands").GetInt32());
@@ -344,13 +344,13 @@ public sealed class HelpCatalogProviderTests
             ? new InvalidOperationException("unexpected discovery defect")
             : new IOException("discovery unavailable");
         var loader = new AssemblyLoadingService(new CLIAssemblyLoadingProvider(
-            [new FailingDiscoveryLoader(failure)], new NullLoggingService()));
+            [new FailingDiscoveryLoader(failure)], new NullLoggingService()), new DefaultAssemblyVersionProvider());
         Assert.Same(failure, Assert.ThrowsAny<Exception>(() => loader.LoadAllExtensions()));
-        Assert.Same(failure, Assert.ThrowsAny<Exception>(() => HelpGenerateProcessor.Generate(
+        Assert.Same(failure, Assert.ThrowsAny<Exception>(() => DocsGenerateProcessor.Generate(
             loader, fixture.Configuration, fixture.Executable, fixture.CacheDirectory)));
 
         var provider = new HelpCatalogProvider(fixture.Executable, fixture.Configuration, fixture.CacheDirectory,
-            ct => Task.FromResult(HelpGenerateProcessor.Generate(
+            ct => Task.FromResult(DocsGenerateProcessor.Generate(
                 loader, fixture.Configuration, fixture.Executable, fixture.CacheDirectory, ct)));
         if (unexpected)
         {

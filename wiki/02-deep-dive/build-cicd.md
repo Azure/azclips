@@ -130,7 +130,6 @@ CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** 
 | Workflow | System | Trigger | Purpose |
 | --- | --- | --- | --- |
 | `build-and-test.yml` | GitHub | PR to `main`, dispatch | Restore/build/test `azclips.slnx`, CLI + PowerShell E2E smoke, help validation, help-tool tests |
-| `build.yml` | GitHub | push/PR `main` | Windows Debug+Release matrix build & package |
 | `benchmark.yml` / `benchmark-comment.yml` | GitHub | push/PR touching `src/**`, `tests/Benchmark/**`, `global.json`, `azclips.slnx` | Run CLI+PS benchmarks, gate at 115% of baseline, publish dashboard |
 | `extension-test-coverage.yml` | GitHub | Relevant push/PR paths, dispatch | Advisory command-surface attribution report, separate from merge-gating product tests |
 | `refresh-recordings.yml` | GitHub | See workflow configuration | Refresh recorded scenario evidence |

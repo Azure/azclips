@@ -80,12 +80,94 @@ public class TroubleshootProcessorTests
         foreach (var processor in new Microsoft.Azure.Azclips.Extensions.Agent.Processors.AgentProcessorBase[]
             { new TroubleshootListProcessor(), new TroubleshootShowProcessor { Id = Id } })
         {
-            var history = new FakeHistory(new FailureHistoryException(code, "Local history cannot be read."));
+            var cause = new FailureHistoryException(code, "Local history cannot be read.");
+            var history = new FakeHistory(cause);
             var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(processor, history));
             Assert.Equal(code, error.Code);
+            Assert.Equal(cause.Message, error.Message);
+            Assert.Same(cause, error.InnerException);
             Assert.Equal(1, error.ExitCode);
             Assert.Equal(1, history.Reads);
         }
+    }
+
+    [Fact]
+    public async Task Recover_KeepsTheHistoryErrorAsTheCause()
+    {
+        var cause = new FailureHistoryException("failure_history_io", "Local history cannot be read.", new IOException("sharing violation"));
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(new TroubleshootRecoverProcessor { Style = "oneshot" }, new FakeHistory(cause),
+            new FakeConfiguration(new AgentOptions { Recovery = new() { Trigger = "manual" } })));
+        Assert.Equal("failure_history_io", error.Code);
+        Assert.Equal(cause.Message, error.Message);
+        Assert.Same(cause, error.InnerException);
+    }
+
+    [Theory]
+    [InlineData("list")]
+    [InlineData("show")]
+    [InlineData("recover")]
+    public async Task HistoryError_WritesTheFullCauseAtDebugLevel(string command)
+    {
+        var cause = new FailureHistoryException("failure_history_io", "Local history cannot be read.", new IOException("sharing violation"));
+        var logger = new RecordingLogger();
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(LoggedProcessor(command, logger), new FakeHistory(cause),
+            new FakeConfiguration(Manual())));
+
+        var debug = Assert.Single(logger.Messages);
+        Assert.StartsWith("error cause: Core.Abstractions.Recovery.FailureHistoryException: Local history cannot be read.", debug);
+        Assert.Contains("---> System.IO.IOException: sharing violation", debug);
+        Assert.Equal("failure_history_io", error.Code);
+        Assert.Equal(cause.Message, error.Message);
+        Assert.Same(cause, error.InnerException);
+        Assert.Equal(1, error.ExitCode);
+    }
+
+    [Theory]
+    [InlineData("list")]
+    [InlineData("show")]
+    [InlineData("recover")]
+    public async Task HistoryErrorWithoutCause_WritesNothing(string command)
+    {
+        var cause = new FailureHistoryException("failure_history_corrupt", "Local history cannot be read.");
+        var logger = new RecordingLogger();
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(LoggedProcessor(command, logger), new FakeHistory(cause),
+            new FakeConfiguration(Manual())));
+
+        Assert.Empty(logger.Messages);
+        Assert.Same(cause, error.InnerException);
+    }
+
+    private static Microsoft.Azure.Azclips.Extensions.Agent.Processors.AgentProcessorBase LoggedProcessor(string command, ILoggingService logger) => command switch
+    {
+        "list" => new LoggedList(logger),
+        "show" => new LoggedShow(logger) { Id = Id },
+        _ => new LoggedRecover(logger) { Style = "oneshot" },
+    };
+
+    private sealed class LoggedList(ILoggingService logger) : TroubleshootListProcessor
+    {
+        protected override T GetService<T>() => logger as T ?? base.GetService<T>();
+    }
+
+    private sealed class LoggedShow(ILoggingService logger) : TroubleshootShowProcessor
+    {
+        protected override T GetService<T>() => logger as T ?? base.GetService<T>();
+    }
+
+    private sealed class LoggedRecover(ILoggingService logger) : TroubleshootRecoverProcessor
+    {
+        protected override T GetService<T>() => logger as T ?? base.GetService<T>();
+    }
+
+    private sealed class RecordingLogger : ILoggingService
+    {
+        internal List<string> Messages { get; } = [];
+        public void Debug(string message) => Messages.Add(message);
+        public void Log(string message) => Messages.Add(message);
+        public void Info(string message) => Messages.Add(message);
+        public void Verbose(string message) => Messages.Add(message);
+        public void Warn(string message) => Messages.Add(message);
+        public void Error(string message) => Messages.Add(message);
     }
 
     [Fact]

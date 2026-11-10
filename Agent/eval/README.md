@@ -151,7 +151,7 @@ subscription, and cache conditions when comparing an optimized build.
 Every result records the facts needed to compare builds:
 
 - `response.metadata.target`: `version` is the `azclipsVersion` reported by
-  `agent tool env` (it includes the source commit), and `packageSha256` hashes the
+  `agent tool env show` (it includes the source commit), and `packageSha256` hashes the
   relative path and SHA-256 of every file in the executable's directory.
   Framework-dependent packages keep the product code in DLLs beside a generic app
   host, so the executable hash alone does not identify a build.

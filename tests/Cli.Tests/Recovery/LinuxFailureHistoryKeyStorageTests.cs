@@ -88,9 +88,28 @@ public sealed class LinuxFailureHistoryKeyStorageTests
             Search = new(["/item"], []),
             Secret = new(session, hasParameters ? [1] : [], value, LinuxFailureHistoryKeyStorage.ContentType),
         };
-        var error = Assert.Throws<FailureHistoryException>(() => CreateStorage(client).ReadData());
-        Assert.Equal("failure_history_key_invalid", error.Code);
+        AssertUnavailable(() => CreateStorage(client).ReadData());
         Assert.All(value, octet => Assert.Equal(0, octet));
+    }
+
+    [Theory]
+    [InlineData("/wrong_session", false)]
+    [InlineData("/session", true)]
+    public async Task InconsistentSecretReply_NeverGetsTheItemReplaced(string session, bool hasParameters)
+    {
+        var client = new FakeClient
+        {
+            Search = new(["/item"], []),
+            Secret = new(session, hasParameters ? [1] : [], new byte[32], LinuxFailureHistoryKeyStorage.ContentType),
+        };
+        using var scope = new FailureHistoryTestScope();
+        var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => CreateStorage(client));
+
+        Assert.Equal("failure_history_key_unavailable",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(createIfMissing: true))).Code);
+
+        Assert.DoesNotContain("DeleteItem", client.Calls);
+        Assert.DoesNotContain("CreateItem", client.Calls);
     }
 
     [Theory]
@@ -175,7 +194,8 @@ public sealed class LinuxFailureHistoryKeyStorageTests
                 storage.ReadData();
         });
         Assert.Equal("failure_history_key_unavailable", error.Code);
-        Assert.DoesNotContain("private-native-detail", error.ToString());
+        Assert.DoesNotContain("private-native-detail", error.Message);
+        Assert.Contains("private-native-detail", error.InnerException!.Message);
         Assert.Equal("Dispose", client.Calls[^1]);
     }
 
@@ -222,6 +242,47 @@ public sealed class LinuxFailureHistoryKeyStorageTests
     private static LinuxFailureHistoryKeyStorage CreateStorage(FakeClient client)
         => new("purpose", "home:12", () => client);
 
+    [Fact]
+    public void Delete_RemovesTheOnlyUnlockedItemWithoutPrompting()
+    {
+        var client = new FakeClient { Search = new(["/item"], []) };
+        CreateStorage(client).DeleteData();
+        Assert.Equal(["SearchItems", "DeleteItem", "Dispose"], client.Calls);
+    }
+
+    [Fact]
+    public void Delete_OfAnAbsentItem_Succeeds()
+    {
+        var client = new FakeClient();
+        CreateStorage(client).DeleteData();
+        Assert.DoesNotContain("DeleteItem", client.Calls);
+    }
+
+    [Fact]
+    public void Delete_ThatNeedsAPrompt_IsUnavailable()
+    {
+        var client = new FakeClient { Search = new(["/item"], []), DeletePrompt = "/prompt/1" };
+        AssertUnavailable(() => CreateStorage(client).DeleteData());
+    }
+
+    [Theory]
+    [InlineData(new[] { "/a", "/b" }, new string[0])]
+    [InlineData(new[] { "/a" }, new[] { "/locked" })]
+    [InlineData(new string[0], new[] { "/locked" })]
+    public void Delete_OfAmbiguousOrLockedItems_IsUnavailableAndDeletesNothing(string[] unlocked, string[] locked)
+    {
+        var client = new FakeClient { Search = new(unlocked, locked) };
+        AssertUnavailable(() => CreateStorage(client).DeleteData());
+        Assert.DoesNotContain("DeleteItem", client.Calls);
+    }
+
+    [Fact]
+    public void Delete_DBusError_IsUnavailable()
+    {
+        var client = new FakeClient { Search = new(["/item"], []), FailureAt = "DeleteItem" };
+        AssertUnavailable(() => CreateStorage(client).DeleteData());
+    }
+
     private static void AssertUnavailable(Action action)
         => Assert.Equal("failure_history_key_unavailable", Assert.Throws<FailureHistoryException>(action).Code);
 
@@ -233,6 +294,7 @@ public sealed class LinuxFailureHistoryKeyStorageTests
         internal string Collection { get; init; } = "/collection";
         internal bool Locked { get; init; }
         internal SecretServiceCreateResult Created { get; init; } = new("/item", "/");
+        internal string DeletePrompt { get; init; } = "/";
         internal string? FailureAt { get; init; }
         internal IReadOnlyDictionary<string, string>? Attributes { get; private set; }
         internal byte[]? CreatedValue { get; private set; }
@@ -279,6 +341,13 @@ public sealed class LinuxFailureHistoryKeyStorageTests
             Record("CreateItem");
             CreatedValue = value.ToArray();
             return Created;
+        }
+
+        public string DeleteItem(string item)
+        {
+            Assert.Equal(Search.Unlocked[0], item);
+            Record("DeleteItem");
+            return DeletePrompt;
         }
 
         public void Dispose() => Calls.Add("Dispose");

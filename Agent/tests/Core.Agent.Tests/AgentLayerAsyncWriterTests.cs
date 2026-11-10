@@ -28,7 +28,11 @@ public class AgentLayerAsyncWriterTests
         using var blockedDirectory = new BlockingDirectory(directory);
         var clock = new SignalingFakeTimeProvider();
         var factory = new TelemetryLayerScopeFactory(
-            blockedDirectory, new AgentTestConfiguration(), timeProvider: clock);
+            blockedDirectory, new AgentTestConfiguration(),
+            new Core.AssemblyLoading.AssemblyLoadingService(
+                new Core.AssemblyLoading.DefaultAssemblyLoadingProvider(),
+                new Core.AssemblyLoading.DefaultAssemblyVersionProvider()),
+            timeProvider: clock);
         var scope = factory.CreateScope("Agent", new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true));
         Assert.True(scope.TelemetryProvider.ActivitySource.HasListeners());
         var businessReturned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

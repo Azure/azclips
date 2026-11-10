@@ -5,6 +5,7 @@
       "file": [
         "\\tests\\Scripts\\CLI\\VMCreate.sh",
         "\\tests\\Scripts\\CLI\\VMDelete.sh",
+        "\\tests\\Scripts\\CLI\\VMGetInstanceView.sh",
         "\\tests\\Scripts\\CLI\\VMList.sh",
         "\\tests\\Scripts\\CLI\\VMShow.sh",
         "\\tests\\Scripts\\CLI\\VMStop.sh"

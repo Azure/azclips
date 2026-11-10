@@ -33,7 +33,8 @@ namespace Core.Engine
         IArgumentParsingService argumentParsingService,
         IConfigurationService configurationService,
         IHttpPipelineService httpPipelineService,
-        DataBoundaryResolver boundaryResolver) : IEngine
+        DataBoundaryResolver boundaryResolver,
+        CommandTimingRecorder? commandTimingRecorder = null) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -62,6 +63,7 @@ namespace Core.Engine
             session.ResolveProfileAsync = ResolveProfileAsync;
             session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
+            session.Performance = commandTimingRecorder;
             session.TagUploadRegion = region => telemetryService.AddTag(TelemetryTags.DataBoundary, region.ToDataBoundary());
             session.ResolveUploadRegionAsync = ResolveUploadRegionAsync;
             return session;
@@ -149,10 +151,10 @@ namespace Core.Engine
                 OutputHandler: outputHandler,
                 Profile:session.Profile
             );
-            // stamp a per-request ARM correlation ID before the request enters retry handling
-            httpPipeline.Prepend(httpPipelineService.HttpAddClientRequestIdStep);
             // stamp User-Agent header on every outgoing request
             httpPipeline.Prepend(httpPipelineService.HttpAddUserAgentStep);
+            // Prepend last so correlation is available to User-Agent and other downstream handlers.
+            httpPipeline.Prepend(httpPipelineService.HttpAddClientRequestIdStep);
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
             // passthrough by default, terminate during client mocking

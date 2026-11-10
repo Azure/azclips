@@ -13,6 +13,8 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
     private readonly IReadOnlyDictionary<string, string> _attributes;
     private readonly Func<ISecretServiceClient> _connect;
 
+    public string? Diagnostics => null;
+
     public LinuxFailureHistoryKeyStorage(string purpose, string keyId, Func<ISecretServiceClient>? connect = null)
     {
         _attributes = new Dictionary<string, string>
@@ -40,13 +42,20 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         var session = client.OpenSession();
         var secret = client.GetSecret(items.Unlocked[0], session);
         // Content type is not checked: GNOME Keyring does not store it and returns text/plain.
-        if (secret.Session == session && secret.Parameters.Length == 0 && secret.Value.Length == 32)
+        // An inconsistent reply says nothing about the stored item, so it must not get the item replaced.
+        if (secret.Session != session || secret.Parameters.Length != 0)
+        {
+            CryptographicOperations.ZeroMemory(secret.Value);
+            throw Unavailable();
+        }
+
+        if (secret.Value.Length == 32)
         {
             return secret.Value;
         }
 
         CryptographicOperations.ZeroMemory(secret.Value);
-        throw new FailureHistoryException("failure_history_key_invalid", "The protected failure-history key is invalid.");
+        throw ProtectedFailureHistoryKeyStore.KeyInvalid();
     });
 
     public void WriteData(byte[] data)
@@ -77,6 +86,19 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         });
     }
 
+    public void DeleteData() => WithClient(client =>
+    {
+        var items = client.SearchItems(_attributes);
+        EnsureUnambiguousUnlockedItems(items);
+        if (items.Unlocked.Length == 0)
+            return true;
+
+        // A returned prompt is only a request. Never invoke Prompt or Unlock.
+        if (client.DeleteItem(items.Unlocked[0]) != "/")
+            throw Unavailable();
+        return true;
+    });
+
     private T WithClient<T>(Func<ISecretServiceClient, T> action)
     {
         try
@@ -86,7 +108,7 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         }
         catch (Exception exception) when (exception is DBusExceptionBase or TimeoutException)
         {
-            throw Unavailable();
+            throw Unavailable(exception);
         }
     }
 
@@ -96,9 +118,9 @@ internal sealed class LinuxFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
             throw Unavailable();
     }
 
-    internal static FailureHistoryException Unavailable() => new(
+    internal static FailureHistoryException Unavailable(Exception? innerException = null) => new(
         "failure_history_key_unavailable",
-        "Noninteractive failure-history key storage requires an accessible local Secret Service and an unlocked keyring. No unlock or authorization prompt was requested.");
+        "Noninteractive failure-history key storage requires an accessible local Secret Service and an unlocked keyring. No unlock or authorization prompt was requested.", innerException);
 }
 
 internal readonly record struct SecretServiceSearchResult(string[] Unlocked, string[] Locked);
@@ -114,4 +136,6 @@ internal interface ISecretServiceClient : IDisposable
     SecretServiceValue GetSecret(string item, string session);
     SecretServiceCreateResult CreateItem(
         string collection, string session, IReadOnlyDictionary<string, string> attributes, byte[] value);
+    /// <summary>Returns the prompt path; "/" means the item was deleted.</summary>
+    string DeleteItem(string item);
 }
