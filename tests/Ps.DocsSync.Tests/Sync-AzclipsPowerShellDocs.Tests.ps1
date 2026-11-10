@@ -290,12 +290,15 @@ Describe 'New-SyncPlan' {
         @($script:Plan | Where-Object ModuleName -eq 'Login').Count | Should -Be 0
     }
 
-    It 'rewrites all 78 Learn copies with only module naming and 44 internal-heading relabels' {
+    It 'rewrites every current Learn copy with only module naming and internal-heading relabels' {
         $targetRoot = Join-Path $TestDrive 'normalized'
         New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
         $entries = @($script:Plan | Where-Object Kind -eq 'CmdletMarkdown')
-        $entries.Count | Should -Be 78
+        $sourceFiles = @($script:Modules | ForEach-Object { $_.HelpFiles })
+        $entries.Count | Should -Be $sourceFiles.Count
+        $entries.Count | Should -BeGreaterThan 0
         $headingCount = 0
+        $publishedHeadingCount = 0
         foreach ($entry in $entries) {
             $sourceHash = (Get-FileHash -LiteralPath $entry.SourcePath).Hash
             $target = Join-Path $targetRoot "$($entry.TargetModule)-$([System.IO.Path]::GetFileName($entry.SourcePath))"
@@ -304,10 +307,15 @@ Describe 'New-SyncPlan' {
             $headingCount += [regex]::Matches($source, '(?m)^### __AllParameterSets\r?$').Count
             $expected = $source.Replace("Module Name: $($entry.ModuleName)", "Module Name: $($entry.TargetModule)")
             $expected = $expected -creplace '(?m)^### __AllParameterSets(?=\r?$)', '### Default (Default)'
-            Get-Content -LiteralPath $target -Raw | Should -BeExactly $expected
+            $published = Get-Content -LiteralPath $target -Raw
+            $published | Should -BeExactly $expected
+            $published | Should -Not -Match '(?m)^### __AllParameterSets\r?$'
+            $originalDefaultCount = [regex]::Matches($source, '(?m)^### Default \(Default\)\r?$').Count
+            $publishedHeadingCount += [regex]::Matches($published, '(?m)^### Default \(Default\)\r?$').Count - $originalDefaultCount
             (Get-FileHash -LiteralPath $entry.SourcePath).Hash | Should -BeExactly $sourceHash
         }
-        $headingCount | Should -Be 44
+        $headingCount | Should -BeGreaterThan 0
+        $publishedHeadingCount | Should -Be $headingCount
     }
 }
 
