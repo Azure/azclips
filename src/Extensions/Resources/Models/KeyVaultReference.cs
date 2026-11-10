@@ -10,5 +10,5 @@ public partial class KeyVaultReference
 {
     /// <summary>Azure Key Vault resource id.</summary>
     [JsonPropertyName("id")]
-    public string Id { get; set; } = null !;
+    public string Id { get; set; } = null!;
 }

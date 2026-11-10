@@ -14,7 +14,7 @@ public partial class DeploymentExtended
 
     /// <summary>The name of the deployment.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; } = null !;
+    public string Name { get; set; } = null!;
 
     /// <summary>The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"</summary>
     [JsonPropertyName("type")]

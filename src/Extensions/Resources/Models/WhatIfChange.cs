@@ -43,7 +43,7 @@ public partial class WhatIfChange
     /// </list>
     /// </remarks>
     [JsonPropertyName("changeType")]
-    public string ChangeType { get; set; } = null !;
+    public string ChangeType { get; set; } = null!;
 
     /// <summary>The explanation about why the resource is unsupported by What-If.</summary>
     [JsonPropertyName("unsupportedReason")]

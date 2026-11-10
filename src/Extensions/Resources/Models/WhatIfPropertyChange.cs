@@ -10,7 +10,7 @@ public partial class WhatIfPropertyChange
 {
     /// <summary>The path of the property.</summary>
     [JsonPropertyName("path")]
-    public string Path { get; set; } = null !;
+    public string Path { get; set; } = null!;
 
     /// <summary>The type of property change.</summary>
     /// <remarks>
@@ -24,7 +24,7 @@ public partial class WhatIfPropertyChange
     /// </list>
     /// </remarks>
     [JsonPropertyName("propertyChangeType")]
-    public string PropertyChangeType { get; set; } = null !;
+    public string PropertyChangeType { get; set; } = null!;
 
     /// <summary>The value of the property before the deployment is executed.</summary>
     [JsonPropertyName("before")]

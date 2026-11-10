@@ -10,15 +10,15 @@ public partial class DeploymentDiagnosticsDefinition
     /// <summary>Denotes the additional response level.</summary>
     /// <remarks>Known values (extensible enum Level): "Warning", "Info", "Error".</remarks>
     [JsonPropertyName("level")]
-    public string Level { get; set; } = null !;
+    public string Level { get; set; } = null!;
 
     /// <summary>The error code.</summary>
     [JsonPropertyName("code")]
-    public string Code { get; set; } = null !;
+    public string Code { get; set; } = null!;
 
     /// <summary>The error message.</summary>
     [JsonPropertyName("message")]
-    public string Message { get; set; } = null !;
+    public string Message { get; set; } = null!;
 
     /// <summary>The error target.</summary>
     [JsonPropertyName("target")]

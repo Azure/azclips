@@ -10,12 +10,12 @@ public partial class ScopedDeployment
 {
     /// <summary>The location to store the deployment data.</summary>
     [JsonPropertyName("location")]
-    public string Location { get; set; } = null !;
+    public string Location { get; set; } = null!;
 
     /// <summary>The deployment properties.</summary>
     [JsonPropertyName("properties")]
     [JsonInclude]
-    internal DeploymentProperties Properties { get; set; } = null !;
+    internal DeploymentProperties Properties { get; set; } = null!;
 
     /// <summary>Deployment tags</summary>
     [JsonPropertyName("tags")]

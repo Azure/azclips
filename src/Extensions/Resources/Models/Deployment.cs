@@ -15,7 +15,7 @@ public partial class Deployment
     /// <summary>The deployment properties.</summary>
     [JsonPropertyName("properties")]
     [JsonInclude]
-    internal DeploymentProperties Properties { get; set; } = null !;
+    internal DeploymentProperties Properties { get; set; } = null!;
 
     /// <summary>Deployment tags</summary>
     [JsonPropertyName("tags")]

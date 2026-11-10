@@ -10,7 +10,7 @@ public partial class ParametersLink
 {
     /// <summary>The URI of the parameters file.</summary>
     [JsonPropertyName("uri")]
-    public string Uri { get; set; } = null !;
+    public string Uri { get; set; } = null!;
 
     /// <summary>If included, must match the ContentVersion in the template.</summary>
     [JsonPropertyName("contentVersion")]
