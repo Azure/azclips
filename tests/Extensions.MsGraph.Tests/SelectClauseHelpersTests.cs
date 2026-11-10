@@ -1,12 +1,50 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
+using System.Net;
 
 namespace Extensions.MsGraph.Tests;
 
 public class SelectClauseHelpersTests
 {
+    [Fact]
+    public void RethrowMissingConsistencyLevelAsInvalidInput_MatchingBadRequest_ShouldThrowHelpfulInvalidInput()
+    {
+        var graphError = new HttpRequestException(
+            "400 Bad Request: {\"error\":{\"code\":\"Request_UnsupportedQuery\",\"message\":\"Operator 'endsWith' is not supported because the 'ConsistencyLevel:eventual' header is missing.\"}}",
+            inner: null,
+            statusCode: HttpStatusCode.BadRequest);
+
+        var ex = Assert.Throws<InvalidInputException>(
+            () => SelectClauseHelpers.RethrowMissingConsistencyLevelAsInvalidInput(graphError));
+        Assert.Contains("ConsistencyLevel 'eventual'", ex.Message);
+        Assert.Same(graphError, ex.InnerException);
+    }
+
+    [Fact]
+    public void RethrowMissingConsistencyLevelAsInvalidInput_NonMatchingBadRequest_ShouldNotThrow()
+    {
+        var otherBadRequest = new HttpRequestException(
+            "400 Bad Request: {\"error\":{\"code\":\"Request_BadRequest\",\"message\":\"Invalid filter clause.\"}}",
+            inner: null,
+            statusCode: HttpStatusCode.BadRequest);
+
+        SelectClauseHelpers.RethrowMissingConsistencyLevelAsInvalidInput(otherBadRequest);
+    }
+
+    [Fact]
+    public void RethrowMissingConsistencyLevelAsInvalidInput_NonBadRequest_ShouldNotThrow()
+    {
+        var serverError = new HttpRequestException(
+            "500 Internal Server Error: upstream service failure",
+            inner: null,
+            statusCode: HttpStatusCode.InternalServerError);
+
+        SelectClauseHelpers.RethrowMissingConsistencyLevelAsInvalidInput(serverError);
+    }
+
     [Theory]
     [InlineData("simple", "simple")]
     [InlineData("O'Brien", "O''Brien")]

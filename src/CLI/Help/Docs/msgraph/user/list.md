@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: List users in your Microsoft Entra tenant. Filter results by a display name prefix, exact user principal name, or an OData `$filter` expression. Use `--consistency-level eventual` for advanced Graph filters such as `endswith(...)`.
+Description: List users in your Microsoft Entra tenant. Filter results by a display name prefix, exact user principal name, or an OData `$filter` expression. For advanced filters (for example `endswith(...)`), include `--consistency-level eventual`.
 
 ### List all users
 

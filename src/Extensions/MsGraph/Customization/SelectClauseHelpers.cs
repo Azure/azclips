@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using Microsoft.Azure.Azclips.Extensions.MsGraph;
+using Core.Abstractions;
+using System.Net;
 
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
@@ -43,6 +45,29 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         public static string[]? MergeGroupSelect(string[]? select, bool appendSelected) =>
             SplitClause(GraphGroupDefaults.BuildSelectClause(select, appendSelected));
+
+        /// <summary>
+        /// Re-throws a user-facing InvalidInput error when Graph rejects a query because the
+        /// <c>ConsistencyLevel:eventual</c> header is missing. Leaves unrelated errors untouched.
+        /// </summary>
+        public static void RethrowMissingConsistencyLevelAsInvalidInput(HttpRequestException ex)
+        {
+            if (ex.StatusCode != HttpStatusCode.BadRequest || string.IsNullOrWhiteSpace(ex.Message))
+            {
+                return;
+            }
+
+            string message = ex.Message;
+            bool isUnsupportedQuery = message.IndexOf("Request_UnsupportedQuery", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool missingConsistencyLevel = message.IndexOf("ConsistencyLevel:eventual", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!isUnsupportedQuery && !missingConsistencyLevel)
+            {
+
+                throw AzclipsErrorException.InvalidInput(
+                    "Microsoft Graph rejected this query because it requires ConsistencyLevel 'eventual'. Rerun with --consistency-level eventual (CLI) or -ConsistencyLevel eventual (PowerShell).",
+                    innerException: ex);
+            }
+        }
 
         private static string[]? SplitClause(string? clause)
         {

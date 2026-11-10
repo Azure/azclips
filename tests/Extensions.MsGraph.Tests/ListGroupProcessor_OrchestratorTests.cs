@@ -1,9 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 using Moq;
+using System.Net;
 
 namespace Extensions.MsGraph.Tests;
 
@@ -20,10 +22,10 @@ public class ListGroupProcessor_OrchestratorTests
     private static IEventPublisher NoOpPublisher() => Mock.Of<IEventPublisher>();
 
     private static (ListGroupProcessor_Orchestrator orchestrator, FakeGraphHttpPipeline pipeline)
-        Create(ListGroupProcessor_Orchestrator orch)
+        Create(ListGroupProcessor_Orchestrator orch, Func<HttpRequestMessage, HttpResponseMessage>? responder = null)
     {
         var pipeline = new FakeGraphHttpPipeline(
-            _ => FakeGraphHttpPipeline.JsonResponse("{\"value\":[]}"));
+            responder ?? (_ => FakeGraphHttpPipeline.JsonResponse("{\"value\":[]}")));
         orch.WithCapturingContext(pipeline, NoOpPublisher());
         return (orch, pipeline);
     }
@@ -134,5 +136,17 @@ public class ListGroupProcessor_OrchestratorTests
         var sent = pipeline.Sent.Single();
         Assert.True(sent.Headers.TryGetValues("ConsistencyLevel", out var values));
         Assert.Equal("eventual", values!.Single());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_AdvancedFilterWithoutConsistencyLevel_ShouldThrowHelpfulError()
+    {
+        const string graphError = "{\"error\":{\"code\":\"Request_UnsupportedQuery\",\"message\":\"Operator 'endsWith' is not supported because the 'ConsistencyLevel:eventual' header is missing.\"}}";
+        var (orch, _) = Create(
+            new ListGroupProcessor_Orchestrator { Filter = "endswith(displayName,'Team')" },
+            _ => FakeGraphHttpPipeline.JsonResponse(graphError, HttpStatusCode.BadRequest));
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
+        Assert.Contains("ConsistencyLevel 'eventual'", ex.Message);
     }
 }
