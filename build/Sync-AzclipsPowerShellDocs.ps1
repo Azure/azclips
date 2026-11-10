@@ -213,6 +213,50 @@ function New-ModuleIndexContent
 
 # ── Plan ────────────────────────────────────────────────────────────────────────
 
+function ConvertTo-LearnParameterSetHeading
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Body
+    )
+
+    # PlatyPS exposes PowerShell's internal unnamed-set name as a heading on Learn.
+    # Relabel only the published copy; source help and local help generation stay unchanged.
+    # Keep the heading itself: removing it made Learn invent "Default (Default)" and
+    # pull Description text into an empty Aliases section. "All parameters" avoids
+    # that parsing bug without repeating Learn's existing "Syntax" section title.
+    $output = [System.Text.StringBuilder]::new()
+    $inSyntax = $false
+    $fence = ''
+    # Preserve line endings and skip fenced examples; only touch the exact name in SYNTAX.
+    foreach ($match in [regex]::Matches($Body, '[^\r\n]*(?:\r\n|\n|\r|$)'))
+    {
+        $line = $match.Value.TrimEnd("`r", "`n")
+        if ($line -match '^[ \t]*(`{3,}|~{3,})')
+        {
+            $marker = $Matches[1]
+            if (-not $fence) { $fence = $marker }
+            elseif ($marker[0] -eq $fence[0] -and $marker.Length -ge $fence.Length -and
+                $line.Trim() -eq $marker)
+            {
+                $fence = ''
+            }
+        }
+        elseif (-not $fence)
+        {
+            if ($line -cmatch '^##[ \t]+SYNTAX[ \t]*$') { $inSyntax = $true }
+            elseif ($line -match '^#{1,2}[ \t]+') { $inSyntax = $false }
+            elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$')
+            {
+                [void]$output.Append(($match.Value -creplace '__AllParameterSets', 'All parameters'))
+                continue
+            }
+        }
+        [void]$output.Append($match.Value)
+    }
+    return $output.ToString()
+}
+
 # Copies a cmdlet PlatyPS .md file, rewriting the frontmatter `Module Name:` from the
 # source module name (bare, e.g. 'Config') to the packaged name ('Az.Config'). Docs.ms's
 # PSMD2Yaml prebuild requires the module name in the frontmatter to match the folder;
@@ -235,37 +279,9 @@ function Copy-CmdletMarkdownWithRewrite
         throw "Expected YAML frontmatter with exactly one 'Module Name:' field in '$SourcePath'."
     }
 
-    $body = [System.Text.StringBuilder]::new()
-    $inSyntax = $false
-    $fence = ''
-    foreach ($match in [regex]::Matches($content.Substring($frontmatter.Length), '[^\r\n]*(?:\r\n|\n|\r|$)'))
-    {
-        $line = $match.Value.TrimEnd("`r", "`n")
-        if ($line -match '^[ \t]*(`{3,}|~{3,})')
-        {
-            $marker = $Matches[1]
-            if (-not $fence) { $fence = $marker }
-            elseif ($marker[0] -eq $fence[0] -and $marker.Length -ge $fence.Length -and
-                $line.Trim() -eq $marker)
-            {
-                $fence = ''
-            }
-        }
-        elseif (-not $fence)
-        {
-            if ($line -cmatch '^##[ \t]+SYNTAX[ \t]*$') { $inSyntax = $true }
-            elseif ($line -match '^#{1,2}[ \t]+') { $inSyntax = $false }
-            elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$')
-            {
-                # Keep the heading: heading-free modern Markdown corrupts empty aliases on import.
-                [void]$body.Append(($match.Value -creplace '__AllParameterSets', 'All parameters'))
-                continue
-            }
-        }
-        [void]$body.Append($match.Value)
-    }
+    $body = ConvertTo-LearnParameterSetHeading -Body $content.Substring($frontmatter.Length)
     $rewritten = $moduleNamePattern.Replace($frontmatter.Value, { "Module Name: $TargetModuleName" }, 1) +
-        $body.ToString()
+        $body
     Set-Content -LiteralPath $TargetPath -Value $rewritten -NoNewline
 }
 
