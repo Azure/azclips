@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794290817614,
+  "lastUpdate": 1794292576173,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11216,6 +11216,48 @@ window.BENCHMARK_DATA = {
             "value": 4538013.218020917,
             "unit": "ns",
             "range": "± 124409.90917358262"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6daf687e70fc52ebc3fe4d3f0e2b9f180a077334",
+          "message": "{Docs} Keep generic WhatIf help stable across refreshes (#1376)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nPowerShell `-WhatIf` help for Connect/Disconnect-AzAccount,\nNew/Remove-AzVM, Set/Remove-AzConfig and New-AzResourceGroup\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nReplace the old generic WhatIf description and accumulated runtime\nsentences with exactly one copy of PowerShell's runtime wording:\n\n> Runs the command in a mode that only reports what would happen without\nperforming the actions.\n\nPlatyPS 1.0.1 concatenates authored and runtime parameter descriptions\nwhen their full text differs. The alternative generic wording therefore\ncauses the runtime sentence to be appended on each refresh. Keeping the\ncanonical description prevents further accumulation without modifying\ngeneration or publishing scripts.\n\n- Clean seven source help pages, including two with alternative generic\nwording but only one appended sentence\n- Preserve three management-group deployment commands' intentional\ncommand-specific WhatIf guidance\n- Add regression checks for all seven authored descriptions, exercising\ntwo consecutive actual PlatyPS refreshes on isolated generated fixtures\n- Document the authoring requirement and custom-description caveat\n- No CLI help changes, parameter metadata changes, resource operations,\nor Learn pipeline workaround\n\nThis fixes the generic WhatIf descriptions, not PlatyPS's general\ndescription-merging behaviour.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n`pwsh -NoProfile -File .\\tests\\Scripts\\PS\\HelpDriftFixtures.ps1` —\npassed: six existing drift scenarios and seven WhatIf repeated-refresh\nchecks. Each cleaned authored description remains identical with exactly\none canonical sentence after both refreshes. Fixtures use inert\nfunctions and temporary files, not loaded product commands.\n\nChanged-page validation with pinned Microsoft.PowerShell.PlatyPS 1.0.1:\n\n```powershell\nImport-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1\nforeach ($path in @(\n    'src\\PS\\Accounts\\help\\Connect-AzAccount.md',\n    'src\\PS\\Accounts\\help\\Disconnect-AzAccount.md',\n    'src\\PS\\Compute\\help\\New-AzVM.md',\n    'src\\PS\\Compute\\help\\Remove-AzVM.md',\n    'src\\PS\\Config\\help\\Set-AzConfig.md',\n    'src\\PS\\Config\\help\\Remove-AzConfig.md',\n    'src\\PS\\Resources\\help\\New-AzResourceGroup.md'\n)) {\n    Test-MarkdownCommandHelp -Path $path\n    Import-MarkdownCommandHelp -Path $path | Out-Null\n}\n```\n\nPassed: all seven changed pages validate and import.\n\nExact source-diff comparison against the baseline confirmed only WhatIf\nprose changed; parameter YAML, syntax, examples and other authored\nsections are unchanged.\n\n`git diff --check` — passed.\n\nFull solution build and hosted Learn regeneration were not run for this\nsource-prose/test change. Hosted validation follows product merge.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n{Docs} Remove repeated generic WhatIf descriptions and keep them stable\nacross PowerShell help refreshes\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-10T05:41:13Z",
+          "tree_id": "793a8d3b36e7ae6f244adef2983d211a56f53ef1",
+          "url": "https://github.com/Azure/azclips/commit/6daf687e70fc52ebc3fe4d3f0e2b9f180a077334"
+        },
+        "date": 1794292567281,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 4598695.534931366,
+            "unit": "ns",
+            "range": "± 111168.27626826936"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 9908875.162332302,
+            "unit": "ns",
+            "range": "± 207730.58814336907"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 4663199.030069077,
+            "unit": "ns",
+            "range": "± 119027.40246462249"
           }
         ]
       }
