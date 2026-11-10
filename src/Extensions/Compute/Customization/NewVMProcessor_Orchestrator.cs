@@ -91,6 +91,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         internal override async Task<HttpResponseMessage> SendAsync()
         {
             Dictionary<string, string>? tags = VmTagsParser.ParseTags(TagsInput);
+            var osDiskStorageAccountType = OsDiskStorageSkuResolver.Resolve(StorageSku);
             ValidateNetworkArguments();
 
             if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
@@ -184,7 +185,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanProduct = plan?.Product;
                 p.PlanPublisher = plan?.Publisher;
                 p.Zones = string.IsNullOrWhiteSpace(Zone) ? [] : [Zone];
-                p.OsDiskStorageAccountType = StorageSku;
+                p.OsDiskStorageAccountType = osDiskStorageAccountType;
                 p.OsDiskDeleteOption = OsDiskDeleteOption;
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
