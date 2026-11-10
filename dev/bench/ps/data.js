@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794208016018,
+  "lastUpdate": 1794273589273,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11090,6 +11090,48 @@ window.BENCHMARK_DATA = {
             "value": 4364701.843941248,
             "unit": "ns",
             "range": "± 76415.95174825702"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f792edcc05499f43df1f33163fe29078574e253",
+          "message": "{Packaging} Remove obsolete MSIX packaging and build workflow (#1346)\n\n**Related command**\nNot applicable — packaging cleanup\n\n**Description**\n- Delete the disabled legacy build workflow.\n- Remove obsolete MSIX packaging: manual guide, manifest, and three logo\nassets.\n- Clean up related documentation, ignore rules, and source comments.\n- Leave active distribution pipelines and runtime behavior unchanged.\n\n**Testing Guide**\n- Whitespace checks passed.\n- No remaining MSIX/AppX or deleted-workflow references in tracked text\nfiles.\n- Runtime tests not run — no executable code changes.\n\n---\n\n- [x] Title uses the internal `{Packaging}` prefix with no trailing\npunctuation.\n- [x] Customer-facing command release note not applicable.\n- [x] Runtime test changes not applicable.\n- [x] Related documentation updated.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-10T11:18:02+11:00",
+          "tree_id": "31192c45ae2bf1a29b421cdec0bcec3eeea5f69d",
+          "url": "https://github.com/Azure/azclips/commit/4f792edcc05499f43df1f33163fe29078574e253"
+        },
+        "date": 1794273579383,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 4354792.8000618685,
+            "unit": "ns",
+            "range": "± 65467.28995609346"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 9119528.7669017,
+            "unit": "ns",
+            "range": "± 100657.07168272845"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 4405611.8045929875,
+            "unit": "ns",
+            "range": "± 70883.75079206575"
           }
         ]
       }
