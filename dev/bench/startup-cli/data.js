@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794208055641,
+  "lastUpdate": 1794273842461,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -7224,6 +7224,48 @@ window.BENCHMARK_DATA = {
             "value": 241907214.18,
             "unit": "ns",
             "range": "± 3452136.3557799403"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f792edcc05499f43df1f33163fe29078574e253",
+          "message": "{Packaging} Remove obsolete MSIX packaging and build workflow (#1346)\n\n**Related command**\nNot applicable — packaging cleanup\n\n**Description**\n- Delete the disabled legacy build workflow.\n- Remove obsolete MSIX packaging: manual guide, manifest, and three logo\nassets.\n- Clean up related documentation, ignore rules, and source comments.\n- Leave active distribution pipelines and runtime behavior unchanged.\n\n**Testing Guide**\n- Whitespace checks passed.\n- No remaining MSIX/AppX or deleted-workflow references in tracked text\nfiles.\n- Runtime tests not run — no executable code changes.\n\n---\n\n- [x] Title uses the internal `{Packaging}` prefix with no trailing\npunctuation.\n- [x] Customer-facing command release note not applicable.\n- [x] Runtime test changes not applicable.\n- [x] Related documentation updated.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-10T11:18:02+11:00",
+          "tree_id": "31192c45ae2bf1a29b421cdec0bcec3eeea5f69d",
+          "url": "https://github.com/Azure/azclips/commit/4f792edcc05499f43df1f33163fe29078574e253"
+        },
+        "date": 1794273829575,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 249300807.43,
+            "unit": "ns",
+            "range": "± 3648858.148109678"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 264858111.14,
+            "unit": "ns",
+            "range": "± 3317684.446844838"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 245746473.89,
+            "unit": "ns",
+            "range": "± 2873539.428122465"
           }
         ]
       }
