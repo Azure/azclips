@@ -280,6 +280,21 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_getSignedInUser_CLI = new(
+            Name: "GetSignedInUserProcessor_Orchestrator",
+            InvocationName: "msgraph user signed-in",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetSignedInUserProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
+            ProcessorType: typeof(Processors.GetSignedInUserProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["select"]          = new("Select", "select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string[]), UserExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["append-selected"] = new("AppendSelected", "append-selected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_listUsers_CLI = new(
             Name: "ListUserProcessor_Orchestrator",
             InvocationName: "msgraph user list",
@@ -292,7 +307,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
                 ["display-name"]      = new("DisplayNamePrefix", "display-name", typeof(string), UserStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["filter"]            = new("Filter", "filter", typeof(string), UserFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["upn"]               = new("UserPrincipalName", "upn", typeof(string), UserPrincipalNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["select"]            = new("Select", "select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]            = new("Expand", "expand", typeof(string[]), UserExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["orderby"]           = new("Orderby", "orderby", typeof(string[]), UserOrderbyDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["search"]            = new("Search", "search", typeof(string), UserSearchDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["append-selected"]   = new("AppendSelected", "append-selected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -322,7 +342,12 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             {
                 ["display-name"]      = new("DisplayNamePrefix", "display-name", typeof(string), GroupStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["filter"]            = new("Filter", "filter", typeof(string), GroupFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["select"]            = new("Select", "select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]            = new("Expand", "expand", typeof(string[]), GroupExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["orderby"]           = new("Orderby", "orderby", typeof(string[]), GroupOrderbyDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["search"]            = new("Search", "search", typeof(string), GroupSearchDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["append-selected"]   = new("AppendSelected", "append-selected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -337,9 +362,31 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ProcessorType: typeof(Processors.ListGroupMemberProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["group"] = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["group"]             = new("Group", "group", typeof(string), GroupDescription, IsRequired: false, Aliases: ["g"], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["ByGroup"] = new("ByGroup", IsRequired: true) }),
+                ["display-name"]      = new("GroupDisplayName", "display-name", typeof(string), GroupDisplayNameDescription, IsRequired: false, Aliases: [], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["ByDisplayName"] = new("ByDisplayName", IsRequired: true) }),
+                ["filter"]            = new("Filter", "filter", typeof(string), GroupMemberFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["select"]            = new("Select", "select", typeof(string[]), GroupMemberSelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]            = new("Expand", "expand", typeof(string[]), GroupMemberExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["orderby"]           = new("Orderby", "orderby", typeof(string[]), GroupMemberOrderbyDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["search"]            = new("Search", "search", typeof(string), GroupMemberSearchDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" },
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["ByGroup"] = new("ByGroup",
+                                    IsDefault: true,
+                                    Parameters: new Dictionary<string, ParameterReference>
+                                    {
+                                        ["Group"] = new("Group", IsRequired: true),
+                                    }),
+                ["ByDisplayName"] = new("ByDisplayName",
+                                    IsDefault: false,
+                                    Parameters: new Dictionary<string, ParameterReference>
+                                    {
+                                        ["GroupDisplayName"] = new("GroupDisplayName", IsRequired: true),
+                                    }),
+            }
         );
         private static readonly CommandMetadata s_checkGroupMember_CLI = new(
             Name: "CheckGroupMemberProcessor_Orchestrator",
@@ -433,7 +480,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ProcessorType: typeof(Processors.ListApplicationProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["DisplayName"] = new("DisplayName", "DisplayName", typeof(string), AppDisplayNameExactDescription, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["DisplayName"] = new("DisplayName", "DisplayName", typeof(string), AppDisplayNameDescription, IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Select"]      = new("Select", "Select", typeof(string[]), AppSelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
@@ -528,6 +575,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
         {
             // User
             ["msgraph user show"]          = s_getUser_CLI,
+            ["msgraph user signed-in"]     = s_getSignedInUser_CLI,
             ["msgraph user list"]          = s_listUsers_CLI,
             // Group
             ["msgraph group show"]         = s_getGroup_CLI,
