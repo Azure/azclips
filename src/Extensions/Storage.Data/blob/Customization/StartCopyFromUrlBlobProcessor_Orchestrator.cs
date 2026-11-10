@@ -23,8 +23,6 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
     /// </remarks>
     public class StartCopyFromUrlBlobProcessor_Orchestrator : ProcessorBase<object, BlobCopyResult>, ISasAuthorized
     {
-        private const string MetadataPrefix = "x-ms-meta-";
-
         /// <summary>SAS for the destination; a SAS for the source belongs in <see cref="SourceUrl"/>.</summary>
         public string? SasToken { get; set; }
 
@@ -71,16 +69,14 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
             {
                 await BeforeProcessAsync();
                 await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-                Dictionary<string, string> metadata = ParsePairs(Metadata, nameof(Metadata));
-                Dictionary<string, string> tags = ParsePairs(Tags, nameof(Tags));
+                Dictionary<string, string> metadata = BlobWireFormat.ParsePairs(Metadata, nameof(Metadata));
+                Dictionary<string, string> tags = BlobWireFormat.ParsePairs(Tags, nameof(Tags));
                 using HttpResponseMessage response = await CreateExtendedProcessor<StartCopyRequest>(p =>
                 {
                     p.Url = Endpoint;
-                    p.CopySource = EncodeUrl(SourceUrl);
+                    p.CopySource = BlobWireFormat.EncodeUrl(SourceUrl, nameof(SourceUrl));
                     p.MetadataPairs = metadata;
-                    p.BlobTagsString = tags.Count > 0
-                        ? string.Join("&", tags.Select(t => $"{Uri.EscapeDataString(t.Key)}={Uri.EscapeDataString(t.Value)}"))
-                        : null;
+                    p.BlobTagsString = BlobWireFormat.FormatTags(tags);
                     p.Timeout = Timeout;
                     p.ClientRequestId = ClientRequestId;
                     p.Tier = Tier;
@@ -109,47 +105,16 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
             }
         }
 
-        /// <summary>
-        /// Escapes what a request URI cannot carry (spaces, non-ASCII) while keeping existing escapes and the
-        /// query string as given, so an encoded URL or a SAS signature passes through unchanged.
-        /// </summary>
-        private static string EncodeUrl(string url) =>
-            Uri.TryCreate(url, UriKind.Absolute, out Uri? uri)
-                ? uri.AbsoluteUri
-                : throw new ArgumentException($"'{url}' is not an absolute URL.", nameof(SourceUrl));
-
-        private static Dictionary<string, string> ParsePairs(string[]? pairs, string parameterName)
-        {
-            Dictionary<string, string> result = new(StringComparer.Ordinal);
-            foreach (string pair in pairs ?? [])
-            {
-                int separator = pair.IndexOf('=');
-                if (separator <= 0)
-                {
-                    throw new ArgumentException($"'{pair}' is not a key=value pair.", parameterName);
-                }
-                result[pair[..separator]] = pair[(separator + 1)..];
-            }
-            return result;
-        }
-
         private static BlobCopyResult ToResult(HttpResponseMessage response)
         {
-            // Last-Modified is a content header in HttpClient even when the body is empty.
-            Dictionary<string, string> headers = new(StringComparer.OrdinalIgnoreCase);
-            foreach (KeyValuePair<string, IEnumerable<string>> header in response.Headers.Concat(response.Content.Headers))
-            {
-                headers[header.Key] = string.Join(",", header.Value);
-            }
-            string? Header(string name) => headers.TryGetValue(name, out string? value) && value.Length > 0 ? value : null;
-
+            Func<string, string?> header = BlobWireFormat.ReadHeaders(response);
             return new BlobCopyResult
             {
-                CopyId = Header("x-ms-copy-id"),
-                CopyStatus = Header("x-ms-copy-status"),
-                ETag = Header("ETag"),
-                LastModified = Header("Last-Modified"),
-                VersionId = Header("x-ms-version-id"),
+                CopyId = header("x-ms-copy-id"),
+                CopyStatus = header("x-ms-copy-status"),
+                ETag = header("ETag"),
+                LastModified = header("Last-Modified"),
+                VersionId = header("x-ms-version-id"),
             };
         }
 
@@ -161,10 +126,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors
             protected override void CreateRequestHeaders(HttpRequestMessage request)
             {
                 base.CreateRequestHeaders(request);
-                foreach (KeyValuePair<string, string> pair in MetadataPairs)
-                {
-                    request.Headers.TryAddWithoutValidation(MetadataPrefix + pair.Key, pair.Value);
-                }
+                BlobWireFormat.AddMetadata(request, MetadataPairs);
             }
         }
     }

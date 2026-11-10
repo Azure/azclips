@@ -114,7 +114,7 @@ public partial class UploadBlockBlobProcessor : ProcessorBase<byte[], object>
     public byte[]? Body { get; set; }
     protected override HttpMethod Method => HttpMethod.Put;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/".WithQuery("timeout", Timeout);
+    protected override string CreateRequestUri() => $"{Endpoint}".WithQuery("timeout", Timeout);
     protected override byte[]? CreateRequestBody() => Body;
     protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
