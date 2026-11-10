@@ -215,7 +215,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["troubleshoot recover"]      = s_troubleshootRecover_CLI,
             ["troubleshoot list"]         = s_troubleshootList_CLI,
             ["troubleshoot show"]         = s_troubleshootShow_CLI,
-            ["agent tool docs"]           = s_docsList_CLI,
         };
 
         // ── Lookup ──

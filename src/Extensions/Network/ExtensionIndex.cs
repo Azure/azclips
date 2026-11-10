@@ -867,7 +867,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ["network nic show"]   = s_getNetworkInterface_CLI,
             ["network nic list"]   = s_listNetworkInterface_CLI,
             ["network nic delete"] = s_deleteNetworkInterface_CLI,
-            ["network debug"]      = s_listVirtualNetwork_CLI,
         };
 
         // Per-processor --profile / -Profile override (workaround until a global-parameter framework
