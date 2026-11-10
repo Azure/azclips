@@ -317,6 +317,18 @@ public sealed class AgentTelemetryProviderTests
     }
 
     [Fact]
+    public void CtrlCHandler_SetsTheFlagTheExitDecisionReads()
+    {
+        var ctrlCRequested = false;
+        var cancelRequested = false;
+        AgentModeEntry.OnCtrlC(ref ctrlCRequested, () => cancelRequested = true);
+        Assert.True(cancelRequested);
+        var error = new SessionErrored("authentication", "offline error", null, 401, null, DateTimeOffset.UtcNow);
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            AgentModeEntry.ThrowIfSessionEndedInError(error, CancellationToken.None, ctrlCRequested));
+    }
+
+    [Fact]
     public void CompletedFinalTurn_DoesNotBecomeAnError()
     {
         AgentModeEntry.ThrowIfSessionEndedInError(null, CancellationToken.None);

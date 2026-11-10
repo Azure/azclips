@@ -52,9 +52,8 @@ public static class AgentModeEntry
         AgentRuntimeLifetime? activeLifetime = null;
         ConsoleCancelEventHandler cancelHandler = (_, e) =>
         {
-            Volatile.Write(ref ctrlCRequested, true);
             e.Cancel = true;
-            RequestCancellation();
+            OnCtrlC(ref ctrlCRequested, RequestCancellation);
         };
         Console.CancelKeyPress += cancelHandler;
 
@@ -268,6 +267,13 @@ public static class AgentModeEntry
                 Console.Error.WriteLine("Agent telemetry: cancellation_callback_failed");
             }
         }
+    }
+
+    /// <summary>Records a Ctrl+C for the exit decision, then cancels the session.</summary>
+    internal static void OnCtrlC(ref bool ctrlCRequested, Action requestCancellation)
+    {
+        Volatile.Write(ref ctrlCRequested, true);
+        requestCancellation();
     }
 
     internal static Task<int> RunSessionAsync(
@@ -601,16 +607,18 @@ public static class AgentModeEntry
         if (userAborted) WriteColor(ConsoleColor.DarkGray, "  ↯ aborted by user");
 
         var turnAborted = await AwaitTurnAsync(
-            sendTask, () => agent.LastError, redirect is not null, interactive && userAborted, sessionCancelled)
+            sendTask, () => agent.LastError, redirect is not null, userAborted, interactive, sessionCancelled)
             .ConfigureAwait(false);
         return (redirect, turnAborted);
     }
 
     /// <summary>Awaits a finished turn and decides whether its cancellation ends the session.</summary>
     /// <returns>True when Esc aborted only this turn and the session continues.</returns>
-    /// <exception cref="OperationCanceledException">Ctrl+C, or a cancellation nothing else explains.</exception>
+    /// <exception cref="OperationCanceledException">
+    /// Ctrl+C, Esc in oneshot mode, or a cancellation nothing else explains.
+    /// </exception>
     internal static async Task<bool> AwaitTurnAsync(
-        Task sendTask, Func<SessionErrored?> lastError, bool redirected, bool userAbortContinues,
+        Task sendTask, Func<SessionErrored?> lastError, bool redirected, bool userAborted, bool interactive,
         Func<bool> sessionCancelled)
     {
         try { await sendTask.ConfigureAwait(false); }
@@ -629,13 +637,18 @@ public static class AgentModeEntry
         {
             // Abort caused by user redirect — already announced; swallow.
         }
-        catch (OperationCanceledException) when (userAbortContinues)
+        catch (OperationCanceledException) when (userAborted && interactive)
         {
             // Esc aborted only this turn — already announced; return to the prompt.
             return true;
         }
 
-        return false;
+        // Esc can land after the turn's last cancel check, so the send completes normally.
+        // The abort was still announced, so treat the turn as aborted.
+        if (!userAborted) return false;
+        if (sessionCancelled() || !interactive)
+            throw new OperationCanceledException("Turn aborted by user.");
+        return true;
     }
 
     // The CLI passes the failed command without the program name ("rest --method fetch

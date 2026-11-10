@@ -104,7 +104,7 @@ public class RecoverySessionPolicyTests
         try
         {
             var turn = AgentModeEntry.AwaitTurnAsync(
-                aborted, () => null, redirected: false, userAbortContinues: interactive, () => sessionCancelled);
+                aborted, () => null, redirected: false, userAborted: true, interactive, () => sessionCancelled);
             if (endsSession)
                 await Assert.ThrowsAnyAsync<OperationCanceledException>(() => turn);
             else
@@ -116,12 +116,28 @@ public class RecoverySessionPolicyTests
         }
     }
 
+    // Esc can land after the turn's last cancel check, so the send completes normally.
+    [Theory]
+    [InlineData(true, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, true, true)]
+    public async Task EscAbort_AfterCompletedSend_StillAbortsTheTurn(
+        bool interactive, bool sessionCancelled, bool endsSession)
+    {
+        var turn = AgentModeEntry.AwaitTurnAsync(
+            Task.CompletedTask, () => null, redirected: false, userAborted: true, interactive, () => sessionCancelled);
+        if (endsSession)
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => turn);
+        else
+            Assert.True(await turn);
+    }
+
     [Fact]
     public async Task CtrlC_OverridesNonCancellationSendFailure()
     {
         var failed = Task.FromException(new IOException("offline send failure"));
         var turn = AgentModeEntry.AwaitTurnAsync(
-            failed, () => null, redirected: false, userAbortContinues: false, () => true);
+            failed, () => null, redirected: false, userAborted: false, interactive: true, () => true);
         var oce = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => turn);
         Assert.IsType<IOException>(oce.InnerException);
     }
