@@ -52,6 +52,46 @@ public class LoginProcessorServicePrincipalTests
         FederatedToken = "header.payload.signature",
     };
 
+    private static void InitializeProfileReauthDi(
+    ClientType surface,
+    Mock<IProfileService> profiles,
+    Mock<IAuthService> auth,
+    Mock<ISubscriptionService>? subscriptions = null)
+    {
+        AzclipsServiceProvider.Dispose();
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton(new Mock<ILoggingService>().Object);
+            services.AddSingleton(profiles.Object);
+            services.AddSingleton(auth.Object);
+            if (subscriptions is not null)
+            {
+                services.AddSingleton(subscriptions.Object);
+            }
+        });
+        AzclipsServiceProvider.Initialize(
+            new ClientMetadata(surface, "00000000-0000-0000-0000-000000000000"));
+    }
+
+    private static void ConfigureForDirectProcessAsync(LoginProcessor processor, bool setWriteOutput = false)
+    {
+        typeof(LoginProcessorBase)
+            .GetField("Publisher", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(processor, new Mock<IEventPublisher>().Object);
+
+        if (setWriteOutput)
+        {
+            typeof(LoginProcessorBase)
+                .GetField("WriteOutput", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(processor, (OutputStreamDelegate)((_, _) => Task.CompletedTask));
+        }
+
+        // Init() wires up the parameter-set resolver; these tests drive ProcessAsync directly.
+        typeof(LoginProcessorBase)
+            .GetMethod("ConfigureParameterSets", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .Invoke(processor, null);
+    }
+
     [Fact]
     public void Initialize_RegistersClientMetadataAsTheSingleClientContract()
     {
@@ -273,31 +313,149 @@ public class LoginProcessorServicePrincipalTests
 
         var auth = new Mock<IAuthService>();
 
-        AzclipsServiceProvider.Dispose();
-        AzclipsServiceProvider.OverrideRegistration(services =>
-        {
-            services.AddSingleton(new Mock<ILoggingService>().Object);
-            services.AddSingleton(profiles.Object);
-            services.AddSingleton(auth.Object);
-        });
-        AzclipsServiceProvider.Initialize(
-            new ClientMetadata(surface, "00000000-0000-0000-0000-000000000000"));
+        InitializeProfileReauthDi(surface, profiles, auth);
 
         var processor = new LoginProcessor { Profile = "ci" };
-        typeof(LoginProcessorBase)
-            .GetField("Publisher", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .SetValue(processor, new Mock<IEventPublisher>().Object);
-
-        // Init() wires up the parameter-set resolver; this test drives ProcessAsync directly, so run
-        // the same step that Init performs before resolution is needed.
-        typeof(LoginProcessorBase)
-            .GetMethod("ConfigureParameterSets", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .Invoke(processor, null);
+        ConfigureForDirectProcessAsync(processor);
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
         Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
 
         // Nothing signed in, nothing persisted.
+        auth.Verify(a => a.LoginAsync(It.IsAny<LoginRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        profiles.Verify(p => p.SaveAndActivateProfileAsync(It.IsAny<Profile>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task ProcessAsync_FederatedProfileReauthWithToken_UsesFederatedLoginRequest(ClientType surface)
+    {
+        var validLogin = ValidServicePrincipalLogin();
+        const string profileName = "ci";
+        var clientId = validLogin.ClientId!;
+        var tenantId = validLogin.TenantId!;
+        var subscriptionId = validLogin.SubscriptionId!;
+        var federatedToken = validLogin.FederatedToken!;
+
+        var profiles = new Mock<IProfileService>();
+        profiles.Setup(p => p.GetProfileAsync(profileName, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Profile
+                {
+                    Name = profileName,
+                    TenantId = tenantId,
+                    SubscriptionId = subscriptionId,
+                    CloudName = "AzureCloud",
+                    AuthMethod = AuthMethod.Federated,
+                    ClientId = clientId,
+                });
+
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.LoginAsync(
+                It.Is<LoginRequest>(r =>
+                    r.Credential is AuthCredential.FederatedIdentity &&
+                    ((AuthCredential.FederatedIdentity)r.Credential).ClientId == clientId &&
+                    ((AuthCredential.FederatedIdentity)r.Credential).Assertion == federatedToken &&
+                    r.TenantId == tenantId),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AuthResult
+            {
+                AccessToken = "unit-test-access-token",
+                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                TenantId = tenantId,
+                Scopes = [],
+            });
+
+        var subscriptions = new Mock<ISubscriptionService>();
+        subscriptions.Setup(s => s.GetSubscriptionByIdAsync(
+                "unit-test-access-token", subscriptionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SubscriptionInfo(subscriptionId, "Test", "Enabled"));
+
+        InitializeProfileReauthDi(surface, profiles, auth, subscriptions);
+
+        var processor = new LoginProcessor
+        {
+            Profile = profileName,
+            FederatedToken = federatedToken,
+        };
+        ConfigureForDirectProcessAsync(processor, setWriteOutput: true);
+
+        await processor.ProcessAsync();
+
+        auth.VerifyAll();
+        subscriptions.VerifyAll();
+        profiles.Verify(p => p.SaveAndActivateProfileAsync(
+            It.Is<Profile>(saved =>
+                saved.Name == profileName &&
+                saved.AuthMethod == AuthMethod.Federated &&
+                saved.ClientId == clientId &&
+                saved.TenantId == tenantId &&
+                saved.SubscriptionId == subscriptionId),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task ProcessAsync_NonFederatedProfileReauthWithFederatedToken_Throws(ClientType surface)
+    {
+        var validLogin = ValidServicePrincipalLogin();
+        var profiles = new Mock<IProfileService>();
+        profiles.Setup(p => p.GetProfileAsync("ci", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Profile
+                {
+                    Name = "ci",
+                    TenantId = validLogin.TenantId!,
+                    SubscriptionId = validLogin.SubscriptionId!,
+                    CloudName = "AzureCloud",
+                    AuthMethod = AuthMethod.Browser,
+                });
+
+        var auth = new Mock<IAuthService>();
+
+        InitializeProfileReauthDi(surface, profiles, auth);
+
+        var processor = new LoginProcessor
+        {
+            Profile = "ci",
+            FederatedToken = validLogin.FederatedToken!,
+        };
+        ConfigureForDirectProcessAsync(processor);
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task ProcessAsync_NonFederatedProfileReauthWithFederatedToken_DoesNotAttemptLoginOrSaveProfile(ClientType surface)
+    {
+        var validLogin = ValidServicePrincipalLogin();
+        var profiles = new Mock<IProfileService>();
+        profiles.Setup(p => p.GetProfileAsync("ci", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Profile
+                {
+                    Name = "ci",
+                    TenantId = validLogin.TenantId!,
+                    SubscriptionId = validLogin.SubscriptionId!,
+                    CloudName = "AzureCloud",
+                    AuthMethod = AuthMethod.Browser,
+                });
+
+        var auth = new Mock<IAuthService>();
+
+        InitializeProfileReauthDi(surface, profiles, auth);
+
+        var processor = new LoginProcessor
+        {
+            Profile = "ci",
+            FederatedToken = validLogin.FederatedToken!,
+        };
+        ConfigureForDirectProcessAsync(processor);
+
+        await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+
         auth.Verify(a => a.LoginAsync(It.IsAny<LoginRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         profiles.Verify(p => p.SaveAndActivateProfileAsync(It.IsAny<Profile>(), It.IsAny<CancellationToken>()), Times.Never);
     }
