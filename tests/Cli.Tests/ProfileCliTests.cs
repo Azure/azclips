@@ -84,7 +84,7 @@ public sealed class ProfileCliTests
         Assert.Equal(ValidSubscriptionId, profile.SubscriptionId);
         Assert.Equal("MSI@", profile.ManagedIdentityId);
         fixture.Subscriptions.Verify(s => s.GetSubscriptionByIdAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            "stub-access-token-for-benchmark", ValidSubscriptionId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

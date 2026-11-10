@@ -11,6 +11,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Fixtures/ManagedIdentityCli/ManagedIdentity.TestWorker.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
     <ProjectReference Include="../Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj"
                       ReferenceOutputAssembly="false"
                       Private="false" />

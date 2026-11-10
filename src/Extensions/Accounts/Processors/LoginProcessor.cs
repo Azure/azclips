@@ -228,6 +228,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// <param name="loginRequest"></param>
         /// <param name="authResult"></param>
         /// <returns>Tuple of resolved tenant ID (not null) and subscription ID (may be null)</returns>
+        /// <remarks>
+        /// The resolution logic also normalizes tenant and subscription IDs to ensure consistency in casing and formatting.
+        /// It also checks for access to the subscription and fail fast if access is not granted.
+        /// </remarks>
         private async Task<TenantAndSubResolution> ResolveTenantAndSubAsync(LoginRequest loginRequest, AuthResult authResult)
         {
             // trustworthy: most to least
@@ -239,10 +243,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             if (loginRequest.Credential is AuthCredential.ManagedIdentity && !string.IsNullOrEmpty(subscriptionId))
             {
-                // IMDS owns tenant selection; MI profiles do not persist a tenant or require an ARM lookup.
-                return new TenantAndSubResolution(authResult.TenantId, subscriptionId);
+                // IMDS owns tenant selection; validate subscription access without resolving its tenant.
+                var subscription = await EnsureSubscriptionAccessAsync(authResult, subscriptionId);
+                Debug.Assert(
+                    string.Equals(subscriptionId, subscription.SubscriptionId, StringComparison.OrdinalIgnoreCase),
+                    $"Subscription ID in login request ({subscriptionId}) should match the subscription ID in subscription info ({subscription.SubscriptionId}).");
+                return new TenantAndSubResolution(authResult.TenantId, subscription.SubscriptionId);
             }
 
+            // handle four situations based on whether TenantId and SubscriptionId are null
             if (loginRequest.TenantId is not null && subscriptionId is not null)
             {
                 // request has tenant ID and subscription ID => exact match or error
