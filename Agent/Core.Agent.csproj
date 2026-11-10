@@ -23,6 +23,7 @@
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\Shared.props" />
+  <Import Project="$(MSBuildThisFileDirectory)Targets\CopilotCli.targets" />
 
   <ItemGroup>
     <Compile Remove="tests\**" />
