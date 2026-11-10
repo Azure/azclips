@@ -66,7 +66,13 @@
     </Task>
   </UsingTask>
 
-  <!-- DownloadFile does not retry HTTP 503/504, which is the failure this file exists to avoid. -->
+  <!--
+    MSBuild's DownloadFile does not retry HTTP 503/504, which is the failure this file exists to avoid.
+    Modeled on dotnet/arcade src/Microsoft.DotNet.Arcade.Sdk/src/DownloadFile.cs: 404 fails at once;
+    HTTP errors, transient I/O errors and timeouts are retried; retries are logged as messages, not
+    warnings. Cancellation (Ctrl+C) stops the download, as in MSBuild's DownloadFile. Inline tasks
+    compile against netstandard, so ReadAsStreamAsync takes no token; CopyToAsync does.
+  -->
   <UsingTask
     TaskName="DownloadCopilotCliFile"
     TaskFactory="RoslynCodeTaskFactory"
@@ -76,40 +82,96 @@
       <DestinationFile ParameterType="System.String" Required="true" />
     </ParameterGroup>
     <Task>
-      <Using Namespace="System" />
-      <Using Namespace="System.IO" />
-      <Using Namespace="System.Net.Http" />
-      <Using Namespace="System.Threading" />
-      <Code Type="Fragment" Language="cs"><![CDATA[
-        const int attempts = 6;
+      <Code Type="Class" Language="cs"><![CDATA[
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Build.Framework;
+
+public class DownloadCopilotCliFile : Microsoft.Build.Utilities.Task, ICancelableTask
+{
+    private const int Attempts = 6;
+    private const int RetryDelayMilliseconds = 10000;
+    private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
+
+    [Required]
+    public string SourceUrl { get; set; }
+
+    [Required]
+    public string DestinationFile { get; set; }
+
+    public void Cancel() => _cancellation.Cancel();
+
+    public override bool Execute()
+    {
+        try
+        {
+            return DownloadAsync(_cancellation.Token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException) when (_cancellation.IsCancellationRequested)
+        {
+            Log.LogMessage(MessageImportance.High, "Download of {0} was cancelled.", SourceUrl);
+            return false;
+        }
+    }
+
+    private async Task<bool> DownloadAsync(CancellationToken token)
+    {
         using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
         {
-          for (int attempt = 1; ; attempt++)
-          {
-            try
+            for (int attempt = 1; ; attempt++)
             {
-              using (var response = client.GetAsync(SourceUrl, HttpCompletionOption.ResponseHeadersRead).GetAwaiter().GetResult())
-              {
-                response.EnsureSuccessStatusCode();
-                using (var file = File.Create(DestinationFile))
+                try
                 {
-                  response.Content.CopyToAsync(file).GetAwaiter().GetResult();
+                    using (var response = await client.GetAsync(SourceUrl, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
+                    {
+                        if (response.StatusCode == HttpStatusCode.NotFound)
+                        {
+                            Log.LogError("Download of {0} failed: {1} {2}.", SourceUrl, (int)response.StatusCode, response.ReasonPhrase);
+                            return false;
+                        }
+
+                        response.EnsureSuccessStatusCode();
+                        try
+                        {
+                            using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                            using (var file = File.Create(DestinationFile))
+                            {
+                                await stream.CopyToAsync(file, 81920, token).ConfigureAwait(false);
+                            }
+                        }
+                        catch
+                        {
+                            File.Delete(DestinationFile);
+                            throw;
+                        }
+                    }
+                    return true;
                 }
-              }
-              break;
+                catch (Exception ex) when (IsRetriable(ex, token))
+                {
+                    if (attempt == Attempts)
+                    {
+                        Log.LogError("Download of {0} failed after {1} attempts: {2}", SourceUrl, Attempts, ex.Message);
+                        return false;
+                    }
+                    Log.LogMessage(MessageImportance.High, "Download of {0} failed (attempt {1} of {2}): {3} Retrying.", SourceUrl, attempt, Attempts, ex.Message);
+                    await Task.Delay(RetryDelayMilliseconds, token).ConfigureAwait(false);
+                }
             }
-            catch (Exception ex) when (attempt < attempts)
-            {
-              Log.LogMessage(MessageImportance.High, "Download of {0} failed (attempt {1} of {2}): {3} Retrying.", SourceUrl, attempt, attempts, ex.Message);
-              Thread.Sleep(10000);
-            }
-            catch (Exception ex)
-            {
-              Log.LogError("Download of {0} failed after {1} attempts: {2}", SourceUrl, attempts, ex.Message);
-              return false;
-            }
-          }
         }
+    }
+
+    // Same filter as Arcade's DownloadFile: HTTP errors, I/O errors that are not about the path,
+    // and HttpClient timeouts (a TaskCanceledException that is not our cancellation).
+    private static bool IsRetriable(Exception ex, CancellationToken token) =>
+        ex is HttpRequestException ||
+        (ex is IOException && !(ex is DirectoryNotFoundException || ex is PathTooLongException)) ||
+        (ex is TaskCanceledException && !token.IsCancellationRequested);
+}
       ]]></Code>
     </Task>
   </UsingTask>
