@@ -320,9 +320,9 @@ public sealed class AgentTelemetryProviderTests
     public void CtrlCHandler_SetsTheFlagTheExitDecisionReads()
     {
         var ctrlCRequested = false;
-        var cancelRequested = false;
-        AgentModeEntry.OnCtrlC(ref ctrlCRequested, () => cancelRequested = true);
-        Assert.True(cancelRequested);
+        bool? flagSeenByCancel = null;
+        AgentModeEntry.OnCtrlC(ref ctrlCRequested, () => flagSeenByCancel = Volatile.Read(ref ctrlCRequested));
+        Assert.True(flagSeenByCancel);
         var error = new SessionErrored("authentication", "offline error", null, 401, null, DateTimeOffset.UtcNow);
         Assert.ThrowsAny<OperationCanceledException>(() =>
             AgentModeEntry.ThrowIfSessionEndedInError(error, CancellationToken.None, ctrlCRequested));
