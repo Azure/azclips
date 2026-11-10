@@ -18,6 +18,18 @@
         "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000"
       },
       {
+        "short_summary": "Create a named profile and make it active",
+        "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --tenant-id 00000000-0000-0000-0000-000000000000 --out-profile dev"
+      },
+      {
+        "short_summary": "Switch to a saved profile for subsequent commands",
+        "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --tenant-id 00000000-0000-0000-0000-000000000000 --out-profile dev\naz profile set --name prod\naz group list"
+      },
+      {
+        "short_summary": "Use a saved profile for one command without changing the active profile",
+        "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --tenant-id 00000000-0000-0000-0000-000000000000 --out-profile dev\naz group list --profile prod"
+      },
+      {
         "short_summary": "Login with device code",
         "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
       },
@@ -27,7 +39,7 @@
       },
       {
         "short_summary": "Login with a user-assigned managed identity",
-        "command": "az login --identity --client-id 11111111-1111-1111-1111-111111111111 --subscription-id 00000000-0000-0000-0000-000000000000"
+        "command": "az login --identity --client-id 00000000-0000-0000-0000-000000000000 --subscription-id 00000000-0000-0000-0000-000000000000"
       },
       {
         "short_summary": "Login with a managed identity using short flags",
