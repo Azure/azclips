@@ -60,6 +60,7 @@
         if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
         {
           Log.LogError("Checksum mismatch for {0}: expected {1}, got {2}.", PackageFile, expected, actual);
+          return false;
         }
       ]]></Code>
     </Task>
@@ -71,6 +72,8 @@
     <PropertyGroup>
       <_CopilotFeedDir>$(IntermediateOutputPath)copilot-cli\$(CopilotCliVersion)\$(_CopilotPlatform)</_CopilotFeedDir>
       <_CopilotFeedMarker>$(_CopilotFeedDir)\.copilot-runtime-complete</_CopilotFeedMarker>
+      <_CopilotFeedArchive>$(_CopilotFeedDir)\copilot.tgz</_CopilotFeedArchive>
+      <_CopilotFeedMetadata>$(_CopilotFeedDir)\metadata.json</_CopilotFeedMetadata>
       <_CopilotFeedPackage>copilot-$(_CopilotPlatform)</_CopilotFeedPackage>
       <_CopilotFeedMetadataUrl>$(CopilotCliFeedUrl)/@github%252f$(_CopilotFeedPackage)</_CopilotFeedMetadataUrl>
       <_CopilotFeedPackageUrl>$(CopilotCliFeedUrl)/@github/$(_CopilotFeedPackage)/-/$(_CopilotFeedPackage)-$(CopilotCliVersion).tgz</_CopilotFeedPackageUrl>
@@ -87,11 +90,11 @@
     <DownloadFile SourceUrl="$(_CopilotFeedPackageUrl)" DestinationFolder="$(_CopilotFeedDir)" DestinationFileName="copilot.tgz"
                   Retries="5" RetryDelayMilliseconds="10000"
                   Condition="!Exists('$(_CopilotFeedMarker)')" />
-    <VerifyNpmPackageShasum MetadataFile="$(_CopilotFeedDir)\metadata.json" PackageFile="$(_CopilotFeedDir)\copilot.tgz" Version="$(CopilotCliVersion)"
+    <VerifyNpmPackageShasum MetadataFile="$(_CopilotFeedMetadata)" PackageFile="$(_CopilotFeedArchive)" Version="$(CopilotCliVersion)"
                             Condition="!Exists('$(_CopilotFeedMarker)')" />
-    <Exec Command="&quot;$(_CopilotFeedTar)&quot; -xzf &quot;$(_CopilotFeedDir)\copilot.tgz&quot; --strip-components=1 -C &quot;$(_CopilotFeedDir)&quot;"
+    <Exec Command="&quot;$(_CopilotFeedTar)&quot; -xzf &quot;$(_CopilotFeedArchive)&quot; --strip-components=1 -C &quot;$(_CopilotFeedDir)&quot;"
           Condition="!Exists('$(_CopilotFeedMarker)')" />
-    <Delete Files="$(_CopilotFeedDir)\copilot.tgz;$(_CopilotFeedDir)\metadata.json" />
+    <Delete Files="$(_CopilotFeedArchive);$(_CopilotFeedMetadata)" />
     <WriteLinesToFile File="$(_CopilotFeedMarker)" Lines="$(CopilotCliVersion)" Overwrite="true" Condition="!Exists('$(_CopilotFeedMarker)')" />
   </Target>
 
