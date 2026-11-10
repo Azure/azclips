@@ -135,6 +135,60 @@ public sealed class DeploymentGroupLifecycleScenarioTests
         }
     }
 
+    // ARM validate results under Location are one-shot: re-reading the terminal result can answer
+    // 404. Validation (and create's preflight) must stop polling at the first non-202.
+    [Theory]
+    [InlineData(ClientType.CLI, false)]
+    [InlineData(ClientType.PowerShell, false)]
+    [InlineData(ClientType.CLI, true)]
+    [InlineData(ClientType.PowerShell, true)]
+    public void Validate_PollsLocationWithoutExtraFinalGet(ClientType surface, bool create)
+    {
+        const string OperationResults = "https://management.azure.com/operationResults/";
+        const string L1 = OperationResults + "l1";
+        const string L2 = OperationResults + "l2";
+        string template = Path.GetTempFileName();
+        File.WriteAllText(template, EmptyTemplate);
+        try
+        {
+            var http = new CapturingTracingInterceptor(request =>
+            {
+                static HttpResponseMessage Accepted(string location)
+                {
+                    var response = new HttpResponseMessage(HttpStatusCode.Accepted);
+                    response.Headers.Location = new Uri(location);
+                    response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.Zero);
+                    return response;
+                }
+
+                string uri = request.RequestUri!.AbsoluteUri;
+                string ok = $$$"""{"properties":{"provisioningState":"{{{State.Succeeded}}}"}}""";
+                return (request.Method.Method, uri) switch
+                {
+                    ("POST", _) => Accepted(L1),
+                    ("GET", L1) => Accepted(L2),
+                    ("GET", L2) or ("PUT", _) or ("GET", DeploymentsUri + DeploymentName + "?api-version=2025-04-01") =>
+                        new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(ok, Encoding.UTF8, "application/json") },
+                    _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+                };
+            });
+            using (var host = new ScenarioHost(surface, http, extensions: s_extensions))
+            {
+                var target = new Target(host, surface, SubscriptionId, ResourceGroupName);
+                _ = create ? CreateDeployment(target, DeploymentName, template, rollbackOnError: false) : Validate(target, template, DeploymentName);
+            }
+
+            // Create's own PUT (and its LRO GET) follows; only the validate traffic matters here.
+            string[] expected = ["POST", "GET " + L1, "GET " + L2];
+            Assert.Equal(expected, http.Captured.Where(r => r.Method == "POST" || r.Uri.StartsWith(OperationResults)).Select(r => r.Method == "GET" ? $"GET {r.Uri}" : r.Method));
+            Assert.Equal(create, http.Captured.Any(r => r.Method == "PUT"));
+        }
+        finally
+        {
+            File.Delete(template);
+        }
+    }
+
     // One surface pointed at one resource group; Run picks the CLI or PowerShell form of a command.
     private sealed record Target(ScenarioHost Host, ClientType Surface, string SubscriptionId, string GroupName)
     {
