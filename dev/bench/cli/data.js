@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794273697016,
+  "lastUpdate": 1794273762437,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -11340,6 +11340,48 @@ window.BENCHMARK_DATA = {
             "value": 33996238.980958104,
             "unit": "ns",
             "range": "± 1715041.3365127158"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f792edcc05499f43df1f33163fe29078574e253",
+          "message": "{Packaging} Remove obsolete MSIX packaging and build workflow (#1346)\n\n**Related command**\nNot applicable — packaging cleanup\n\n**Description**\n- Delete the disabled legacy build workflow.\n- Remove obsolete MSIX packaging: manual guide, manifest, and three logo\nassets.\n- Clean up related documentation, ignore rules, and source comments.\n- Leave active distribution pipelines and runtime behavior unchanged.\n\n**Testing Guide**\n- Whitespace checks passed.\n- No remaining MSIX/AppX or deleted-workflow references in tracked text\nfiles.\n- Runtime tests not run — no executable code changes.\n\n---\n\n- [x] Title uses the internal `{Packaging}` prefix with no trailing\npunctuation.\n- [x] Customer-facing command release note not applicable.\n- [x] Runtime test changes not applicable.\n- [x] Related documentation updated.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-10T11:18:02+11:00",
+          "tree_id": "31192c45ae2bf1a29b421cdec0bcec3eeea5f69d",
+          "url": "https://github.com/Azure/azclips/commit/4f792edcc05499f43df1f33163fe29078574e253"
+        },
+        "date": 1794273751028,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 12381190.209735576,
+            "unit": "ns",
+            "range": "± 1677080.9832352914"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 23726896.732932933,
+            "unit": "ns",
+            "range": "± 1791944.5979083749"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 34742492.68776287,
+            "unit": "ns",
+            "range": "± 1692851.1122221416"
           }
         ]
       }
