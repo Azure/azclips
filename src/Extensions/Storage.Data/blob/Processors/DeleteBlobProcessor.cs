@@ -55,7 +55,7 @@ public partial class DeleteBlobProcessor : ProcessorBase<object, object>
     public string? AccessTierIfUnmodifiedSince { get; set; }
     protected override HttpMethod Method => HttpMethod.Delete;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/".WithQuery("snapshot", Snapshot).WithQuery("versionid", VersionId).WithQuery("timeout", Timeout).WithQuery("deletetype", BlobDeleteType);
+    protected override string CreateRequestUri() => $"{Endpoint}".WithQuery("snapshot", Snapshot).WithQuery("versionid", VersionId).WithQuery("timeout", Timeout).WithQuery("deletetype", BlobDeleteType);
     protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
         request.Headers.TryAddWithoutValidation("x-ms-version", "2027-03-07");

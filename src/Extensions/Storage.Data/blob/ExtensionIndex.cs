@@ -167,6 +167,37 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
             ParameterAliases: new Dictionary<string, string>()
         );
 
+        private static readonly CommandMetadata cliStorageBlobDelete = new(
+            Name: nameof(DeleteBlobProcessor),
+            InvocationName: "storage blob delete",
+            Aliases: [],
+            FullName: typeof(DeleteBlobProcessor).FullName!,
+            AssemblyName: typeof(DeleteBlobProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(DeleteBlobProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The blob URL. Alternative to --account-name, --container-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container and blob name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
+                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["delete-snapshots"] = new("DeleteSnapshots", "delete-snapshots", typeof(string), "Required if the blob has snapshots. 'include' deletes the blob and its snapshots; 'only' deletes just the snapshots.", IsRequired: false, Aliases: [], AllowedValues: ["include", "only"]),
+                ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The snapshot of the blob to delete.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["version-id"] = new("VersionId", "version-id", typeof(string), "The version ID of the blob to delete.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["delete-type"] = new("BlobDeleteType", "delete-type", typeof(string), "'Permanent' permanently deletes a soft-deleted snapshot or version, if permanent delete is enabled on the account.", IsRequired: false, Aliases: [], AllowedValues: ["Permanent"]),
+                ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "If specified, the operation only succeeds if the blob's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-modified-since"] = new("IfModifiedSince", "if-modified-since", typeof(string), "Delete only if the blob has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-unmodified-since"] = new("IfUnmodifiedSince", "if-unmodified-since", typeof(string), "Delete only if the blob has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-match"] = new("IfMatch", "if-match", typeof(string), "Delete only if the blob's ETag matches this value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["if-none-match"] = new("IfNoneMatch", "if-none-match", typeof(string), "Delete only if the blob's ETag does not match this value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags-condition"] = new("IfTags", "tags-condition", typeof(string), "A SQL where clause on blob tags; delete only if it matches.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
         private static readonly CommandMetadata cliStorageContainerCreate = new(
             Name: nameof(CreateContainerProcessor_Orchestrator),
             InvocationName: "storage container create",
@@ -224,6 +255,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
             cliStorageBlobCopyStart,
             cliStorageBlobUpload,
             cliStorageBlobUploadFromUrl,
+            cliStorageBlobDelete,
             cliStorageContainerCreate,
             cliStorageContainerDelete
         );
