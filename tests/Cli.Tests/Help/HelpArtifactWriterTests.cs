@@ -11,12 +11,28 @@ namespace Cli.Tests;
 public class HelpArtifactWriterTests
 {
     [Fact]
-    public void WriteArtifacts_ShouldMatchFixtures_ForLoginExtension()
+    public void WriteArtifacts_ShouldMatchFixtures_ForSyntheticManifest()
     {
-        var index = new ExtensionIndex();
         var repoRoot = RepoLocator.GetRepoRoot();
-
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0-alpha", "login");
+        var manifest = new HelpManifest("sample", "1.0.0-test", "Sample commands.",
+        [
+            new HelpCommand(
+                CliName: "sample item create",
+                PsName: "New-SampleItem",
+                Summary: "Create a sample item.",
+                Description: "A stable description.",
+                Parameters:
+                [
+                    new HelpParameter("name", "Name", "string", true, "The item name.",
+                        ["n"], ["first", "second"], "Default", false, false,
+                        "Item Arguments", "source")
+                ],
+                Examples: new HelpExampleSet(
+                    [new HelpExample("Create an item", "az sample item create --name first\naz sample item show --name first")],
+                    [new HelpExample("Create an item", "New-SampleItem -Name first")]),
+                Tags: [],
+                PreviewMessage: "Preview message.")
+        ]);
         var helpIndex = ExtensionHelpManifestBuilder.BuildIndex([manifest]);
 
         using var output = new TempOutputFixture();
@@ -25,8 +41,8 @@ public class HelpArtifactWriterTests
         var generatedManifestPath = Path.Combine(output.DirectoryPath, "HelpManifest.json");
         var generatedIndexPath = Path.Combine(output.DirectoryPath, "HelpIndex.json");
 
-        var expectedManifestPath = Path.Combine(repoRoot, "tests", "Cli.Tests", "Fixtures", "Help", "Login.HelpManifest.json");
-        var expectedIndexPath = Path.Combine(repoRoot, "tests", "Cli.Tests", "Fixtures", "Help", "Login.HelpIndex.json");
+        var expectedManifestPath = Path.Combine(repoRoot, "tests", "Cli.Tests", "Fixtures", "Help", "Synthetic.HelpManifest.json");
+        var expectedIndexPath = Path.Combine(repoRoot, "tests", "Cli.Tests", "Fixtures", "Help", "Synthetic.HelpIndex.json");
 
         AssertJsonEquivalent(expectedManifestPath, generatedManifestPath);
         AssertJsonEquivalent(expectedIndexPath, generatedIndexPath);
@@ -134,4 +150,3 @@ public class HelpArtifactWriterTests
         }
     }
 }
-
