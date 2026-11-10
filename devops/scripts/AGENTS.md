@@ -103,7 +103,11 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 
 Some steps ship as matched `.ps1` + `.sh` implementations:
 
-- `stage_agent.ps1` / `stage_agent.sh`
+- `stage_agent.ps1` / `stage_agent.sh` — step 6 removes a DLL from the Agent extension
+  top level only when the CLI root has a byte-identical copy. A copy under `deps/` does not
+  count: `deps/` is probed only by the `azclips-agent` subprocess, while `az agent tool ...`
+  loads through the CLI extension loader, which resolves from the extension top level and
+  then the CLI root.
 - `inject_builtin_extensions.ps1` / `inject_builtin_extensions.sh` — also copies each bundled
   extension's `*.commands.json` build-time sidecar (see `src/Extensions/Targets/ExtensionSidecar.targets`)
   alongside its DLLs, so metadata-first discovery has it in packaged artifacts too.
