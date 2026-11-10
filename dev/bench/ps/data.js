@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794283369971,
+  "lastUpdate": 1794283479219,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -17938,6 +17938,48 @@ window.BENCHMARK_DATA = {
             "value": 2419753.757125407,
             "unit": "ns",
             "range": "± 55170.884335680385"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11371776+isra-fel@users.noreply.github.com",
+            "name": "Yeming Liu",
+            "username": "isra-fel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b639286d3f14d027a728c34a5cb35f53bff3cc87",
+          "message": "[Auth] Require subscription IDs for managed identity login (#1340)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n`az login --identity` and `Connect-AzAccount -Identity`\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n1. Require sub id for managed identity because it cannot be resolved\nautomatically from IDMS\n2. Remove sub id from profile reauth parameter set because the sub id\nfrom profile would be honored\n3. Skip applying default values (sub id) for the login command because\notherwise the profile reauth parameter set would error out\n\n----following are generted by ai----\n\nRequire a subscription ID for system-assigned and user-assigned managed\nidentity login, consistent with other initial login flows.\n\n- The subscription may be supplied explicitly or inherited from the\ncurrent profile; saved-profile re-authentication remains unchanged\n- Include the subscription in managed identity token-error recovery\ncommands, while preserving the identity selector\n- Update CLI and PowerShell examples, authentication documentation,\nmodule release notes, and help snapshots\n- Update existing tests and add coverage for missing subscriptions,\nprofile defaults, PowerShell aliases, and recovery guidance\n\nManaged identity login continues to let the environment determine the\ntenant and does not add an ARM subscription lookup.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\nValidated locally with .NET SDK 10.0.403:\n\n| Command | Result |\n| --- | --- |\n| `dotnet build azclips.slnx --no-restore --verbosity quiet` | Passed; 0\nerrors, 185 warnings |\n| `dotnet test tests/Cli.Tests/Cli.Tests.csproj --no-build --no-restore\n--verbosity quiet` | Passed: 2,177; skipped: 14; failed: 0 |\n| `dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj --no-build\n--no-restore --verbosity quiet` | Passed: 350; failed: 0 |\n| `dotnet test\ntests/Extensions.Accounts.Tests/Extensions.Accounts.Tests.csproj\n--no-build --no-restore --verbosity quiet` | Passed: 77; failed: 0 |\n| `dotnet test\ntools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj\n--no-build --no-restore --verbosity quiet` | Passed: 215; failed: 0 |\n| `pwsh -File build/Test-PSHelpMarkdown.ps1 -Module Accounts` | Passed;\nno help drift |\n| `git diff --check` | Passed |\n\nManaged identity CLI E2E coverage uses a mock IMDS endpoint. Live Azure\nmanaged identity validation was not run.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n[Auth] Login requires a subscription ID supplied explicitly\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-10T13:58:23+11:00",
+          "tree_id": "598808c7be70705093fe976512b5391b2dbd5d06",
+          "url": "https://github.com/Azure/azclips/commit/b639286d3f14d027a728c34a5cb35f53bff3cc87"
+        },
+        "date": 1794283466512,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 2529413.7976602237,
+            "unit": "ns",
+            "range": "± 89549.79074044347"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 2615747.7482800484,
+            "unit": "ns",
+            "range": "± 101957.98482788682"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 2565352.3718521525,
+            "unit": "ns",
+            "range": "± 97188.50846754803"
           }
         ]
       }
