@@ -43,6 +43,9 @@ Keychain, libsecret, or DPAPI as before.
 ## Sign in and save a profile
 
 Use `az login` with the `--out-profile` option to sign in and save the result as a named profile.
+Initial sign-in requires an explicit `--subscription-id`; login does not inherit
+argument defaults from the active profile.
+
 Specify the tenant and subscription you want the profile to use:
 
 ```bash
@@ -129,6 +132,8 @@ az login --profile personal
 
 The `--profile` and `--out-profile` options are mutually exclusive: use `--out-profile` to create or
 overwrite a profile, and `--profile` to re-authenticate an existing one.
+Re-authentication uses the subscription saved in the profile; `--subscription-id` (including
+`--subscription` and `-s`) can't be combined with `--profile`.
 
 A service principal profile that uses a client secret re-authenticates with the saved secret:
 

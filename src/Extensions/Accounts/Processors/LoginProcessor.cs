@@ -115,8 +115,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         {
             Resolver.DefineSet(ParamSet.ManagedIdentity)
                 .WithMandatory(c => ((LoginProcessor)c).Identity)
-                // The subscription is optional; the tenant is not applicable (the MI token carries it).
-                .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
+                .WithMandatory(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).ClientId)
                 .WithOptional(c => ((LoginProcessor)c).ObjectId)
                 .WithOptional(c => ((LoginProcessor)c).ResourceId)
@@ -138,7 +137,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             Resolver.DefineSet(ParamSet.ProfileReauth)
                 .WithMandatory(c => ((LoginProcessor)c).Profile)
-                .WithOptional(c => ((LoginProcessor)c).SubscriptionId)
                 .WithOptional(c => ((LoginProcessor)c).FederatedToken);
 
             Resolver.DefineSet(ParamSet.Interactive)
@@ -230,6 +228,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         /// <param name="loginRequest"></param>
         /// <param name="authResult"></param>
         /// <returns>Tuple of resolved tenant ID (not null) and subscription ID (may be null)</returns>
+        /// <remarks>
+        /// The resolution logic also normalizes tenant and subscription IDs to ensure consistency in casing and formatting.
+        /// It also checks for access to the subscription and fail fast if access is not granted.
+        /// </remarks>
         private async Task<TenantAndSubResolution> ResolveTenantAndSubAsync(LoginRequest loginRequest, AuthResult authResult)
         {
             // trustworthy: most to least
@@ -241,10 +243,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
             if (loginRequest.Credential is AuthCredential.ManagedIdentity && !string.IsNullOrEmpty(subscriptionId))
             {
-                // IMDS owns tenant selection; MI profiles do not persist a tenant or require an ARM lookup.
-                return new TenantAndSubResolution(authResult.TenantId, subscriptionId);
+                // IMDS owns tenant selection; validate subscription access without resolving its tenant.
+                var subscription = await EnsureSubscriptionAccessAsync(authResult, subscriptionId);
+                Debug.Assert(
+                    string.Equals(subscriptionId, subscription.SubscriptionId, StringComparison.OrdinalIgnoreCase),
+                    $"Subscription ID in login request ({subscriptionId}) should match the subscription ID in subscription info ({subscription.SubscriptionId}).");
+                return new TenantAndSubResolution(authResult.TenantId, subscription.SubscriptionId);
             }
 
+            // handle four situations based on whether TenantId and SubscriptionId are null
             if (loginRequest.TenantId is not null && subscriptionId is not null)
             {
                 // request has tenant ID and subscription ID => exact match or error
