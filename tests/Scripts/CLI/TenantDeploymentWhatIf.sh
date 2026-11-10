@@ -84,31 +84,37 @@ cat > "$CREATE_TEMPLATE_FILE" <<JSON
 }
 JSON
 
-echo "== 1. happy path (empty template): preview with no predicted changes =="
-OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-$RANDOM" --location "$LOCATION" --template-file "$EMPTY_TEMPLATE_FILE" --debug 2>/dev/null)"
-if [[ $? -ne 0 ]]; then
+# 1. Empty template: check the structured JSON result, not a text report.
+if OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-$RANDOM" --location "$LOCATION" --template-file "$EMPTY_TEMPLATE_FILE" --output json --debug)"; then
+  printf '%s\n' "$OUTPUT"
+  assert_contains "$OUTPUT" '"status": "Succeeded"' "empty template status"
+  assert_contains "$OUTPUT" '"changes": []' "empty template change count"
+else
+  printf '%s\n' "$OUTPUT"
   fail "happy path what-if failed"
-else
-  assert_contains "$OUTPUT" "Resource changes: no change." "empty template change report"
 fi
 
-echo "== 2. nested create: what-if reports a Create change =="
-OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-create-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --debug 2>&1)"
-if [[ $? -ne 0 ]]; then
-  fail "nested create what-if failed: $OUTPUT"
+# 2. Nested create: check the structured change type.
+if OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-create-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --output json --debug)"; then
+  printf '%s\n' "$OUTPUT"
+  assert_contains "$OUTPUT" '"status": "Succeeded"' "nested create status"
+  assert_contains "$OUTPUT" '"changeType": "Create"' "what-if contains a Create change"
 else
-  assert_contains "$OUTPUT" "to create" "what-if report shows the Create change"
+  printf '%s\n' "$OUTPUT"
+  fail "nested create what-if failed"
 fi
 
-echo "== 3. --validation-level ProviderNoRbac previews without an RBAC permission check =="
-OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-norbac-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --validation-level ProviderNoRbac --debug 2>/dev/null)"
-if [[ $? -ne 0 ]]; then
+# 3. ProviderNoRbac previews without an RBAC permission check.
+if OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-norbac-$RANDOM" --location "$LOCATION" --template-file "$CREATE_TEMPLATE_FILE" --validation-level ProviderNoRbac --output json --debug)"; then
+  printf '%s\n' "$OUTPUT"
+  assert_contains "$OUTPUT" '"status": "Succeeded"' "ProviderNoRbac status"
+  assert_contains "$OUTPUT" '"changeType": "Create"' "ProviderNoRbac contains a Create change"
+else
+  printf '%s\n' "$OUTPUT"
   fail "validation-level ProviderNoRbac what-if failed"
-else
-  assert_contains "$OUTPUT" "Resource changes:" "validation-level ProviderNoRbac change report"
 fi
 
-echo "== 4. invalid --result-format is rejected =="
+# 4. Invalid --result-format is rejected.
 OUTPUT="$(az deployment tenant what-if --name "tenant-dep-whatif-badformat-$RANDOM" --location "$LOCATION" --template-file "$EMPTY_TEMPLATE_FILE" --result-format Foo --debug 2>&1)"
 if [[ $? -eq 0 ]]; then
   fail "expected failure for an invalid --result-format value"
@@ -116,6 +122,7 @@ else
   assert_contains "$OUTPUT" "ResultFormat" "invalid result-format error mentions the parameter"
   assert_contains "$OUTPUT" "FullResourcePayloads, ResourceIdOnly" "invalid result-format error lists allowed values"
 fi
+printf '%s\n' "$OUTPUT"
 
 rm -f "$EMPTY_TEMPLATE_FILE" "$CREATE_TEMPLATE_FILE"
 

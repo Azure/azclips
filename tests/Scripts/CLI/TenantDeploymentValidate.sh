@@ -6,9 +6,8 @@
 #   2. Invalid template (allowedValues constraint violation) is rejected.
 #   3. Invalid --validation-level is rejected.
 #
-# `az deployment tenant validate` throws on an ARM validation failure (unlike
-# Test-AzTenantDeployment in PowerShell, which returns an object instead of throwing -
-# see TenantDeploymentValidate.ps1 for that divergence).
+# Both `az deployment tenant validate` and Test-AzTenantDeployment throw on an ARM
+# validation failure.
 #
 # Prereqs: build the solution first with dotnet build, then sign in.
 #

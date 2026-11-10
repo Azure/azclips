@@ -33,6 +33,13 @@ function Add-Failure([string]$Message) {
     Write-Host "FAIL: $Message"
     $failures.Add($Message)
 }
+function Assert-Equal([string]$Label, $Expected, $Actual) {
+    if ($Actual -eq $Expected) {
+        Write-Host "OK: ${Label} => '$Actual'"
+    } else {
+        Add-Failure "${Label} expected '$Expected' but got '$Actual'"
+    }
+}
 function Assert-Contains([string]$Label, [string]$Needle, [string]$Haystack) {
     if ($Haystack.Contains($Needle)) {
         Write-Host "OK: ${Label} contains '$Needle'"
@@ -91,20 +98,24 @@ $rgName = "tenant-whatif-rg-$(Get-Random)"
 
 $DebugPreference = 'Continue'
 
-# 1. Happy path (empty template): the preview reports no changes.
+# 1. Happy path (empty template): the structured result contains no changes.
 $report = Get-AzTenantDeploymentWhatIfResult -Name "tenant-dep-whatif-$(Get-Random)" -Location $location -TemplateFile $emptyTemplateFile
 $report | Out-Host
-Assert-Contains 'empty template change report' 'Resource changes: no change.' ($report -join "`n")
+Assert-Equal 'what-if output type' 'WhatIfOperationResult' $report.GetType().Name
+Assert-Equal 'empty template status' 'Succeeded' $report.Status
+Assert-Equal 'empty template change count' 0 @($report.Changes).Count
 
 # 2. Nested create: what-if reports a Create change.
 $report = Get-AzTenantDeploymentWhatIfResult -Name "tenant-dep-whatif-create-$(Get-Random)" -Location $location -TemplateFile $createTemplateFile
 $report | Out-Host
-Assert-Contains 'what-if report shows the Create change' 'to create' ($report -join "`n")
+Assert-Equal 'nested create status' 'Succeeded' $report.Status
+Assert-Equal 'what-if contains a Create change' $true (@($report.Changes | Where-Object ChangeType -eq 'Create').Count -gt 0)
 
 # 3. -ValidationLevel ProviderNoRbac previews without an RBAC permission check.
 $report = Get-AzTenantDeploymentWhatIfResult -Name "tenant-dep-whatif-norbac-$(Get-Random)" -Location $location -TemplateFile $createTemplateFile -ValidationLevel ProviderNoRbac
 $report | Out-Host
-Assert-Contains 'ValidationLevel ProviderNoRbac change report' 'Resource changes:' ($report -join "`n")
+Assert-Equal 'ValidationLevel ProviderNoRbac status' 'Succeeded' $report.Status
+Assert-Equal 'ValidationLevel ProviderNoRbac contains a Create change' $true (@($report.Changes | Where-Object ChangeType -eq 'Create').Count -gt 0)
 
 # 4. An invalid -ResultFormat is rejected.
 try {

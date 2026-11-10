@@ -81,13 +81,15 @@ try {
     Write-Host '== 1. create: returns DeploymentExtended =='
     $name = New-Name 'azclips-tenant'
     $result = New-AzTenantDeployment -Location eastus -Name $name -TemplateFile $templateFile
+    $result | Out-Host
     Assert-Equal 'create output type' 'DeploymentExtended' $result.GetType().Name
     Assert-Equal 'create deployment name' $name $result.Name
-    Assert-Equal 'create provisioning state' 'Succeeded' $result.Properties.ProvisioningState
+    Assert-Equal 'create provisioning state' 'Succeeded' $result.ProvisioningState
 
     Write-Host '== 2. -Parameter Name=Value flows to the outputs =='
     $result = New-AzTenantDeployment -Location eastus -Name (New-Name 'azclips-tenant-param') -TemplateFile $paramTemplateFile -Parameter 'greeting=hello-param'
-    Assert-Equal 'parameter output' 'hello-param' $result.Properties.Outputs['echo'].Value
+    $result | Out-Host
+    Assert-Equal 'parameter output' 'hello-param' $result.Outputs.GetProperty('echo').GetProperty('value').GetString()
 
     Write-Host '== 3. -TemplateSpecId (optional; requires AZCLIPS_TEMPLATE_SPEC_ID) =='
     $templateSpecId = $env:AZCLIPS_TEMPLATE_SPEC_ID
@@ -95,7 +97,8 @@ try {
         Write-Host 'Skipping -TemplateSpecId case: AZCLIPS_TEMPLATE_SPEC_ID not set.'
     } else {
         $result = New-AzTenantDeployment -Location 'West US 2' -Name (New-Name 'azclips-tenant-templatespec') -TemplateSpecId $templateSpecId
-        Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.Properties.ProvisioningState
+        $result | Out-Host
+        Assert-Equal 'template-spec-id provisioning state' 'Succeeded' $result.ProvisioningState
     }
 
     Write-Host '== 4. negative: invalid -ValidationLevel value (Foo) must be rejected =='
