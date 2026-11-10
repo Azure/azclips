@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Xml.Linq;
 using Core.Abstractions;
 using Core.Cli.Parser;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests.Extensions;
 
@@ -14,6 +16,29 @@ public sealed class CommandTreeConventionValidatorTests
         var indexes = ExtensionIndexContractTests.Indexes()
             .ToDictionary(entry => entry.Index, entry => entry.Instance, StringComparer.OrdinalIgnoreCase);
         Assert.NotEmpty(indexes);
+
+        var repository = RepoLocator.GetRepoRoot();
+        var extensionRoot = Path.Combine(repository, "src", "Extensions");
+        var runtimeProject = Path.Combine(extensionRoot, "ExtensionRuntime", "ExtensionRuntime.csproj");
+        // ExtensionRuntime is shared infrastructure, not a command-contributing extension.
+        var projects = Directory.EnumerateFiles(extensionRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !string.Equals(path, runtimeProject, StringComparison.OrdinalIgnoreCase))
+            .Append(Path.Combine(repository, "Agent", "Commands", "Agent.Commands.csproj"));
+        var discoveredAssemblies = indexes.Values
+            .Select(index => index.GetType().Assembly.GetName().Name!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var expectedAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in projects)
+        {
+            var assemblyName = XDocument.Load(project).Root!
+                .Elements("PropertyGroup").Elements("AssemblyName").Single().Value;
+            Assert.StartsWith("Microsoft.Azure.Azclips.Extensions.", assemblyName);
+            Assert.True(expectedAssemblies.Add(assemblyName), $"Duplicate extension assembly name '{assemblyName}' in '{project}'.");
+        }
+
+        var missing = expectedAssemblies.Except(discoveredAssemblies, StringComparer.OrdinalIgnoreCase).Order().ToArray();
+        Assert.True(missing.Length == 0,
+            $"Extension indexes missing from CLI test discovery: {string.Join(", ", missing)}. Check the extension project references and copy-local settings in Cli.Tests.csproj.");
 
         var errors = new CommandTreeConventionValidator().Validate(indexes);
 

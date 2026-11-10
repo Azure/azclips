@@ -74,6 +74,13 @@ are not routed paths; an alias exposed as a command key is validated like any ot
 path. Synthetic cases verify the validator against collisions and every defined
 global name and alias. PowerShell cmdlet names are outside these CLI rules.
 
+The test project automatically references extension projects under
+`src/Extensions/*/*.csproj`, plus the Agent command project. New extensions in
+that layout do not need individual test-project references. Before linting, the
+test compares discovered indexes with assembly names declared by repository
+extension projects, excluding the command-free ExtensionRuntime infrastructure
+project. A missing extension fails the test instead of silently reducing coverage.
+
 Run locally after building:
 
 ```powershell
