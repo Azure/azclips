@@ -4,10 +4,10 @@
   "extension": "KEYVAULT",
   "product": "PS",
   "source": {
-    "commit": "4f792edcc05499f43df1f33163fe29078574e253",
+    "commit": "b639286d3f14d027a728c34a5cb35f53bff3cc87",
     "ref": "refs/heads/main",
-    "run_id": "42727241940",
-    "generated": "2026-11-10T01:18:57Z"
+    "run_id": "42746334325",
+    "generated": "2026-11-10T03:58:29Z"
   },
   "traces": 100,
   "diagnostics": {
@@ -23,7 +23,7 @@
           0
         ]
       ],
-      "avg_ms": 3.2337409999999993,
+      "avg_ms": 3.3298029999999987,
       "occurrences": 100,
       "offset_ms": 0.0
     },
@@ -38,9 +38,9 @@
           0
         ]
       ],
-      "avg_ms": 3.0070069999999998,
+      "avg_ms": 3.113656,
       "occurrences": 100,
-      "offset_ms": 0.22448000000000004
+      "offset_ms": 0.21392000000000003
     },
     {
       "path": [
@@ -53,9 +53,9 @@
           0
         ]
       ],
-      "avg_ms": 1.5841789999999996,
+      "avg_ms": 1.6380929999999998,
       "occurrences": 100,
-      "offset_ms": 1.6042899999999998
+      "offset_ms": 1.6469199999999997
     },
     {
       "path": [
@@ -68,9 +68,9 @@
           0
         ]
       ],
-      "avg_ms": 0.293623,
+      "avg_ms": 0.30741899999999994,
       "occurrences": 100,
-      "offset_ms": 1.6442099999999997
+      "offset_ms": 1.6903699999999993
     },
     {
       "path": [
@@ -83,9 +83,9 @@
           0
         ]
       ],
-      "avg_ms": 0.27194,
+      "avg_ms": 0.2830589999999999,
       "occurrences": 100,
-      "offset_ms": 1.660989999999999
+      "offset_ms": 1.7074900000000006
     }
   ]
 }
