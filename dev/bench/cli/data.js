@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794283434722,
+  "lastUpdate": 1794290785034,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -18230,6 +18230,48 @@ window.BENCHMARK_DATA = {
             "value": 40298507.33700661,
             "unit": "ns",
             "range": "± 2358936.912853395"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maddisondas@microsoft.com",
+            "name": "MaddyMicrosoft",
+            "username": "MaddyMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1b85cf05ef66559fab9824200fc28fa7a3471428",
+          "message": "[Compute] Support os=SKU syntax for VM OS disk storage (#1337)\n\n**Related command**\n- `az vm create`\n- `New-AzVM`\n\n**Description**\nAdds support for `--storage-sku os=Premium_LRS`, matching classic CLI's\nOS-disk selector syntax. Plain SKU values continue to work.\n\nThe shared resolver also supports `New-AzVM -StorageSku os=Premium_LRS`.\nBoth forms set `osDisk.managedDisk.storageAccountType`.\n\nData-disk assignments such as `0=SKU` remain unsupported and return a\nclear error before resource creation. SKU values are validated by Azure.\n\n**Testing Guide**\n- Resolver coverage: plain SKU, `os=SKU`, case-insensitive OS selector\nand invalid assignments\n- CLI and PowerShell serialized-request coverage\n- Help and CLI export fixture updated\n\n**History Notes**\n[CLI] `az vm create`: Support `os=SKU` syntax for `--storage-sku`\n[PowerShell] `New-AzVM`: Support `os=SKU` syntax for `-StorageSku`\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Maddison Das <272712104+MaddyMicrosoft@users.noreply.github.com>\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-10T16:38:43+11:00",
+          "tree_id": "e97151bdd37611c1f4ba8f3aa6ab3c164c403a66",
+          "url": "https://github.com/Azure/azclips/commit/1b85cf05ef66559fab9824200fc28fa7a3471428"
+        },
+        "date": 1794290770274,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 15272102.742138995,
+            "unit": "ns",
+            "range": "± 1635374.1407253852"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 30564123.782206118,
+            "unit": "ns",
+            "range": "± 1788628.793125377"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 38022429.321278304,
+            "unit": "ns",
+            "range": "± 1738644.1347340678"
           }
         ]
       }
