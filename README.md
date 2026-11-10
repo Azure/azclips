@@ -124,7 +124,6 @@ We review on a regular cadence. For quick collaboration with the Product Group, 
 ```
 azclips/
 ├── Agent/            # Agent host, chat/agent-mode entry, hooks, and tools
-├── assets/           # Shared static assets
 ├── build/            # Build scripts (build.ps1, module staging, help gen)
 ├── devops/           # DevOps helper scripts
 ├── docs/             # Documentation (getting-started & reference), being consolidated
