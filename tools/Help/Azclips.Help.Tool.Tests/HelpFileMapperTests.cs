@@ -99,6 +99,41 @@ public sealed class HelpFileMapperTests
         Assert.Throws<ArgumentException>(() => HelpFileMapper.CreateRootGroup(HelpTag.Deprecated));
     }
 
+    [Fact]
+    public void SyntheticManifest_PreservesGroupsDescriptionsAndCliExamples()
+    {
+        var manifest = Manifest(HelpTag.GA);
+        manifest.Commands[0] = manifest.Commands[0] with
+        {
+            Description = "A stable command description.",
+            Examples = new HelpExampleSet(
+                [
+                    new HelpExample("Create an account", "az storage account create --name example"),
+                    new HelpExample("Create and inspect", "az storage account create --name other\naz storage account show --name other")
+                ],
+                [new HelpExample("PowerShell only", "New-AzStorageAccount -Name example")])
+        };
+
+        var entries = HelpFileMapper.Map(manifest, subgroup => $"Summary for {subgroup}").ToArray();
+
+        Assert.Equal(new[] { "storage", "storage account", "storage account create" }, entries.Select(entry => entry.Command));
+        Assert.Equal(new[] { "group", "group", "command" }, entries.Select(entry => entry.Type));
+        Assert.Equal("Storage", entries[0].ShortSummary);
+        Assert.Equal("Summary for storage account", entries[1].ShortSummary);
+        Assert.Null(entries[0].Parameters);
+        Assert.Null(entries[1].Examples);
+        var command = entries[2];
+        Assert.Equal("Create", command.ShortSummary);
+        Assert.Equal("A stable command description.", command.LongSummary);
+        Assert.Null(command.CommandSource);
+        Assert.NotNull(command.Examples);
+        Assert.Collection(command.Examples,
+            example => Assert.Equal(
+                new HelpFileExample("Create an account", "az storage account create --name example"), example),
+            example => Assert.Equal(
+                new HelpFileExample("Create and inspect", "az storage account create --name other\naz storage account show --name other"), example));
+    }
+
     private static HelpManifest Manifest(params HelpTag[] tags) => new(
         Verb: "storage",
         Version: "1.0",

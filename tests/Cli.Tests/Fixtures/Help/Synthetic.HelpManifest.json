@@ -1,0 +1,45 @@
+{
+  "verb": "sample",
+  "version": "1.0.0-test",
+  "rootSummary": "Sample commands.",
+  "commands": [
+    {
+      "cliName": "sample item create",
+      "psName": "New-SampleItem",
+      "summary": "Create a sample item.",
+      "description": "A stable description.",
+      "parameters": [
+        {
+          "name": "name",
+          "psName": "Name",
+          "type": "string",
+          "required": true,
+          "description": "The item name.",
+          "aliases": ["n"],
+          "allowedValues": ["first", "second"],
+          "parameterSetName": "Default",
+          "supportsPipeline": false,
+          "supportsWildcards": false,
+          "groupName": "Item Arguments",
+          "valueSources": "source"
+        }
+      ],
+      "examples": {
+        "cli": [
+          {
+            "title": "Create an item",
+            "command": "az sample item create --name first\naz sample item show --name first"
+          }
+        ],
+        "powerShell": [
+          {
+            "title": "Create an item",
+            "command": "New-SampleItem -Name first"
+          }
+        ]
+      },
+      "tags": [],
+      "previewMessage": "Preview message."
+    }
+  ]
+}

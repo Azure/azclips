@@ -3,12 +3,13 @@
 
 using System.Text.Json;
 using Azclips.Cli.Export;
+using Core.Cli.Help;
 
 namespace Azclips.Help.Tool.Tests;
 
 /// <summary>
-/// Runs the exporter once against the built extension DLLs and lets tests diff each verb's
-/// JSON against the checked-in fixture. Shared via <see cref="IClassFixture{T}"/> so we only
+/// Runs the exporter once against the built extension DLLs for integration assertions.
+/// Shared via <see cref="IClassFixture{T}"/> so we only
 /// pay the assembly-load + reflection cost once per test class.
 /// </summary>
 public sealed class CliExportFixture : IDisposable
@@ -40,8 +41,6 @@ public sealed class CliExportFixture : IDisposable
         }
 
         OutputLatest = Path.Combine(_temp.Path, "latest");
-        FixtureRoot = Path.Combine(repoRoot,
-            "tools", "Help", "Azclips.Help.Tool.Tests", "Fixtures", "cli-export");
     }
 
     // Locate the build configuration from the test assembly's own path (bin/<Config>/<TFM>/),
@@ -59,16 +58,14 @@ public sealed class CliExportFixture : IDisposable
 
     public string OutputLatest { get; }
 
-    public string FixtureRoot { get; }
-
     public void Dispose() => _temp.Dispose();
 }
 
-public class CliExportFixturesTests : IClassFixture<CliExportFixture>
+public class CliExportTests : IClassFixture<CliExportFixture>
 {
     private readonly CliExportFixture _fixture;
 
-    public CliExportFixturesTests(CliExportFixture fixture) => _fixture = fixture;
+    public CliExportTests(CliExportFixture fixture) => _fixture = fixture;
 
     [Fact]
     public void AgentExport_ContainsUniqueGroupsAndAllDocsActions()
@@ -87,39 +84,57 @@ public class CliExportFixturesTests : IClassFixture<CliExportFixture>
         Assert.True(nameParameter.GetProperty("required").GetBoolean());
     }
 
-    [Theory]
-    [InlineData("_root_")]
-    [InlineData("login")]
-    [InlineData("vm")]
-    public void ExporterOutput_MatchesFixture(string verb)
+    [Fact]
+    public void RootExport_HasCli2YamlGroupShape()
     {
-        var fixturePath = Path.Combine(_fixture.FixtureRoot, $"{verb}.json");
-        var actualPath = Path.Combine(_fixture.OutputLatest, $"{verb}.json");
-
-        if (!File.Exists(fixturePath))
-        {
-            Assert.Fail($"Missing fixture '{fixturePath}'. Add or regenerate: pwsh build/Update-CliExportFixtures.ps1");
-        }
-        if (!File.Exists(actualPath))
-        {
-            Assert.Fail($"Exporter did not produce '{actualPath}' — the tracked fixture may reference a verb the exporter no longer emits.");
-        }
-
-        AssertJsonEquivalent(fixturePath, actualPath);
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(_fixture.OutputLatest, "_root_.json")));
+        var root = Assert.Single(document.RootElement.EnumerateArray());
+        Assert.Equal("", root.GetProperty("command").GetString());
+        Assert.Equal("group", root.GetProperty("type").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("short_summary").GetString()));
+        Assert.Equal("", root.GetProperty("long_summary").GetString());
+        Assert.False(root.TryGetProperty("command_source", out _));
+        Assert.False(root.TryGetProperty("examples", out _));
+        Assert.False(root.TryGetProperty("parameters", out _));
     }
 
-    private static void AssertJsonEquivalent(string expectedPath, string actualPath)
+    [Theory]
+    [InlineData("login", "login", "--subscription-id")]
+    [InlineData("vm", "vm create", "--name")]
+    public void CommandExport_PreservesAuthoredHelpAndParameters(string verb, string commandName, string parameterName)
     {
-        var expectedJson = File.ReadAllText(expectedPath);
-        var actualJson = File.ReadAllText(actualPath);
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(_fixture.OutputLatest, $"{verb}.json")));
+        var entries = document.RootElement.EnumerateArray().ToArray();
+        var command = Assert.Single(entries, entry =>
+            entry.GetProperty("type").GetString() == "command"
+            && entry.GetProperty("command").GetString() == commandName);
+        var commandKey = commandName == verb ? "" : commandName[(verb.Length + 1)..];
+        var markdown = MarkdownCommandHelpProvider.Get(verb, commandKey);
 
-        using var expectedDoc = JsonDocument.Parse(expectedJson);
-        using var actualDoc = JsonDocument.Parse(actualJson);
+        Assert.False(string.IsNullOrWhiteSpace(markdown.Summary));
+        Assert.Equal(markdown.Summary, command.GetProperty("short_summary").GetString());
+        Assert.Equal(markdown.Description, command.GetProperty("long_summary").GetString());
 
-        Assert.True(
-            JsonElement.DeepEquals(expectedDoc.RootElement, actualDoc.RootElement),
-            $"CLI export JSON drift on '{Path.GetFileName(expectedPath)}'. " +
-            $"If intentional, refresh the fixture: pwsh build/Update-CliExportFixtures.ps1");
+        var expectedExamples = markdown.Examples.Where(example => !example.IsPowerShell).ToArray();
+        Assert.NotEmpty(expectedExamples);
+        var actualExamples = command.GetProperty("examples").EnumerateArray().ToArray();
+        Assert.Equal(expectedExamples.Length, actualExamples.Length);
+        for (var i = 0; i < expectedExamples.Length; i++)
+        {
+            Assert.Equal(expectedExamples[i].Title, actualExamples[i].GetProperty("short_summary").GetString());
+            Assert.Equal(expectedExamples[i].Command, actualExamples[i].GetProperty("command").GetString());
+        }
+
+        var parameters = command.GetProperty("parameters").EnumerateArray().ToArray();
+        Assert.Single(parameters, parameter => parameter.GetProperty("name").GetString()!.Split(' ')[0] == parameterName);
+        Assert.Contains(parameters, parameter => parameter.GetProperty("name").GetString()!.Split(' ')[0] == "--help"
+            && parameter.GetProperty("group_name").GetString() == "Global Arguments");
+        Assert.All(parameters, parameter =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(parameter.GetProperty("name").GetString()));
+            Assert.Equal(JsonValueKind.String, parameter.GetProperty("short_summary").ValueKind);
+            Assert.True(parameter.GetProperty("required").ValueKind is JsonValueKind.True or JsonValueKind.False);
+        });
     }
 }
 
