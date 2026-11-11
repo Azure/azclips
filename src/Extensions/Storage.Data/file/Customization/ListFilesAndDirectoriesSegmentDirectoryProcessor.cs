@@ -10,12 +10,12 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile.Processors
 {
     /// <summary>
     /// Lists the directories and files directly under a directory, or under the share root when
-    /// <see cref="DirectoryPath"/> is not set.
+    /// <see cref="DirectoryPath"/> is not set, writing each page as returned by the service.
     /// <list type="bullet">
     /// <item>The response is XML (<c>EnumerationResults</c>), mapped by hand using the spec's <c>@Xml.name</c> element names.</item>
     /// <item>The spec declares no <c>@pageItems</c> (entries are split across per-kind arrays), so no paging is generated;
-    /// <c>NextMarker</c> is followed here, and each page's directories and files are written as <see cref="DirectoryEntry"/>.</item>
-    /// <item>NFS-only kinds (symbolic links, devices, FIFOs, sockets) are not listed.</item>
+    /// <c>NextMarker</c> is followed here.</item>
+    /// <item>NFS-only kinds (symbolic links, devices, FIFOs, sockets) are not parsed.</item>
     /// </list>
     /// </summary>
     public partial class ListFilesAndDirectoriesSegmentDirectoryProcessor : ISasAuthorized
@@ -34,33 +34,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile.Processors
 
         protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ListFilesAndDirectoriesSegmentResponse? body)
         {
-            await body.WriteOutputWithPaginationAsync(Entries, page => page.NextMarker, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
+            await body.WriteOutputWithPaginationAsync(page => new[] { page }, page => page.NextMarker, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
             return true;
         }
-
-        private static IEnumerable<DirectoryEntry> Entries(ListFilesAndDirectoriesSegmentResponse page) =>
-            page.Segment.DirectoryItems.Select(d => ToEntry(DirectoryEntry.DirectoryType, d.Name, d.FileId, d.Properties, d.Attributes, d.PermissionKey, d.LinkCount))
-                .Concat(page.Segment.FileItems.Select(f => ToEntry(DirectoryEntry.FileType, f.Name, f.FileId, f.Properties, f.Attributes, f.PermissionKey, f.LinkCount)));
-
-        private static DirectoryEntry ToEntry(string type, StringEncoded name, string? fileId, FileProperty? properties, string? attributes, string? permissionKey, long? linkCount) => new()
-        {
-            Name = name.Encoded == true ? Uri.UnescapeDataString(name.Content ?? string.Empty) : name.Content ?? string.Empty,
-            Type = type,
-            FileId = fileId,
-            ContentLength = type == DirectoryEntry.FileType ? properties?.ContentLength : null,
-            Attributes = attributes,
-            PermissionKey = permissionKey,
-            LinkCount = linkCount,
-            CreationTime = properties?.CreationTime,
-            LastAccessTime = properties?.LastAccessTime,
-            LastWriteTime = properties?.LastWriteTime,
-            ChangeTime = properties?.ChangeTime,
-            LastModified = properties?.LastModified,
-            ETag = properties?.ETag,
-            Owner = properties?.Owner,
-            Group = properties?.Group,
-            FileMode = properties?.FileMode,
-        };
 
         protected override Task<ListFilesAndDirectoriesSegmentResponse?> DeserializeResponseAsync(string rawBody)
         {

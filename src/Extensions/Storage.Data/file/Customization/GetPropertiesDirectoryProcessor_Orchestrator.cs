@@ -10,9 +10,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile.Processors
     /// <summary>
     /// Get Directory Properties answers entirely in response headers, so the generated
     /// <see cref="GetPropertiesDirectoryProcessor"/> writes nothing. This processor maps them onto
-    /// <see cref="DirectoryEntry"/>, the same shape the directory listing returns.
+    /// <see cref="ShareDirectory"/>.
     /// </summary>
-    public class GetPropertiesDirectoryProcessor_Orchestrator : ProcessorBase<object, DirectoryEntry>, ISasAuthorized
+    public class GetPropertiesDirectoryProcessor_Orchestrator : ProcessorBase<object, ShareDirectory>, ISasAuthorized
     {
         public string? SasToken { get; set; }
 
@@ -42,7 +42,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile.Processors
                     p.Timeout = Timeout;
                     p.ClientRequestId = ClientRequestId;
                 }).SendAsync();
-                await WriteOutput(DirectoryEntry.FromHeaders(response, url));
+                await WriteOutput(ShareDirectory.FromHeaders(response, url));
             }
             finally
             {

@@ -9,9 +9,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile.Processors
 {
     /// <summary>
     /// Creates a directory (<see cref="CreateDirectoryProcessor"/>); its parent must already exist. Metadata is sent as
-    /// one <c>x-ms-meta-{key}</c> header per pair, and the response headers are written as a <see cref="DirectoryEntry"/>.
+    /// one <c>x-ms-meta-{key}</c> header per pair, and the response headers are written as a <see cref="ShareDirectory"/>.
     /// </summary>
-    public class CreateDirectoryProcessor_Orchestrator : ProcessorBase<object, DirectoryEntry>, ISasAuthorized
+    public class CreateDirectoryProcessor_Orchestrator : ProcessorBase<object, ShareDirectory>, ISasAuthorized
     {
         public string? SasToken { get; set; }
 
@@ -44,7 +44,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile.Processors
                     p.Timeout = Timeout;
                     p.ClientRequestId = ClientRequestId;
                 }).SendAsync();
-                await WriteOutput(DirectoryEntry.FromHeaders(response, url));
+                await WriteOutput(ShareDirectory.FromHeaders(response, url));
             }
             finally
             {

@@ -169,9 +169,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             ParameterAliases: new Dictionary<string, string>()
         );
 
-        private static readonly CommandMetadata cliStorageDirectoryList = new(
+        private static readonly CommandMetadata cliStorageFileList = new(
             Name: nameof(ListFilesAndDirectoriesSegmentDirectoryProcessor),
-            InvocationName: "storage directory list",
+            InvocationName: "storage file list",
             Aliases: [],
             FullName: typeof(ListFilesAndDirectoriesSegmentDirectoryProcessor).FullName!,
             AssemblyName: typeof(ListFilesAndDirectoriesSegmentDirectoryProcessor).Assembly.GetName().Name!,
@@ -181,13 +181,13 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
                 ["url"] = new("Url", "url", typeof(string), "The URL of the share or directory to list. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path to list. Lists the share root when not given.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path to list, e.g. parent/child. Lists the share root when not given.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Sharesnapshot", "snapshot", typeof(string), "The share snapshot to list.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["prefix"] = new("Prefix", "prefix", typeof(string), "Filters the results to return only entries whose name begins with the specified prefix.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["marker"] = new("Marker", "marker", typeof(string), "An opaque string value that identifies the portion of the result set to return with this operation.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["maxresults"] = new("Maxresults", "maxresults", typeof(int), "Specifies the maximum number of entries to return per page.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["maxresults"] = new("Maxresults", "maxresults", typeof(int), "Specifies the maximum number of entries, directories and files combined, the service scans per page.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["include"] = new("Include", "include", typeof(string[]), "Specify to include additional, optional information.", IsRequired: false, Aliases: [], AllowedValues: ["Timestamps", "Etag", "Attributes", "PermissionKey", "Permissions", "LinkCount", "NfsAttributes", "All"]),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -228,8 +228,8 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             cliStorageShareDelete,
             cliStorageDirectoryCreate,
             cliStorageDirectoryShow,
-            cliStorageDirectoryList,
-            cliStorageDirectoryDelete
+            cliStorageDirectoryDelete,
+            cliStorageFileList
         );
 
         private static Dictionary<string, CommandMetadata> BuildCommandTable(params CommandMetadata[] commands) =>
