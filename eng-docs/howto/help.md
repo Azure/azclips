@@ -98,6 +98,10 @@ scaffolding or refreshing help:
 
 2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. Our post-processor (`Convert-PlatyPSPlaceholders` in [build/New-PSHelpMarkdown.ps1](../../build/New-PSHelpMarkdown.ps1)) replaces PlatyPS's `{{ Fill in the Synopsis }}` placeholders with `TODO -` markers and seeds at least one fenced example using the cmdlet's mandatory parameters shaped as `-Param <typename>`. Both shapes fail CI on purpose — search for `TODO` and replace each marker plus every `<typename>` placeholder in the example fence with real content. See [Placeholder rules](#placeholder-rules) below for the documented escape hatches.
 
+    For optional sections such as NOTES, remove the `{{ Fill ... }}` placeholder if
+    no content applies; retain the heading and leave its body empty. Learn omits
+    empty Notes sections. Do not substitute boilerplate such as "Generated help for ...".
+
 3. **Validate + generate MAML:**
 
     ```powershell
