@@ -19,6 +19,42 @@ public class TraceReplayerTests
     private const string ZeroSpanId = "0000000000000000";
 
     [Fact]
+    public void ReplayEntries_PreservesLegacyRoutingTags_WhenTopLevelBoundaryIsAbsent()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "legacy");
+        entry.DataBoundary = null;
+        entry.Tags = JsonSerializer.SerializeToElement(
+            new Dictionary<string, string> { [TelemetryTags.DataBoundary] = "Global" }.ToArray());
+        TraceReplayer.ReplayEntries(harness.Source, [entry]);
+        Assert.Equal("Global", Assert.Single(harness.Stopped).GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(Assert.Single(harness.Stopped).GetTagItem(TelemetryTags.UploadRegion));
+    }
+
+    [Fact]
+    public void ReplayEntries_RestoresOutcomeAndDoesNotMergeIdenticalIdsAcrossScenarios()
+    {
+        using var harness = new ReplayHarness();
+        var entries = new List<TraceEntry>();
+        foreach (var outcome in new[] { "AuthenticationUnavailable", "BoundaryUnavailable" })
+        {
+            var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: outcome);
+            entry.DataBoundary = "Unknown";
+            entry.DataBoundaryOutcome = outcome;
+            entries.Add(entry);
+        }
+        TraceReplayer.ReplayEntries(harness.Source, entries);
+        Assert.Equal(2, harness.Stopped.Count);
+        foreach (var activity in harness.Stopped)
+        {
+            Assert.Equal(activity.OperationName == "AuthenticationUnavailable" ? "Global" : "EU",
+                activity.GetTagItem(TelemetryTags.DataBoundary));
+            Assert.Null(activity.GetTagItem(TelemetryTags.UploadRegion));
+            Assert.Null(activity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
+        }
+    }
+
+    [Fact]
     public void ReplayEntries_ShouldDoNothing_WhenEntriesIsEmpty()
     {
         using var harness = new ReplayHarness();
@@ -26,6 +62,32 @@ public class TraceReplayerTests
         TraceReplayer.ReplayEntries(harness.Source, Array.Empty<TraceEntry>());
 
         Assert.Empty(harness.Stopped);
+    }
+
+    [Theory]
+    [InlineData("ROW", "Global", false)]
+    [InlineData("ROW", "Global", true)]
+    [InlineData("EU", "EU", false)]
+    [InlineData("EU", "EU", true)]
+    public void ReplayEntries_ConvertsPreviouslyRecordedRegionToDataBoundary(
+        string region, string expectedBoundary, bool tagOnly)
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "previous-region");
+        entry.UploadRegion = tagOnly ? null : region;
+        entry.DataBoundary = expectedBoundary == "Global" ? "EU" : "Global";
+        entry.Tags = JsonSerializer.SerializeToElement(new Dictionary<string, string>
+        {
+            [TelemetryTags.UploadRegion] = region,
+            [TelemetryTags.DataBoundaryOutcome] = "BoundaryUnavailable",
+        }.ToArray());
+
+        TraceReplayer.ReplayEntries(harness.Source, [entry]);
+
+        var activity = Assert.Single(harness.Stopped);
+        Assert.Equal(expectedBoundary, activity.GetTagItem(TelemetryTags.DataBoundary));
+        Assert.Null(activity.GetTagItem(TelemetryTags.UploadRegion));
+        Assert.Null(activity.GetTagItem(TelemetryTags.DataBoundaryOutcome));
     }
 
     [Fact]

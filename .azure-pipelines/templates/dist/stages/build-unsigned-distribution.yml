@@ -174,6 +174,7 @@ stages:
   - template: ../jobs/test-suite.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      windows_pool: ${{ parameters.windows_pool }}
 
 - stage: Benchmark
   displayName: Benchmark
@@ -290,7 +291,7 @@ stages:
       ValidateDockerResult: Succeeded
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
-    TestResult: $[ iif(eq(stageDependencies.Test.UnitTests.result, 'Succeeded'), stageDependencies.Test.ScenarioTests.result, stageDependencies.Test.UnitTests.result) ]
+    TestResult: $[ iif(eq(stageDependencies.Test.UnitTests.result, 'Succeeded'), iif(eq(stageDependencies.Test.UnitTestsWindows.result, 'Succeeded'), stageDependencies.Test.ScenarioTests.result, stageDependencies.Test.UnitTestsWindows.result), stageDependencies.Test.UnitTests.result) ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     PSBinaryAnalysisResult: $[ stageDependencies.ValidatePSModules.PSBinaryAnalysis.result ]

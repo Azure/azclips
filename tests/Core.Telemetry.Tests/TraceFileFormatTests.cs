@@ -109,6 +109,7 @@ public class TraceFileFormatTests
                 durationMs = 12.5,
                 tenantId = "tenant-1",
                 dataBoundary = "EU",
+                dataBoundaryOutcome = "Confirmed",
                 entraObjectId = "object-1",
             },
         };
@@ -122,6 +123,7 @@ public class TraceFileFormatTests
         Assert.Equal(12.5, entry.Duration);
         Assert.Equal("tenant-1", entry.TenantId);
         Assert.Equal("EU", entry.DataBoundary);
+        Assert.Equal("Confirmed", entry.DataBoundaryOutcome);
         Assert.Equal("object-1", entry.EntraObjectId);
     }
 

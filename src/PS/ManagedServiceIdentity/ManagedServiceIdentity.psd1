@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.2'
+ModuleVersion = '0.1.3'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -33,14 +33,14 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'Azure PowerShell - Managed Service Identity'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Minimum version of Microsoft .NET Framework required by this module. This prerequisite is valid for the PowerShell Desktop edition only.
 DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.3' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.4' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -60,7 +60,8 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Mana
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzUserAssignedIdentity', 'Get-AzUserAssignedIdentity', 'Update-AzUserAssignedIdentity', 'Remove-AzUserAssignedIdentity'
+CmdletsToExport = 'New-AzUserAssignedIdentity', 'Get-AzUserAssignedIdentity', 'Update-AzUserAssignedIdentity', 'Remove-AzUserAssignedIdentity',
+                    'New-AzFederatedIdentityCredential', 'Get-AzFederatedIdentityCredential', 'Update-AzFederatedIdentityCredential', 'Remove-AzFederatedIdentityCredential'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{

@@ -26,25 +26,18 @@ internal class ExecutionSession : ISession
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
     internal Func<string?, Task<Profile?>> ResolveProfileAsync { get; set; } = null!;
     /// <summary>
-    /// Resolves the ARM data boundary (EU/Global) for a resolved profile. Pure \u2014 does not
-    /// tag any Activity itself; see <see cref="TagDataBoundary"/>'s remarks.
+    /// Resolves the upload region without tagging Activities.
     /// </summary>
-    internal Func<Profile, CancellationToken, Task<string?>> ResolveDataBoundaryAsync { get; set; } = null!;
+    internal Func<Profile?, CancellationToken, Task<UploadRegion>> ResolveUploadRegionAsync { get; set; } = null!;
     /// <summary>
-    /// Tags the current root Activity with the resolved data boundary (see
-    /// <c>ITelemetryService.AddTag</c>, which walks to the root and calls
-    /// <c>Activity.SetTag</c>). Deliberately Activity-tag-based rather than AsyncLocal-based:
-    /// this is called from <see cref="RunAsync"/>/<see cref="Run"/>'s own worker flow, which may
-    /// be a different async flow than whichever caller created (and will later dispose/export)
-    /// the root Activity \u2014 e.g. PowerShell cmdlets create the root before calling
-    /// <see cref="Run"/> and dispose it after. An AsyncLocal write made here would never
-    /// propagate back to that caller once this method returns, but SetTag mutates the SAME
-    /// shared Activity object the caller holds a reference to, so it's visible regardless.
+    /// Tags the shared root Activity with the region. Activity mutations remain
+    /// visible to the disposing flow when resolution runs on a PowerShell worker.
     /// </summary>
-    internal Action<string?> TagDataBoundary { get; set; } = null!;
+    internal Action<UploadRegion> TagUploadRegion { get; set; } = null!;
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
     internal Profile? Profile { get; set; } = null!;
+    internal CommandTimingRecorder? Performance { get; set; }
 
     public string Id { get; }
     public IEventBus EventBus { get; private set; }
@@ -68,9 +61,20 @@ internal class ExecutionSession : ISession
 
         if (Invocation.IsTransient)
         {
-            return LoadAssembly(Invocation.ExtensionName, GetExtensionVersion()).GetExtensionIndex();
+            return LoadExtensionIndex();
         }
-        return CacheGetOrAdd(Invocation.ExtensionName, GetExtensionVersion(), () => LoadAssembly(Invocation.ExtensionName, GetExtensionVersion()).GetExtensionIndex());
+        return CacheGetOrAdd(Invocation.ExtensionName, GetExtensionVersion(), LoadExtensionIndex);
+    }
+
+    private IExtensionIndex LoadExtensionIndex()
+    {
+        Assembly assembly;
+        using (Performance?.MeasureLocal("Selected-extension loading"))
+        {
+            assembly = LoadAssembly(Invocation.ExtensionName, GetExtensionVersion());
+        }
+        using var metadata = Performance?.MeasureLocal("Extension index construction");
+        return assembly.GetExtensionIndex();
     }
 
     public async Task RunAsync()
@@ -78,17 +82,16 @@ internal class ExecutionSession : ISession
         ObjectDisposedException.ThrowIf(_disposed, this);
         EventBus.Token.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
-        var processor = await GetProcessor();
-
-        // Tags the root Activity directly (shared heap object mutation) rather than writing to
-        // AsyncLocal-backed ambient state — see TagDataBoundary's remarks.
-        if (Profile is not null)
+        IProcessor processor;
+        using (Performance?.MeasureLocal("Dispatch preparation (includes nested loading)"))
         {
-            var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
-            TagDataBoundary(boundary);
+            processor = await GetProcessor();
+
+            TagUploadRegion(await ResolveUploadRegionAsync(Profile, EventBus.Token));
         }
 
         await EventBus.Publish(Events.ProcessorAcquired);
+        using var invocation = Performance?.MeasureLocal("Command invocation");
         await processor.ProcessAsync();
     }
 
@@ -132,17 +135,7 @@ internal class ExecutionSession : ISession
                 EventBus.Token.ThrowIfCancellationRequested();
                 var processor = await GetProcessor();
 
-                // Tags the root Activity directly — see TagDataBoundary's remarks. This is
-                // exactly the case that mechanism exists for: this local function runs as a
-                // separate forked flow from Run()'s caller (the PowerShell cmdlet, which
-                // created the root Activity before calling Run() and disposes/exports it after
-                // Run() returns) — an AsyncLocal write here would never be visible to that
-                // caller, but tagging the shared Activity object is.
-                if (Profile is not null)
-                {
-                    var boundary = await ResolveDataBoundaryAsync(Profile, EventBus.Token);
-                    TagDataBoundary(boundary);
-                }
+                TagUploadRegion(await ResolveUploadRegionAsync(Profile, EventBus.Token));
 
                 await EventBus.Publish(Events.ProcessorAcquired);
                 await processor.ProcessAsync();
@@ -314,12 +307,12 @@ internal class ExecutionSession : ISession
         return null;
     }
 
-    /// <summary>Flattens a raw parameter value (scalar or CLI list-of-lists) to a single string.</summary>
+    /// <summary>Reads a scalar profile value, using the last occurrence for repeated CLI flags.</summary>
     private static string? CoerceToString(object? value) => value switch
     {
         null => null,
         string s => s,
-        List<List<string>> listOfLists => listOfLists.SelectMany(l => l).FirstOrDefault(),
+        List<List<string>> listOfLists => listOfLists.LastOrDefault()?.FirstOrDefault(),
         List<string> list => list.FirstOrDefault(),
         IEnumerable<string> enumerable => enumerable.FirstOrDefault(),
         _ => value.ToString()

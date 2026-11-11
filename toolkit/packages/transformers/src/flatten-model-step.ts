@@ -265,6 +265,9 @@ function resolveModel(
       continue;
     }
     if (!resolveModel(pass, target, [...stack, model.id], states, members)) continue;
+    // An open map (Record<T>) has keys no member can name; hoisting its declared
+    // properties alone would hide the rest.
+    if (target.additionalProperties !== undefined) continue;
 
     const childMembers = members.get(idKey(target.id)) ?? [];
     const childCount = renderableCount(target, childMembers);

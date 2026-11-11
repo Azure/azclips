@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Create and inspect Azure Resource Manager deployments at resource-group, management-group, and tenant scope. Management-group commands are available under `az deployment mg`, and tenant commands under `az deployment tenant`.
+Description: Create and inspect Azure Resource Manager deployments at resource-group, subscription, management-group scope, and tenant scope. Resource-group-scoped deployments are managed with `az deployment group`, subscription-scoped deployments with `az deployment sub`, tenant commands under `az deployment tenant`, and management-group-scoped deployments with `az deployment mg`. 
 
 ### Create a resource-group-scoped deployment from a local Bicep template
 
@@ -17,4 +17,10 @@ az deployment group create --resource-group myResourceGroup --name myDeployment 
 
 ```bash
 az deployment mg validate --management-group-id myManagementGroup --location eastus --name myDeployment --template-file ./main.bicep
+```
+
+### Create a subscription-scoped deployment that creates a resource group
+
+```bash
+az deployment sub create --location eastus --name myDeployment --mode Incremental --template-file ./main.bicep --parameter resourceGroupName=myResourceGroup
 ```

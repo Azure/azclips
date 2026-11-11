@@ -334,6 +334,31 @@ echo "PASS: Bundled extension folders are present"
 echo "PASS: Bundled Copilot CLI is present at the agent resolver path"
 echo "PASS: NOTICE, LICENSE, and completion scripts are present"
 
+# `az agent tool ...` loads through the CLI extension loader, which resolves
+# dependencies from the extension directory, then the CLI root. It does not
+# probe deps/ (that layout is for the azclips-agent subprocess only).
+AGENT_EXT_DIR="$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Agent"
+if ! python3 - "$AGENT_EXT_DIR" "$SIM_ROOT/install" <<'PY'
+import json, os, sys
+
+ext_dir, install_root = sys.argv[1:3]
+deps = json.load(open(os.path.join(ext_dir, 'Microsoft.Azure.Azclips.Extensions.Agent.deps.json')))
+missing = []
+for target in deps['targets'].values():
+    for lib_id, lib in target.items():
+        for asset in lib.get('runtime', {}):
+            name = os.path.basename(asset)
+            if not os.path.isfile(os.path.join(ext_dir, name)) and not os.path.isfile(os.path.join(install_root, name)):
+                missing.append(f'{name} ({lib_id})')
+if missing:
+    print('FAIL: Agent extension dependencies not resolvable from the extension directory or the CLI root: ' + ', '.join(missing))
+    sys.exit(1)
+PY
+then
+  exit 1
+fi
+echo "PASS: every Agent extension runtime dependency is resolvable by the CLI extension loader"
+
 echo ""
 echo "[2/17] Verify bundled extension sidecars are present"
 sidecar_count=0

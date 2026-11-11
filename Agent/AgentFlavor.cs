@@ -11,4 +11,20 @@ internal static class AgentFlavor
 
     public static bool IsAzureCli(string? flavor) =>
         string.Equals(flavor, AzureCli, StringComparison.OrdinalIgnoreCase);
+
+    // Commands the system prompts name directly, by flavor. Prompts use {{key}}.
+    public static IReadOnlyDictionary<string, string> PromptCommands(string? flavor) =>
+        IsAzureCli(flavor)
+            ? new Dictionary<string, string>
+            {
+                ["login_command"] = "az login --subscription-id <sub-id>",
+                ["device_code_flag"] = "--use-device-code",
+                ["rest_command"] = "az rest",
+            }
+            : new Dictionary<string, string>
+            {
+                ["login_command"] = "Connect-AzAccount -SubscriptionId <sub-id>",
+                ["device_code_flag"] = "-UseDeviceCode",
+                ["rest_command"] = "Invoke-AzRestMethod",
+            };
 }

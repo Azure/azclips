@@ -8,6 +8,33 @@ namespace Core.Telemetry.Tests;
 
 public class TelemetryRoutingResolverTests
 {
+    private readonly DataBoundaryResolver _boundaryResolver = new(
+        new StubPersistenceStore(Path.GetTempPath()), new StubProfileService(seedDefault: false));
+
+    [Fact]
+    public async Task ResolveRoutingAsync_ReturnsOnlyRegionAndPreservesAvailableIdentity()
+    {
+        var profiles = new StubProfileService(seedDefault: false);
+        var noTenant = await TelemetryRoutingResolver.ResolveRoutingAsync(
+            _boundaryResolver,
+            profiles, new StubAuthService(), null, CancellationToken.None);
+        Assert.Equal(UploadRegion.ROW, noTenant.UploadRegion);
+        Assert.Null(noTenant.TenantId);
+        await profiles.SaveAndActivateProfileAsync(new Profile
+        {
+            Name = "routing-test",
+            TenantId = "routing-" + Guid.NewGuid().ToString("N"),
+            SubscriptionId = "sub-1",
+            AuthMethod = AuthMethod.Browser,
+        });
+        var noAuth = await TelemetryRoutingResolver.ResolveRoutingAsync(
+            _boundaryResolver,
+            profiles, new StubAuthService(), null, CancellationToken.None);
+        Assert.Equal(UploadRegion.ROW, noAuth.UploadRegion);
+        Assert.Equal("sub-1", noAuth.SubscriptionId);
+        Assert.StartsWith("routing-", noAuth.TenantId);
+    }
+
     [Fact]
     public async Task ResolveAsync_PreservesSubscriptionIdAndAuthType_ForBrowserProfile()
     {
@@ -22,6 +49,7 @@ public class TelemetryRoutingResolverTests
         });
 
         var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+            _boundaryResolver,
             profileService,
             new StubAuthService(),
             profileNameOverride: null,
@@ -51,6 +79,7 @@ public class TelemetryRoutingResolverTests
         });
 
         var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+            _boundaryResolver,
             profileService,
             new StubAuthService(),
             profileNameOverride: null,
@@ -66,6 +95,7 @@ public class TelemetryRoutingResolverTests
     public async Task ResolveAsync_ReturnsAllNull_WhenNoActiveProfile()
     {
         var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+            _boundaryResolver,
             new StubProfileService(seedDefault: false),
             new StubAuthService(),
             profileNameOverride: null,
@@ -84,6 +114,7 @@ public class TelemetryRoutingResolverTests
         var capturingLogger = new CapturingLoggingService();
 
         var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+            _boundaryResolver,
             throwingProfileService,
             new StubAuthService(),
             profileNameOverride: "test-profile",
@@ -103,6 +134,7 @@ public class TelemetryRoutingResolverTests
         var capturingLogger = new CapturingLoggingService();
 
         await TelemetryRoutingResolver.ResolveAsync(
+            _boundaryResolver,
             new ThrowingProfileService(),
             new StubAuthService(),
             profileNameOverride: "   ",
@@ -118,6 +150,7 @@ public class TelemetryRoutingResolverTests
         var throwingProfileService = new ThrowingProfileService();
 
         var (tenantId, boundary, subscriptionId, authType) = await TelemetryRoutingResolver.ResolveAsync(
+            _boundaryResolver,
             throwingProfileService,
             new StubAuthService(),
             profileNameOverride: "test-profile",

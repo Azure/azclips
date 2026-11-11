@@ -1,17 +1,17 @@
 ---
-title: Documentation structure for the private preview
-description: Learn how to organize conceptual and reference documentation in the AzCLIPS repository for the private preview.
+title: Documentation structure for the public preview
+description: Learn how to organize conceptual and reference documentation in the AzCLIPS repository for the public preview.
 ---
 
-# Documentation structure for the private preview
+# Documentation structure for the public preview
 
-This article describes the documentation structure and contribution guidelines for the private
-preview for the end user documentation.
+This article describes the documentation structure and contribution guidelines for end-user
+documentation in the public preview.
 
 ## Documentation structure
 
-Publish all private preview documentation under the [docs][01] folder. Organize content by product
-and content type.
+Publish all documentation for the public preview under the [docs][01] folder. Organize content by
+product and content type.
 
 ```text
 docs/

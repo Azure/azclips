@@ -146,7 +146,7 @@ try
         -ResourceGroupName $resourceGroup `
         -Name $nicName `
         -Location $location `
-        -SubnetId $vnet.Properties.Subnets[0].Id `
+        -SubnetId $vnet.Subnets[0].Id `
         -PublicIpAddressId $pip.Id `
         -PrivateIpAddress '10.0.0.10' `
         -EnableIPForwarding `

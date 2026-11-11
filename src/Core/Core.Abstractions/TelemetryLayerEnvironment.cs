@@ -24,6 +24,8 @@ public static class TelemetryLayerEnvironment
             throw new ArgumentException("A layer file ID must be a GUID in N format.", nameof(fileId));
         if (!Guid.TryParseExact(context.InvocationId, "N", out _))
             throw new ArgumentException("A layer invocation ID must be a GUID in N format.", nameof(context));
+        if (!Enum.IsDefined(context.UploadRegion))
+            throw new ArgumentException("A telemetry upload region must be EU or ROW.", nameof(context));
 
         environment.Remove("AZCLIPS_RECOVERY_TRACEPARENT");
         environment.Remove("AZCLIPS_RECOVERY_HIERARCHY");
@@ -67,6 +69,7 @@ public static class TelemetryLayerEnvironment
         {
             var value = JsonSerializer.Deserialize(json, TelemetryEnvironmentJsonContext.Default.TelemetryInvocationContext);
             if (value is null ||
+                !Enum.IsDefined(value.UploadRegion) ||
                 !Guid.TryParseExact(value.InvocationId, "N", out _) ||
                 !IsOptionalHexId(value.CommandTraceId, 32) ||
                 !IsOptionalHexId(value.CommandSpanId, 16) ||
@@ -78,6 +81,34 @@ public static class TelemetryLayerEnvironment
                 return false;
             }
 
+            using var document = JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty(nameof(TelemetryInvocationContext.UploadRegion), out _))
+            {
+                var root = document.RootElement;
+                var boundary = root.TryGetProperty("DataBoundary", out var boundaryValue) &&
+                               boundaryValue.ValueKind == JsonValueKind.String ? boundaryValue.GetString() : null;
+                string? outcome = null;
+                if (root.TryGetProperty("BoundaryOutcome", out var outcomeValue) &&
+                    outcomeValue.ValueKind != JsonValueKind.Null)
+                {
+                    outcome = outcomeValue.ValueKind switch
+                    {
+                        JsonValueKind.Number when outcomeValue.TryGetInt32(out var number) => number switch
+                        {
+                            0 => "Confirmed",
+                            1 => "TenantUnavailable",
+                            2 => "AuthenticationUnavailable",
+                            3 => "BoundaryUnavailable",
+                            _ => throw new JsonException("Invalid legacy boundary outcome."),
+                        },
+                        JsonValueKind.String when outcomeValue.GetString() is { } name &&
+                            new[] { "Confirmed", "TenantUnavailable", "AuthenticationUnavailable", "BoundaryUnavailable" }
+                                .Contains(name, StringComparer.OrdinalIgnoreCase) => name,
+                        _ => throw new JsonException("Invalid legacy boundary outcome."),
+                    };
+                }
+                value = value with { UploadRegion = UploadRegions.Resolve(null, boundary, outcome) };
+            }
             context = value with { Enabled = value.Enabled && ParentAllowsTelemetry(read) };
             fileId = id;
             return true;

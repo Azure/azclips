@@ -813,6 +813,15 @@ public partial class IRCommand
     public IRCommandDialect? Dialect { get; set; }
 }
 
+public partial class IRCommandContinuationToken
+{
+    [JsonPropertyName("response")]
+    public IRPropertyRef Response { get; set; } = default !;
+
+    [JsonPropertyName("parameter")]
+    public string Parameter { get; set; } = default !;
+}
+
 public partial class IRCommandDialect
 {
     [JsonPropertyName("ps")]
@@ -850,6 +859,9 @@ public partial class IRCommandPagination
 
     [JsonPropertyName("nextLinkVerb")]
     public IRCommandPaginationNextLinkVerb? NextLinkVerb { get; set; }
+
+    [JsonPropertyName("continuationToken")]
+    public IRCommandContinuationToken? ContinuationToken { get; set; }
 }
 
 public partial class IRCommandParameter

@@ -236,9 +236,4 @@ The deleted `RoleAssignment`, including its id, name, and properties (role defin
 
 ## NOTES
 
-Generated help for resources.
-
 ## RELATED LINKS
-
-
-- [Online Version]()

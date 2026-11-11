@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using Core.Abstractions;
 using Core.Abstractions.Recovery;
 
 namespace Core.Authentication.Recovery;
@@ -34,14 +35,18 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
     private readonly string _service;
     private readonly string _account;
     private readonly IMacOsKeychainNative _native;
+    private readonly ILoggingService? _logger;
+
+    public string? Diagnostics => null;
 
     /// <param name="service">The history-purpose namespace, not an authentication-token service.</param>
     /// <param name="account">The factory's canonical history-directory identifier.</param>
-    internal MacOsFailureHistoryKeyStorage(string service, string account)
-        : this(service, account, CreateNative()) { }
+    /// <param name="logger">Receives a failed policy restore at debug level.</param>
+    internal MacOsFailureHistoryKeyStorage(string service, string account, ILoggingService? logger = null)
+        : this(service, account, CreateNative(), logger) { }
 
     internal MacOsFailureHistoryKeyStorage(
-        string service, string account, IMacOsKeychainNative native)
+        string service, string account, IMacOsKeychainNative native, ILoggingService? logger = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
         ArgumentException.ThrowIfNullOrWhiteSpace(account);
@@ -49,6 +54,7 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         _service = service;
         _account = account;
         _native = native;
+        _logger = logger;
     }
 
     public byte[] ReadData()
@@ -76,7 +82,11 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         WithoutUserInteraction(() => AddKey(data));
     }
 
-    private void WithoutUserInteraction(Action operation)
+    // The key is gone once the delete succeeds; a failed policy restore after it is logged, not
+    // reported as a failed delete, so the caller still replaces the key and reports the replacement.
+    public void DeleteData() => WithoutUserInteraction(DeleteKey, restoreFailureIsFatal: false);
+
+    private void WithoutUserInteraction(Action operation, bool restoreFailureIsFatal = true)
     {
         lock (UserInteractionGate)
         {
@@ -86,11 +96,21 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
                 ThrowIfFailed(_native.SetUserInteractionAllowed(false));
                 operation();
             }
-            finally
+            catch
             {
                 // Restore the observed policy, not an assumed true value, even if disabling failed.
-                ThrowIfFailed(_native.SetUserInteractionAllowed(wasAllowed));
+                // A failed restore is logged at debug level; the operation's error is rethrown unchanged.
+                var restoreStatus = _native.SetUserInteractionAllowed(wasAllowed);
+                if (restoreStatus != 0)
+                    _logger?.Debug($"[{nameof(MacOsFailureHistoryKeyStorage)}] Restore error: {Unavailable(restoreStatus).Message}");
+                throw;
             }
+            var status = _native.SetUserInteractionAllowed(wasAllowed);
+            if (status == 0)
+                return;
+            if (restoreFailureIsFatal)
+                throw Unavailable(status);
+            _logger?.Debug($"[{nameof(MacOsFailureHistoryKeyStorage)}] Restore error: {Unavailable(status).Message}");
         }
     }
 
@@ -124,8 +144,34 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         using var attributes = CreateQuery();
         using var value = Own(_native.CreateData(data));
         SetValue(attributes.Handle, MacOsKeychainConstant.ValueData, value.Handle);
-        // The key is immutable. In particular, duplicate-item must never become update/delete.
+        // Add never overwrites: duplicate-item must not become update. Only a confirmed-invalid key
+        // is deleted, by the caller that holds the cross-process writer lock.
         ThrowIfFailed(_native.Add(attributes.Handle));
+    }
+
+    private void DeleteKey()
+    {
+        // As MSAL.NET's MacKeyChain.Remove: delete only the first match, the item ReadKey validated.
+        // SecItemDelete with this query would delete every match.
+        using var query = CreateQuery();
+        SetConstant(query.Handle, MacOsKeychainConstant.ReturnRef, MacOsKeychainConstant.BooleanTrue);
+        SetConstant(query.Handle, MacOsKeychainConstant.MatchLimit, MacOsKeychainConstant.MatchLimitOne);
+        nint item = 0;
+        try
+        {
+            var status = _native.CopyMatching(query.Handle, out item);
+            if (status == ItemNotFound)
+                return;
+            ThrowIfFailed(status);
+            if (item == 0)
+                throw Unavailable();
+            ThrowIfFailed(_native.DeleteItem(item));
+        }
+        finally
+        {
+            if (item != 0)
+                _native.Release(item);
+        }
     }
 
     private OwnedReference CreateQuery()
@@ -227,6 +273,7 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
                 MacOsKeychainConstant.ReturnData => "kSecReturnData",
                 MacOsKeychainConstant.MatchLimit => "kSecMatchLimit",
                 MacOsKeychainConstant.MatchLimitOne => "kSecMatchLimitOne",
+                MacOsKeychainConstant.ReturnRef => "kSecReturnRef",
                 MacOsKeychainConstant.ValueData => "kSecValueData",
                 MacOsKeychainConstant.BooleanTrue => "kCFBooleanTrue",
                 MacOsKeychainConstant.BooleanFalse => "kCFBooleanFalse",
@@ -253,9 +300,12 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
 
         public int Add(nint attributes) => SecItemAdd(attributes, 0);
 
+        public int DeleteItem(nint item) => SecKeychainItemDelete(item);
+
         public bool IsData(nint value) => CFGetTypeID(value) == CFDataGetTypeID();
 
         public nint GetDataLength(nint value) => CFDataGetLength(value);
+
 
         public void CopyDataBytes(nint value, byte[] destination)
         {
@@ -279,6 +329,9 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         [DllImport(Security, ExactSpelling = true)]
         private static extern int SecItemAdd(nint attributes, nint result);
 
+        [DllImport(Security, ExactSpelling = true)]
+        private static extern int SecKeychainItemDelete(nint item);
+
         [DllImport(CoreFoundation, ExactSpelling = true)]
         private static extern nint CFDictionaryCreateMutable(nint allocator, nint capacity, nint keyCallbacks, nint valueCallbacks);
 
@@ -300,6 +353,7 @@ internal sealed class MacOsFailureHistoryKeyStorage : IProtectedHistoryKeyStorag
         [DllImport(CoreFoundation, ExactSpelling = true)]
         private static extern nint CFDataGetLength(nint value);
 
+
         [DllImport(CoreFoundation, ExactSpelling = true)]
         private static extern nint CFDataGetBytePtr(nint value);
 
@@ -320,6 +374,7 @@ internal enum MacOsKeychainConstant
     ReturnData,
     MatchLimit,
     MatchLimitOne,
+    ReturnRef,
     ValueData,
     BooleanTrue,
     BooleanFalse,
@@ -336,6 +391,7 @@ internal interface IMacOsKeychainNative
     void SetDictionaryValue(nint dictionary, nint key, nint value);
     int CopyMatching(nint query, out nint result);
     int Add(nint attributes);
+    int DeleteItem(nint item);
     bool IsData(nint value);
     nint GetDataLength(nint value);
     void CopyDataBytes(nint value, byte[] destination);

@@ -8,7 +8,7 @@ const restInvalidMethod = require('./cases/rest-invalid-method');
 const deployWebApp = require('./cases/deploy-web-app');
 const profileShow = require('./cases/profile-show');
 const vmCreateShortFlags = require('./cases/vm-create-short-flags');
-const { readRuntimePrompt } = require('./targets/azclips');
+const { promptCommands, readRuntimePrompt } = require('./targets/azclips');
 const { loadJudgeConfiguration } = require('./judge/judge-azure');
 
 const runtimePrompt = readRuntimePrompt();
@@ -21,6 +21,7 @@ const runContext = {
   branch: 'local',
   run_at: 'local',
   flavor: process.env.AZURECLI_FLAVOR || 'azure cli',
+  ...promptCommands(process.env.AZURECLI_FLAVOR || 'azure cli'),
   signed_in: process.env.AZCLIPS_EVALUATION_SIGNED_IN === 'true',
   subscription_id: process.env.AZCLIPS_EVALUATION_SUBSCRIPTION_ID || '',
 };

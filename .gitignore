@@ -234,15 +234,6 @@ csx/
 ecf/
 rcf/
 
-# Windows Store app package directories and files
-AppPackages/
-BundleArtifacts/
-Package.StoreAssociation.xml
-_pkginfo.txt
-*.appx
-*.appxbundle
-*.appxupload
-
 # Visual Studio cache files
 # files ending in .cache can be ignored
 *.[Cc]ache
@@ -409,7 +400,6 @@ FodyWeavers.xsd
 # Windows Installer files from build outputs
 *.cab
 *.msi
-*.msix
 *.msm
 *.msp
 

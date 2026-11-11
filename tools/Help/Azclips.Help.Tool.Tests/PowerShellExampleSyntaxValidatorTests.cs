@@ -703,7 +703,13 @@ namespace Azclips.Help.Tool.Tests
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
 
-            Assert.Equal(2, report.Errors.Count(e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder));
+            var fills = report.Errors
+                .Where(e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder)
+                .ToList();
+            Assert.Equal(2, fills.Count);
+            Assert.All(fills, error => Assert.Contains(
+                "For optional sections such as Notes, remove the placeholder if no content applies; retain the heading.",
+                error.Message));
         }
 
         [Fact]
@@ -742,6 +748,41 @@ namespace Azclips.Help.Tool.Tests
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
 
             Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder);
+        }
+
+        [Theory]
+        [InlineData("[Online Version]()")]
+        [InlineData("[Get-FakeWidget](   )")]
+        [InlineData("[Get-FakeWidget](<>)")]
+        [InlineData("[Get-FakeWidget](<> \"Help\")")]
+        public void Validate_ShouldErrorEmptyLinkTarget_WithAuthoringGuidance(string link)
+        {
+            var content = "## RELATED LINKS\n\n" + link + "\n\n" +
+                Fence("Set-FakeWidget -Key k -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            var error = Assert.Single(report.Errors, e => e.ProblemId == ProblemIds.PSL16_EmptyLinkTarget);
+            Assert.Equal("Set-FakeWidget.md:3", error.FilePath);
+            Assert.Contains("Provide a URL or relative path, or remove the link entry", error.Message);
+            Assert.Contains("Optional sections such as Related Links may be left empty.", error.Message);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("## RELATED LINKS\n\n")]
+        [InlineData("## RELATED LINKS\n\n[Get-FakeWidget](./Get-FakeWidget.md)\n")]
+        [InlineData("## RELATED LINKS\n\n[Online Version](https://learn.microsoft.com/powershell/)\n")]
+        [InlineData("[Examples](#examples)\n")]
+        [InlineData("`[Online Version]()`\n")]
+        [InlineData("\\[Online Version\\]()\n")]
+        public void Validate_ShouldAllowOptionalSectionsAndNonemptyLinkTargets(string content)
+        {
+            content += "\n" + Fence("Set-FakeWidget -Key k -Value v # [Online Version]()");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.False(report.HasErrors);
         }
     }
 }

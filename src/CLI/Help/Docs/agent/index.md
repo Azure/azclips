@@ -16,5 +16,5 @@ az agent --help
 ### Capture the current environment snapshot
 
 ```bash
-az agent tool env
+az agent tool env show
 ```

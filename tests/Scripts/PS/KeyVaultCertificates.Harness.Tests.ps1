@@ -67,7 +67,10 @@ try {
         }
         $env:AZCLIPS_HOME = $null
         $files = @(Get-CertificateDiagnosticFiles)
-        $expected = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) '.azclips/traces'
+        $expected = [IO.Path]::Combine(
+            [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile),
+            [Core.Abstractions.HomePaths]::DefaultHomeDirectoryName,
+            [Core.Abstractions.HomePaths]::TraceDirectoryName)
         if ($script:checkedTracePath -ne $expected -or $files.Count -ne 0 -or $script:traceEnumerations -ne 0) {
             throw 'Unset home must resolve the default trace path and tolerate a missing directory.'
         }

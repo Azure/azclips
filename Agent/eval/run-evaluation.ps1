@@ -66,6 +66,31 @@ else {
 $configuration['agent.trace.enabled'] = 'true'
 $configuration['agent.trace.path'] = $TracePath
 
+function Invoke-WithFileRetry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Action,
+
+        [int]$MaxAttempts = 10,
+
+        [int]$DelayMilliseconds = 200
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            & $Action
+            return
+        }
+        catch {
+            if ($attempt -eq $MaxAttempts) {
+                throw
+            }
+            Write-Verbose "File operation attempt $attempt failed: $($_.Exception.Message)"
+            Start-Sleep -Milliseconds $DelayMilliseconds
+        }
+    }
+}
+
 function Invoke-AzclipsCommand {
     param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
 
@@ -85,7 +110,7 @@ function Invoke-AzclipsCommand {
 function Invoke-Azclips {
     param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
 
-    # Keep stderr diagnostics out of structured stdout such as agent tool env.
+    # Keep stderr diagnostics out of structured stdout such as agent tool env show.
     $output = Invoke-AzclipsCommand @Arguments | Out-String
     if ($LASTEXITCODE -ne 0) {
         throw "azclips exited with $LASTEXITCODE while running: $($Arguments -join ' ')`n$output"
@@ -261,7 +286,7 @@ try {
     # process starts: `config set` would itself start with telemetry on and report that command.
     Set-ConfigurationTelemetryOff $configurationPath
 
-    $runtimeEnvironment = Invoke-Azclips agent tool env | ConvertFrom-Json
+    $runtimeEnvironment = Invoke-Azclips agent tool env show | ConvertFrom-Json
     $subscriptionId = [guid]::Empty
     if ($runtimeEnvironment.signedIn -ne $true -or
         -not [guid]::TryParse($runtimeEnvironment.subscriptionId, [ref]$subscriptionId) -or
@@ -271,7 +296,7 @@ try {
 
     $targetVersion = [string]$runtimeEnvironment.azclipsVersion
     if ([string]::IsNullOrWhiteSpace($targetVersion)) {
-        throw 'agent tool env did not report azclipsVersion; the evaluated target build cannot be identified.'
+        throw 'agent tool env show did not report azclipsVersion; the evaluated target build cannot be identified.'
     }
     $target = [ordered]@{ version = $targetVersion.Trim() }
     $packageFingerprint = Get-PackageFingerprint (Split-Path -Parent $AzclipsExe)
@@ -390,10 +415,10 @@ catch {
 finally {
     try {
         if ($configurationExisted) {
-            [IO.File]::Move($configurationBackupPath, $configurationPath, $true)
+            Invoke-WithFileRetry { [IO.File]::Move($configurationBackupPath, $configurationPath, $true) }
         }
         else {
-            [IO.File]::Delete($configurationPath)
+            Invoke-WithFileRetry { [IO.File]::Delete($configurationPath) }
         }
     }
     catch {

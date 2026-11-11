@@ -66,13 +66,13 @@ internal sealed class HelpCatalogFixture : IDisposable
         var logging = new NullLoggingService();
         return new AssemblyLoadingService(new CLIAssemblyLoadingProvider(
             [new BundledExtensionLoader(logging, Configuration, CliDirectory), new InstalledExtensionLoader(logging, Configuration)],
-            logging));
+            logging), new DefaultAssemblyVersionProvider());
     }
 
     public Task<string> RegenerateAsync(CancellationToken ct)
     {
         Interlocked.Increment(ref GenerationCount);
-        return Task.FromResult(HelpGenerateProcessor.Generate(CreateLoader(), Configuration, Executable, CacheDirectory, ct));
+        return Task.FromResult(DocsGenerateProcessor.Generate(CreateLoader(), Configuration, Executable, CacheDirectory, ct));
     }
 
     public string Install(string name, string version, Assembly assembly, bool bundled = false)

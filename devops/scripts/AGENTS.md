@@ -103,7 +103,11 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 
 Some steps ship as matched `.ps1` + `.sh` implementations:
 
-- `stage_agent.ps1` / `stage_agent.sh`
+- `stage_agent.ps1` / `stage_agent.sh` — step 6 removes a DLL from the Agent extension
+  top level only when the CLI root has a byte-identical copy. A copy under `deps/` does not
+  count: `deps/` is probed only by the `azclips-agent` subprocess, while `az agent tool ...`
+  loads through the CLI extension loader, which resolves from the extension top level and
+  then the CLI root.
 - `inject_builtin_extensions.ps1` / `inject_builtin_extensions.sh` — also copies each bundled
   extension's `*.commands.json` build-time sidecar (see `src/Extensions/Targets/ExtensionSidecar.targets`)
   alongside its DLLs, so metadata-first discovery has it in packaged artifacts too.
@@ -127,6 +131,7 @@ When you change behavior in one, **update its sibling** so Windows and Unix stay
 - Preserve each file's existing header style: keep `set -euo pipefail` in bash, and don't add or strip a shebang just to normalize (most `.ps1` here intentionally have none).
 - Contributor PRs may rename `.csproj` files only when their direct release-owned version properties are unchanged. CI uses a 1% similarity threshold and requires project additions and deletions to match one-to-one as renames, rejecting surplus paths so version validation cannot be bypassed through Git's rename classification.
 - Preserve encoding, line endings, and final-newline state when publishing scripts make version-only file updates.
+- PowerShell packaging, release changelogs, and docs sync share `build/Get-AzPackageName.ps1` for package identities (`Az` for the rollup, `Az.<SourceModule>` for leaf modules). Keep consumers on this helper rather than duplicating the naming rule.
 - `publishing/Update-ChangedExtensionVersions.ps1` supports dependency hashtables on their own lines or inline in `RequiredModules = @(@{ ... })`. Dependency version updates preserve surrounding layout and ignore commented declarations.
 - New-extension detection uses a successful `git ls-tree` lookup for an absent base-version project rather than leaving a failed `git show` exit code for `PowerShell@2` to propagate. Git lookup/read failures remain fatal. The new-extension regression runs through the task's exit-code wrapper, not only in-process file assertions.
 - `compliance/Update-CgNotice.ps1` requires a nonempty official generated file and committed root `NOTICE`. Comparison ignores CRLF/LF, trailing horizontal whitespace, and final-newline differences. Only stable-release PR preparation passes `-UpdateRootNotice`; changed content is written as UTF-8 without BOM, with LF and no trailing whitespace. Other builds only warn on differences and never replace the packaged NOTICE. Regression coverage is in `tests/Release.Tests/Update-CgNotice.Tests.ps1`.

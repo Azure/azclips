@@ -22,12 +22,9 @@ internal sealed record BuiltinEndpoint(string Url, string Source, string? Bounda
 /// Chooses the regional model gateway for the builtin provider.
 /// </summary>
 /// <remarks>
-/// The tenant's ARM data boundary picks the gateway with the same rule telemetry upload
-/// uses (<c>DataBoundaryRouting.IsConfirmedGlobal</c>): only a confirmed <c>Global</c> answer uses
-/// East US. EU tenants, failed or timed-out lookups, and managed-identity profiles (which carry no
-/// tenant) use West Europe, so an EU tenant's prompts stay in the EU even when the lookup cannot
-/// finish. The caller resolves the boundary once, with the same token it uses for the model
-/// (see <c>AgentStartupBoundary</c>).
+/// Confirmed Global uses East US; all other values use West Europe.
+/// Model routing is independent of telemetry's scenario-based fallback policy.
+/// AgentStartupBoundary resolves the boundary with the token used for the model.
 /// An override in <see cref="BuiltinProviderOptions.GlobalEndpoint"/> or
 /// <see cref="BuiltinProviderOptions.EuEndpoint"/> replaces the chosen region's default when it is
 /// an absolute https URL whose host is in that region's allowlist; otherwise the default is used
@@ -35,8 +32,8 @@ internal sealed record BuiltinEndpoint(string Url, string Source, string? Bounda
 /// </remarks>
 internal static class BuiltinEndpointResolver
 {
-    internal const string PpeEastUs = "https://azclis-copilot-apim-ppe-eus.azure-api.net/azclips/openai/";
-    internal const string PpeWestEurope = "https://azclis-copilot-apim-ppe-weu.azure-api.net/azclips/openai/";
+    internal const string ProdEastUs = "https://azclis-copilot-apim-prod-eus.azure-api.net/azclips/openai/";
+    internal const string ProdWestEurope = "https://azclis-copilot-apim-prod-weu.azure-api.net/azclips/openai/";
 
     internal const string BoundarySource = "boundary";
 
@@ -69,8 +66,8 @@ internal static class BuiltinEndpointResolver
     {
         var global = string.Equals(boundary, "Global", StringComparison.OrdinalIgnoreCase);
         var url = global
-            ? Override(options?.GlobalEndpoint, "agent.builtin.globalEndpoint", GlobalHosts, PpeEastUs, reportWarning)
-            : Override(options?.EuEndpoint, "agent.builtin.euEndpoint", EuHosts, PpeWestEurope, reportWarning);
+            ? Override(options?.GlobalEndpoint, "agent.builtin.globalEndpoint", GlobalHosts, ProdEastUs, reportWarning)
+            : Override(options?.EuEndpoint, "agent.builtin.euEndpoint", EuHosts, ProdWestEurope, reportWarning);
         return new BuiltinEndpoint(
             url,
             BoundarySource,

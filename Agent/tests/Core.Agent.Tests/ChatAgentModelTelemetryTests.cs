@@ -123,7 +123,9 @@ public class ChatAgentModelTelemetryTests
             var code = await AgentModeEntry.RunSessionAsync(() => scope, async (_, lifetime) =>
             {
                 await using var agent = await ChatAgent.CreateAsync("offline", new StubAuthService(),
-                    new StubProfileService(seedDefault: false), new AgentTestConfiguration(), "must-not-run",
+                    new StubProfileService(seedDefault: false), new AgentTestConfiguration(),
+                    new DataBoundaryResolver(new StubPersistenceStore(harness.DirectoryPath), new StubProfileService(seedDefault: false)),
+                    "must-not-run",
                     new ConsoleApprovalPrompt(renderer: renderer), renderer,
                     new AgentOptions { Provider = "builtin", Builtin = new BuiltinProviderOptions { ModelId = "configured-model" } },
                     "oneshot", lifetime, preAcquiredAuth: OfflineToken(), dataBoundary: "Global",

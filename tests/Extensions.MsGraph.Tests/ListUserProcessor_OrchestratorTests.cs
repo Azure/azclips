@@ -1,9 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 using Moq;
+using System.Net;
 
 namespace Extensions.MsGraph.Tests;
 
@@ -20,10 +22,10 @@ public class ListUserProcessor_OrchestratorTests
     private static IEventPublisher NoOpPublisher() => Mock.Of<IEventPublisher>();
 
     private static (ListUserProcessor_Orchestrator orchestrator, FakeGraphHttpPipeline pipeline)
-        Create(ListUserProcessor_Orchestrator orch)
+        Create(ListUserProcessor_Orchestrator orch, Func<HttpRequestMessage, HttpResponseMessage>? responder = null)
     {
         var pipeline = new FakeGraphHttpPipeline(
-            _ => FakeGraphHttpPipeline.JsonResponse("{\"value\":[]}"));
+            responder ?? (_ => FakeGraphHttpPipeline.JsonResponse("{\"value\":[]}")));
         orch.WithCapturingContext(pipeline, NoOpPublisher());
         return (orch, pipeline);
     }
@@ -160,5 +162,17 @@ public class ListUserProcessor_OrchestratorTests
         var sent = pipeline.Sent.Single();
         Assert.True(sent.Headers.TryGetValues("ConsistencyLevel", out var values));
         Assert.Equal("eventual", values!.Single());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_AdvancedFilterWithoutConsistencyLevel_ShouldPreserveOriginalGraphMessage()
+    {
+        const string graphError = "{\"error\":{\"code\":\"Request_UnsupportedQuery\",\"message\":\"Operator 'endsWith' is not supported because the 'ConsistencyLevel:eventual' header is missing.\"}}";
+        var (orch, _) = Create(
+            new ListUserProcessor_Orchestrator { Filter = "endswith(mail,'@contoso.com')" },
+            _ => FakeGraphHttpPipeline.JsonResponse(graphError, HttpStatusCode.BadRequest));
+
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(() => orch.ProcessAsync());
+        Assert.Contains("'ConsistencyLevel:eventual' header is missing", ex.Message);
     }
 }

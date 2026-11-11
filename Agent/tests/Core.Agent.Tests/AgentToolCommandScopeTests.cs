@@ -35,7 +35,8 @@ public sealed class AgentToolCommandScopeTests
             var inheritedInvocation = Guid.NewGuid().ToString("N");
             var launch = new Dictionary<string, string?>();
             TelemetryLayerEnvironment.SetAgentLaunch(launch,
-                new TelemetryInvocationContext(inheritedInvocation, true, DataBoundary: boundary == "EU" ? "Global" : "EU"),
+                new TelemetryInvocationContext(inheritedInvocation, true,
+                    UploadRegion: boundary == "EU" ? UploadRegion.ROW : UploadRegion.EU),
                 inheritedId);
             var saved = launch.Keys.ToDictionary(name => name, Environment.GetEnvironmentVariable);
             foreach (var (name, value) in launch) Environment.SetEnvironmentVariable(name, value);
@@ -67,7 +68,7 @@ public sealed class AgentToolCommandScopeTests
                     Assert.Equal(root!.TraceId.ToString(), scope.Context.CommandTraceId);
                     Assert.Equal(root.SpanId.ToString(), scope.Context.CommandSpanId);
                     Assert.Equal("invocation-tenant", scope.Context.TenantId);
-                    Assert.Equal(boundary, scope.Context.EffectiveDataBoundary);
+                    Assert.Equal(UploadRegions.Resolve(null, boundary), scope.Context.UploadRegion);
                     Assert.NotEqual(inheritedInvocation, scope.Context.InvocationId);
                     Assert.DoesNotContain(inheritedId, scope.FileSession.PublishedPath!);
                     var entry = Assert.Single(AgentLayerTestHarness.ReadEntries(scope));
@@ -78,6 +79,7 @@ public sealed class AgentToolCommandScopeTests
                     Assert.NotEqual(root.TraceId.ToString(), entry.GetProperty("traceId").GetString());
                     Assert.Equal(root.TraceId.ToString(), tags[TelemetryTags.CommandTraceId].GetString());
                     Assert.Equal(boundary, entry.GetProperty("dataBoundary").GetString());
+                    Assert.False(entry.TryGetProperty("uploadRegion", out _));
                     Assert.False(tags.ContainsKey(TelemetryTags.CommandParameters));
                 }
 

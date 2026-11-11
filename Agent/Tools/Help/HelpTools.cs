@@ -11,7 +11,7 @@ namespace Core.Agent.Tools.Help;
 ///   • list_commands — flat catalog of every Azure CLI command (cliName + psName + summary)
 ///   • get_command   — full HelpCommand for one command (parameters + examples + description)
 ///
-/// Both read the same versioned catalog as <c>az agent tool help</c>. The CLI
+/// Both read the same versioned catalog as <c>az agent tool docs list/show</c>. The CLI
 /// generates missing/stale artifacts; warm reads do not start a subprocess.
 /// </summary>
 public sealed class HelpTools

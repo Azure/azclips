@@ -13,20 +13,20 @@ namespace Core.Cli;
 /// </summary>
 public class CLIUserAgentHandler : IUserAgentHandler
 {
-    private static readonly string s_userAgent = BuildUserAgent();
+    private readonly string _userAgent;
+
+    public CLIUserAgentHandler(IAssemblyLoadingService assemblyLoadingService)
+    {
+        _userAgent = $"AZURECLI/{assemblyLoadingService.GetProductVersion()} azclips/public-preview";
+    }
 
     public SendAsyncStep SendAsync => (request, callback, next) =>
     {
-        if (!request.Headers.UserAgent.TryParseAdd(s_userAgent))
+        if (!request.Headers.UserAgent.TryParseAdd(_userAgent))
         {
-            request.Headers.TryAddWithoutValidation("User-Agent", s_userAgent);
+            request.Headers.TryAddWithoutValidation("User-Agent", _userAgent);
         }
         return next.SendAsync(request, callback);
     };
 
-    private static string BuildUserAgent()
-    {
-        var version = AssemblyVersionProvider.GetVersion(typeof(CLIUserAgentHandler).Assembly, "0.0.0");
-        return $"AZURECLI/{version} azclips/public-preview";
-    }
 }

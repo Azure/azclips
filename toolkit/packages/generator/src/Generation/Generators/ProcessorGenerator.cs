@@ -214,7 +214,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(ParseName(modelsNamespace)))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls))
-            .NormalizeWhitespace();
+            .NormalizeWhitespace()
+            .FixNormalizerSpacing();
 
         var sb = new StringBuilder();
         sb.AppendLine(Banner);
@@ -559,11 +560,12 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     // ── Pagination ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// The pageable members: <c>pageItems</c>/<c>nextLink</c> selectors plus a
-    /// <c>BeforeWriteOutputAsyncAndReturn</c> override that hands them to the runtime
-    /// <c>WriteOutputWithPaginationAsync</c> helper (which unwraps the envelope, follows
-    /// <c>nextLink</c>, and writes the flattened items). Thin per-command wiring — the pagination
-    /// logic lives in the runtime library — parallel to the LRO hooks.
+    /// The pageable members: <c>pageItems</c> plus either a <c>nextLink</c> or a
+    /// <c>continuationToken</c> selector, and a <c>BeforeWriteOutputAsyncAndReturn</c> override that
+    /// hands them to the runtime's <c>WriteOutputWithPaginationAsync</c>, whose overload follows a
+    /// next link as a URL or sets a continuation token on its command parameter and rebuilds the
+    /// request. Thin per-command wiring —
+    /// the pagination logic lives in the runtime library — parallel to the LRO hooks.
     /// </summary>
     private static IEnumerable<MemberDeclarationSyntax> PageableMembers(
         GenerationContext context,
@@ -571,22 +573,26 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         IRCommandPagination pagination,
         string listResultType)
     {
+        IRCommandContinuationToken? continuation = pagination.ContinuationToken;
         string? itemsExpression = MemberChain(context, pagination.Items);
-        string? nextLinkExpression = pagination.NextLink is { } nextLink
-            ? MemberChain(context, nextLink)
-            : "null";
+        string? nextExpression = continuation is not null
+            ? MemberChain(context, continuation.Response)
+            : pagination.NextLink is { } nextLink
+                ? MemberChain(context, nextLink)
+                : "null";
 
-        if (itemsExpression is null || nextLinkExpression is null)
+        if (itemsExpression is null || nextExpression is null)
         {
             context.Report(
                 Model.DiagnosticSeverity.Warning,
                 "ace-generator/paging-path-unresolved",
-                $"Command '{command.Name}' declares pagination whose items or next-link reference does not " +
-                "resolve to properties in the document. Its pagination wiring requires customization.");
+                $"Command '{command.Name}' declares pagination whose items, next-link or continuation-token " +
+                "reference does not resolve to properties in the document. Its pagination wiring requires customization.");
             yield break;
         }
 
         string itemType = IrTypeMapper.ToCSharp(pagination.ItemType, context.Index);
+        string nextMember = continuation is not null ? "continuationToken" : "nextLink";
 
         yield return MethodDeclaration(ParseTypeName($"IEnumerable<{itemType}>?"), Identifier("pageItems"))
             .AddModifiers(Token(SyntaxKind.PrivateKeyword))
@@ -594,16 +600,20 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .WithExpressionBody(ArrowExpressionClause(ParseExpression(itemsExpression)))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
-        yield return MethodDeclaration(ParseTypeName("string?"), Identifier("nextLink"))
+        yield return MethodDeclaration(ParseTypeName("string?"), Identifier(nextMember))
             .AddModifiers(Token(SyntaxKind.PrivateKeyword))
             .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType)))
-            .WithExpressionBody(ArrowExpressionClause(ParseExpression(nextLinkExpression)))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(nextExpression)))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+        string write = continuation is not null
+            ? $"await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => {continuation.Parameter} = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline); return true;"
+            : "await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions); return true;";
 
         yield return MethodDeclaration(ParseTypeName("Task<bool>"), Identifier("BeforeWriteOutputAsyncAndReturn"))
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword), Token(SyntaxKind.AsyncKeyword))
             .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType + "?")))
-            .WithRawBody("await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions); return true;");
+            .WithRawBody(write);
     }
 
     /// <summary>
@@ -657,7 +667,20 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         Dictionary<string, IRCommandParameter> byName = ParametersByName(command);
         var uri = new StringBuilder("{").Append(ServerSupport.EndpointMember).Append('}');
 
-        foreach (IRCommandUriSegment segment in request?.Path ?? [])
+        // A root-only path ("/", TypeSpec's default when an operation has no @route) adds no
+        // real path, yet appending it changes a server URL that is itself a resource address —
+        // a data-plane blob URL would become `…/container/blob/`. So it is dropped here; the IR
+        // honestly carries the spec's "/".
+        // TODO(Yabo): consider a dedicated transformer that normalizes such paths once more generators
+        // (or dialects) need the same rule.
+        IReadOnlyList<IRCommandUriSegment> path = request?.Path ?? [];
+        if (path.All(s => s is IRCommandUriSegmentLiteral)
+            && string.Concat(path.Cast<IRCommandUriSegmentLiteral>().Select(s => s.Text)) == "/")
+        {
+            path = [];
+        }
+
+        foreach (IRCommandUriSegment segment in path)
         {
             switch (segment)
             {

@@ -144,6 +144,7 @@ public sealed class ChatAgent : IAsyncDisposable
         IAuthService auth,
         IProfileService profileService,
         IConfigurationService configurationService,
+        DataBoundaryResolver boundaryResolver,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -196,7 +197,7 @@ public sealed class ChatAgent : IAsyncDisposable
             });
             sdkLifetime.SetClient(client);
             return await CreateCoreAsync(
-                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, configurationService, azExePath, approvalSink,
+                client, invocationContext, lifetime, sdkLifetime, flavor, auth, profileService, configurationService, boundaryResolver, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, modelTelemetry, preAcquiredAuth, dataBoundary, ct, recoverySettings).ConfigureAwait(false);
         }
         finally
@@ -214,6 +215,7 @@ public sealed class ChatAgent : IAsyncDisposable
         IAuthService auth,
         IProfileService profileService,
         IConfigurationService configurationService,
+        DataBoundaryResolver boundaryResolver,
         string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
@@ -277,7 +279,9 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             (builtinEndpoint, preAcquiredAuth) = await AgentStartupBoundary.ResolveBuiltinEndpointAsync(
                 options, auth, profileService, preAcquiredAuth, dataBoundary,
-                AgentStartupBoundary.LookupDataBoundary, ct, new RendererLoggingService(renderer).Warn).ConfigureAwait(false);
+                (tenant, token, cancellationToken) => AgentStartupBoundary.LookupDataBoundary(
+                    boundaryResolver, tenant, token, cancellationToken),
+                ct, new RendererLoggingService(renderer).Warn).ConfigureAwait(false);
         }
 
         var sessionConfig = await BuildSessionConfigAsync(
@@ -605,7 +609,7 @@ public sealed class ChatAgent : IAsyncDisposable
     }
     private static readonly string[] ValidEntrypoints = ["oneshot", "inline"];
 
-    private static string LoadSystemPrompt(string flavor, string entrypoint)
+    internal static string LoadSystemPrompt(string flavor, string entrypoint)
     {
         if (!ValidEntrypoints.Contains(entrypoint, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException(
@@ -627,7 +631,10 @@ public sealed class ChatAgent : IAsyncDisposable
                     : "Dev build bug — csproj should copy prompts/ to the build output."),
                 path);
         var content = File.ReadAllText(path);
-        return content.Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase);
+        content = content.Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase);
+        foreach (var (key, value) in AgentFlavor.PromptCommands(flavor))
+            content = content.Replace("{{" + key + "}}", value, StringComparison.OrdinalIgnoreCase);
+        return content;
     }
 
     public ValueTask DisposeAsync() => new(_sdkLifetime.DisposeAsync());

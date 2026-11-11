@@ -337,8 +337,6 @@ publish/win-x64/
     Microsoft.Azure.Azclips.Extensions.Extension/
 ```
 
-**MSIX packaging** is supported via `Core.Cli.appxmanifest` for Windows distribution.
-
 > **[Proposal]** Replace the static `Bootstrapper` with `AzclipsHostBuilder`, a non-static builder exposing `AddAzclipsCore()` / `AddAzclipsCli()` / `AddAzclipsPS()` and scoped DI per invocation.
 
 > **[Proposal]** Extract CLI argument parsing from `CLIEngine` into standalone DI-registered services: `ArgumentParser`, `PropertyParser`, `CommandResolver`.
@@ -368,4 +366,3 @@ A publish pipeline — copying assemblies into a portable module folder and upda
 | Area                      | Status          | Description                                                                       |
 | ------------------------- | --------------- | --------------------------------------------------------------------------------- |
 | PowerShell module publish | Not implemented | Need a build step producing a portable module folder with correct assembly layout |
-| CLI publish automation    | Partial         | Manual steps documented; `build.yml` CI exists but `deploy.sh` is incomplete      |

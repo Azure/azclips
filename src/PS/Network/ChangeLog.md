@@ -16,12 +16,21 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+
+## Version 0.1.3
+* Removed `New-AzVirtualNetworkSubnetConfig`
+    - Pass hashtables to `New-AzVirtualNetwork -Subnet` instead.
 * Fixed `Get-AzPublicIpAddress` output exposing a blank `Properties` value instead of the assigned IP address.
-    - Resource properties are available at the top level, and attached IP configurations render correctly with or without `-ExpandResource`.
+    - Resource properties are available at the top level.
+    - The attached IP configuration is flattened into `IpConfigurationId`, `PrivateIPAddress` and `SubnetId` (the last two with `-ExpandResource`); the nested `IpConfiguration` object is no longer exposed.
+    - `ServicePublicIPAddress` and `LinkedPublicIPAddress` are no longer exposed.
 * Updated `New-AzVirtualNetwork`, `Get-AzVirtualNetwork` and `Remove-AzVirtualNetwork`
     - `-Name` accepts the `ResourceName` alias.
     - `-Subnet` hashtables accept array values for multi-valued keys such as `AddressPrefixes`.
     - Subnets no longer send private endpoint / private link service network policies unless requested.
+* Virtual network, subnet, network security group, network interface and public IP address outputs now use the TypeSpec-generated models
+    - Resource properties are exposed directly on the output object (for example `$vnet.Subnets`, `$subnet.AddressPrefixes`) instead of under `.Properties`.
+    - The public IP address output type is now `PublicIPAddress`.
 
 ## Version 0.1.2
 * Added `New-AzVirtualNetworkSubnetConfig`.

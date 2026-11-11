@@ -32,7 +32,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             }
             catch (FailureHistoryException ex)
             {
-                throw new AzclipsErrorException(ex.Code, 1, ex.Message);
+                FailureHistoryDiagnostics.EmitCauseChain(ex, GetService<ILoggingService>());
+                throw new AzclipsErrorException(ex.Code, 1, ex.Message, innerException: ex);
             }
             catch (System.Text.Json.JsonException)
             {
@@ -41,7 +42,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or
                 InvalidOperationException or ArgumentException or FormatException)
             {
-                throw new AzclipsErrorException("TroubleshootFailed", 1, ex.Message);
+                throw new AzclipsErrorException("TroubleshootFailed", 1, ex.Message, innerException: ex);
             }
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
@@ -60,7 +61,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                 Console.IsInputRedirected, Console.IsOutputRedirected);
 
             var selected = TroubleshootSelection.Select(
-                await ReadRecordsAsync(store, Id, Token), Id, TerminalSession.GetParentProcessId, ConsoleSink.Warn);
+                await ReadRecordsAsync(store, Id, Token, GetService<ILoggingService>()), Id, TerminalSession.GetParentProcessId, ConsoleSink.Warn);
             var agentExe = AgentLauncher.FindAgentExe()
                 ?? throw new AzclipsErrorException("AgentUnavailable", 1, "AI recovery is unavailable: azclips-agent was not found alongside az.");
 
@@ -73,7 +74,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
 
         // A plain selected record (the --id record, or the newest without --id) needs no key,
         // so key storage being unavailable does not block it.
-        internal static async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(IFailureHistoryStore store, string? id, CancellationToken token)
+        internal static async Task<IReadOnlyList<FailureRecord>> ReadRecordsAsync(
+            IFailureHistoryStore store, string? id, CancellationToken token, ILoggingService? logger = null)
         {
             try
             {
@@ -82,7 +84,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             catch (FailureHistoryException ex) when (ex.Code == "failure_history_key_unavailable")
             {
                 if (await store.ReadPlainAsync(id, token) is { } plain)
+                {
+                    FailureHistoryDiagnostics.EmitCauseChain(ex, logger);
                     return [plain];
+                }
                 throw;
             }
         }
@@ -108,7 +113,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                 GetService<ITelemetryService>(), GetService<ICommandTelemetryContext>().Capture(),
                 (request, context, token) => AgentProcessRunner.RunAsync(
                     agentExe, request, context, context.InvocationId, token, failure.WorkingDirectory),
-                cancellationToken, styleOverride);
+                cancellationToken, styleOverride, Profile?.Name);
         }
 
         internal static async Task<int> RunAttemptAsync(
@@ -118,7 +123,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
             TelemetryInvocationContext context,
             Func<RecoveryRequest, TelemetryInvocationContext, CancellationToken, Task<int>> runAgent,
             CancellationToken cancellationToken,
-            string? styleOverride = null)
+            string? styleOverride = null,
+            string? modelProfileName = null)
         {
             var session = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, styleOverride);
             var commandTraceId = ValidTraceIdentifier(failure.CommandTraceId, 32);
@@ -149,6 +155,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot
                 ErrorText = failure.ErrorText,
                 SessionStyle = session.SessionStyle,
                 FailureId = failure.Id,
+                ModelProfileName = modelProfileName,
             };
 
             try

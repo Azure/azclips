@@ -216,21 +216,14 @@ print(f'  [5/6] agent NuGet: moved {nuget_moved} dlls to deps/<pkg>/<ver>/<lib-p
 if purged:
     print(f'        (purged {purged} non-shipping files: pdb / .env / dll.config)')
 
-# 6. Clean up the Agent extension top level: drop dlls redundant with either
-#    the CLI root or deps/ (extension loader will fall back), and non-shipping
+# 6. Clean up the Agent extension top level: drop dlls redundant with the
+#    CLI root (extension loader will fall back), and non-shipping
 #    artifacts (.pdb / .dll.config / stray runtimeconfig). Match stage_agent.ps1.
 keep_names = {
     'Microsoft.Azure.Azclips.Extensions.Agent.dll',
     'Microsoft.Azure.Azclips.Extensions.Agent.deps.json',
 }
 ext_cleaned = 0
-
-# Cache hashes of files under deps/ so the extension-top scan can compare
-# without walking the tree per file.
-deps_hash_by_name = {}
-for root, _, files in os.walk(deps_dir):
-    for f in files:
-        deps_hash_by_name.setdefault(f, []).append(os.path.join(root, f))
 
 for name in os.listdir(agent_ext := os.path.dirname(deps_dir)):
     p = os.path.join(agent_ext, name)
@@ -249,14 +242,10 @@ for name in os.listdir(agent_ext := os.path.dirname(deps_dir)):
         deletable = True
     elif name.endswith('.dll'):
         root_twin = os.path.join(cli_publish, name)
+        # A twin under deps/ does not count: the extension loader never
+        # probes deps/.
         if os.path.isfile(root_twin) and sha(p) == sha(root_twin):
             deletable = True
-        else:
-            top_hash = sha(p)
-            for candidate in deps_hash_by_name.get(name, []):
-                if sha(candidate) == top_hash:
-                    deletable = True
-                    break
 
     if deletable:
         os.remove(p)

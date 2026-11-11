@@ -213,6 +213,18 @@ describe("flatten-model: models", () => {
     expect(thing.properties.find((p) => p.name === "Properties")!.wireName).toBe("properties");
   });
 
+  it("never hoists a model with additional properties, since its open keys have no member", () => {
+    const metadata: IRModel = {
+      ...model("Metadata", [prim("Metadata", "Encrypted")]),
+      additionalProperties: { kind: "primitive", name: "string" },
+    };
+    const { ir } = run(irOf([model("Blob", [obj("Blob", "Metadata", "Metadata")]), metadata]));
+
+    expect(flattenedOf(ir, "Blob")).toEqual([]);
+    const container = ir.models.find((m) => m.name === "Blob")!.properties[0]!;
+    expect(container.typeKind === "object" && container.rendering?.flatten).toBeUndefined();
+  });
+
   it("is additive: it adds rendering hints in place and changes nothing else", () => {
     const input = parseIR(irOf(armModels(), [operation("create", "PUT", "Thing")]));
     const before = structuredClone(input);

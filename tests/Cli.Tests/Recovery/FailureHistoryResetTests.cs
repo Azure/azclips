@@ -108,8 +108,9 @@ public sealed class FailureHistoryResetTests
         await scope.CreateStore().SaveAsync(CreateRecord(), 10);
         var store = scope.CreateStore(NoKeyAccess());
         fail = true;
-        Assert.Equal("failure_history_clear_incomplete",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.ClearAsync())).Code);
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.ClearAsync());
+        Assert.Equal("failure_history_clear_incomplete", error.Code);
+        Assert.Equal("cannot delete history", Assert.IsType<IOException>(error.InnerException).Message);
         fail = false;
         await store.ClearAsync();
         Assert.Empty(await store.ReadIndexAsync());
