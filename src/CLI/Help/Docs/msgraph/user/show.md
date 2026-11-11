@@ -18,3 +18,15 @@ az msgraph user show --id user@contoso.com
 ```bash
 az msgraph user show --id 00000000-0000-0000-0000-000000000000
 ```
+
+### Show a user with selected fields only
+
+```bash
+az msgraph user show --id user@contoso.com --select id displayName mail
+```
+
+### Show a user with selected fields plus default fields
+
+```bash
+az msgraph user show --id user@contoso.com --select id displayName mail --append-selected
+```

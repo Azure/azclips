@@ -72,6 +72,19 @@ public class ExtensionIndexTests
     }
 
     [Fact]
+    public void CliTable_UserShow_ShouldExposeProjectionSurface()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph user show", ClientType.CLI);
+
+        Assert.Equal(typeof(string[]), metadata.Parameters["select"].ParameterType);
+        Assert.Equal(typeof(string[]), metadata.Parameters["expand"].ParameterType);
+        Assert.Equal(typeof(bool), metadata.Parameters["append-selected"].ParameterType);
+        Assert.False(metadata.Parameters["select"].IsRequired);
+        Assert.False(metadata.Parameters["expand"].IsRequired);
+        Assert.False(metadata.Parameters["append-selected"].IsRequired);
+    }
+
+    [Fact]
     public void CliTable_ListParameters_ShouldExposeUserParitySurface()
     {
         var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
@@ -220,6 +233,19 @@ public class ExtensionIndexTests
         Assert.True(group.IsRequired);
         Assert.Equal(typeof(string), group.ParameterType);
         Assert.Contains("g", group.Aliases);
+    }
+
+    [Fact]
+    public void CliTable_GroupShow_ShouldExposeProjectionSurface()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph group show", ClientType.CLI);
+
+        Assert.Equal(typeof(string[]), metadata.Parameters["select"].ParameterType);
+        Assert.Equal(typeof(string[]), metadata.Parameters["expand"].ParameterType);
+        Assert.Equal(typeof(bool), metadata.Parameters["append-selected"].ParameterType);
+        Assert.False(metadata.Parameters["select"].IsRequired);
+        Assert.False(metadata.Parameters["expand"].IsRequired);
+        Assert.False(metadata.Parameters["append-selected"].IsRequired);
     }
 
     [Fact]
