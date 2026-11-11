@@ -19,6 +19,13 @@
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Cli.Tests" />
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>

@@ -31,6 +31,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         public string? RollbackToDeploymentName { get; set; }
 
+        // Waits between progress checks; tests replace it so they run without real delays.
+        internal Func<TimeSpan, CancellationToken, Task> ProgressDelay { get; set; } = Task.Delay;
+
         // Builds the deployment request body (after validating the inputs) and delegates the PUT +
         // long-running-operation wait to the atomic NewResourceGroupDeploymentProcessor. The
         // deployment always waits for a terminal provisioningState (matches `az deployment group
@@ -52,15 +55,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             await ValidateDeployment(properties);
 
-            NewResourceGroupDeploymentProcessor processor = CreateExtendedProcessor<NewResourceGroupDeploymentProcessor>(p =>
+            DeploymentProgressReporter progress = new(
+                Publisher,
+                token => CreateExtendedProcessor<OperationReader>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.ResourceGroupName = ResourceGroupName;
+                    p.DeploymentName = Name;
+                }).ReadAllAsync(token),
+                ProgressDelay);
+
+            ProgressWatchedDeployment processor = CreateExtendedProcessor<ProgressWatchedDeployment>(p =>
             {
                 p.SubscriptionId = SubscriptionId;
                 p.ResourceGroupName = ResourceGroupName;
                 p.Name = Name;
                 p.Properties = properties;
+                p.Progress = progress;
             });
 
-            return await processor.SendAsync();
+            return await progress.RunAsync(processor.SendAsync, Publisher.Token);
         }
 
         // Preflight validation, matching legacy clients (az: begin_validate; Az PowerShell: RunDeploymentValidation):
@@ -118,6 +132,29 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             return null;
+        }
+
+        // The deployment PUT, telling the progress reporter once ARM has accepted it.
+        private sealed class ProgressWatchedDeployment : NewResourceGroupDeploymentProcessor
+        {
+            internal DeploymentProgressReporter Progress { get; set; } = null!;
+
+            internal override Task<HttpResponseMessage> SendAsync()
+            {
+                Publisher = Progress.WatchForSubmission(Publisher);
+                return base.SendAsync();
+            }
+        }
+
+        // Reads the deployment's operations for progress without writing them as command output. The token stops the
+        // read, including its retries, when the deployment finishes.
+        private sealed class OperationReader : ListResourceGroupDeploymentOperationProcessor
+        {
+            internal Task<List<DeploymentOperation>> ReadAllAsync(CancellationToken token)
+            {
+                Publisher = new DeploymentProgressPublisher(Publisher, token);
+                return DeploymentProgressReporter.ReadAllPagesAsync(CreateRequestMessage, Publisher, HttpPipeline, JsonOptions);
+            }
         }
     }
 }

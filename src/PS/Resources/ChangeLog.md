@@ -16,6 +16,9 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* `New-AzResourceGroupDeployment` and `New-AzManagementGroupDeployment` now report resource progress with `-Verbose`, like Az PowerShell.
+    - While the deployment runs, they write `Checking deployment status in 5 seconds` and `Resource <type> '<name>' provisioning status is <state>` for each new resource state.
+    - Progress is best effort: if the deployment's operations can't be read, one verbose note is written and the deployment's result is unchanged.
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.

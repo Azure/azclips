@@ -168,6 +168,13 @@ namespace Core.Engine
                 loggingService.Warn(evt.Message);
             });
 
+            // General-purpose progress for long-running commands: shown with -Verbose in PowerShell and at debug level in the CLI.
+            subscriber.Subscribe(Events.Progress, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Verbose(evt.Message);
+            });
+
             return subscriber;
         }
 
