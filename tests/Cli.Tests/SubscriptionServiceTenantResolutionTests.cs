@@ -27,8 +27,10 @@ public class SubscriptionServiceTenantResolutionTests
     public async Task ResolveSubscriptionTenant_CrossTenant_UsesAuthorizationUriFromChallenge()
     {
         // ARM answers a cross-tenant subscription request with a 401 challenge naming the real tenant.
-        var service = CreateService(_ =>
+        var service = CreateService(request =>
         {
+            Assert.True(Guid.TryParse(
+                Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName)), out _));
             var response = new HttpResponseMessage(HttpStatusCode.Unauthorized);
             response.Headers.TryAddWithoutValidation(
                 "WWW-Authenticate",
@@ -45,12 +47,17 @@ public class SubscriptionServiceTenantResolutionTests
     public async Task ResolveSubscriptionTenant_SameTenant_ReadsTenantFromPayload()
     {
         // The token already has access, so ARM returns the subscription with its owning tenant.
-        var service = CreateService(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var service = CreateService(request =>
         {
-            Content = new StringContent(
-                $"{{\"subscriptionId\":\"{SubscriptionId}\",\"displayName\":\"Sub\",\"state\":\"Enabled\",\"tenantId\":\"{HomeTenantId}\"}}",
-                Encoding.UTF8,
-                "application/json")
+            Assert.True(Guid.TryParse(
+                Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName)), out _));
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    $"{{\"subscriptionId\":\"{SubscriptionId}\",\"displayName\":\"Sub\",\"state\":\"Enabled\",\"tenantId\":\"{HomeTenantId}\"}}",
+                    Encoding.UTF8,
+                    "application/json")
+            };
         });
 
         var tenant = await service.ResolveSubscriptionTenantAsync("home-token", SubscriptionId);

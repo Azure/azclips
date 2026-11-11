@@ -9,6 +9,34 @@ namespace Core.Telemetry.Tests;
 public class HttpActivityEnricherTests
 {
     [Fact]
+    public void Enrich_ShouldUseGeneratedClientRequestId()
+    {
+        using var activity = new Activity("http").Start();
+        using var request = new HttpRequestMessage();
+        RequestCorrelation.EnsureClientRequestId(request);
+        var requestId = Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName));
+
+        HttpActivityEnricher.Enrich(activity, request);
+
+        Assert.True(Guid.TryParse(requestId, out _));
+        Assert.Equal(requestId, activity.GetTagItem(TelemetryTags.ClientRequestId));
+        Assert.Equal(requestId, Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName)));
+    }
+
+    [Fact]
+    public void Enrich_WithoutClientRequestId_DoesNotGenerateOne()
+    {
+        using var activity = new Activity("http").Start();
+        using var request = new HttpRequestMessage();
+
+        HttpActivityEnricher.Enrich(activity, request);
+
+        Assert.Null(activity.GetTagItem(TelemetryTags.ClientRequestId));
+        Assert.False(request.Headers.Contains(RequestCorrelation.ClientRequestIdHeaderName));
+        Assert.False(request.Headers.Contains("client-request-id"));
+    }
+
+    [Fact]
     public void Enrich_ShouldUseMsalClientRequestId()
     {
         using var activity = new Activity("http").Start();

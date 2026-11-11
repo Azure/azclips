@@ -29,6 +29,7 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
+            RequestCorrelation.EnsureClientRequestId(request);
             using var response = await httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
@@ -69,6 +70,7 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
+        RequestCorrelation.EnsureClientRequestId(request);
         using var response = await httpClient.SendAsync(request, cancellationToken);
 
         // A subscription homed in a different tenant than the token yields a 401/403 challenge whose
@@ -145,6 +147,7 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
         var request = new HttpRequestMessage(HttpMethod.Get, $"https://management.azure.com/subscriptions/{subscriptionId}?api-version={ApiVersion}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
+        RequestCorrelation.EnsureClientRequestId(request);
         var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
