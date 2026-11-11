@@ -41,7 +41,7 @@ namespace Scenario.Tests;
 /// Record mode runs the CLI workflow against Azure. Playback replays the recording through the CLI and
 /// PowerShell workflows and matches request bodies, so both surfaces must bind their arguments into
 /// the same recorded requests. <c>Get-AzDeploymentWhatIfResult</c> has no -Mode, but it sends the
-/// same Incremental mode as the CLI's what-if. <c>Save-AzDeploymentTemplate</c> replays the CLI
+/// same Incremental mode as the CLI's what-if. <c>Save-AzSubDeploymentTemplate</c> replays the CLI
 /// export's request and writes the template to a file. The PowerShell lifecycle's delete, in-flight cancel, and
 /// in-flight delete run the real cmdlets by name, piped deployment, and -InputObject, with and without
 /// -PassThru; they send the same requests as by name.
@@ -240,7 +240,7 @@ public sealed class SubscriptionDeploymentScenarioTests
                     parameters["TemplateUri"] = templateUri!;
                     parameters["QueryString"] = QueryString;
                 }
-                host.RunPowerShell("Test-AzDeployment", parameters);
+                host.RunPowerShell("Test-AzSubDeployment", parameters);
             }
         }
         finally
@@ -283,8 +283,8 @@ public sealed class SubscriptionDeploymentScenarioTests
         {
             using (var host = new ScenarioHost(ClientType.PowerShell, http, extensions: s_extensions))
             {
-                Assert.Equal([DeploymentName], CmdletDeploymentNames(host.RunPowerShellCmdlet<GetDeploymentCmdlet>(new Dictionary<string, object>(), pipelineInput: piped)));
-                host.RunPowerShellCmdlet<SaveDeploymentTemplateCmdlet>(new Dictionary<string, object> { ["Path"] = directory }, pipelineInput: piped);
+                Assert.Equal([DeploymentName], CmdletDeploymentNames(host.RunPowerShellCmdlet<GetSubDeploymentCmdlet>(new Dictionary<string, object>(), pipelineInput: piped)));
+                host.RunPowerShellCmdlet<SaveSubDeploymentTemplateCmdlet>(new Dictionary<string, object> { ["Path"] = directory }, pipelineInput: piped);
             }
 
             Assert.Equal(
@@ -573,20 +573,20 @@ public sealed class SubscriptionDeploymentScenarioTests
     {
         (string, object)[] template = [("TemplateUri", LowerTemplateUri), ("QueryString", QueryString)];
 
-        AssertValidatedLower(host.RunPowerShell("Test-AzDeployment", PsDeploy(DeploymentName, template)));
+        AssertValidatedLower(host.RunPowerShell("Test-AzSubDeployment", PsDeploy(DeploymentName, template)));
 
         AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(DeploymentName, template)));
 
-        AssertDeployedLower(DeploymentName, host.RunPowerShell("New-AzDeployment", PsDeploy(DeploymentName, [.. template, ("ValidationLevel", "Provider")])));
+        AssertDeployedLower(DeploymentName, host.RunPowerShell("New-AzSubDeployment", PsDeploy(DeploymentName, [.. template, ("ValidationLevel", "Provider")])));
 
-        var shown = AssertDeployedLower(DeploymentName, host.RunPowerShell("Get-AzDeployment_Get", new Dictionary<string, object>
+        var shown = AssertDeployedLower(DeploymentName, host.RunPowerShell("Get-AzSubDeployment_Get", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = DeploymentName,
         }));
         Assert.Equal(DeploymentId(SubscriptionId, DeploymentName), shown.Id, ignoreCase: true);
 
-        Assert.Contains(DeploymentName, DeploymentNames(host.RunPowerShell("Get-AzDeployment_List", new Dictionary<string, object>
+        Assert.Contains(DeploymentName, DeploymentNames(host.RunPowerShell("Get-AzSubDeployment_List", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
         })));
@@ -595,7 +595,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         var directory = Directory.CreateTempSubdirectory().FullName;
         try
         {
-            var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(host.RunPowerShellCmdlet<SaveDeploymentTemplateCmdlet>(new Dictionary<string, object>
+            var saved = Assert.IsType<DeploymentTemplateSaveResult>(Assert.Single(host.RunPowerShellCmdlet<SaveSubDeploymentTemplateCmdlet>(new Dictionary<string, object>
             {
                 ["SubscriptionId"] = SubscriptionId,
                 ["Name"] = DeploymentName,
@@ -611,14 +611,14 @@ public sealed class SubscriptionDeploymentScenarioTests
         }
 
         // A finished deployment can't be stopped, and a missing one isn't found.
-        var finished = Assert.Throws<HttpRequestException>(() => host.RunPowerShell("Stop-AzDeployment", new Dictionary<string, object>
+        var finished = Assert.Throws<HttpRequestException>(() => host.RunPowerShell("Stop-AzSubDeployment", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = DeploymentName,
         }));
         Assert.Contains("DeploymentCannotBeCancelled", finished.Message);
 
-        var missing = Assert.Throws<HttpRequestException>(() => host.RunPowerShell("Stop-AzDeployment", new Dictionary<string, object>
+        var missing = Assert.Throws<HttpRequestException>(() => host.RunPowerShell("Stop-AzSubDeployment", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = MissingDeploymentName,
@@ -626,14 +626,14 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Contains("DeploymentNotFound", missing.Message);
 
         // Same DELETE as without the switch; -PassThru writes True.
-        Assert.True(Assert.IsType<bool>(Assert.Single(host.RunPowerShellCmdlet<RemoveDeploymentCmdlet>(new Dictionary<string, object>
+        Assert.True(Assert.IsType<bool>(Assert.Single(host.RunPowerShellCmdlet<RemoveSubDeploymentCmdlet>(new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = DeploymentName,
             ["PassThru"] = true,
         }))));
 
-        Assert.DoesNotContain(DeploymentName, DeploymentNames(host.RunPowerShell("Get-AzDeployment_List", new Dictionary<string, object>
+        Assert.DoesNotContain(DeploymentName, DeploymentNames(host.RunPowerShell("Get-AzSubDeployment_List", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
         })));
@@ -641,7 +641,7 @@ public sealed class SubscriptionDeploymentScenarioTests
 
     private static void RunPowerShellInFlightCancel(ScenarioHost host)
     {
-        IReadOnlyList<object> Show() => host.RunPowerShell("Get-AzDeployment_Get", new Dictionary<string, object>
+        IReadOnlyList<object> Show() => host.RunPowerShell("Get-AzSubDeployment_Get", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = SlowDeploymentName,
@@ -658,7 +658,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         AssertCancellable(inFlight);
 
         // Same cancel POST as by name: the piped deployment's Id selects it, and -PassThru writes True.
-        CancelInFlight(() => Assert.True(Assert.IsType<bool>(Assert.Single(host.RunPowerShellCmdlet<StopDeploymentCmdlet>(
+        CancelInFlight(() => Assert.True(Assert.IsType<bool>(Assert.Single(host.RunPowerShellCmdlet<StopSubDeploymentCmdlet>(
             new Dictionary<string, object> { ["PassThru"] = true },
             pipelineInput: inFlight)))));
 
@@ -666,7 +666,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         Assert.Equal(State.Canceled, canceled.ProvisioningState);
 
         // -InputObject takes the deployment's Id; without -PassThru nothing is written.
-        Assert.Empty(host.RunPowerShellCmdlet<RemoveDeploymentCmdlet>(new Dictionary<string, object>
+        Assert.Empty(host.RunPowerShellCmdlet<RemoveSubDeploymentCmdlet>(new Dictionary<string, object>
         {
             ["InputObject"] = canceled,
         }));
@@ -675,7 +675,7 @@ public sealed class SubscriptionDeploymentScenarioTests
     private static void RunPowerShellFailures(ScenarioHost host)
     {
         // PowerShell's ValidateSet rejects the mode while binding, before the engine runs.
-        var invalidMode = Assert.ThrowsAny<ParameterBindingException>(() => host.RunPowerShellCmdlet<NewDeploymentCmdlet>(
+        var invalidMode = Assert.ThrowsAny<ParameterBindingException>(() => host.RunPowerShellCmdlet<NewSubDeploymentCmdlet>(
             PsDeploy(MissingDeploymentName, ("Mode", "Bogus"), ("TemplateUri", LowerTemplateUri))));
         Assert.Contains("Cannot validate argument on parameter 'Mode'", invalidMode.Message);
 
@@ -683,27 +683,27 @@ public sealed class SubscriptionDeploymentScenarioTests
         // subscription and name. A resource group deployment's id is the wrong scope.
         string groupScopedId = $"/subscriptions/{SubscriptionId}/resourceGroups/group/providers/Microsoft.Resources/deployments/{MissingDeploymentName}";
         var piped = new Dictionary<string, object> { ["InputObject"] = new DeploymentExtended { Id = groupScopedId } };
-        var stop = Assert.ThrowsAny<Exception>(() => host.RunPowerShellCmdlet<StopDeploymentCmdlet>(piped));
-        var remove = Assert.ThrowsAny<Exception>(() => host.RunPowerShellCmdlet<RemoveDeploymentCmdlet>(piped));
+        var stop = Assert.ThrowsAny<Exception>(() => host.RunPowerShellCmdlet<StopSubDeploymentCmdlet>(piped));
+        var remove = Assert.ThrowsAny<Exception>(() => host.RunPowerShellCmdlet<RemoveSubDeploymentCmdlet>(piped));
         Assert.All(new[] { stop, remove }, error =>
         {
             Assert.Contains("Invalid deployment id", error.Message);
             Assert.Contains("/subscriptions/{subscriptionId}/providers/Microsoft.Resources/deployments/{deploymentName}", error.Message);
         });
 
-        AssertOperationFailed(Assert.Throws<Exception>(() => host.RunPowerShell("New-AzDeployment",
+        AssertOperationFailed(Assert.Throws<Exception>(() => host.RunPowerShell("New-AzSubDeployment",
             PsDeploy(CreateFailedDeploymentName, ("TemplateUri", FailingTemplateUri)))));
 
-        Assert.Empty(host.RunPowerShell("Remove-AzDeployment", new Dictionary<string, object>
+        Assert.Empty(host.RunPowerShell("Remove-AzSubDeployment", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = CreateFailedDeploymentName,
         }));
 
-        AssertInvalidTemplate(Assert.Throws<HttpRequestException>(() => host.RunPowerShell("Test-AzDeployment",
+        AssertInvalidTemplate(Assert.Throws<HttpRequestException>(() => host.RunPowerShell("Test-AzSubDeployment",
             PsDeploy(InvalidValidateName, ("TemplateUri", InvalidTemplateUri)))));
 
-        AssertInvalidTemplate(Assert.Throws<HttpRequestException>(() => host.RunPowerShell("New-AzDeployment",
+        AssertInvalidTemplate(Assert.Throws<HttpRequestException>(() => host.RunPowerShell("New-AzSubDeployment",
             PsDeploy(CreateInvalidDeploymentName, ("TemplateUri", InvalidTemplateUri)))));
 
         AssertOperationFailed(Assert.Throws<Exception>(() => host.RunPowerShell("Get-AzDeploymentWhatIfResult",
@@ -715,7 +715,7 @@ public sealed class SubscriptionDeploymentScenarioTests
     {
         (string, object)[] template = [("TemplateUri", SubscriptionTemplateUri), ("ParametersUri", ParametersUri)];
 
-        AssertValidatedFromParametersUri(host.RunPowerShell("Test-AzDeployment", PsDeploy(
+        AssertValidatedFromParametersUri(host.RunPowerShell("Test-AzSubDeployment", PsDeploy(
             ParamsDeploymentName, [.. template, ("ValidationLevel", "Template")])));
 
         var full = AssertCreatesNestedGroup(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(
@@ -754,22 +754,22 @@ public sealed class SubscriptionDeploymentScenarioTests
             ["Payload"] = SpecVersionBody,
         }));
 
-        AssertValidatedFromParametersUri(host.RunPowerShell("Test-AzDeployment", PsDeploy(SpecDeploymentName, template)));
+        AssertValidatedFromParametersUri(host.RunPowerShell("Test-AzSubDeployment", PsDeploy(SpecDeploymentName, template)));
 
         AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(SpecDeploymentName, template)));
 
-        AssertDeployedFromSpec(SpecDeploymentName, specId, host.RunPowerShell("New-AzDeployment", PsDeploy(SpecDeploymentName, template)));
+        AssertDeployedFromSpec(SpecDeploymentName, specId, host.RunPowerShell("New-AzSubDeployment", PsDeploy(SpecDeploymentName, template)));
 
-        AssertDeployedFromSpec(SpecDeploymentName, specId, host.RunPowerShell("Get-AzDeployment_Get", new Dictionary<string, object>
+        AssertDeployedFromSpec(SpecDeploymentName, specId, host.RunPowerShell("Get-AzSubDeployment_Get", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = SpecDeploymentName,
         }));
 
-        AssertMissingSpecVersion(Assert.ThrowsAny<Exception>(() => host.RunPowerShell("New-AzDeployment", PsDeploy(
+        AssertMissingSpecVersion(Assert.ThrowsAny<Exception>(() => host.RunPowerShell("New-AzSubDeployment", PsDeploy(
             SpecMissingVersionName, ("TemplateSpecId", SpecVersionId(SubscriptionId, SpecGroupName, "v2")), ("ParametersUri", ParametersUri)))));
 
-        Assert.Empty(host.RunPowerShell("Remove-AzDeployment", new Dictionary<string, object>
+        Assert.Empty(host.RunPowerShell("Remove-AzSubDeployment", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = SpecDeploymentName,
@@ -867,13 +867,13 @@ public sealed class SubscriptionDeploymentScenarioTests
 
     private static void RunPowerShellFromFile(ScenarioHost host, string name, string greeting, params (string, object)[] template)
     {
-        AssertValidatedGreeting(greeting, host.RunPowerShell("Test-AzDeployment", PsDeploy(name, template)));
+        AssertValidatedGreeting(greeting, host.RunPowerShell("Test-AzSubDeployment", PsDeploy(name, template)));
 
         AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(name, template)));
 
-        AssertDeployedGreeting(name, greeting, host.RunPowerShell("New-AzDeployment", PsDeploy(name, template)));
+        AssertDeployedGreeting(name, greeting, host.RunPowerShell("New-AzSubDeployment", PsDeploy(name, template)));
 
-        Assert.Empty(host.RunPowerShell("Remove-AzDeployment", new Dictionary<string, object>
+        Assert.Empty(host.RunPowerShell("Remove-AzSubDeployment", new Dictionary<string, object>
         {
             ["SubscriptionId"] = SubscriptionId,
             ["Name"] = name,

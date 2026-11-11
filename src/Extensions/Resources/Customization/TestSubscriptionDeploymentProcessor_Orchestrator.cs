@@ -7,7 +7,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>Test-AzDeployment</c> / <c>az deployment sub validate</c>: the generated validate call plus
+/// <c>Test-AzSubDeployment</c> / <c>az deployment sub validate</c>: the generated validate call plus
 /// local template inputs. A local ARM JSON or Bicep file, a parameters or .bicepparam file, and
 /// inline parameters are turned into the inline template and parameters before the request is sent.
 /// </summary>

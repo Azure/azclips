@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
-title: Remove-AzDeployment
+title: Remove-AzSubDeployment
 ---
 
-# Remove-AzDeployment
+# Remove-AzSubDeployment
 
 ## SYNOPSIS
 
@@ -20,14 +20,14 @@ Delete a subscription-scope deployment from the deployment history.
 ### RemoveByDeploymentName (Default)
 
 ```
-Remove-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-PassThru] [-Profile <string>]
+Remove-AzSubDeployment [-Name] <string> [-SubscriptionId <string>] [-PassThru] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### RemoveByInputObject
 
 ```
-Remove-AzDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
+Remove-AzSubDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -40,7 +40,7 @@ This cmdlet has the following aliases,
 
 Deletes an Azure Resource Manager deployment scoped to a subscription. This removes the deployment record and its operations from the deployment history; it does **not** delete the resources the deployment created.
 
-A deployment that is currently running cannot be deleted -- cancel it with `Stop-AzDeployment` first. The delete is a long-running operation and the cmdlet waits for it to finish. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
+A deployment that is currently running cannot be deleted -- cancel it with `Stop-AzSubDeployment` first. The delete is a long-running operation and the cmdlet waits for it to finish. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzSubDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
 
 ## EXAMPLES
 
@@ -49,19 +49,19 @@ A deployment that is currently running cannot be deleted -- cancel it with `Stop
 Remove the record of the deployment named `sub-infra-2026-06-18`.
 
 ```powershell
-Remove-AzDeployment -Name sub-infra-2026-06-18
+Remove-AzSubDeployment -Name sub-infra-2026-06-18
 ```
 
 ### Delete a deployment in a specific subscription without being prompted
 
 ```powershell
-Remove-AzDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false
+Remove-AzSubDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false
 ```
 
 ### Delete deployments from the pipeline
 
 ```powershell
-Get-AzDeployment -Name sub-infra-2026-06-18 | Remove-AzDeployment -PassThru
+Get-AzSubDeployment -Name sub-infra-2026-06-18 | Remove-AzSubDeployment -PassThru
 ```
 
 `-PassThru` writes `True` once the delete completes.
@@ -92,7 +92,7 @@ HelpMessage: ''
 
 ### -InputObject
 
-A deployment object returned by `Get-AzDeployment`.
+A deployment object returned by `Get-AzSubDeployment`.
 Its `Id` identifies the subscription and deployment to delete. Accepts pipeline input.
 
 ```yaml
@@ -231,7 +231,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
+Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzSubDeployment`.
 
 ## OUTPUTS
 
@@ -246,6 +246,6 @@ Deleting a deployment removes only the deployment record. Resources created by t
 
 ## RELATED LINKS
 
-- [Get-AzDeployment]()
-- [New-AzDeployment]()
-- [Stop-AzDeployment]()
+- [Get-AzSubDeployment]()
+- [New-AzSubDeployment]()
+- [Stop-AzSubDeployment]()

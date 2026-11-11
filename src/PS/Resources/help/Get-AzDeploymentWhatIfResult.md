@@ -386,12 +386,12 @@ A `WhatIfOperationResult` describing the changes the deployment would apply if e
 
 ## NOTES
 
-What-if is a read-only preview: it never creates or modifies resources. As in Az.Resources, the preview always uses `Incremental` mode, so there is no `-Mode` parameter. Use `New-AzDeployment` to apply the changes once the preview looks correct.
+What-if is a read-only preview: it never creates or modifies resources. As in Az.Resources, the preview always uses `Incremental` mode, so there is no `-Mode` parameter. Use `New-AzSubDeployment` to apply the changes once the preview looks correct.
 
 Differences from Az.Resources: the parameters `-ExcludeChangeType`, `-TemplateParameterObject`, `-Pre`, and `-SkipTemplateParameterPrompt` are not supported. The legacy name `Get-AzSubscriptionDeploymentWhatIfResult` and the parameter names `-DeploymentName`, `-TemplateParameterFile`, and `-TemplateParameterUri` are accepted as aliases.
 
 ## RELATED LINKS
 
-- [New-AzDeployment]()
-- [Test-AzDeployment]()
+- [New-AzSubDeployment]()
+- [Test-AzSubDeployment]()
 - [New-AzResourceGroupDeploymentWhatIf]()

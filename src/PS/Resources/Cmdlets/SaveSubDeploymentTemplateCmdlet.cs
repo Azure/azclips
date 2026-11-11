@@ -9,29 +9,31 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsLifecycle.Stop, "AzDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = "StopByDeploymentName")]
-[Alias("Stop-AzSubscriptionDeployment")]
-[OutputType(typeof(bool))]
-public class StopDeploymentCmdlet : PSCmdlet
+[Cmdlet(VerbsData.Save, "AzSubDeploymentTemplate", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = "SaveByDeploymentName")]
+[Alias("Save-AzSubscriptionDeploymentTemplate")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Processors.DeploymentTemplateSaveResult")]
+public class SaveSubDeploymentTemplateCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = false, ParameterSetName = "StopByDeploymentName")]
+    [Parameter(Mandatory = false, ParameterSetName = "SaveByDeploymentName")]
     public string SubscriptionId { get; set; } = "";
 
     // No pipeline binding: a piped deployment must route to -InputObject so its Id (with subscription) is used.
     [Alias("DeploymentName")]
-    [Parameter(Position = 0, Mandatory = true, ParameterSetName = "StopByDeploymentName", HelpMessage = "The name of the deployment.")]
-    [ValidateNotNullOrEmpty]
+    [Parameter(Mandatory = true, ParameterSetName = "SaveByDeploymentName", HelpMessage = "The name of the deployment.")]
     public string? Name { get; set; }
 
-    [Parameter(Mandatory = true, ParameterSetName = "StopByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
+    [Parameter(Mandatory = true, ParameterSetName = "SaveByInputObject", ValueFromPipeline = true, HelpMessage = "The deployment object.")]
     public DeploymentExtended? InputObject { get; set; }
 
+    [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true)]
+    public string? Path { get; set; }
+
     [Parameter(Mandatory = false)]
-    public SwitchParameter PassThru { get; set; }
+    public SwitchParameter Force { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? Profile { get; set; }
@@ -44,7 +46,7 @@ public class StopDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        if (!ShouldProcess($"deployment '{Name ?? InputObject?.Id}'", "Cancel"))
+        if (!ShouldProcess($"deployment '{Name ?? InputObject?.Id}'", "Save template"))
         {
             return;
         }
@@ -52,7 +54,13 @@ public class StopDeploymentCmdlet : PSCmdlet
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
 
-        var parameters = new Dictionary<string, object>();
+        // A relative path is relative to the PowerShell session's current file-system location,
+        // which can differ from the process working directory the processor would otherwise see.
+        var parameters = new Dictionary<string, object>
+        {
+            { "Path", ResolveOutputPath() },
+        };
+
         if (Name is not null)
         {
             parameters.Add("Name", Name);
@@ -72,6 +80,12 @@ public class StopDeploymentCmdlet : PSCmdlet
         {
             parameters.Add("SubscriptionId", SubscriptionId);
         }
+
+        if (Force.IsPresent)
+        {
+            parameters.Add("Force", true);
+        }
+
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {
             parameters.Add("Profile", Profile!);
@@ -79,17 +93,17 @@ public class StopDeploymentCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Resources", "Stop-AzDeployment", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "Save-AzSubDeploymentTemplate", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();
-
-        if (PassThru.IsPresent)
-        {
-            WriteObject(true);
-        }
     }
+
+    private string ResolveOutputPath() =>
+        MyInvocation.BoundParameters.ContainsKey(nameof(Path))
+            ? GetUnresolvedProviderPathFromPSPath(Path)
+            : SessionState.Path.CurrentFileSystemLocation.Path;
 
     protected override void EndProcessing()
     {

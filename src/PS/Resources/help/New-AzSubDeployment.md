@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
-title: New-AzDeployment
+title: New-AzSubDeployment
 ---
 
-# New-AzDeployment
+# New-AzSubDeployment
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Deploy an ARM or Bicep template at the subscription scope.
 ### __AllParameterSets
 
 ```
-New-AzDeployment -Name <string> -Location <string> -Mode <string> [-TemplateUri <string>]
+New-AzSubDeployment -Name <string> -Location <string> -Mode <string> [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
  [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
  [-Parameter <string[]>] [-ValidationLevel <string>] [-SubscriptionId <string>] [-Profile <string>]
@@ -43,7 +43,7 @@ Submits a deployment to the target subscription. Use subscription-scope deployme
 Submit `main.bicep` with parameter file `main.parameters.json` as deployment `sub-infra-2026-06-16`, storing the deployment metadata in `eastus`.
 
 ```powershell
-New-AzDeployment -Name sub-infra-2026-06-16 -Location eastus -Mode Incremental -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json
+New-AzSubDeployment -Name sub-infra-2026-06-16 -Location eastus -Mode Incremental -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json
 ```
 
 ### Deploy a local template with inline parameters
@@ -51,7 +51,7 @@ New-AzDeployment -Name sub-infra-2026-06-16 -Location eastus -Mode Incremental -
 Deploy a local ARM JSON template that creates a resource group, and supply its parameters inline.
 
 ```powershell
-New-AzDeployment -Name create-rg -Location westus2 -Mode Incremental -TemplateFile ./create-rg.json -Parameter rgName=demo-rg, rgLocation=westus2
+New-AzSubDeployment -Name create-rg -Location westus2 -Mode Incremental -TemplateFile ./create-rg.json -Parameter rgName=demo-rg, rgLocation=westus2
 ```
 
 ### Deploy a remote template with a remote parameters file
@@ -59,7 +59,7 @@ New-AzDeployment -Name create-rg -Location westus2 -Mode Incremental -TemplateFi
 Deploy a template hosted at a URL that creates a resource group as deployment `sub-infra-2026-06-16`, storing the deployment metadata in `eastus`.
 
 ```powershell
-New-AzDeployment -Name sub-infra-2026-06-16 -Location eastus -Mode Incremental -TemplateUri https://contoso.blob.core.windows.net/templates/create-rg.json -ParametersUri https://contoso.blob.core.windows.net/templates/create-rg.parameters.json
+New-AzSubDeployment -Name sub-infra-2026-06-16 -Location eastus -Mode Incremental -TemplateUri https://contoso.blob.core.windows.net/templates/create-rg.json -ParametersUri https://contoso.blob.core.windows.net/templates/create-rg.parameters.json
 ```
 
 ### Deploy a template spec
@@ -67,7 +67,7 @@ New-AzDeployment -Name sub-infra-2026-06-16 -Location eastus -Mode Incremental -
 Deploy version `1.0` of an existing template spec.
 
 ```powershell
-New-AzDeployment -Name sub-infra-spec -Location westus2 -Mode Incremental -TemplateSpecId /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0
+New-AzSubDeployment -Name sub-infra-spec -Location westus2 -Mode Incremental -TemplateSpecId /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0
 ```
 
 ## PARAMETERS
@@ -440,6 +440,6 @@ The legacy Az.Resources name `New-AzSubscriptionDeployment` and the parameter na
 
 ## RELATED LINKS
 
-- [Test-AzDeployment]()
-- [Get-AzDeployment]()
+- [Test-AzSubDeployment]()
+- [Get-AzSubDeployment]()
 - [New-AzResourceGroupDeployment]()

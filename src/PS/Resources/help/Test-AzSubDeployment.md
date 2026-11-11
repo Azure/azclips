@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
-title: Test-AzDeployment
+title: Test-AzSubDeployment
 ---
 
-# Test-AzDeployment
+# Test-AzSubDeployment
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Validate whether an ARM or Bicep template would be accepted for a subscription-s
 ### __AllParameterSets
 
 ```
-Test-AzDeployment -Name <string> -Location <string> -Mode <string> [-TemplateUri <string>]
+Test-AzSubDeployment -Name <string> -Location <string> -Mode <string> [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
  [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
  [-Parameter <string[]>] [-ValidationLevel <string>] [-SubscriptionId <string>] [-Profile <string>]
@@ -45,13 +45,13 @@ When the template is valid the validation result is returned; when it is not, th
 Validate `main.bicep` as deployment `sub-infra-2026-06-18`, and supply its parameters inline.
 
 ```powershell
-Test-AzDeployment -Name sub-infra-2026-06-18 -Location eastus -Mode Incremental -TemplateFile ./main.bicep -Parameter rgName=demo-rg, rgLocation=eastus
+Test-AzSubDeployment -Name sub-infra-2026-06-18 -Location eastus -Mode Incremental -TemplateFile ./main.bicep -Parameter rgName=demo-rg, rgLocation=eastus
 ```
 
 ### Validate a local template with a local parameters file
 
 ```powershell
-Test-AzDeployment -Name create-rg -Location eastus -Mode Incremental -TemplateFile ./create-rg.json -ParametersFile ./create-rg.parameters.json
+Test-AzSubDeployment -Name create-rg -Location eastus -Mode Incremental -TemplateFile ./create-rg.json -ParametersFile ./create-rg.parameters.json
 ```
 
 ### Validate a remote template with a remote parameters file
@@ -59,13 +59,13 @@ Test-AzDeployment -Name create-rg -Location eastus -Mode Incremental -TemplateFi
 Validate a template hosted at a URL as deployment `sub-infra-2026-06-18`.
 
 ```powershell
-Test-AzDeployment -Name sub-infra-2026-06-18 -Location eastus -Mode Incremental -TemplateUri https://contoso.blob.core.windows.net/templates/create-rg.json -ParametersUri https://contoso.blob.core.windows.net/templates/create-rg.parameters.json
+Test-AzSubDeployment -Name sub-infra-2026-06-18 -Location eastus -Mode Incremental -TemplateUri https://contoso.blob.core.windows.net/templates/create-rg.json -ParametersUri https://contoso.blob.core.windows.net/templates/create-rg.parameters.json
 ```
 
 ### Validate a template spec
 
 ```powershell
-Test-AzDeployment -Name sub-infra-spec -Location westus2 -Mode Incremental -TemplateSpecId /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0
+Test-AzSubDeployment -Name sub-infra-spec -Location westus2 -Mode Incremental -TemplateSpecId /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0
 ```
 
 ## PARAMETERS
@@ -388,13 +388,13 @@ A `DeploymentValidateResult` describing the outcome of the validation, including
 
 ## NOTES
 
-Validation is read-only: it never creates or modifies resources. A non-zero exit code means the template would be rejected. Use `New-AzDeployment` to deploy once validation passes.
+Validation is read-only: it never creates or modifies resources. A non-zero exit code means the template would be rejected. Use `New-AzSubDeployment` to deploy once validation passes.
 
 Differences from Az.Resources: on success this cmdlet returns the `DeploymentValidateResult` instead of no output, and validation failures are written to the error stream instead of the output stream. The legacy name `Test-AzSubscriptionDeployment` and the parameter names `-DeploymentName`, `-TemplateParameterFile`, and `-TemplateParameterUri` are accepted as aliases.
 
 ## RELATED LINKS
 
-- [New-AzDeployment]()
-- [Get-AzDeployment]()
+- [New-AzSubDeployment]()
+- [Get-AzSubDeployment]()
 - [Get-AzDeploymentWhatIfResult]()
 - [Test-AzResourceGroupDeployment]()

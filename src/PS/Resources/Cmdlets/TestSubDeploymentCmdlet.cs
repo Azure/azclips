@@ -9,10 +9,11 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsCommon.New, "AzDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-[Alias("New-AzSubscriptionDeployment")]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
-public class NewDeploymentCmdlet : PSCmdlet
+// Validate is read-only, so there is nothing to confirm (no SupportsShouldProcess).
+[Cmdlet(VerbsDiagnostic.Test, "AzSubDeployment")]
+[Alias("Test-AzSubscriptionDeployment")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentValidateResult")]
+public class TestSubDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -72,11 +73,6 @@ public class NewDeploymentCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        if (!ShouldProcess($"deployment '{Name}' at location '{Location}'", "Create"))
-        {
-            return;
-        }
-
         var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object> { { "Name", Name }, { "Location", Location }, { "Mode", Mode } };
@@ -127,7 +123,7 @@ public class NewDeploymentCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Resources", "New-AzDeployment", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "Test-AzSubDeployment", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

@@ -8,7 +8,7 @@ using IOPath = System.IO.Path;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>Save-AzDeploymentTemplate</c>: saves the template used for a subscription-scoped deployment
+/// <c>Save-AzSubDeploymentTemplate</c>: saves the template used for a subscription-scoped deployment
 /// to a file on disk. It is the same single ARM call as
 /// <see cref="ExportTemplateAtSubscriptionScopeDeploymentsProcessor"/> plus the local file handling
 /// that only the PowerShell surface exposes.

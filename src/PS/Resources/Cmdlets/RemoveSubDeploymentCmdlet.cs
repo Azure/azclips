@@ -9,10 +9,10 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsCommon.Remove, "AzDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = "RemoveByDeploymentName")]
+[Cmdlet(VerbsCommon.Remove, "AzSubDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium, DefaultParameterSetName = "RemoveByDeploymentName")]
 [Alias("Remove-AzSubscriptionDeployment")]
 [OutputType(typeof(bool))]
-public class RemoveDeploymentCmdlet : PSCmdlet
+public class RemoveSubDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -79,7 +79,7 @@ public class RemoveDeploymentCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Resources", "Remove-AzDeployment", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "Remove-AzSubDeployment", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

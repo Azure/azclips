@@ -16,15 +16,15 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
-* Added subscription-scope deployment cmdlets `New-AzDeployment`, `Test-AzDeployment`, `Get-AzDeployment`, `Stop-AzDeployment`, `Remove-AzDeployment`, and `Save-AzDeploymentTemplate`
+* Added subscription-scope deployment cmdlets `New-AzSubDeployment`, `Test-AzSubDeployment`, `Get-AzSubDeployment`, `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, and `Save-AzSubDeploymentTemplate`
     - Legacy `*-AzSubscriptionDeployment` and `Save-AzSubscriptionDeploymentTemplate` names are accepted as aliases
-    - `Stop-AzDeployment`, `Remove-AzDeployment`, `Get-AzDeployment`, and `Save-AzDeploymentTemplate` accept a deployment piped from `Get-AzDeployment` (`-InputObject`) and use the subscription in its `Id`; `-PassThru` on Stop/Remove outputs `true` when the cancel or delete runs
-    - `New-AzDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
-    - `New-AzDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
+    - `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, `Get-AzSubDeployment`, and `Save-AzSubDeploymentTemplate` accept a deployment piped from `Get-AzSubDeployment` (`-InputObject`) and use the subscription in its `Id`; `-PassThru` on Stop/Remove outputs `true` when the cancel or delete runs
+    - `New-AzSubDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
+    - `New-AzSubDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
 * Added `Get-AzDeploymentWhatIfResult` to preview subscription-scope deployment changes
     - The legacy `Get-AzSubscriptionDeploymentWhatIfResult` name is accepted as an alias
     - The preview always uses `Incremental` mode (no `-Mode`), `-Name` is optional, and `-ResultFormat` selects `FullResourcePayloads` or `ResourceIdOnly`
-* When `-Name` is omitted, `New-AzDeployment`, `Test-AzDeployment`, `Test-AzResourceGroupDeployment`, and `Test-AzManagementGroupDeployment` name the deployment after the template file or URI instead of a GUID
+* When `-Name` is omitted, `New-AzSubDeployment`, `Test-AzSubDeployment`, `Test-AzResourceGroupDeployment`, and `Test-AzManagementGroupDeployment` name the deployment after the template file or URI instead of a GUID
     - A GUID is still used when no template file or URI is given, or the derived name is not a valid deployment name
 
 ## Version 0.1.4

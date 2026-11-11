@@ -341,7 +341,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_newSubscriptionDeployment_PS = new(
             Name: "NewSubscriptionDeploymentProcessor_Orchestrator",
-            InvocationName: "New-AzDeployment",
+            InvocationName: "New-AzSubDeployment",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -371,7 +371,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_testSubscriptionDeployment_PS = new(
             Name: "TestSubscriptionDeploymentProcessor_Orchestrator",
-            InvocationName: "Test-AzDeployment",
+            InvocationName: "Test-AzSubDeployment",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestSubscriptionDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -431,7 +431,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_getSubscriptionDeployment_PS = new(
             Name: "GetSubscriptionDeploymentProcessor",
-            InvocationName: "Get-AzDeployment_Get",
+            InvocationName: "Get-AzSubDeployment_Get",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -445,7 +445,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_listSubscriptionDeployment_PS = new(
             Name: "ListSubscriptionDeploymentProcessor",
-            InvocationName: "Get-AzDeployment_List",
+            InvocationName: "Get-AzSubDeployment_List",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListSubscriptionDeploymentProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -458,7 +458,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_stopSubscriptionDeployment_PS = new(
             Name: "StopSubscriptionDeploymentProcessor",
-            InvocationName: "Stop-AzDeployment",
+            InvocationName: "Stop-AzSubDeployment",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopSubscriptionDeploymentProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -472,7 +472,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_removeSubscriptionDeployment_PS = new(
             Name: "RemoveSubscriptionDeploymentProcessor",
-            InvocationName: "Remove-AzDeployment",
+            InvocationName: "Remove-AzSubDeployment",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -1211,7 +1211,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_saveSubscriptionDeploymentTemplate_PS = new(
             Name: "SaveSubscriptionDeploymentTemplateProcessor_Orchestrator",
-            InvocationName: "Save-AzDeploymentTemplate",
+            InvocationName: "Save-AzSubDeploymentTemplate",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.SaveSubscriptionDeploymentTemplateProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -1255,14 +1255,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Stop-AzResourceGroupDeployment"] = s_stopResourceGroupDeployment_PS,
             ["Remove-AzResourceGroupDeployment"] = s_removeResourceGroupDeployment_PS,
             ["Save-AzResourceGroupDeploymentTemplate"] = s_saveResourceGroupDeploymentTemplate_PS,
-            ["New-AzDeployment"]         = s_newSubscriptionDeployment_PS,
-            ["Test-AzDeployment"]        = s_testSubscriptionDeployment_PS,
+            ["New-AzSubDeployment"]         = s_newSubscriptionDeployment_PS,
+            ["Test-AzSubDeployment"]        = s_testSubscriptionDeployment_PS,
             ["Get-AzDeploymentWhatIfResult"] = s_newSubscriptionDeploymentWhatIf_PS,
-            ["Get-AzDeployment_Get"]     = s_getSubscriptionDeployment_PS,
-            ["Get-AzDeployment_List"]    = s_listSubscriptionDeployment_PS,
-            ["Stop-AzDeployment"]        = s_stopSubscriptionDeployment_PS,
-            ["Remove-AzDeployment"]      = s_removeSubscriptionDeployment_PS,
-            ["Save-AzDeploymentTemplate"] = s_saveSubscriptionDeploymentTemplate_PS,
+            ["Get-AzSubDeployment_Get"]     = s_getSubscriptionDeployment_PS,
+            ["Get-AzSubDeployment_List"]    = s_listSubscriptionDeployment_PS,
+            ["Stop-AzSubDeployment"]        = s_stopSubscriptionDeployment_PS,
+            ["Remove-AzSubDeployment"]      = s_removeSubscriptionDeployment_PS,
+            ["Save-AzSubDeploymentTemplate"] = s_saveSubscriptionDeploymentTemplate_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
             ["Get-AzResourceGroupDeploymentOperation_Get"]  = s_getResourceGroupDeploymentOperation_PS,
             ["Get-AzResourceGroupDeploymentOperation_List"] = s_listResourceGroupDeploymentOperation_PS,

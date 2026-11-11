@@ -9,10 +9,10 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-[Cmdlet(VerbsCommon.Get, "AzDeployment", DefaultParameterSetName = "List")]
+[Cmdlet(VerbsCommon.Get, "AzSubDeployment", DefaultParameterSetName = "List")]
 [Alias("Get-AzSubscriptionDeployment")]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended")]
-public class GetDeploymentCmdlet : PSCmdlet
+public class GetSubDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -70,7 +70,7 @@ public class GetDeploymentCmdlet : PSCmdlet
         }
 
         // -Name is also in the default "List" set, so choose Get by the presence of a name, not by set.
-        var commandName = parameters.ContainsKey("Name") ? "Get-AzDeployment_Get" : "Get-AzDeployment_List";
+        var commandName = parameters.ContainsKey("Name") ? "Get-AzSubDeployment_Get" : "Get-AzSubDeployment_List";
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

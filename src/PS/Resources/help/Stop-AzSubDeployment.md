@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
-title: Stop-AzDeployment
+title: Stop-AzSubDeployment
 ---
 
-# Stop-AzDeployment
+# Stop-AzSubDeployment
 
 ## SYNOPSIS
 
@@ -20,14 +20,14 @@ Cancel a currently running subscription-scope deployment.
 ### StopByDeploymentName (Default)
 
 ```
-Stop-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-PassThru] [-Profile <string>]
+Stop-AzSubDeployment [-Name] <string> [-SubscriptionId <string>] [-PassThru] [-Profile <string>]
  [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### StopByInputObject
 
 ```
-Stop-AzDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
+Stop-AzSubDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -38,7 +38,7 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Cancels a running Azure Resource Manager deployment scoped to a subscription. A deployment can only be cancelled while its provisioning state is `Accepted` or `Running`; once cancelled the state becomes `Canceled`, and any resources the deployment already created remain. Cancelling a deployment that has already reached a terminal state fails. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
+Cancels a running Azure Resource Manager deployment scoped to a subscription. A deployment can only be cancelled while its provisioning state is `Accepted` or `Running`; once cancelled the state becomes `Canceled`, and any resources the deployment already created remain. Cancelling a deployment that has already reached a terminal state fails. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzSubDeployment`. The cmdlet emits nothing on success unless `-PassThru` is specified.
 
 ## EXAMPLES
 
@@ -47,19 +47,19 @@ Cancels a running Azure Resource Manager deployment scoped to a subscription. A 
 Stop the in-flight deployment named `sub-infra-2026-06-18`.
 
 ```powershell
-Stop-AzDeployment -Name sub-infra-2026-06-18
+Stop-AzSubDeployment -Name sub-infra-2026-06-18
 ```
 
 ### Cancel a deployment in a specific subscription without being prompted
 
 ```powershell
-Stop-AzDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false
+Stop-AzSubDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 -Confirm:$false
 ```
 
 ### Cancel a deployment from the pipeline
 
 ```powershell
-Get-AzDeployment -Name sub-infra-2026-06-18 | Stop-AzDeployment -PassThru
+Get-AzSubDeployment -Name sub-infra-2026-06-18 | Stop-AzSubDeployment -PassThru
 ```
 
 `-PassThru` writes `True` once the cancellation succeeds.
@@ -90,7 +90,7 @@ HelpMessage: ''
 
 ### -InputObject
 
-A deployment object returned by `Get-AzDeployment`.
+A deployment object returned by `Get-AzSubDeployment`.
 Its `Id` identifies the subscription and deployment to cancel. Accepts pipeline input.
 
 ```yaml
@@ -229,7 +229,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
+Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzSubDeployment`.
 
 ## OUTPUTS
 
@@ -240,10 +240,10 @@ Failures surface as terminating errors.
 
 ## NOTES
 
-Cancelling does not roll back resources the deployment already created. Use `Get-AzDeployment` to confirm the deployment reached the `Canceled` state. The legacy Az.Resources name `Stop-AzSubscriptionDeployment` is accepted as an alias.
+Cancelling does not roll back resources the deployment already created. Use `Get-AzSubDeployment` to confirm the deployment reached the `Canceled` state. The legacy Az.Resources name `Stop-AzSubscriptionDeployment` is accepted as an alias.
 
 ## RELATED LINKS
 
-- [Get-AzDeployment]()
-- [New-AzDeployment]()
-- [Remove-AzDeployment]()
+- [Get-AzSubDeployment]()
+- [New-AzSubDeployment]()
+- [Remove-AzSubDeployment]()

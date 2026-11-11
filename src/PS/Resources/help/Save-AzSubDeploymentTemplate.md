@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
-title: Save-AzDeploymentTemplate
+title: Save-AzSubDeploymentTemplate
 ---
 
-# Save-AzDeploymentTemplate
+# Save-AzSubDeploymentTemplate
 
 ## SYNOPSIS
 
@@ -20,14 +20,14 @@ Save the template used for a subscription-scope deployment to a file.
 ### SaveByDeploymentName (Default)
 
 ```
-Save-AzDeploymentTemplate -Name <string> [-SubscriptionId <string>] [-Path <string>] [-Force]
+Save-AzSubDeploymentTemplate -Name <string> [-SubscriptionId <string>] [-Path <string>] [-Force]
  [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### SaveByInputObject
 
 ```
-Save-AzDeploymentTemplate -InputObject <DeploymentExtended> [-Path <string>] [-Force]
+Save-AzSubDeploymentTemplate -InputObject <DeploymentExtended> [-Path <string>] [-Force]
  [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -38,9 +38,9 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Exports the Azure Resource Manager template that a subscription-scoped deployment was created from and writes it to a file on disk. The operation is read-only: it never creates or modifies resources. Azure Resource Manager returns the template exactly as it was submitted, with parameters and variables left unresolved, so the saved file can be fed straight back into `New-AzDeployment -TemplateFile`.
+Exports the Azure Resource Manager template that a subscription-scoped deployment was created from and writes it to a file on disk. The operation is read-only: it never creates or modifies resources. Azure Resource Manager returns the template exactly as it was submitted, with parameters and variables left unresolved, so the saved file can be fed straight back into `New-AzSubDeployment -TemplateFile`.
 
-The cmdlet emits an object carrying the full path of the file that was written. Exporting a deployment that does not exist fails with `DeploymentNotFound`. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzDeployment`; a piped deployment is read from the subscription in its `Id`. With `-Name`, the subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
+The cmdlet emits an object carrying the full path of the file that was written. Exporting a deployment that does not exist fails with `DeploymentNotFound`. Identify the deployment by `-Name`, or by piping a deployment object from `Get-AzSubDeployment`; a piped deployment is read from the subscription in its `Id`. With `-Name`, the subscription defaults to the active profile's subscription unless `-SubscriptionId` is supplied.
 
 `-Path` follows the same rules as the legacy cmdlet: when it names an existing directory the file is written there as `<deployment name>.json`; any other value is treated as the file itself and gains a `.json` extension when it lacks one. A relative path is resolved against the current PowerShell location, and any missing parent directories are created. When `-Path` is omitted the file is written to the current location as `<deployment name>.json`.
 
@@ -53,7 +53,7 @@ If the destination file already exists the cmdlet fails rather than overwriting 
 Writes `sub-infra-2026-06-18.json` to the current location.
 
 ```powershell
-Save-AzDeploymentTemplate -Name sub-infra-2026-06-18
+Save-AzSubDeploymentTemplate -Name sub-infra-2026-06-18
 ```
 
 ### Save a deployment template to a specific directory
@@ -61,7 +61,7 @@ Save-AzDeploymentTemplate -Name sub-infra-2026-06-18
 The directory already exists, so the file is written as `C:\templates\sub-infra-2026-06-18.json`.
 
 ```powershell
-Save-AzDeploymentTemplate -Name sub-infra-2026-06-18 -Path C:\templates
+Save-AzSubDeploymentTemplate -Name sub-infra-2026-06-18 -Path C:\templates
 ```
 
 ### Overwrite an existing file
@@ -69,7 +69,7 @@ Save-AzDeploymentTemplate -Name sub-infra-2026-06-18 -Path C:\templates
 Without `-Force` a second run against the same destination fails instead of replacing the file.
 
 ```powershell
-Save-AzDeploymentTemplate -Name sub-infra-2026-06-18 -Path .\sub-infra.json -Force
+Save-AzSubDeploymentTemplate -Name sub-infra-2026-06-18 -Path .\sub-infra.json -Force
 ```
 
 ### Save the template of a piped deployment
@@ -77,7 +77,7 @@ Save-AzDeploymentTemplate -Name sub-infra-2026-06-18 -Path .\sub-infra.json -For
 The deployment's `Id` carries its subscription, so the template is read from that subscription even when it is not the active one.
 
 ```powershell
-Get-AzDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 | Save-AzDeploymentTemplate -Path C:\templates
+Get-AzSubDeployment -Name sub-infra-2026-06-18 -SubscriptionId 00000000-0000-0000-0000-000000000000 | Save-AzSubDeploymentTemplate -Path C:\templates
 ```
 
 ## PARAMETERS
@@ -127,7 +127,7 @@ HelpMessage: ''
 
 ### -InputObject
 
-A deployment object returned by `Get-AzDeployment`.
+A deployment object returned by `Get-AzSubDeployment`.
 Its `Id` identifies the subscription and deployment whose template to save. Accepts pipeline input.
 
 ```yaml
@@ -265,7 +265,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
+Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzSubDeployment`.
 
 ### System.String
 
@@ -279,11 +279,11 @@ An object with a single `Path` property carrying the full path of the template f
 
 ## NOTES
 
-The exported template is the template as submitted, not the resolved deployment output: parameter references and variables are preserved rather than replaced with their runtime values. Use `Get-AzDeployment` to inspect the parameter values a deployment actually ran with.
+The exported template is the template as submitted, not the resolved deployment output: parameter references and variables are preserved rather than replaced with their runtime values. Use `Get-AzSubDeployment` to inspect the parameter values a deployment actually ran with.
 
 ## RELATED LINKS
 
 
-- [Get-AzDeployment]()
-- [New-AzDeployment]()
-- [Test-AzDeployment]()
+- [Get-AzSubDeployment]()
+- [New-AzSubDeployment]()
+- [Test-AzSubDeployment]()

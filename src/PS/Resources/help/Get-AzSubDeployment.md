@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
-title: Get-AzDeployment
+title: Get-AzSubDeployment
 ---
 
-# Get-AzDeployment
+# Get-AzSubDeployment
 
 ## SYNOPSIS
 
@@ -20,21 +20,21 @@ Get a single subscription-scope deployment by name, or list all deployments in a
 ### List (Default)
 
 ```
-Get-AzDeployment [[-Name] <string>] [-SubscriptionId <string>] [-Profile <string>]
+Get-AzSubDeployment [[-Name] <string>] [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzDeployment [-Name] <string> [-SubscriptionId <string>] [-Profile <string>]
+Get-AzSubDeployment [-Name] <string> [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### GetByInputObject
 
 ```
-Get-AzDeployment -InputObject <DeploymentExtended> [-Profile <string>] [<CommonParameters>]
+Get-AzSubDeployment -InputObject <DeploymentExtended> [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -53,7 +53,7 @@ Retrieves Azure Resource Manager deployments scoped to a subscription. Supply `-
 Retrieve the subscription-scope deployment named `sub-infra-2026-06-18`.
 
 ```powershell
-Get-AzDeployment -Name sub-infra-2026-06-18
+Get-AzSubDeployment -Name sub-infra-2026-06-18
 ```
 
 ### List every deployment in a subscription
@@ -61,7 +61,7 @@ Get-AzDeployment -Name sub-infra-2026-06-18
 Omit `-Name` to enumerate all subscription-scope deployments.
 
 ```powershell
-Get-AzDeployment -SubscriptionId 00000000-0000-0000-0000-000000000000
+Get-AzSubDeployment -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ### Refresh a piped deployment
@@ -69,14 +69,14 @@ Get-AzDeployment -SubscriptionId 00000000-0000-0000-0000-000000000000
 Read each listed deployment again from the subscription in its `Id`.
 
 ```powershell
-Get-AzDeployment -SubscriptionId 00000000-0000-0000-0000-000000000000 | Get-AzDeployment
+Get-AzSubDeployment -SubscriptionId 00000000-0000-0000-0000-000000000000 | Get-AzSubDeployment
 ```
 
 ## PARAMETERS
 
 ### -InputObject
 
-A deployment object returned by `Get-AzDeployment`.
+A deployment object returned by `Get-AzSubDeployment`.
 Its `Id` identifies the subscription and deployment to retrieve. Accepts pipeline input.
 
 ```yaml
@@ -183,7 +183,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
 
-Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzDeployment`.
+Accepts a subscription deployment object from the pipeline, for example the output of `Get-AzSubDeployment`.
 
 ## OUTPUTS
 
@@ -197,7 +197,7 @@ This is a read-only operation. The legacy Az.Resources name `Get-AzSubscriptionD
 
 ## RELATED LINKS
 
-- [New-AzDeployment]()
+- [New-AzSubDeployment]()
 - [Get-AzDeploymentWhatIfResult]()
-- [Stop-AzDeployment]()
-- [Remove-AzDeployment]()
+- [Stop-AzSubDeployment]()
+- [Remove-AzSubDeployment]()
