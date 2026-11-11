@@ -161,6 +161,5 @@ Differences from Az.Resources: an existing file without `-Force` raises an error
 
 ## RELATED LINKS
 
-- [Get-AzTenantDeployment]()
-- [New-AzTenantDeployment]()
-
+- [Get-AzTenantDeployment](Get-AzTenantDeployment.md)
+- [New-AzTenantDeployment](New-AzTenantDeployment.md)

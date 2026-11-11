@@ -373,7 +373,6 @@ Differences from Az.Resources: the cmdlet returns the `DeploymentExtended` model
 
 ## RELATED LINKS
 
-- [Test-AzTenantDeployment]()
-- [Get-AzTenantDeploymentWhatIfResult]()
-- [Get-AzTenantDeployment]()
-
+- [Test-AzTenantDeployment](Test-AzTenantDeployment.md)
+- [Get-AzTenantDeploymentWhatIfResult](Get-AzTenantDeploymentWhatIfResult.md)
+- [Get-AzTenantDeployment](Get-AzTenantDeployment.md)

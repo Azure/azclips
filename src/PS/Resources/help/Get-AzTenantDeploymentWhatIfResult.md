@@ -361,6 +361,5 @@ Differences from Az.Resources: the cmdlet returns the raw `WhatIfOperationResult
 
 ## RELATED LINKS
 
-- [New-AzTenantDeployment]()
-- [Test-AzTenantDeployment]()
-
+- [New-AzTenantDeployment](New-AzTenantDeployment.md)
+- [Test-AzTenantDeployment](Test-AzTenantDeployment.md)

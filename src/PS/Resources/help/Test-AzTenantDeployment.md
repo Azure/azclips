@@ -333,6 +333,5 @@ Differences from Az.Resources: validation errors raise a terminating error inste
 
 ## RELATED LINKS
 
-- [New-AzTenantDeployment]()
-- [Get-AzTenantDeploymentWhatIfResult]()
-
+- [New-AzTenantDeployment](New-AzTenantDeployment.md)
+- [Get-AzTenantDeploymentWhatIfResult](Get-AzTenantDeploymentWhatIfResult.md)

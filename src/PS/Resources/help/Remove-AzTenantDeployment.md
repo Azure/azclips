@@ -111,6 +111,5 @@ Differences from Az.Resources: the cmdlet sends the delete request directly inst
 
 ## RELATED LINKS
 
-- [Get-AzTenantDeployment]()
-- [Stop-AzTenantDeployment]()
-
+- [Get-AzTenantDeployment](Get-AzTenantDeployment.md)
+- [Stop-AzTenantDeployment](Stop-AzTenantDeployment.md)

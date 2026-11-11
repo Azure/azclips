@@ -111,6 +111,5 @@ Differences from Az.Resources: the cmdlet sends the cancel request directly and 
 
 ## RELATED LINKS
 
-- [Get-AzTenantDeployment]()
-- [Remove-AzTenantDeployment]()
-
+- [Get-AzTenantDeployment](Get-AzTenantDeployment.md)
+- [Remove-AzTenantDeployment](Remove-AzTenantDeployment.md)

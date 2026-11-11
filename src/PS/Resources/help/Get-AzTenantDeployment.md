@@ -150,7 +150,6 @@ Differences from Az.Resources: the cmdlet returns the `DeploymentExtended` model
 
 ## RELATED LINKS
 
-- [New-AzTenantDeployment]()
-- [Stop-AzTenantDeployment]()
-- [Remove-AzTenantDeployment]()
-
+- [New-AzTenantDeployment](New-AzTenantDeployment.md)
+- [Stop-AzTenantDeployment](Stop-AzTenantDeployment.md)
+- [Remove-AzTenantDeployment](Remove-AzTenantDeployment.md)
