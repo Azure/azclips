@@ -124,6 +124,97 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+
+        private static readonly CommandMetadata cliStorageDirectoryCreate = new(
+            Name: nameof(CreateDirectoryProcessor_Orchestrator),
+            InvocationName: "storage directory create",
+            Aliases: [],
+            FullName: typeof(CreateDirectoryProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(CreateDirectoryProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(CreateDirectoryProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The directory URL. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and directory path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child. The parent must exist.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata cliStorageDirectoryShow = new(
+            Name: nameof(GetPropertiesDirectoryProcessor_Orchestrator),
+            InvocationName: "storage directory show",
+            Aliases: [],
+            FullName: typeof(GetPropertiesDirectoryProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(GetPropertiesDirectoryProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(GetPropertiesDirectoryProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The directory URL. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and directory path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The share snapshot to query.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata cliStorageDirectoryList = new(
+            Name: nameof(ListFilesAndDirectoriesSegmentDirectoryProcessor),
+            InvocationName: "storage directory list",
+            Aliases: [],
+            FullName: typeof(ListFilesAndDirectoriesSegmentDirectoryProcessor).FullName!,
+            AssemblyName: typeof(ListFilesAndDirectoriesSegmentDirectoryProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(ListFilesAndDirectoriesSegmentDirectoryProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The URL of the share or directory to list. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path to list. Lists the share root when not given.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["snapshot"] = new("Sharesnapshot", "snapshot", typeof(string), "The share snapshot to list.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["prefix"] = new("Prefix", "prefix", typeof(string), "Filters the results to return only entries whose name begins with the specified prefix.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["marker"] = new("Marker", "marker", typeof(string), "An opaque string value that identifies the portion of the result set to return with this operation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["maxresults"] = new("Maxresults", "maxresults", typeof(int), "Specifies the maximum number of entries to return per page.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["include"] = new("Include", "include", typeof(string[]), "Specify to include additional, optional information.", IsRequired: false, Aliases: [], AllowedValues: ["Timestamps", "Etag", "Attributes", "PermissionKey", "Permissions", "LinkCount", "NfsAttributes", "All"]),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata cliStorageDirectoryDelete = new(
+            Name: nameof(DeleteDirectoryProcessor),
+            InvocationName: "storage directory delete",
+            Aliases: [],
+            FullName: typeof(DeleteDirectoryProcessor).FullName!,
+            AssemblyName: typeof(DeleteDirectoryProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(DeleteDirectoryProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The directory URL. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and directory path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child. The directory must be empty.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         #endregion
 
         #region Command Tables
@@ -134,7 +225,11 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             cliStorageShareShow,
             cliStorageShareList,
             cliStorageShareUpdate,
-            cliStorageShareDelete
+            cliStorageShareDelete,
+            cliStorageDirectoryCreate,
+            cliStorageDirectoryShow,
+            cliStorageDirectoryList,
+            cliStorageDirectoryDelete
         );
 
         private static Dictionary<string, CommandMetadata> BuildCommandTable(params CommandMetadata[] commands) =>
