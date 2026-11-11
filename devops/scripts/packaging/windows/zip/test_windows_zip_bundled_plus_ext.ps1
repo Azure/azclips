@@ -405,6 +405,30 @@ if (-not (Test-Path -Path $copilotExe -PathType Leaf)) {
 }
 Write-Host 'PASS: Bundled Copilot CLI found at the agent resolver path'
 
+# `az agent tool ...` loads through the CLI extension loader, which resolves
+# dependencies from the extension directory, then the CLI root. It does not
+# probe deps/ (that layout is for the azclips-agent subprocess only).
+$agentExtDir = Join-Path $installRoot 'Extensions/Microsoft.Azure.Azclips.Extensions.Agent'
+$agentDepsJson = Join-Path $agentExtDir 'Microsoft.Azure.Azclips.Extensions.Agent.deps.json'
+$agentDeps = Get-Content -Raw -Path $agentDepsJson | ConvertFrom-Json
+$missingAgentDlls = @()
+foreach ($target in $agentDeps.targets.PSObject.Properties) {
+    foreach ($lib in $target.Value.PSObject.Properties) {
+        if ($lib.Value.PSObject.Properties.Match('runtime').Count -eq 0) { continue }
+        foreach ($asset in $lib.Value.runtime.PSObject.Properties) {
+            $dllName = [System.IO.Path]::GetFileName($asset.Name)
+            if (-not (Test-Path -Path (Join-Path $agentExtDir $dllName) -PathType Leaf) -and
+                -not (Test-Path -Path (Join-Path $installRoot $dllName) -PathType Leaf)) {
+                $missingAgentDlls += "$dllName ($($lib.Name))"
+            }
+        }
+    }
+}
+if ($missingAgentDlls.Count -gt 0) {
+    throw "FAIL: Agent extension dependencies not resolvable from the extension directory or the CLI root: $($missingAgentDlls -join ', ')"
+}
+Write-Host 'PASS: every Agent extension runtime dependency is resolvable by the CLI extension loader'
+
 foreach ($legalFile in @('NOTICE', 'LICENSE')) {
     $legalPath = Join-Path $installRoot $legalFile
     if (-not (Test-Path -Path $legalPath -PathType Leaf)) {
