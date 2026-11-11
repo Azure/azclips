@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Extensions;
 using Core.Runtime;
@@ -127,6 +128,70 @@ public class RuntimeHelpDispatcherTests
             Assert.Contains("# COMMAND", output.ToString());
             Assert.Contains($"az {string.Join(" ", path)}:", output.ToString());
         }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void RenderExtensionHelp_ShouldRemainAvailable_WhenSharedCommandKeysConflict(
+        bool rootOwnerLater, bool reverseDiscovery)
+    {
+        var first = MakeInfo("A.First", ["shared item clash", "shared item alpha"]);
+        var second = MakeInfo("Z.Second", rootOwnerLater
+            ? ["shared", "SHARED item CLASH", "shared item beta"]
+            : ["SHARED item CLASH", "shared item beta"]);
+        first.Commands["shared item clash"].Parameters.Add("from-first",
+            new ParameterMetadata("First", "from-first", typeof(string), "First contributor.", false, [], []));
+        second.Commands["SHARED item CLASH"].Parameters.Add("from-second",
+            new ParameterMetadata("Second", "from-second", typeof(string), "Second contributor.", false, [], []));
+        using var output = new StringWriter();
+        var debug = new List<string>();
+        var dispatcher = CreateDispatcher(reverseDiscovery ? [second, first] : [first, second], output, debug);
+
+        Assert.Equal(0, dispatcher.RenderExtensionHelp(["shared", "item"]));
+        var help = output.ToString();
+        Assert.Contains("alpha:", help);
+        Assert.Contains("beta:", help);
+        Assert.Single(help.Split(Environment.NewLine),
+            line => line.Equals("clash:", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(debug, message => message.Contains("duplicate help command", StringComparison.OrdinalIgnoreCase));
+
+        output.GetStringBuilder().Clear();
+        Assert.Equal(0, dispatcher.RenderExtensionHelp(["shared", "item", "clash"]));
+        Assert.Contains(rootOwnerLater ? "--from-second:" : "--from-first:", output.ToString());
+        Assert.DoesNotContain(rootOwnerLater ? "--from-first:" : "--from-second:", output.ToString());
+
+        output.GetStringBuilder().Clear();
+        Assert.Equal(0, dispatcher.RenderExtensionHelp(["shared", "item", "beta"]));
+        Assert.Contains("# COMMAND", output.ToString());
+    }
+
+    [Theory]
+    [InlineData("shared blob", "Test.Blobs")]
+    [InlineData("shared blob show", "Test.Show")]
+    [InlineData("shared blob show extra", "Test.Show")]
+    [InlineData("single missing", "Test.Single")]
+    public void RenderExtensionHelp_ShouldSuggestTheMostSpecificPackage_WhenNoContributorIsInstalled(
+        string path, string expectedPackage)
+    {
+        var hints = new ExtensionHintTable
+        {
+            Leaves =
+            {
+                ["shared blob"] = new ExtensionHint { PackageId = "Test.Blobs" },
+                ["shared blob show"] = new ExtensionHint { PackageId = "Test.Show" },
+                ["single"] = new ExtensionHint { PackageId = "Test.Single" },
+            },
+        };
+        using var output = new StringWriter();
+        var dispatcher = CreateDispatcher([], output, hintTable: hints);
+
+        var error = Assert.Throws<ExtensionNotInstalledException>(() =>
+            dispatcher.RenderExtensionHelp(path.Split(' ')));
+        Assert.Equal(expectedPackage, error.PackageId);
+        Assert.Empty(output.ToString());
     }
 
     [Fact]
@@ -298,7 +363,8 @@ public class RuntimeHelpDispatcherTests
         TextWriter output,
         List<string>? debugMessages = null,
         IHelpRenderer? renderer = null,
-        CommandTimingRecorder? performance = null)
+        CommandTimingRecorder? performance = null,
+        ExtensionHintTable? hintTable = null)
     {
         var engine = new Mock<IEngine>(MockBehavior.Strict);
         engine.Setup(engine => engine.OpenDiscoverySession(
@@ -322,7 +388,7 @@ public class RuntimeHelpDispatcherTests
             WriteWarning: (_, _) => Task.CompletedTask,
             WriteError: (error, _) => throw new InvalidOperationException($"Unexpected error: {error}"),
             WriteInformation: (_, _) => Task.CompletedTask);
-        return new RuntimeHelpDispatcher(engine.Object, ExtensionHintTable.Default, renderer ?? new RuntimeHelpRenderer(), output, streams)
+        return new RuntimeHelpDispatcher(engine.Object, hintTable ?? ExtensionHintTable.Default, renderer ?? new RuntimeHelpRenderer(), output, streams)
         {
             SelectedPackageIds = () => infos.Select(info => info.PackageId).ToArray(),
             Performance = performance,

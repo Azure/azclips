@@ -125,9 +125,13 @@ public sealed class RuntimeHelpDispatcher
             }
 
             // Matches the execute-path UX in ExtensionDispatcher.Parse.
-            if (_hintTable.TryGetPackageId(verb, out var hintedPackage))
+            for (var length = path.Count - 1; length >= 0; length--)
             {
-                throw new ExtensionNotInstalledException(verb, hintedPackage);
+                var commandPath = string.Join(" ", path.Skip(1).Take(length));
+                if (_hintTable.TryGetPackageId(verb, commandPath, out var hintedPackage))
+                {
+                    throw new ExtensionNotInstalledException(verb, hintedPackage);
+                }
             }
 
             // Truly unknown verb (no install hint either). Surface as a known error so the
@@ -139,12 +143,27 @@ public sealed class RuntimeHelpDispatcher
                 details: new Dictionary<string, object?> { ["verb"] = verb });
         }
 
-        var commands = discovered
+        var contributors = discovered
             .Where(info => OwnsVerb(info, verb))
-            .SelectMany(info => info.Commands)
-            .Where(command => command.Key.Equals(verb, StringComparison.OrdinalIgnoreCase) ||
-                command.Key.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
-            .ToDictionary(command => command.Key, command => command.Value, StringComparer.OrdinalIgnoreCase);
+            .OrderByDescending(info => OwnsRootLeaf(info, verb))
+            .ThenBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
+        var commands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+        foreach (var contributor in contributors)
+        {
+            foreach (var (key, metadata) in contributor.Commands)
+            {
+                if (!key.Equals(verb, StringComparison.OrdinalIgnoreCase) &&
+                    !key.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!commands.TryAdd(key, metadata))
+                {
+                    TryWriteDebug($"RuntimeHelpDispatcher: duplicate help command '{key}' from '{contributor.PackageId}' ignored; retaining the earlier root-owner/package-id entry.");
+                }
+            }
+        }
         var helpProvider = new ExtensionIndexHelpAdapter(commands, verb);
 
         Func<IEnumerable<string>> render;
