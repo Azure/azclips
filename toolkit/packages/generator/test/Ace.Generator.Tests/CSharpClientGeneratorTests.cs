@@ -377,6 +377,36 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
+    public async Task Generate_GivesRequiredReferenceTypeParametersANonNullDefault()
+    {
+        // A required non-string reference type (bytes) gets `null!`, as models do; a value type
+        // and an optional reference type get no initializer.
+        TransformedIR ir = Ir(operations: ["list"]);
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                query: [Commands.Supplied("blockid", "BlockId"), Commands.Supplied("count", "Count"), Commands.Supplied("md5", "Md5")],
+                parameters:
+                [
+                    Commands.Parameter("BlockId", Commands.FromQuery(OperationId("p.blockid")), new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Bytes }),
+                    Commands.Parameter("Count", Commands.FromQuery(OperationId("p.count")), new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Int32 }),
+                    Commands.Parameter("Md5", Commands.FromQuery(OperationId("p.md5")), new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Bytes }, required: false),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        string processor = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains("public byte[] BlockId { get; set; } = null!;", processor);
+        Assert.Contains("public int Count { get; set; }\n", processor.ReplaceLineEndings("\n"));
+        Assert.Contains("public byte[]? Md5 { get; set; }\n", processor.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
     public async Task Generate_ListsAnEnumsValuesInTheDocOfEachMemberItTypes()
     {
         // No enum type is emitted, so the doc of each member an enum types is where its values
@@ -537,10 +567,13 @@ public sealed class CSharpClientGeneratorTests
         return match.Value;
     }
 
-    [Fact]
-    public async Task Generate_Paging_ReachesANestedItemsPropertyThroughItsContainers()
+    [Theory]
+    [InlineData(false, "=> body.Result.Value;")]
+    [InlineData(true, "=> body.Result?.Value;")]
+    public async Task Generate_Paging_ReachesANestedItemsPropertyThroughItsContainers(bool optionalContainer, string selector)
     {
-        // `via` lists the containers outermost first: the selector walks them, then the property.
+        // `via` lists the containers outermost first: the selector walks them, then the property,
+        // stepping through a container the model types as nullable with `?.`.
         IRId envelopeId = new() { Module = "Test", Name = "Envelope" };
         IRId pageId = new() { Module = "Test", Name = "Page" };
         IRId resultId = new() { Module = "Test", Name = "Envelope.result" };
@@ -560,6 +593,7 @@ public sealed class CSharpClientGeneratorTests
                         Id = resultId,
                         Name = "Result",
                         WireName = "result",
+                        Optional = optionalContainer,
                         Type = new IRTypeRefModel { Id = pageId },
                     },
                 ],
@@ -599,7 +633,7 @@ public sealed class CSharpClientGeneratorTests
 
         Assert.Empty(result.Diagnostics);
         string source = writer.Files.Source(result, "ListProcessor");
-        Assert.Contains("=> body.Result.Value;", source);
+        Assert.Contains(selector, source);
         Assert.Contains("WriteOutputWithPaginationAsync", source);
     }
 
