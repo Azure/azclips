@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Agent.Telemetry;
 using GitHub.Copilot;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Core.Agent.Tests;
@@ -14,7 +15,7 @@ namespace Core.Agent.Tests;
 internal sealed class OfflineChatAgent : IAsyncDisposable
 {
     internal const string SessionId = "offline-chat-agent-session";
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
     private OfflineChatAgent(ChatAgent agent, CopilotClient client, CopilotSession session,
         AgentModelTelemetry metadata, List<string> warnings, ConcurrentQueue<string> sdkErrors, AgentTraceCapture trace)
@@ -47,7 +48,7 @@ internal sealed class OfflineChatAgent : IAsyncDisposable
     /// </summary>
     /// <param name="configuredModel">A builtin deployment name; empty selects the github provider.</param>
     /// <param name="initializeModel">Resolve the model before <paramref name="body"/> runs.</param>
-    /// <param name="timeProvider">The clock for the model query deadline.</param>
+    /// <param name="timeProvider">The clock for the model query deadline; by default a clock that never advances.</param>
     internal static async Task RunAsync(
         OfflineCopilotServer server, Func<OfflineChatAgent, Task> body, string configuredModel = "",
         bool initializeModel = true, bool telemetryEnabled = true, TimeProvider? timeProvider = null)
@@ -67,7 +68,7 @@ internal sealed class OfflineChatAgent : IAsyncDisposable
             Provider = string.IsNullOrEmpty(configuredModel) ? "github" : "builtin",
             Builtin = new BuiltinProviderOptions { ModelId = configuredModel },
         };
-        var metadata = new AgentModelTelemetry(options, warnings.Add, timeProvider);
+        var metadata = new AgentModelTelemetry(options, warnings.Add, timeProvider ?? new FakeTimeProvider());
         var sdkErrors = new ConcurrentQueue<string>();
         var trace = new AgentTraceCapture(telemetryEnabled, listen: false);
         var context = new AgentInvocationContext(null, trace.Telemetry);

@@ -222,7 +222,7 @@ public sealed class AgentTelemetryProviderTests
                     "sdk-other" => throw new AgentSessionFailedException("unlisted-private-type", "test-only private failure"),
                     _ => Task.CompletedTask,
                 };
-            }, () => { ambientAtServiceDisposal = Activity.Current; disposed++; });
+            }, () => { ambientAtServiceDisposal = Activity.Current; disposed++; }, harness.Clock);
 
             Assert.NotNull(observedSession);
             Assert.Same(observedSession, observedCurrent);
@@ -265,7 +265,7 @@ public sealed class AgentTelemetryProviderTests
                     1 => throw new InvalidOperationException("expected offline failure"),
                     _ => Task.CompletedTask,
                 };
-            }, () => { });
+            }, () => { }, harness.Clock);
             Assert.Equal(expected, code);
             Assert.True(cleanup);
             Assert.Null(scope.FileSession.PublishedPath);

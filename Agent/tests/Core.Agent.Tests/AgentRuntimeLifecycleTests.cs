@@ -42,7 +42,7 @@ public sealed class AgentRuntimeLifecycleTests
                     session = activity;
                     return Task.CompletedTask;
                 },
-                () => { });
+                () => { }, harness.Clock);
 
             Assert.Equal(0, exitCode);
             Assert.NotNull(session);
@@ -66,7 +66,7 @@ public sealed class AgentRuntimeLifecycleTests
         await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
         {
             var scope = harness.CreateScope();
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             using var context = new AgentInvocationContext(null, scope.Telemetry, lifetime);
             var entered = Signal();
             var cancelled = Signal();
@@ -153,7 +153,7 @@ public sealed class AgentRuntimeLifecycleTests
             var scope = harness.CreateScope();
             using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
             var root = rootScope?.Activity;
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             var context = new AgentInvocationContext(root, scope.Telemetry, lifetime);
             var resource = new AgentSdkLifetime(context);
             var nestedResult = "";
@@ -264,7 +264,7 @@ public sealed class AgentRuntimeLifecycleTests
                     original = ex;
                     throw;
                 }
-            }, () => { });
+            }, () => { }, harness.Clock);
 
             Assert.Equal(1, code);
             Assert.Equal(1, server.CreateCount);
@@ -307,7 +307,7 @@ public sealed class AgentRuntimeLifecycleTests
                 if (startup.Auth is not null)
                     Assert.Equal(startup.Auth.AccessToken,
                         BuiltinProviderConfig.Build(new BuiltinProviderOptions(), BuiltinEndpointResolver.Choose(boundary: null).Url, startup.Auth.AccessToken).BearerToken);
-            }, () => { });
+            }, () => { }, harness.Clock);
 
             Assert.Equal(expectedCode, code);
             Assert.Equal(acquisitions, auth.AcquireCount);

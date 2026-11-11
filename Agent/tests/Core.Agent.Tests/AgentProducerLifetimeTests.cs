@@ -20,7 +20,7 @@ public sealed class AgentProducerLifetimeTests
         await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
         {
             var scope = harness.CreateScope();
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             using var root = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
             var callback = lifetime.TryEnterProducer();
             Assert.NotNull(callback);
@@ -173,7 +173,7 @@ public sealed class AgentProducerLifetimeTests
         await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
         {
             var scope = harness.CreateScope();
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             using var root = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
             using var cancellation = new CancellationTokenSource();
             using var release = new ManualResetEventSlim();
@@ -215,7 +215,7 @@ public sealed class AgentProducerLifetimeTests
         await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
         {
             var scope = harness.CreateScope();
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             using var root = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
             Assert.NotNull(root);
             root.Activity.SetStatus(ActivityStatusCode.Error);

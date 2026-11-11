@@ -42,7 +42,7 @@ public sealed class AgentCacheLifetimeTests
             };
             using var http = new HttpClient(new AgentOfflineHttp());
             var refresher = new ArmCacheRefresher(new NoAuthService(), profiles, http, harness.DirectoryPath);
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             refresher.AttachHostLifetime(lifetime);
             lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
             refresher.KickAsync();
@@ -99,7 +99,7 @@ public sealed class AgentCacheLifetimeTests
                 Content = new StringContent("""{"value":[],"data":[]}"""),
             })));
             var refresher = new ArmCacheRefresher(auth, profiles, http, Path.Combine(harness.DirectoryPath, "cache"));
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             refresher.AttachHostLifetime(lifetime);
             lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
             using var caller = new CancellationTokenSource();
@@ -174,7 +174,7 @@ public sealed class AgentCacheLifetimeTests
             });
             Assert.Same(actual, installed);
             Assert.False(constructedRejected);
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             installed.AttachHostLifetime(lifetime);
             lifetime.RegisterCleanup(installed.StopAndDrainAsync);
             Assert.Equal(TelemetryLayerCompletion.Published,
