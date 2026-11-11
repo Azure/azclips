@@ -604,6 +604,70 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Fact]
+    public async Task Generate_Paging_WithAContinuationToken_SetsItsParameterAndRebuildsTheRequest()
+    {
+        IRId pageId = new() { Module = "Test", Name = "Page" };
+        IRId valueId = new() { Module = "Test", Name = "Page.value" };
+        IRId markerId = new() { Module = "Test", Name = "Page.nextMarker" };
+        TransformedIR ir = Ir(operations: ["list"]);
+        ir.Models =
+        [
+            new IRModel
+            {
+                Name = "Page",
+                Source = "Test",
+                Id = pageId,
+                Properties =
+                [
+                    new IRPropertyCollection
+                    {
+                        Id = valueId,
+                        Name = "Value",
+                        WireName = "value",
+                        Type = new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String } },
+                    },
+                    new IRPropertyPrimitive
+                    {
+                        Id = markerId,
+                        Name = "NextMarker",
+                        WireName = "nextMarker",
+                        Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                    },
+                ],
+            },
+        ];
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                parameters: [Commands.Parameter("Marker", Commands.FromQuery(OperationId("p.marker")), required: false)],
+                pagination: new IRCommandPagination
+                {
+                    ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
+                    Items = new IRPropertyRef { Property = valueId, Via = [] },
+                    ContinuationToken = new IRCommandContinuationToken
+                    {
+                        Response = new IRPropertyRef { Property = markerId, Via = [] },
+                        Parameter = "Marker",
+                    },
+                },
+                surface: Commands.Surface(response: new IRTypeRefModel { Id = pageId }, paginated: true)),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+
+        Assert.Empty(result.Diagnostics);
+        string source = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains("continuationToken(Page body) => body.NextMarker;", source);
+        Assert.Contains(
+            "body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline)",
+            source);
+        Assert.DoesNotContain("nextLink", source);
+    }
+
+    [Fact]
     public async Task Generate_Paging_WithAnUnresolvableReference_DiagnosesRatherThanInventingAMember()
     {
         // A property id that names no property in the document must not be PascalCased into a

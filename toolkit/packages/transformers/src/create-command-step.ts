@@ -56,6 +56,7 @@ import {
   type IRCommand,
   type IRCommandId,
   type IRCommandPagination,
+  type IRCommandContinuationToken,
   type IRCommandParameter,
   type IRCommandResponse,
   type IRCommandStep,
@@ -284,7 +285,7 @@ function buildCommand(pass: PassContext, operation: IROperation): IRCommand | un
   const parameters = buildParameters(pass, operation);
   const request = buildRequest(pass, operation, parameters);
   const responses = operation.responses.map(toCommandResponse);
-  const pagination = buildPagination(pass, operation);
+  const pagination = buildPagination(pass, operation, parameters);
 
   const step: IRCommandStep = {
     operation: operation.id,
@@ -646,10 +647,15 @@ function toCommandResponse(response: IROperation["responses"][number]): IRComman
  * heuristic, and a fragile one now that flattening renames members. Resolving here
  * through each role's `sourcePath` property ids makes the reference exact, the same
  * way a `FlattenedMember`'s is.
+ *
+ * A declared next link wins. Otherwise a declared continuation token is resolved at
+ * both ends — the response property carrying it and the command parameter sending it
+ * back — so the generator only wires the two together.
  */
 function buildPagination(
   pass: PassContext,
   operation: IROperation,
+  parameters: readonly IRCommandParameter[],
 ): IRCommandPagination | undefined {
   const pageable = operation.semantics?.pageable;
   if (pageable === undefined) return undefined;
@@ -690,12 +696,73 @@ function buildPagination(
     return undefined;
   }
 
+  const continuationToken =
+    nextLink === undefined ? buildContinuationToken(pass, operation, envelope, parameters) : undefined;
+
   return {
     itemType: pageable.itemType,
     items,
     ...(nextLink !== undefined ? { nextLink } : {}),
     nextLinkVerb: pageable.sdk.nextLinkVerb,
+    ...(continuationToken !== undefined ? { continuationToken } : {}),
   };
+}
+
+/**
+ * Pair the response's continuation token with the request parameter that sends it back.
+ *
+ * Either end failing keeps the pagination, items only: the command still writes the
+ * first page's items, as it did before tokens were followed, rather than degrading
+ * to the envelope. Only a body-bound token resolves; a header-bound one never reaches
+ * the processor's response model.
+ */
+function buildContinuationToken(
+  pass: PassContext,
+  operation: IROperation,
+  envelope: IRModel,
+  parameters: readonly IRCommandParameter[],
+): IRCommandContinuationToken | undefined {
+  const pageable = operation.semantics?.pageable;
+  const output = pageable?.output.continuationToken;
+  if (output === undefined) return undefined;
+
+  const response = resolveSourcePath(pass, envelope, output);
+  const parameter = continuationParameter(pageable?.input.continuationToken, parameters);
+  if (response === undefined || parameter === undefined) {
+    const unresolved =
+      response === undefined
+        ? `its response token does not resolve to a body property of '${envelope.name}'`
+        : "its request token does not resolve to a string query or header parameter";
+    pass.report(
+      "warning",
+      "paging-continuation-unresolved",
+      `Operation '${operation.name}' declares a continuation token, but ${unresolved}. ` +
+        "Only the first page is written; following the token requires customization.",
+    );
+    return undefined;
+  }
+  return { response, parameter: parameter.name };
+}
+
+/** The command parameter projected from the request token's query or header binding. */
+function continuationParameter(
+  input: IRPagingProperty | undefined,
+  parameters: readonly IRCommandParameter[],
+): IRCommandParameter | undefined {
+  for (const binding of input?.bindings ?? []) {
+    if (binding.parameter === undefined) continue;
+    if (binding.location !== "query" && binding.location !== "header") continue;
+    const match = parameters.find(
+      (candidate) =>
+        (candidate.source.kind === "query" || candidate.source.kind === "header") &&
+        idEquals(candidate.source.parameter, binding.parameter!),
+    );
+    // The generated setter assigns the token as text.
+    if (match !== undefined && match.type.kind === "primitive" && match.type.name === "string") {
+      return match;
+    }
+  }
+  return undefined;
 }
 
 /** The model behind an operation's first typed success response. */

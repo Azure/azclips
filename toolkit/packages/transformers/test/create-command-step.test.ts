@@ -682,6 +682,52 @@ describe("pagination", () => {
     expect(out.commands[0]!.surface.paginated).toBe(false);
     expect(out.commands[0]!.steps[0]!.pagination).toBeUndefined();
   });
+
+  describe("continuation token", () => {
+    const markerPage = {
+      ...page,
+      properties: [
+        page.properties[0],
+        { ...page.properties[1], id: id("WidgetPage.nextMarker"), name: "NextMarker", wireName: "nextMarker" },
+      ],
+    };
+    const tokenListing = (queryParameters: Record<string, unknown>[]) => {
+      const op = listing({
+        input: {
+          continuationToken: {
+            ...pagingProperty("marker", "p.marker"),
+            bindings: [{ location: "query", path: ["marker"], parameter: id("p.marker") }],
+          },
+        },
+        output: {
+          pageItems: pagingProperty("value", "WidgetPage.value"),
+          continuationToken: pagingProperty("nextMarker", "WidgetPage.nextMarker"),
+        },
+      });
+      op["queryParameters"] = queryParameters;
+      return op;
+    };
+
+    it("pairs the response token with the command parameter that sends it back", () => {
+      const { out, diagnostics } = run(document([tokenListing([param("marker", { optional: true })])], [markerPage]));
+      const pagination = out.commands[0]!.steps[0]!.pagination;
+
+      expect(diagnostics).toEqual([]);
+      expect(pagination?.nextLink).toBeUndefined();
+      expect(pagination?.continuationToken).toEqual({
+        response: { property: id("WidgetPage.nextMarker"), via: [] },
+        parameter: "Marker",
+      });
+    });
+
+    it("keeps the first page's items when the request token has no parameter to set", () => {
+      const { out, diagnostics } = run(document([tokenListing([])], [markerPage]));
+
+      expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["paging-continuation-unresolved"]);
+      expect(out.commands[0]!.surface.paginated).toBe(true);
+      expect(out.commands[0]!.steps[0]!.pagination?.continuationToken).toBeUndefined();
+    });
+  });
 });
 
 describe("target", () => {
