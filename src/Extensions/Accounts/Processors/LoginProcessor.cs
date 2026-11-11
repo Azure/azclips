@@ -394,7 +394,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                         $"Profile '{Profile}' requires a newly issued token in '{FormatParameterName(nameof(FederatedToken), ClientType)}'.");
 
                 if (string.IsNullOrWhiteSpace(profileData.ClientId))
-                    throw AzclipsErrorException.InvalidInput($"Profile '{Profile}' is missing its service principal client ID.");
+                    throw AzclipsErrorException.InvalidInput($"Profile '{Profile}' is missing client ID for authentication with federated credentials.");
 
                 return AuthRequestFactory.CreateFederatedIdentity(profileData.ClientId, FederatedToken, profileData.TenantId);
             }
