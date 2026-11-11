@@ -23,7 +23,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         private static readonly Regex DeploymentNamePattern = new("^[-\\w\\._\\(\\)]+$", RegexOptions.Compiled);
 
         // ARM parameter entries ('value', 'reference', ...) are matched case-insensitively, as ARM does.
-        private static readonly JsonSerializerOptions ParameterJsonOptions = new() { PropertyNameCaseInsensitive = true };
+        private static readonly JsonSerializerOptions ParameterJsonOptions = new() { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
 
         public string Name { get; set; } = string.Empty;
 
