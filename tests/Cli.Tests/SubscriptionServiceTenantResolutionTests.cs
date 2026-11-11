@@ -29,6 +29,12 @@ public class SubscriptionServiceTenantResolutionTests
         // ARM answers a cross-tenant subscription request with a 401 challenge naming the real tenant.
         var service = CreateService(request =>
         {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal(
+                $"https://management.azure.com/subscriptions/{SubscriptionId}?api-version=2022-12-01",
+                request.RequestUri!.AbsoluteUri);
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            Assert.Equal("home-token", request.Headers.Authorization?.Parameter);
             Assert.True(Guid.TryParse(
                 Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName)), out _));
             var response = new HttpResponseMessage(HttpStatusCode.Unauthorized);
@@ -49,6 +55,8 @@ public class SubscriptionServiceTenantResolutionTests
         // The token already has access, so ARM returns the subscription with its owning tenant.
         var service = CreateService(request =>
         {
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            Assert.Equal("home-token", request.Headers.Authorization?.Parameter);
             Assert.True(Guid.TryParse(
                 Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName)), out _));
             return new HttpResponseMessage(HttpStatusCode.OK)

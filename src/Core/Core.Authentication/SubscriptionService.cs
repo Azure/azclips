@@ -26,10 +26,8 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
 
         while (!string.IsNullOrEmpty(uri))
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var request = ConstructRequest(HttpMethod.Get, accessToken, uri);
 
-            RequestCorrelation.EnsureClientRequestId(request);
             using var response = await httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
@@ -67,10 +65,8 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
         }
 
         var uri = $"{ArmBaseUrl}/subscriptions/{subscriptionId}?api-version={ApiVersion}";
-        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var request = ConstructRequest(HttpMethod.Get, accessToken, uri);
 
-        RequestCorrelation.EnsureClientRequestId(request);
         using var response = await httpClient.SendAsync(request, cancellationToken);
 
         // A subscription homed in a different tenant than the token yields a 401/403 challenge whose
@@ -144,11 +140,10 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
             throw new ArgumentException("Subscription ID cannot be null or empty.", nameof(subscriptionId));
         }
 
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://management.azure.com/subscriptions/{subscriptionId}?api-version={ApiVersion}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var uri = $"https://management.azure.com/subscriptions/{subscriptionId}?api-version={ApiVersion}";
+        using var request = ConstructRequest(HttpMethod.Get, accessToken, uri);
 
-        RequestCorrelation.EnsureClientRequestId(request);
-        var response = await httpClient.SendAsync(request, cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -162,6 +157,14 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
             subscription.SubscriptionId ?? throw new InvalidOperationException("Subscription ID is missing."),
             subscription.DisplayName ?? "",
             subscription.State ?? "");
+    }
+
+    private static HttpRequestMessage ConstructRequest(HttpMethod method, string accessToken, string uri)
+    {
+        var request = new HttpRequestMessage(method, uri);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        RequestCorrelation.EnsureClientRequestId(request);
+        return request;
     }
 
     private sealed class SubscriptionListResult
