@@ -21,13 +21,12 @@ Create a virtual machine with a new network interface or attach existing network
 
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
- -AdminUsername <string> -NetworkInterfaceName <string>
- [-AdminPassword <string>] [-SshKeyValues <string[]>]
- [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-OSDiskDeleteOption <string>]
- [-Image <string>] [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
- [-OSDiskSecureVMDiskEncryptionSet <string>] [-EnableSecureBoot <bool>] [-EnableVtpm <bool>]
- [-VirtualNetworkName <string>] [-SecurityGroupName <string>] [-SubnetName <string>]
- [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
+ -AdminUsername <string> -NetworkInterfaceName <string> [-SubscriptionId <string>] [-Zone <string>]
+ [-StorageSku <string>] [-OSDiskDeleteOption <string>] [-Image <string>] [-SecurityType <string>]
+ [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-AdminPassword <string>]
+ [-SshKeyValues <string[]>] [-VirtualNetworkName <string>] [-SecurityGroupName <string>]
+ [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
  [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
@@ -37,13 +36,12 @@ New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <
 
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
- -AdminUsername <string> -NetworkInterfaceId <string[]>
- [-AdminPassword <string>] [-SshKeyValues <string[]>]
- [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-OSDiskDeleteOption <string>]
- [-Image <string>] [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
- [-OSDiskSecureVMDiskEncryptionSet <string>] [-EnableSecureBoot <bool>] [-EnableVtpm <bool>]
- [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+ -AdminUsername <string> -NetworkInterfaceId <string[]> [-SubscriptionId <string>] [-Zone <string>]
+ [-StorageSku <string>] [-OSDiskDeleteOption <string>] [-Image <string>] [-SecurityType <string>]
+ [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-AdminPassword <string>]
+ [-SshKeyValues <string[]>] [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES

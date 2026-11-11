@@ -126,6 +126,61 @@ public class NewVMCmdletTests
     [Fact]
     public void SshKeyValues_AreForwardedWithoutAdminPassword()
     {
+        var captured = InvokeAndCapture(("SshKeyValues", new[] { "key-one", "key-two" }));
+
+        Assert.False(captured.Parameters.ContainsKey("AdminPassword"));
+        Assert.Equal(["key-one", "key-two"], Assert.IsType<List<string>>(captured.Parameters["SshKeyValues"]));
+    }
+
+    [Fact]
+    public void SshKeyValues_ResolveRelativeFilesFromRunspaceLocationAndPreserveInlineKeys()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"azclips-ssh-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        const string fileName = "id_test.pub";
+        const string inlineKey = "ssh-ed25519 inline-key";
+        string keyPath = Path.Combine(directory, fileName);
+        File.WriteAllText(keyPath, inlineKey);
+
+        try
+        {
+            Assert.NotEqual(Path.GetFullPath(Environment.CurrentDirectory), Path.GetFullPath(directory));
+
+            var captured = InvokeAndCapture(
+                ("RunspaceLocation", directory),
+                ("SshKeyValues", new[] { fileName, inlineKey }));
+
+            Assert.Equal([keyPath, inlineKey], Assert.IsType<List<string>>(captured.Parameters["SshKeyValues"]));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void NullSshKeyValues_AreNotForwardedWithPasswordAuthentication()
+    {
+        var captured = InvokeAndCapture(
+            ("AdminPassword", "password"),
+            ("SshKeyValues", null));
+
+        Assert.Equal("password", captured.Parameters["AdminPassword"]);
+        Assert.False(captured.Parameters.ContainsKey("SshKeyValues"));
+    }
+
+    [Fact]
+    public void OSDiskDeleteOption_PassesValueThrough()
+    {
+        var bound = Bind($"{BaseInvocation} -OSDiskDeleteOption FutureOption");
+        Assert.Equal("FutureOption", Assert.IsType<string>(bound[nameof(NewVMCmdlet.OSDiskDeleteOption)]));
+    }
+
+    private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass -NetworkInterfaceName nic";
+    private const string BaseInvocationWithoutAuthentication = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -NetworkInterfaceName nic";
+
+    private static CommandInvocation InvokeAndCapture(params (string Name, object? Value)[] additionalParameters)
+    {
         AzclipsServiceProvider.Dispose();
         var session = new Mock<ISession>();
         var engine = new Mock<IEngine>();
@@ -149,38 +204,40 @@ public class NewVMCmdletTests
             runspace.Open();
             using var shell = PowerShell.Create();
             shell.Runspace = runspace;
+
+            string? runspaceLocation = additionalParameters
+                .Where(parameter => parameter.Name == "RunspaceLocation")
+                .Select(parameter => parameter.Value as string)
+                .SingleOrDefault();
+            if (runspaceLocation is not null)
+            {
+                runspace.SessionStateProxy.Path.SetLocation(runspaceLocation);
+            }
+
             shell.AddCommand("New-AzVM")
                 .AddParameter("Name", "vm")
                 .AddParameter("Location", "eastus")
                 .AddParameter("ResourceGroupName", "rg")
                 .AddParameter("VmSize", "Standard_D2s_v3")
                 .AddParameter("AdminUsername", "azadmin")
-                .AddParameter("SshKeyValues", new[] { "key-one", "key-two" })
                 .AddParameter("NetworkInterfaceName", "nic");
+            foreach (var (name, value) in additionalParameters.Where(parameter => parameter.Name != "RunspaceLocation"))
+            {
+                shell.AddParameter(name, value);
+            }
 
             Assert.Empty(shell.Invoke());
 
             Assert.Empty(shell.Streams.Error);
             Assert.NotNull(captured);
-            Assert.False(captured.Parameters.ContainsKey("AdminPassword"));
-            Assert.Equal(["key-one", "key-two"], Assert.IsType<List<string>>(captured.Parameters["SshKeyValues"]));
             session.Verify(session => session.Run(), Times.Once);
+            return captured;
         }
         finally
         {
             AzclipsServiceProvider.Dispose();
         }
     }
-
-    [Fact]
-    public void OSDiskDeleteOption_PassesValueThrough()
-    {
-        var bound = Bind($"{BaseInvocation} -OSDiskDeleteOption FutureOption");
-        Assert.Equal("FutureOption", Assert.IsType<string>(bound[nameof(NewVMCmdlet.OSDiskDeleteOption)]));
-    }
-
-    private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass -NetworkInterfaceName nic";
-    private const string BaseInvocationWithoutAuthentication = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -NetworkInterfaceName nic";
 
     private static Hashtable Bind(string invocation)
     {
