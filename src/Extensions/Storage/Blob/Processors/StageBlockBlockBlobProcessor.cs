@@ -13,7 +13,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob.Processors;
 public partial class StageBlockBlockBlobProcessor : ProcessorBase<byte[], object>
 {
     /// <summary>A Base64 value that identifies the block. Prior to encoding, the string must be less than or equal to 64 bytes in size. For a given blob, the length of the value specified for the blockid parameter must be the same size for each block.</summary>
-    public byte[] BlockId { get; set; }
+    public byte[] BlockId { get; set; } = null!;
     /// <summary>The timeout parameter is expressed in seconds. For more information, see &lt;a href=\"https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/setting-timeouts-for-blob-service-operations\"&gt;Setting Timeouts for Blob Service Operations.&lt;/a&gt;</summary>
     public int? Timeout { get; set; }
     /// <summary>An opaque, globally-unique, client-generated string identifier for the request.</summary>

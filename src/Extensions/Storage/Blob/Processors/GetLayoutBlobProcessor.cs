@@ -81,7 +81,7 @@ public partial class GetLayoutBlobProcessor : ProcessorBase<object, BlobLayout>
             request.Headers.TryAddWithoutValidation("x-ms-encryption-algorithm", EncryptionAlgorithm);
     }
 
-    private IEnumerable<BlobLayoutRange>? pageItems(BlobLayout body) => body.Ranges.Range;
+    private IEnumerable<BlobLayoutRange>? pageItems(BlobLayout body) => body.Ranges?.Range;
     private string? continuationToken(BlobLayout body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(BlobLayout? body)
     {
