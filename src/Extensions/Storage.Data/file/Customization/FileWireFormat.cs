@@ -35,6 +35,15 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile.Processors
             }
         }
 
+        /// <summary>
+        /// <c>x-ms-copy-source</c> must be URL-encoded. <see cref="Uri.AbsoluteUri"/> escapes what needs escaping and leaves
+        /// existing escapes (and a SAS query string) as given.
+        /// </summary>
+        internal static string EncodeUrl(string url, string parameterName) =>
+            Uri.TryCreate(url, UriKind.Absolute, out Uri? uri)
+                ? uri.AbsoluteUri
+                : throw new ArgumentException($"'{url}' is not an absolute URL.", parameterName);
+
         /// <summary>Response and content headers merged; <c>Last-Modified</c> is a content header in HttpClient even with no body.</summary>
         internal static IReadOnlyDictionary<string, string> ReadHeaders(HttpResponseMessage response)
         {

@@ -215,6 +215,144 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata cliStorageFileShow = new(
+            Name: nameof(GetPropertiesFileProcessor_Orchestrator),
+            InvocationName: "storage file show",
+            Aliases: [],
+            FullName: typeof(GetPropertiesFileProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(GetPropertiesFileProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(GetPropertiesFileProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The share snapshot to query.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata cliStorageFileCreate = new(
+            Name: nameof(CreateFileProcessor_Orchestrator),
+            InvocationName: "storage file create",
+            Aliases: [],
+            FullName: typeof(CreateFileProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(CreateFileProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(CreateFileProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt. The directory must exist; an existing file is replaced.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["size"] = new("Size", "size", typeof(long), "The file size in bytes. The file is created empty, filled with zeros.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-type"] = new("ContentType", "content-type", typeof(string), "The content type of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-encoding"] = new("ContentEncoding", "content-encoding", typeof(string), "The content encoding of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-language"] = new("ContentLanguage", "content-language", typeof(string), "The content language of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-disposition"] = new("ContentDisposition", "content-disposition", typeof(string), "The content disposition of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-cache-control"] = new("CacheControl", "content-cache-control", typeof(string), "The cache control of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata cliStorageFileUpload = new(
+            Name: nameof(UploadFileProcessor_Orchestrator),
+            InvocationName: "storage file upload",
+            Aliases: [],
+            FullName: typeof(UploadFileProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(UploadFileProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(UploadFileProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The destination file path within the share, e.g. dir/file.txt. The directory must exist; an existing file is replaced.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["source"] = new("Source", "source", typeof(string), "Path of the local file to upload.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-type"] = new("ContentType", "content-type", typeof(string), "The content type of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-encoding"] = new("ContentEncoding", "content-encoding", typeof(string), "The content encoding of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-language"] = new("ContentLanguage", "content-language", typeof(string), "The content language of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-disposition"] = new("ContentDisposition", "content-disposition", typeof(string), "The content disposition of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["content-cache-control"] = new("CacheControl", "content-cache-control", typeof(string), "The cache control of the file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata cliStorageFileDownload = new(
+            Name: nameof(DownloadFileProcessor_Orchestrator),
+            InvocationName: "storage file download",
+            Aliases: [],
+            FullName: typeof(DownloadFileProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(DownloadFileProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(DownloadFileProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["dest"] = new("Destination", "dest", typeof(string), "Path of the local file to write. An existing file is not overwritten.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata cliStorageFileCopyStart = new(
+            Name: nameof(StartCopyFileProcessor_Orchestrator),
+            InvocationName: "storage file copy start",
+            Aliases: [],
+            FullName: typeof(StartCopyFileProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(StartCopyFileProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(StartCopyFileProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The destination file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The destination file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["source-uri"] = new("SourceUrl", "source-uri", typeof(string), "The source file or blob URL. It must be in the destination account or carry a SAS.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
+                ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Destination metadata in space-separated key=value pairs. The source metadata is copied when not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata cliStorageFileDelete = new(
+            Name: nameof(DeleteFileProcessor),
+            InvocationName: "storage file delete",
+            Aliases: [],
+            FullName: typeof(DeleteFileProcessor).FullName!,
+            AssemblyName: typeof(DeleteFileProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(DeleteFileProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         #endregion
 
         #region Command Tables
@@ -229,7 +367,13 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             cliStorageDirectoryCreate,
             cliStorageDirectoryShow,
             cliStorageDirectoryDelete,
-            cliStorageFileList
+            cliStorageFileList,
+            cliStorageFileShow,
+            cliStorageFileCreate,
+            cliStorageFileUpload,
+            cliStorageFileDownload,
+            cliStorageFileCopyStart,
+            cliStorageFileDelete
         );
 
         private static Dictionary<string, CommandMetadata> BuildCommandTable(params CommandMetadata[] commands) =>
