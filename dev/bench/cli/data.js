@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794441096431,
+  "lastUpdate": 1794441175335,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -26432,6 +26432,66 @@ window.BENCHMARK_DATA = {
             "value": 70982689.61149472,
             "unit": "ns",
             "range": "± 2483803.4746120614"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70da7c373c15b213999db4215c0bfc37f0528d40",
+          "message": "{Telemetry} Ensure client request correlation header in SubscriptionService (#1401)\n\nAddresses https://github.com/Azure/azclips/issues/1317\nThis change ensures that every `SubscriptionService` request path\nincludes exactly one valid x-ms-client-request-id.\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-11T22:49:25Z",
+          "tree_id": "09b99c3c43f34894600c213e01e51b63022ca6cb",
+          "url": "https://github.com/Azure/azclips/commit/70da7c373c15b213999db4215c0bfc37f0528d40"
+        },
+        "date": 1794441161790,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.SetSecret",
+            "value": 15377033.679815779,
+            "unit": "ns",
+            "range": "± 1881158.2889799823"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetSecret",
+            "value": 28692824.22935044,
+            "unit": "ns",
+            "range": "± 2041167.09145236"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListSecrets",
+            "value": 41359687.767989576,
+            "unit": "ns",
+            "range": "± 2186702.3288106583"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.CreateCertificate",
+            "value": 56385521.51984763,
+            "unit": "ns",
+            "range": "± 2156835.2894982784"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.GetCertificate",
+            "value": 66409713.12600482,
+            "unit": "ns",
+            "range": "± 1851051.839736776"
+          },
+          {
+            "name": "Benchmark.CLI.KeyVaultBenchmarks.ListCertificates",
+            "value": 78524133.45367028,
+            "unit": "ns",
+            "range": "± 2313857.5510416334"
           }
         ]
       }
