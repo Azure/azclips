@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794441211379,
+  "lastUpdate": 1794441283165,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -23840,6 +23840,60 @@ window.BENCHMARK_DATA = {
             "value": 1920038.421630094,
             "unit": "ns",
             "range": "± 45182.767543272224"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70da7c373c15b213999db4215c0bfc37f0528d40",
+          "message": "{Telemetry} Ensure client request correlation header in SubscriptionService (#1401)\n\nAddresses https://github.com/Azure/azclips/issues/1317\nThis change ensures that every `SubscriptionService` request path\nincludes exactly one valid x-ms-client-request-id.\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-11T22:49:25Z",
+          "tree_id": "09b99c3c43f34894600c213e01e51b63022ca6cb",
+          "url": "https://github.com/Azure/azclips/commit/70da7c373c15b213999db4215c0bfc37f0528d40"
+        },
+        "date": 1794441274466,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.ListFederatedIdentityCredentials",
+            "value": 2437227.1580310883,
+            "unit": "ns",
+            "range": "± 44498.04075125515"
+          },
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.CreateFederatedIdentityCredential",
+            "value": 2466906.9400428263,
+            "unit": "ns",
+            "range": "± 45267.80045248078"
+          },
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.GetFederatedIdentityCredential",
+            "value": 2407796.6233624453,
+            "unit": "ns",
+            "range": "± 49287.0824013143"
+          },
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.UpdateFederatedIdentityCredential",
+            "value": 2586464.034161491,
+            "unit": "ns",
+            "range": "± 49477.137821206095"
+          },
+          {
+            "name": "Benchmark.PS.FederatedIdentityCredentialBenchmarks.DeleteFederatedIdentityCredential",
+            "value": 1930271.5460251046,
+            "unit": "ns",
+            "range": "± 43799.41461549071"
           }
         ]
       }
