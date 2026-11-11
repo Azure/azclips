@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794387127993,
+  "lastUpdate": 1794397151797,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11426,6 +11426,48 @@ window.BENCHMARK_DATA = {
             "value": 4284385.524553113,
             "unit": "ns",
             "range": "± 76715.93845601424"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1b874733c2e00069345674e8d4fa1b0228a907d6",
+          "message": "[Compute] Add SSH keys support for PS `New-AzVM` (#1387)",
+          "timestamp": "2026-11-11T19:10:36+08:00",
+          "tree_id": "99a9a488b4bc10b2459929b187f8e19200a1817a",
+          "url": "https://github.com/Azure/azclips/commit/1b874733c2e00069345674e8d4fa1b0228a907d6"
+        },
+        "date": 1794397137652,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 4628783.958003652,
+            "unit": "ns",
+            "range": "± 146509.530588298"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 9759473.795947315,
+            "unit": "ns",
+            "range": "± 294972.34196719836"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 4691227.045678001,
+            "unit": "ns",
+            "range": "± 131652.1832429666"
           }
         ]
       }
