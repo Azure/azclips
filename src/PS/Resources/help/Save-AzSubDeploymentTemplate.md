@@ -284,6 +284,6 @@ The exported template is the template as submitted, not the resolved deployment 
 ## RELATED LINKS
 
 
-- [Get-AzSubDeployment]()
-- [New-AzSubDeployment]()
-- [Test-AzSubDeployment]()
+- [Get-AzSubDeployment](./Get-AzSubDeployment.md)
+- [New-AzSubDeployment](./New-AzSubDeployment.md)
+- [Test-AzSubDeployment](./Test-AzSubDeployment.md)

@@ -246,6 +246,6 @@ Deleting a deployment removes only the deployment record. Resources created by t
 
 ## RELATED LINKS
 
-- [Get-AzSubDeployment]()
-- [New-AzSubDeployment]()
-- [Stop-AzSubDeployment]()
+- [Get-AzSubDeployment](./Get-AzSubDeployment.md)
+- [New-AzSubDeployment](./New-AzSubDeployment.md)
+- [Stop-AzSubDeployment](./Stop-AzSubDeployment.md)

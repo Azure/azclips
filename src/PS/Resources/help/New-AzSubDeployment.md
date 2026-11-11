@@ -440,6 +440,6 @@ The legacy Az.Resources name `New-AzSubscriptionDeployment` and the parameter na
 
 ## RELATED LINKS
 
-- [Test-AzSubDeployment]()
-- [Get-AzSubDeployment]()
-- [New-AzResourceGroupDeployment]()
+- [Test-AzSubDeployment](./Test-AzSubDeployment.md)
+- [Get-AzSubDeployment](./Get-AzSubDeployment.md)
+- [New-AzResourceGroupDeployment](./New-AzResourceGroupDeployment.md)

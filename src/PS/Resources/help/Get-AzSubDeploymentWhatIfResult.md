@@ -392,6 +392,6 @@ Differences from Az.Resources: the parameters `-ExcludeChangeType`, `-TemplatePa
 
 ## RELATED LINKS
 
-- [New-AzSubDeployment]()
-- [Test-AzSubDeployment]()
-- [New-AzResourceGroupDeploymentWhatIf]()
+- [New-AzSubDeployment](./New-AzSubDeployment.md)
+- [Test-AzSubDeployment](./Test-AzSubDeployment.md)
+- [New-AzResourceGroupDeploymentWhatIf](./New-AzResourceGroupDeploymentWhatIf.md)

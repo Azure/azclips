@@ -197,7 +197,7 @@ This is a read-only operation. The legacy Az.Resources name `Get-AzSubscriptionD
 
 ## RELATED LINKS
 
-- [New-AzSubDeployment]()
-- [Get-AzSubDeploymentWhatIfResult]()
-- [Stop-AzSubDeployment]()
-- [Remove-AzSubDeployment]()
+- [New-AzSubDeployment](./New-AzSubDeployment.md)
+- [Get-AzSubDeploymentWhatIfResult](./Get-AzSubDeploymentWhatIfResult.md)
+- [Stop-AzSubDeployment](./Stop-AzSubDeployment.md)
+- [Remove-AzSubDeployment](./Remove-AzSubDeployment.md)

@@ -394,7 +394,7 @@ Differences from Az.Resources: on success this cmdlet returns the `DeploymentVal
 
 ## RELATED LINKS
 
-- [New-AzSubDeployment]()
-- [Get-AzSubDeployment]()
-- [Get-AzSubDeploymentWhatIfResult]()
-- [Test-AzResourceGroupDeployment]()
+- [New-AzSubDeployment](./New-AzSubDeployment.md)
+- [Get-AzSubDeployment](./Get-AzSubDeployment.md)
+- [Get-AzSubDeploymentWhatIfResult](./Get-AzSubDeploymentWhatIfResult.md)
+- [Test-AzResourceGroupDeployment](./Test-AzResourceGroupDeployment.md)

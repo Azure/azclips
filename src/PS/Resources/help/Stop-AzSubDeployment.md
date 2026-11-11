@@ -244,6 +244,6 @@ Cancelling does not roll back resources the deployment already created. Use `Get
 
 ## RELATED LINKS
 
-- [Get-AzSubDeployment]()
-- [New-AzSubDeployment]()
-- [Remove-AzSubDeployment]()
+- [Get-AzSubDeployment](./Get-AzSubDeployment.md)
+- [New-AzSubDeployment](./New-AzSubDeployment.md)
+- [Remove-AzSubDeployment](./Remove-AzSubDeployment.md)
