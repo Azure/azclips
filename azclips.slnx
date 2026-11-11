@@ -27,6 +27,7 @@
     <Project Path="src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
     <Project Path="src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
+    <Project Path="src/Extensions/StorageData.Blobs/Extensions.StorageData.Blobs.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />

@@ -136,6 +136,31 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
+    public void Parse_ShouldRouteStorageAndBlobCommands_ToSeparateAssemblies()
+    {
+        IExtensionIndex[] indexes =
+        [
+            new Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex(),
+            new Microsoft.Azure.Azclips.Extensions.StorageData.Blobs.ExtensionIndex(),
+        ];
+        var leaves = indexes.SelectMany(index => index.GetAllCommands(ClientType.CLI))
+            .Select(command =>
+            {
+                var tokens = command.InvocationName.Split(' ', 2);
+                return (tokens[0], tokens[1], command.AssemblyName, false, "0.1.0");
+            }).ToArray();
+        var dispatcher = CreateLeafDispatcher(leaves);
+
+        var account = dispatcher.Parse(["storage", "account", "list"]);
+        var blob = dispatcher.Parse(["storage", "blob"]);
+
+        Assert.Equal("Storage", account.ExtensionName);
+        Assert.Equal("storage account list", account.CommandName);
+        Assert.Equal("StorageData.Blobs", blob.ExtensionName);
+        Assert.Equal("storage blob", blob.CommandName);
+    }
+
+    [Fact]
     public void Parse_ShouldPreferLongerLeaf_OverShorterMatch()
     {
         // Multi-token leaf keys with positional residual binding.
