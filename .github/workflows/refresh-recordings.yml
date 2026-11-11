@@ -30,7 +30,7 @@ jobs:
 
       - name: Build and sign in
         run: |
-          dotnet build azclips.slnx
+          dotnet build azclips.slnx -p:CopilotSkipCliDownload=true
           ./artifacts/Debug/Core.Cli/az login --identity --subscription-id "${{ vars.LIVE_TEST_SUBSCRIPTION_ID }}"
 
       - name: Refresh stale recordings
