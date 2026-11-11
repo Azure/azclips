@@ -23,12 +23,12 @@ public class SaveTenantDeploymentTemplateCmdlet : TenantDeploymentCmdletBase
 
     protected override void ProcessRecord()
     {
-        // A relative path is relative to the PowerShell session's current file-system location, which can differ
-        // from the process working directory the processor would otherwise see.
+        // Resolve both explicit paths and the default location so System.IO never receives a custom PSDrive path.
         var parameters = GetBoundParameters();
-        parameters[nameof(Path)] = MyInvocation.BoundParameters.ContainsKey(nameof(Path))
-            ? GetUnresolvedProviderPathFromPSPath(Path)
-            : SessionState.Path.CurrentFileSystemLocation.Path;
+        parameters[nameof(Path)] = GetUnresolvedProviderPathFromPSPath(
+            MyInvocation.BoundParameters.ContainsKey(nameof(Path))
+                ? Path
+                : SessionState.Path.CurrentFileSystemLocation.Path);
 
         Invoke("Save-AzTenantDeploymentTemplate", parameters);
     }

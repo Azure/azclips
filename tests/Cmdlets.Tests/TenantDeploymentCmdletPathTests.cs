@@ -16,6 +16,86 @@ namespace Cmdlets.Tests;
 public class TenantDeploymentCmdletPathTests
 {
     [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, "relative")]
+    [InlineData(true, "relative")]
+    [InlineData(false, "absolute")]
+    [InlineData(true, "absolute")]
+    public void Save_ResolvesDefaultAndExplicitPathsFromFileSystemDrives(bool customDrive, string? pathKind)
+    {
+        string processDirectory = Directory.GetCurrentDirectory();
+        string directory = Path.Combine(Path.GetTempPath(), $"azclips-tenant-save-paths-{Guid.NewGuid():N}");
+        string nestedDirectory = Path.Combine(directory, "nested");
+        Directory.CreateDirectory(nestedDirectory);
+        AzclipsServiceProvider.Dispose();
+        try
+        {
+            var session = new Mock<ISession>();
+            var engine = new Mock<IEngine>();
+            CommandInvocation? captured = null;
+            engine.Setup(engine => engine.OpenExecutionSession(
+                    It.IsAny<CommandInvocation>(), It.IsAny<OutputStreams>(), It.IsAny<CancellationToken>()))
+                .Returns((CommandInvocation invocation, OutputStreams streams, CancellationToken token) =>
+                {
+                    captured = invocation;
+                    return session.Object;
+                });
+            AzclipsServiceProvider.OverrideRegistration(services =>
+            {
+                services.AddSingleton(engine.Object);
+                services.AddSingleton(Mock.Of<ITelemetryService>());
+            });
+            new AccountsModuleInitializer().OnImport();
+            var state = InitialSessionState.CreateDefault2();
+            state.Commands.Add(new SessionStateCmdletEntry("Save-AzTenantDeploymentTemplate", typeof(SaveTenantDeploymentTemplateCmdlet), null));
+            using var runspace = RunspaceFactory.CreateRunspace(state);
+            runspace.Open();
+            using var shell = PowerShell.Create();
+            shell.Runspace = runspace;
+            if (customDrive)
+            {
+                shell.AddCommand("New-PSDrive")
+                    .AddParameter("Name", "Templates")
+                    .AddParameter("PSProvider", "FileSystem")
+                    .AddParameter("Root", directory)
+                    .AddParameter("Scope", "Global")
+                    .Invoke();
+                Assert.Empty(shell.Streams.Error);
+                shell.Commands.Clear();
+            }
+            shell.AddCommand("Set-Location")
+                .AddParameter("LiteralPath", customDrive ? @"Templates:\nested" : nestedDirectory)
+                .Invoke();
+            Assert.Empty(shell.Streams.Error);
+            shell.Commands.Clear();
+            shell.AddCommand("Save-AzTenantDeploymentTemplate").AddParameter("DeploymentName", "path-regression");
+            string expectedPath = nestedDirectory;
+            if (pathKind is not null)
+            {
+                expectedPath = Path.Combine(nestedDirectory, "output.json");
+                shell.AddParameter("Path", pathKind == "relative" ? @".\output.json" : expectedPath);
+            }
+
+            Assert.Empty(shell.Invoke());
+
+            Assert.Empty(shell.Streams.Error);
+            Assert.NotNull(captured);
+            Assert.Equal("Resources", captured.ExtensionName);
+            Assert.Equal("Save-AzTenantDeploymentTemplate", captured.CommandName);
+            Assert.Equal(expectedPath, Assert.IsType<string>(captured.Parameters["Path"]));
+            Assert.Equal(processDirectory, Directory.GetCurrentDirectory());
+            session.Verify(session => session.Run(), Times.Once);
+            session.Verify(session => session.Dispose(), Times.Once);
+        }
+        finally
+        {
+            AzclipsServiceProvider.Dispose();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
     [InlineData("New-AzTenantDeployment", true, true)]
     [InlineData("New-AzTenantDeployment", true, false)]
     [InlineData("New-AzTenantDeployment", false, true)]
