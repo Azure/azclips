@@ -356,21 +356,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_getSignedInUser_CLI = new(
-            Name: "GetSignedInUserProcessor_Orchestrator",
-            InvocationName: "msgraph user signed-in",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetSignedInUserProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.GetSignedInUserProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["select"]          = new("Select", "select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["expand"]          = new("Expand", "expand", typeof(string[]), UserExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["append-selected"] = new("AppendSelected", "append-selected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
         private static readonly CommandMetadata s_listUsers_CLI = new(
             Name: "ListUserProcessor_Orchestrator",
             InvocationName: "msgraph user list",
@@ -593,7 +578,6 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
         {
             // User
             ["msgraph user show"]          = s_getUser_CLI,
-            ["msgraph user signed-in"]     = s_getSignedInUser_CLI,
             ["msgraph user list"]          = s_listUsers_CLI,
             // Group
             ["msgraph group show"]         = s_getGroup_CLI,

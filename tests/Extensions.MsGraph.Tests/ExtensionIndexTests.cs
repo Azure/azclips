@@ -35,15 +35,6 @@ public class ExtensionIndexTests
         Assert.Equal(typeof(ListUserProcessor_Orchestrator), table["msgraph user list"].ProcessorType);
     }
 
-    [Fact]
-    public void CliTable_ShouldExposeMsGraphUserSignedIn()
-    {
-        var table = s_index.GetCommandTable(ClientType.CLI);
-
-        Assert.True(table.ContainsKey("msgraph user signed-in"));
-        Assert.Equal(typeof(GetSignedInUserProcessor_Orchestrator), table["msgraph user signed-in"].ProcessorType);
-    }
-
     [Theory]
     [InlineData("Get-AzMsGraphUser_List", typeof(ListUserProcessor_Orchestrator))]
     [InlineData("Get-AzMsGraphUser_Mail", typeof(ListUserProcessor_Orchestrator))]
@@ -121,17 +112,6 @@ public class ExtensionIndexTests
         var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
 
         Assert.Equal("ConsistencyLevel", metadata.Parameters["consistency-level"].Name);
-    }
-
-    [Fact]
-    public void CliTable_SignedInParameters_ShouldExposeProjectionSurface()
-    {
-        var metadata = s_index.GetCommandMetadata("msgraph user signed-in", ClientType.CLI);
-
-        Assert.Equal(3, metadata.Parameters.Count);
-        Assert.Equal(typeof(string[]), metadata.Parameters["select"].ParameterType);
-        Assert.Equal(typeof(string[]), metadata.Parameters["expand"].ParameterType);
-        Assert.Equal(typeof(bool), metadata.Parameters["append-selected"].ParameterType);
     }
 
     [Theory]

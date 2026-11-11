@@ -7,12 +7,6 @@ online version:
 
 Description: Query Microsoft Entra directory objects — such as users, groups, and application registrations — through Microsoft Graph. Use subcommands to look up, list, check, or manage resources in the signed-in tenant.
 
-### Show the signed-in user
-
-```bash
-az msgraph user signed-in
-```
-
 ### List users in the signed-in tenant
 
 ```bash
