@@ -42,10 +42,10 @@ public partial class ListSharesSegmentServiceProcessor : ProcessorBase<object, L
     }
 
     private IEnumerable<ShareItemInternal>? pageItems(ListSharesResponse body) => body.ShareItems;
-    private string? nextLink(ListSharesResponse body) => null;
+    private string? continuationToken(ListSharesResponse body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ListSharesResponse? body)
     {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
         return true;
     }
 }

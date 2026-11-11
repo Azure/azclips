@@ -43,10 +43,10 @@ public partial class FindBlobsByTagsServiceProcessor : ProcessorBase<object, Fil
     }
 
     private IEnumerable<FilterBlobItem>? pageItems(FilteredBlobResponse body) => body.BlobItems;
-    private string? nextLink(FilteredBlobResponse body) => null;
+    private string? continuationToken(FilteredBlobResponse body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(FilteredBlobResponse? body)
     {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
         return true;
     }
 }

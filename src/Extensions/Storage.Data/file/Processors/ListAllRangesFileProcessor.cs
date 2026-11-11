@@ -57,10 +57,10 @@ public partial class ListAllRangesFileProcessor : ProcessorBase<object, ShareFil
     }
 
     private IEnumerable<FileRange>? pageItems(ShareFileRangeListSegment body) => body.Ranges;
-    private string? nextLink(ShareFileRangeListSegment body) => null;
+    private string? continuationToken(ShareFileRangeListSegment body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ShareFileRangeListSegment? body)
     {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
         return true;
     }
 }

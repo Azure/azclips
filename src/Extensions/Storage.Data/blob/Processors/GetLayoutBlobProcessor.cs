@@ -82,10 +82,10 @@ public partial class GetLayoutBlobProcessor : ProcessorBase<object, BlobLayout>
     }
 
     private IEnumerable<BlobLayoutRange>? pageItems(BlobLayout body) => body.Ranges.Range;
-    private string? nextLink(BlobLayout body) => null;
+    private string? continuationToken(BlobLayout body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(BlobLayout? body)
     {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
         return true;
     }
 }

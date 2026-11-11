@@ -43,10 +43,10 @@ public partial class ListHandlesFileProcessor : ProcessorBase<object, ListHandle
     }
 
     private IEnumerable<HandleItem>? pageItems(ListHandlesResponse body) => body.HandleList;
-    private string? nextLink(ListHandlesResponse body) => null;
+    private string? continuationToken(ListHandlesResponse body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ListHandlesResponse? body)
     {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
         return true;
     }
 }

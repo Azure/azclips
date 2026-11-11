@@ -53,10 +53,10 @@ public partial class ListBlobsContainerProcessor : ProcessorBase<object, ListBlo
     }
 
     private IEnumerable<BlobItem>? pageItems(ListBlobsResponse body) => body.BlobItems;
-    private string? nextLink(ListBlobsResponse body) => null;
+    private string? continuationToken(ListBlobsResponse body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ListBlobsResponse? body)
     {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
         return true;
     }
 }

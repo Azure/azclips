@@ -55,10 +55,10 @@ public partial class ListBlobHierarchySegmentContainerProcessor : ProcessorBase<
     }
 
     private IEnumerable<BlobItem>? pageItems(ListBlobsHierarchicalResponse body) => body.HierarchicalList.BlobItems;
-    private string? nextLink(ListBlobsHierarchicalResponse body) => null;
+    private string? continuationToken(ListBlobsHierarchicalResponse body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ListBlobsHierarchicalResponse? body)
     {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
         return true;
     }
 }

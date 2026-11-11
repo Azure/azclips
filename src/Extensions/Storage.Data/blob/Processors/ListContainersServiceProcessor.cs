@@ -44,10 +44,10 @@ public partial class ListContainersServiceProcessor : ProcessorBase<object, List
     }
 
     private IEnumerable<ContainerItem>? pageItems(ListContainersResponse body) => body.ContainerItems;
-    private string? nextLink(ListContainersResponse body) => null;
+    private string? continuationToken(ListContainersResponse body) => body.NextMarker;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ListContainersResponse? body)
     {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
+        await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline);
         return true;
     }
 }
