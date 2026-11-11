@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794365798704,
+  "lastUpdate": 1794373174567,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips PS Benchmarks": [
@@ -11342,6 +11342,48 @@ window.BENCHMARK_DATA = {
             "value": 4319265.364328328,
             "unit": "ns",
             "range": "± 72035.22214522198"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0f34f8463357d629f2ff6ba82f37fa344cb5557d",
+          "message": "{Agent} Download the Copilot CLI from the Microsoft package feed in builds (#1344)\n\n**Related command**\nN/A\n\n**Description**\nBuilding `Agent/Core.Agent.csproj` makes the `GitHub.Copilot.SDK` build\ntargets download the Copilot CLI from GitHub Releases. GitHub Releases\nhas been returning 504/503 often enough that pull requests fail at build\ntime and have to be rerun, in both GitHub Actions and Azure Pipelines.\n\nThis PR downloads the Copilot CLI from the Microsoft package feed proxy\n(CFS) instead. The same npm package (`@github/copilot-<platform>`) is\nmirrored there, and CFS is already the NuGet source in `nuget.config`,\nso every machine that can restore can reach it.\n\n- New `Agent/Targets/CopilotCli.targets`, imported by\n`Agent/Core.Agent.csproj`, runs before the SDK's download step. It\ndownloads the package from CFS, retries any failure up to 6 times 10\nseconds apart (MSBuild's `DownloadFile` does not retry 503/504), checks\nthe npm SHA-1 checksum, and unpacks it into the folder the SDK reads, so\nthe SDK does not download from GitHub.\n- If an SDK upgrade changes that folder layout and the SDK downloads\nfrom GitHub again, the build fails with a message pointing to this file.\n- Local builds use CFS too, so a CFS problem shows up locally, not only\nin CI.\n- Jobs that never start the agent skip the download with\n`-p:CopilotSkipCliDownload=true`: `help-validate` and `help-tool-tests`\nin `build-and-test.yml`, `build` in `benchmark.yml`, and `refresh` in\n`refresh-recordings.yml`.\n\nThe files placed in the build output are byte-identical to the GitHub\ndownload. Azure Pipelines definitions are not changed; their packaging\nsteps build Agent and pick this up automatically.\n\n**Testing Guide**\n- Clean build (`Agent/obj` removed): the log shows `Downloading Copilot\nCLI 1.0.83 for win32-x64 from https://packagefeedproxy.microsoft.io/npm`\nand no GitHub download; a second build downloads nothing.\n- `artifacts/Debug/Core.Agent` has the same 169 files as a build of\n`main`, and every file under `runtimes/` is byte-identical.\n- `dotnet test Agent/tests/Core.Agent.Tests`: 690 passed.\n- Linux (WSL Ubuntu): the target downloads and unpacks `linux-x64`, and\nthe SDK accepts it without downloading.\n- `dotnet publish Agent/Core.Agent.csproj -r linux-musl-arm64` downloads\n`linuxmusl-arm64` from CFS.\n- A local server returning 503 once: the download retries and succeeds.\nReturning 504 every time: it fails after 6 attempts.\n- A wrong checksum stops the build before unpacking, so the next build\ndownloads again.\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [ ] I added or updated tests for behavior changes.\n- [ ] I updated documentation when behavior, setup, support, or security\nguidance changed.",
+          "timestamp": "2026-11-11T14:56:26+11:00",
+          "tree_id": "227b459cae36cf7e388bafe35aa7dbade9f6a4e8",
+          "url": "https://github.com/Azure/azclips/commit/0f34f8463357d629f2ff6ba82f37fa344cb5557d"
+        },
+        "date": 1794373161511,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 4911388.057513163,
+            "unit": "ns",
+            "range": "± 214855.07511029128"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 9964582.465180468,
+            "unit": "ns",
+            "range": "± 199380.58109870783"
+          },
+          {
+            "name": "Benchmark.PS.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 4757540.86137392,
+            "unit": "ns",
+            "range": "± 114885.49955517308"
           }
         ]
       }
