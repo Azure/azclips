@@ -138,7 +138,7 @@ public class NewVMCmdletTests
         string directory = Path.Combine(Path.GetTempPath(), $"azclips-ssh-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         const string fileName = "id_test.pub";
-        const string inlineKey = "ssh-ed25519 inline-key";
+        const string inlineKey = "ssh-ed25519 inline-key deployment:prod";
         string keyPath = Path.Combine(directory, fileName);
         File.WriteAllText(keyPath, inlineKey);
 

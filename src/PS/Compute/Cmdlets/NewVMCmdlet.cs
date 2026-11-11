@@ -184,8 +184,15 @@ public class NewVMCmdlet : PSCmdlet
             return sshKeyValue;
         }
 
-        string resolvedPath = SessionState.Path.GetUnresolvedProviderPathFromPSPath(sshKeyValue);
-        return File.Exists(resolvedPath) ? resolvedPath : sshKeyValue;
+        try
+        {
+            string resolvedPath = SessionState.Path.GetUnresolvedProviderPathFromPSPath(sshKeyValue);
+            return File.Exists(resolvedPath) ? resolvedPath : sshKeyValue;
+        }
+        catch (System.Management.Automation.DriveNotFoundException)
+        {
+            return sshKeyValue;
+        }
     }
 
     protected override void EndProcessing()
