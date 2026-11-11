@@ -120,7 +120,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
             if (SshKeyValues.Count > 0 && !operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
             {
-                throw AzclipsErrorException.UsageError("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
+                throw AzclipsErrorException.UsageError("SSH public keys require a Linux marketplace image. Specify a Linux marketplace image URN.");
             }
 
             ResolvedLinuxProfile? linuxProfile = null;
