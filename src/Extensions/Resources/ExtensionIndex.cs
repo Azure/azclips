@@ -401,7 +401,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         );
         private static readonly CommandMetadata s_newSubscriptionDeploymentWhatIf_PS = new(
             Name: "NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
-            InvocationName: "Get-AzDeploymentWhatIfResult",
+            InvocationName: "Get-AzSubDeploymentWhatIfResult",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
@@ -1257,7 +1257,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Save-AzResourceGroupDeploymentTemplate"] = s_saveResourceGroupDeploymentTemplate_PS,
             ["New-AzSubDeployment"]         = s_newSubscriptionDeployment_PS,
             ["Test-AzSubDeployment"]        = s_testSubscriptionDeployment_PS,
-            ["Get-AzDeploymentWhatIfResult"] = s_newSubscriptionDeploymentWhatIf_PS,
+            ["Get-AzSubDeploymentWhatIfResult"] = s_newSubscriptionDeploymentWhatIf_PS,
             ["Get-AzSubDeployment_Get"]     = s_getSubscriptionDeployment_PS,
             ["Get-AzSubDeployment_List"]    = s_listSubscriptionDeployment_PS,
             ["Stop-AzSubDeployment"]        = s_stopSubscriptionDeployment_PS,

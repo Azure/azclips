@@ -11,10 +11,10 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Resources;
 
 // What-if is a read-only preview, so there is nothing to confirm (no SupportsShouldProcess).
 // As in Az.Resources, there is no -Mode: the preview always uses Incremental mode.
-[Cmdlet(VerbsCommon.Get, "AzDeploymentWhatIfResult")]
+[Cmdlet(VerbsCommon.Get, "AzSubDeploymentWhatIfResult")]
 [Alias("Get-AzSubscriptionDeploymentWhatIfResult")]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult")]
-public class GetDeploymentWhatIfResultCmdlet : PSCmdlet
+public class GetSubDeploymentWhatIfResultCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -132,7 +132,7 @@ public class GetDeploymentWhatIfResultCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Resources", "Get-AzDeploymentWhatIfResult", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "Get-AzSubDeploymentWhatIfResult", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

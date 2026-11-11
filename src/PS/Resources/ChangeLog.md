@@ -21,7 +21,7 @@
     - `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, `Get-AzSubDeployment`, and `Save-AzSubDeploymentTemplate` accept a deployment piped from `Get-AzSubDeployment` (`-InputObject`) and use the subscription in its `Id`; `-PassThru` on Stop/Remove outputs `true` when the cancel or delete runs
     - `New-AzSubDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
     - `New-AzSubDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
-* Added `Get-AzDeploymentWhatIfResult` to preview subscription-scope deployment changes
+* Added `Get-AzSubDeploymentWhatIfResult` to preview subscription-scope deployment changes
     - The legacy `Get-AzSubscriptionDeploymentWhatIfResult` name is accepted as an alias
     - The preview always uses `Incremental` mode (no `-Mode`), `-Name` is optional, and `-ResultFormat` selects `FullResourcePayloads` or `ResourceIdOnly`
 * When `-Name` is omitted, `New-AzSubDeployment`, `Test-AzSubDeployment`, `Test-AzResourceGroupDeployment`, and `Test-AzManagementGroupDeployment` name the deployment after the template file or URI instead of a GUID

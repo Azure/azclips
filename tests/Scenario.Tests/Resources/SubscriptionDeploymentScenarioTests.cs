@@ -40,7 +40,7 @@ namespace Scenario.Tests;
 /// <para>
 /// Record mode runs the CLI workflow against Azure. Playback replays the recording through the CLI and
 /// PowerShell workflows and matches request bodies, so both surfaces must bind their arguments into
-/// the same recorded requests. <c>Get-AzDeploymentWhatIfResult</c> has no -Mode, but it sends the
+/// the same recorded requests. <c>Get-AzSubDeploymentWhatIfResult</c> has no -Mode, but it sends the
 /// same Incremental mode as the CLI's what-if. <c>Save-AzSubDeploymentTemplate</c> replays the CLI
 /// export's request and writes the template to a file. The PowerShell lifecycle's delete, in-flight cancel, and
 /// in-flight delete run the real cmdlets by name, piped deployment, and -InputObject, with and without
@@ -575,7 +575,7 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         AssertValidatedLower(host.RunPowerShell("Test-AzSubDeployment", PsDeploy(DeploymentName, template)));
 
-        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(DeploymentName, template)));
+        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzSubDeploymentWhatIfResult", PsWhatIf(DeploymentName, template)));
 
         AssertDeployedLower(DeploymentName, host.RunPowerShell("New-AzSubDeployment", PsDeploy(DeploymentName, [.. template, ("ValidationLevel", "Provider")])));
 
@@ -706,7 +706,7 @@ public sealed class SubscriptionDeploymentScenarioTests
         AssertInvalidTemplate(Assert.Throws<HttpRequestException>(() => host.RunPowerShell("New-AzSubDeployment",
             PsDeploy(CreateInvalidDeploymentName, ("TemplateUri", InvalidTemplateUri)))));
 
-        AssertOperationFailed(Assert.Throws<Exception>(() => host.RunPowerShell("Get-AzDeploymentWhatIfResult",
+        AssertOperationFailed(Assert.Throws<Exception>(() => host.RunPowerShell("Get-AzSubDeploymentWhatIfResult",
             PsWhatIf(InvalidWhatIfName, ("TemplateUri", InvalidTemplateUri)))));
     }
 
@@ -718,11 +718,11 @@ public sealed class SubscriptionDeploymentScenarioTests
         AssertValidatedFromParametersUri(host.RunPowerShell("Test-AzSubDeployment", PsDeploy(
             ParamsDeploymentName, [.. template, ("ValidationLevel", "Template")])));
 
-        var full = AssertCreatesNestedGroup(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(
+        var full = AssertCreatesNestedGroup(host.RunPowerShell("Get-AzSubDeploymentWhatIfResult", PsWhatIf(
             ParamsDeploymentName, [.. template, ("ValidationLevel", "ProviderNoRbac")])));
         Assert.NotNull(full.After);
 
-        var idOnly = AssertCreatesNestedGroup(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(
+        var idOnly = AssertCreatesNestedGroup(host.RunPowerShell("Get-AzSubDeploymentWhatIfResult", PsWhatIf(
             ParamsIdsName, [.. template, ("ResultFormat", "ResourceIdOnly")])));
         Assert.Null(idOnly.After);
     }
@@ -756,7 +756,7 @@ public sealed class SubscriptionDeploymentScenarioTests
 
         AssertValidatedFromParametersUri(host.RunPowerShell("Test-AzSubDeployment", PsDeploy(SpecDeploymentName, template)));
 
-        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(SpecDeploymentName, template)));
+        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzSubDeploymentWhatIfResult", PsWhatIf(SpecDeploymentName, template)));
 
         AssertDeployedFromSpec(SpecDeploymentName, specId, host.RunPowerShell("New-AzSubDeployment", PsDeploy(SpecDeploymentName, template)));
 
@@ -869,7 +869,7 @@ public sealed class SubscriptionDeploymentScenarioTests
     {
         AssertValidatedGreeting(greeting, host.RunPowerShell("Test-AzSubDeployment", PsDeploy(name, template)));
 
-        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzDeploymentWhatIfResult", PsWhatIf(name, template)));
+        AssertNoWhatIfChanges(host.RunPowerShell("Get-AzSubDeploymentWhatIfResult", PsWhatIf(name, template)));
 
         AssertDeployedGreeting(name, greeting, host.RunPowerShell("New-AzSubDeployment", PsDeploy(name, template)));
 

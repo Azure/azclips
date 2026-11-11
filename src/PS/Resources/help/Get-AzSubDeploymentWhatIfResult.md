@@ -6,10 +6,10 @@ Locale: en-US
 Module Name: Resources
 ms.date: 10-09-2026
 PlatyPS schema version: 2024-05-01
-title: Get-AzDeploymentWhatIfResult
+title: Get-AzSubDeploymentWhatIfResult
 ---
 
-# Get-AzDeploymentWhatIfResult
+# Get-AzSubDeploymentWhatIfResult
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Preview the changes an ARM or Bicep template would make at the subscription scop
 ### __AllParameterSets
 
 ```
-Get-AzDeploymentWhatIfResult -Location <string> [-Name <string>] [-TemplateUri <string>]
+Get-AzSubDeploymentWhatIfResult -Location <string> [-Name <string>] [-TemplateUri <string>]
  [-TemplateFile <string>] [-TemplateSpecId <string>] [-TemplateObject <hashtable>]
  [-QueryString <string>] [-ParametersUri <string>] [-ParametersFile <string>]
  [-Parameter <string[]>] [-ValidationLevel <string>] [-ResultFormat <string>]
@@ -45,25 +45,25 @@ Use `-ResultFormat ResourceIdOnly` for a compact summary, or `-ResultFormat Full
 Preview the changes `main.bicep` would make, and supply its parameters inline.
 
 ```powershell
-Get-AzDeploymentWhatIfResult -Location eastus -TemplateFile ./main.bicep -Parameter rgName=demo-rg, rgLocation=eastus
+Get-AzSubDeploymentWhatIfResult -Location eastus -TemplateFile ./main.bicep -Parameter rgName=demo-rg, rgLocation=eastus
 ```
 
 ### Preview a local template with a local parameters file
 
 ```powershell
-Get-AzDeploymentWhatIfResult -Name create-rg -Location eastus -TemplateFile ./create-rg.json -ParametersFile ./create-rg.parameters.json
+Get-AzSubDeploymentWhatIfResult -Name create-rg -Location eastus -TemplateFile ./create-rg.json -ParametersFile ./create-rg.parameters.json
 ```
 
 ### Preview a remote template and return only resource IDs
 
 ```powershell
-Get-AzDeploymentWhatIfResult -Name sub-infra-2026-06-18 -Location eastus -TemplateUri https://contoso.blob.core.windows.net/templates/create-rg.json -ParametersUri https://contoso.blob.core.windows.net/templates/create-rg.parameters.json -ResultFormat ResourceIdOnly
+Get-AzSubDeploymentWhatIfResult -Name sub-infra-2026-06-18 -Location eastus -TemplateUri https://contoso.blob.core.windows.net/templates/create-rg.json -ParametersUri https://contoso.blob.core.windows.net/templates/create-rg.parameters.json -ResultFormat ResourceIdOnly
 ```
 
 ### Preview a template spec
 
 ```powershell
-Get-AzDeploymentWhatIfResult -Name sub-infra-spec -Location westus2 -TemplateSpecId /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0
+Get-AzSubDeploymentWhatIfResult -Name sub-infra-spec -Location westus2 -TemplateSpecId /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0
 ```
 
 ## PARAMETERS

@@ -7,7 +7,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>Get-AzDeploymentWhatIfResult</c> / <c>az deployment sub what-if</c>: the generated what-if
+/// <c>Get-AzSubDeploymentWhatIfResult</c> / <c>az deployment sub what-if</c>: the generated what-if
 /// call plus local template inputs. A local ARM JSON or Bicep file, a parameters or .bicepparam
 /// file, and inline parameters are turned into the inline template and parameters before the
 /// request is sent.
@@ -22,7 +22,7 @@ public class NewSubscriptionDeploymentWhatIfProcessor_Orchestrator : WhatIfAtSub
 
     protected override Task BeforeProcessAsync()
     {
-        // Get-AzDeploymentWhatIfResult has no -Mode, so no input may have created the properties
+        // Get-AzSubDeploymentWhatIfResult has no -Mode, so no input may have created the properties
         // object yet, and the flattened getters below read it without a null check.
         (Body ??= new DeploymentWhatIf()).Properties ??= new DeploymentWhatIfProperties();
         DeploymentRequestBuilder builder = new()
@@ -41,7 +41,7 @@ public class NewSubscriptionDeploymentWhatIfProcessor_Orchestrator : WhatIfAtSub
         builder.ValidateCommonInputs();
 
         DeploymentName = builder.Name;
-        // As in Az.Resources, Get-AzDeploymentWhatIfResult previews Incremental.
+        // As in Az.Resources, Get-AzSubDeploymentWhatIfResult previews Incremental.
         Mode = DeploymentRequestBuilder.ParseMode(Mode);
         Template =  builder.BuildTemplate(out TemplateLink? templateLink);
         // The flattened link setters create an empty link object even for null, and the service
