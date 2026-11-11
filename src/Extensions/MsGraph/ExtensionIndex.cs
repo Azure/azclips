@@ -289,9 +289,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ProcessorType: typeof(Processors.ListUserProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["display-name"] = new("DisplayNamePrefix", "display-name", typeof(string), UserStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["filter"]       = new("Filter", "filter", typeof(string), UserFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["upn"]          = new("UserPrincipalName", "upn", typeof(string), UserPrincipalNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["display-name"]      = new("DisplayNamePrefix", "display-name", typeof(string), UserStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["filter"]            = new("Filter", "filter", typeof(string), UserFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["upn"]               = new("UserPrincipalName", "upn", typeof(string), UserPrincipalNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -319,8 +320,9 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ProcessorType: typeof(Processors.ListGroupProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["display-name"] = new("DisplayNamePrefix", "display-name", typeof(string), GroupStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["filter"]       = new("Filter", "filter", typeof(string), GroupFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["display-name"]      = new("DisplayNamePrefix", "display-name", typeof(string), GroupStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["filter"]            = new("Filter", "filter", typeof(string), GroupFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

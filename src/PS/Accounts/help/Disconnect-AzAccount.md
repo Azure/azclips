@@ -65,10 +65,6 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
-Runs the command in a mode that only reports what would happen without performing the actions.
-Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
@@ -105,8 +101,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 This cmdlet does not emit an object on the pipeline; it only writes progress and status messages via the Information and Verbose streams.
 
 ## NOTES
-
-Generated help for login.
 
 ## RELATED LINKS
 

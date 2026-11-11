@@ -133,7 +133,7 @@ namespace Azclips.Help.Tool.Validation
             {
                 report.AddError(
                     ProblemIds.PSL12_FillPlaceholder,
-                    $"Help file contains scaffolded placeholder '{token}'. Replace with real content (parameter description, notes, or related links) before merging.",
+                    $"Help file contains scaffolded placeholder '{token}'. Replace with real content (parameter description, notes, or related links) before merging. For optional sections such as Notes, remove the placeholder if no content applies; retain the heading.",
                     $"{filePath}:{lineNumber}");
             }
 

@@ -161,8 +161,6 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
 Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
@@ -199,8 +197,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 The newly-created `ResourceGroup` object, including its ARM resource ID and provisioning state.
 
 ## NOTES
-
-Generated help for resources.
 
 ## RELATED LINKS
 
