@@ -102,7 +102,12 @@ scaffolding or refreshing help:
     no content applies; retain the heading and leave its body empty. Learn omits
     empty Notes sections. Do not substitute boilerplate such as "Generated help for ...".
 
-    RELATED LINKS is optional too. Leave it empty if no links apply. If you include
+    Use RELATED LINKS as a curated "see also" list: point readers to useful companion
+    commands or supporting guidance, such as getting a resource before updating it
+    or preparing inputs for a creation command. It need not list every sibling
+    command, and links do not have to be reciprocal.
+
+    RELATED LINKS is optional. Leave it empty if no links apply. If you include
     a Markdown link, provide a destination, for example
     `[Get-AzVM](./Get-AzVM.md)`, or remove the entry. Empty destinations such as
     `[Online Version]()` fail validation; URLs are not checked over the network.
