@@ -117,7 +117,7 @@ jobs:
         run: dotnet restore azclips.slnx
 
       - name: Build
-        run: dotnet build azclips.slnx --no-restore --configuration Debug
+        run: dotnet build azclips.slnx --no-restore --configuration Debug -p:CopilotSkipCliDownload=true
 
       - name: Validate help content
         run: |
@@ -153,7 +153,7 @@ jobs:
         run: dotnet restore azclips.slnx
 
       - name: Build solution
-        run: dotnet build azclips.slnx --no-restore --configuration Debug
+        run: dotnet build azclips.slnx --no-restore --configuration Debug -p:CopilotSkipCliDownload=true
 
       - name: Run help tool tests
         run: dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal

@@ -113,7 +113,7 @@ jobs:
           global-json-file: global.json
 
       - name: Restore + build
-        run: dotnet build azclips.slnx --configuration Release
+        run: dotnet build azclips.slnx --configuration Release -p:CopilotSkipCliDownload=true
 
       - name: Upload build outputs
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

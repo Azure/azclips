@@ -102,6 +102,16 @@ scaffolding or refreshing help:
     no content applies; retain the heading and leave its body empty. Learn omits
     empty Notes sections. Do not substitute boilerplate such as "Generated help for ...".
 
+    Use RELATED LINKS as a curated "see also" list: point readers to useful companion
+    commands or supporting guidance, such as getting a resource before updating it
+    or preparing inputs for a creation command. It need not list every sibling
+    command, and links do not have to be reciprocal.
+
+    RELATED LINKS is optional. Leave it empty if no links apply. If you include
+    a Markdown link, provide a destination, for example
+    `[Get-AzVM](./Get-AzVM.md)`, or remove the entry. Empty destinations such as
+    `[Online Version]()` fail validation; URLs are not checked over the network.
+
 3. **Validate + generate MAML:**
 
     ```powershell
@@ -287,6 +297,7 @@ Validation rules (full list, see Troubleshooting below for fixes):
 - **PSL10** — a module manifest declares `CmdletsToExport` but the module folder has no `help/` directory at all (supersedes the per-cmdlet PSL9 cascade).
 - **PSL11** — a `help/<File>.md` exists but no cmdlet of that name is exported from the manifest (warning, not error — may be in-progress work).
 - **PSL12** — a PlatyPS `{{ Fill ... }}` placeholder remains in the markdown (e.g. `{{ Fill in the Description }}`, `{{ Fill -Param Description }}`). The PlatyPS-evergreen `{{Insert list of aliases}}` boilerplate is exempt.
+- **PSL16** — a Markdown link has an empty destination. Supply a URL, relative path or fragment, or remove the entry. Optional sections can remain empty; inline code and fenced code are excluded.
 - **`PS_ExamplePlaceholder`** — an `<angle-bracket>` placeholder appears inside an example fence. PlatyPS-required `<string>`, `<CommonParameters>`, etc. inside `## SYNTAX` are not scanned. See [Placeholder rules](#placeholder-rules) below.
 
 Only fences inside `## EXAMPLES` are scanned, and only when the language tag is `powershell`, `pwsh`, `ps`, or empty. Fences in `## SYNTAX` / `## PARAMETERS` (PlatyPS pseudocode) are deliberately ignored. PSL9–PSL11 walk the manifest ↔ filesystem contract directly and don't depend on fence content.
@@ -368,7 +379,7 @@ This:
     - `MarkdownStructureValidator` — frontmatter shape.
     - `HelpCompletenessValidator` — every CLI command in `IExtensionIndex` has a markdown file.
     - `ExampleSyntaxValidator` — CLI fences resolve.
-    - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries (PSL1–PSL8, PSL12, `PS_TodoPlaceholder`, `PS_ExamplePlaceholder`).
+    - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries; prose checks catch placeholders and empty links (PSL1–PSL8, PSL12, PSL16, `PS_TodoPlaceholder`, `PS_ExamplePlaceholder`).
     - `PsCompletenessValidator` — every cmdlet in `<Module>.psd1`'s `CmdletsToExport` has a `help/<Verb-Noun>.md` file (PSL9–PSL11).
     - Emits `artifacts/help/<extension>/HelpManifest.json` and `artifacts/help/HelpIndex.json`.
 4. Runs `Import-MarkdownCommandHelp | Export-MamlCommandHelp` per module → `src/PS/<Module>/en-US/<dll>-Help.xml` (renamed from PlatyPS's default `<Module>-Help.xml` to match the `external help file:` frontmatter), then copies into the staged `artifacts/Debug/PS/<Module>/en-US/`.
