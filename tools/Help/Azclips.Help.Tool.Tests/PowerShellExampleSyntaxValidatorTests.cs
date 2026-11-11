@@ -703,7 +703,13 @@ namespace Azclips.Help.Tool.Tests
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
 
-            Assert.Equal(2, report.Errors.Count(e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder));
+            var fills = report.Errors
+                .Where(e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder)
+                .ToList();
+            Assert.Equal(2, fills.Count);
+            Assert.All(fills, error => Assert.Contains(
+                "For optional sections such as Notes, remove the placeholder if no content applies; retain the heading.",
+                error.Message));
         }
 
         [Fact]
