@@ -8,6 +8,8 @@ For extension **authoring**, see [Extension-Development-For-Private-Preview.md](
 
 An extension is a NuGet package that contributes one or more top-level command **namespaces** to `az`. For example, the Compute extension contributes `vm` and `disk`, so installing it makes `az vm list` and `az disk create` work.
 
+Multiple extensions can share a namespace as long as each complete command leaf has only one owner. Group and command help combine the contributions from all installed extensions serving that namespace. The build-time install-hint catalog likewise allows shared namespace declarations: it keeps precise command-to-package hints, but omits an ambiguous bare-group hint rather than suggesting an arbitrary package. Duplicate command leaves still fail validation.
+
 Installed extensions live under `~/.azclips/extensions/<packageId>/<version>/`. Azclips **discovers** them automatically at runtime by walking the extensions directory — no install manifest is required. User preferences (pinning, version selection) are stored in `~/.azclips/extensions/registry.json` as an optional overlay on top of discovered extensions.
 
 Extensions can also ship in the **Bundled** tier under `<install>/Extensions/` as part of the azcli install artifact. `extension`, `login`, and `config` are shipped this way in every packaging profile, so they're always present. Bundled extensions are managed by the OS-level install/uninstall of azcli itself — `az extension add/remove/update` only touch the Installed tier under `~/.azclips/extensions/`. See [extension-framework.md §2.3](../spec/extension-framework.md#23-extension-tiers) for the full write boundary.
