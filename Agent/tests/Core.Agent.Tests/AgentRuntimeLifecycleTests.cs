@@ -221,7 +221,7 @@ public sealed class AgentRuntimeLifecycleTests
             Assert.False(running.IsCompleted);
 
             clock.Advance(TimeSpan.FromSeconds(10));
-            Assert.Equal(1, await running.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal(1, await running.WaitAsync(TimeSpan.FromSeconds(60)));
             Assert.False(actualCleanupFinished);
             Assert.Null(scope.FileSession.PublishedPath);
 

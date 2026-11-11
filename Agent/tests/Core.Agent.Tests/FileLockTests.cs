@@ -79,10 +79,17 @@ public sealed class FileLockTests : IDisposable
         var wait = TimeSpan.FromMilliseconds(200);
 
         var updated = Task.Run(() => FileLock.UpdateJson(path, document => document["a"] = 1, wait, clock));
-        await clock.WaitForTimerAsync(dueTime => dueTime > TimeSpan.Zero, TestTimeout);
-        clock.Advance(wait);
+        var retryDelay = TimeSpan.FromMilliseconds(50);
+        for (var elapsed = TimeSpan.Zero; elapsed < wait; elapsed += retryDelay)
+        {
+            await clock.WaitForTimerAsync(retryDelay, TestTimeout);
+            Assert.False(updated.IsCompleted);
+            clock.Advance(retryDelay);
+        }
 
-        Assert.False(await updated.WaitAsync(TestTimeout));
+        var nextRetry = clock.WaitForTimerAsync(retryDelay, TestTimeout);
+        Assert.Same(updated, await Task.WhenAny(updated, nextRetry));
+        Assert.False(await updated);
         Assert.False(File.Exists(path));
     }
 

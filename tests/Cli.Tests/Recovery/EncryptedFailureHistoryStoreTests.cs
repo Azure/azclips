@@ -612,11 +612,17 @@ public sealed class EncryptedFailureHistoryStoreTests
         var lockTimeout = TimeSpan.FromSeconds(2);
         var store = new EncryptedFailureHistoryStore(NoKeyAccess(), new FailureHistoryFiles(scope.DirectoryPath, lockTimeout, timeProvider: clock));
         var save = store.SaveAsync(CreateRecord(), 10);
-        await clock.WaitForTimerAsync(dueTime => dueTime > TimeSpan.Zero, TimeSpan.FromSeconds(60));
-        Assert.False(save.IsCompleted);
-        clock.Advance(lockTimeout);
+        var retryDelay = TimeSpan.FromMilliseconds(50);
+        for (var elapsed = TimeSpan.Zero; elapsed < lockTimeout; elapsed += retryDelay)
+        {
+            await clock.WaitForTimerAsync(retryDelay, TimeSpan.FromSeconds(60));
+            Assert.False(save.IsCompleted);
+            clock.Advance(retryDelay);
+        }
+        var nextRetry = clock.WaitForTimerAsync(retryDelay, TimeSpan.FromSeconds(60));
+        Assert.Same(save, await Task.WhenAny(save, nextRetry));
         Assert.Equal("failure_history_locked",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => save.WaitAsync(TimeSpan.FromSeconds(60)))).Code);
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => save)).Code);
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(20));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.SaveAsync(CreateRecord(), 10, cancellation.Token));
         Assert.False(File.Exists(scope.Files.HistoryPath));
