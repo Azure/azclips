@@ -9,6 +9,8 @@ namespace Core.Runtime.Recovery;
 
 public static class PipeProcessRunner
 {
+    private static readonly TimeSpan ExitWaitAfterKill = TimeSpan.FromSeconds(5);
+
     public static async Task<int> RunAsync<T>(
         Func<string, ProcessStartInfo> createStartInfo,
         T request,
@@ -83,7 +85,14 @@ public static class PipeProcessRunner
         {
             // The child completed between checking its state and terminating it.
         }
-        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync().WaitAsync(ExitWaitAfterKill).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            // The caller rethrows the original failure whether or not the child has exited yet.
+        }
     }
 
     private static async Task ObserveClosedPipeAsync(Task operation)

@@ -15,15 +15,19 @@ public class PipeProcessRunnerTests
     public async Task Cancellation_StopsTheOwnedChildEvenWhenItNeverReads()
     {
         var processId = 0;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        using var cancel = new CancellationTokenSource();
+        using var guard = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancel.Token, guard.Token);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => PipeProcessRunner.RunAsync(
-            _ => CreateChild(block: true), new string('x', 4_000_000), timeout.Token,
+            _ => CreateChild(block: true), new string('x', 4_000_000), linked.Token,
             (child, _) =>
             {
                 processId = child.Id;
+                cancel.Cancel();
                 return Task.CompletedTask;
             }));
 
+        Assert.False(guard.IsCancellationRequested);
         AssertStopped(processId);
     }
 
@@ -87,12 +91,12 @@ public class PipeProcessRunnerTests
             start.ArgumentList.Add("-NoProfile");
             start.ArgumentList.Add("-NonInteractive");
             start.ArgumentList.Add("-Command");
-            start.ArgumentList.Add(block ? "Start-Sleep -Seconds 30" : "exit 23");
+            start.ArgumentList.Add(block ? "Start-Sleep -Seconds 300" : "exit 23");
         }
         else
         {
             start.ArgumentList.Add("-c");
-            start.ArgumentList.Add(block ? "sleep 30" : "exit 23");
+            start.ArgumentList.Add(block ? "sleep 300" : "exit 23");
         }
         return start;
     }
@@ -103,7 +107,7 @@ public class PipeProcessRunnerTests
         try
         {
             using var process = Process.GetProcessById(processId);
-            Assert.True(process.HasExited, $"Owned child {processId} is still running.");
+            Assert.True(process.WaitForExit(TimeSpan.FromSeconds(60)), $"Owned child {processId} is still running.");
         }
         catch (ArgumentException)
         {

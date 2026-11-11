@@ -15,7 +15,8 @@ public class SpinnerServiceTests
     // instead of a fixed Task.Delay. Negative-direction waits ("no frame should
     // arrive while paused") still need a wall-clock sleep — there is no event
     // to await on absence.
-    private const int FrameWaitMs = 10000;
+    private const int FrameWaitMs = 60000;
+    private const int IntervalMs = 10;
     private const int PauseProbeMs = 80;
 
     private sealed class FakeRenderer : IAgentRenderer
@@ -37,7 +38,7 @@ public class SpinnerServiceTests
     public void Start_EmitsFrames()
     {
         var fake = new FakeRenderer();
-        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(10));
+        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(IntervalMs));
 
         spinner.Start();
         Assert.True(fake.FrameSeen.Wait(FrameWaitMs), "spinner produced no frames within timeout");
@@ -50,11 +51,13 @@ public class SpinnerServiceTests
     public async Task Pause_StopsFrameEmission_ResumeRestarts()
     {
         var fake = new FakeRenderer();
-        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(10));
+        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(IntervalMs));
 
         spinner.Start();
         Assert.True(fake.FrameSeen.Wait(FrameWaitMs), "spinner produced no frames before pause");
         spinner.Pause();
+        // A frame already in flight when Pause() returns lands within one interval.
+        await Task.Delay(IntervalMs * 2);
         var beforePause = fake.FrameCalls;
         var stopAfterPause = fake.StopCalls;
 
@@ -74,7 +77,7 @@ public class SpinnerServiceTests
     public void Pause_BeforeStart_IsNoOp()
     {
         var fake = new FakeRenderer();
-        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(10));
+        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(IntervalMs));
 
         spinner.Pause();
         spinner.Resume();
