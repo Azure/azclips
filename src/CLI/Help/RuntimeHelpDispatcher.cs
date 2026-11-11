@@ -24,7 +24,7 @@ namespace Core.Cli.Help;
 /// multi-verb extensions like Compute surface as both <c>vm</c> and <c>disk</c> roots.
 /// </para>
 /// <para>
-/// <see cref="RenderExtensionHelp"/> resolves verb ownership from discovered extension metadata;
+/// <see cref="RenderExtensionHelp"/> combines verb contributions from discovered extension metadata;
 /// on a miss it consults <see cref="ExtensionHintTable.Default"/> so <c>az vm --help</c>
 /// (when Compute is uninstalled) yields a precise "install it with: az extension add --name Compute"
 /// hint instead of a bare <see cref="KeyNotFoundException"/>.
@@ -115,7 +115,7 @@ public sealed class RuntimeHelpDispatcher
 
         var discovered = DiscoverInstalledExtensions();
         using var projection = Performance?.MeasureLocal("Help projection/render/output");
-        if (!TryResolveExtension(discovered, verb, out var extensionInfo))
+        if (!TryResolveExtension(discovered, verb, out _))
         {
             // Intrinsic host verbs (e.g. `version`) are not owned by any installed extension, but
             // their help still lives in the markdown corpus so `az <verb> --help` keeps working.
@@ -139,7 +139,13 @@ public sealed class RuntimeHelpDispatcher
                 details: new Dictionary<string, object?> { ["verb"] = verb });
         }
 
-        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, verb);
+        var commands = discovered
+            .Where(info => OwnsVerb(info, verb))
+            .SelectMany(info => info.Commands)
+            .Where(command => command.Key.Equals(verb, StringComparison.OrdinalIgnoreCase) ||
+                command.Key.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(command => command.Key, command => command.Value, StringComparer.OrdinalIgnoreCase);
+        var helpProvider = new ExtensionIndexHelpAdapter(commands, verb);
 
         Func<IEnumerable<string>> render;
         if (isCommandHelp)

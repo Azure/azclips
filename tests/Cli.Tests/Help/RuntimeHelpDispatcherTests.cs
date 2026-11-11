@@ -108,6 +108,28 @@ public class RuntimeHelpDispatcherTests
     }
 
     [Fact]
+    public void RenderExtensionHelp_ShouldCombineSharedGroupContributions_AndResolveEachCommand()
+    {
+        var storage = MakeInfo("A.Storage", ["storage account list", "other show"]);
+        var blobs = MakeInfo("Z.StorageData.Blobs", ["STORAGE blob"]);
+        using var output = new StringWriter();
+        var dispatcher = CreateDispatcher([blobs, storage], output);
+
+        Assert.Equal(0, dispatcher.RenderExtensionHelp(["storage"]));
+        Assert.Contains("account", output.ToString());
+        Assert.Contains("blob", output.ToString());
+        Assert.DoesNotContain("other", output.ToString());
+
+        foreach (var path in new[] { new[] { "storage", "account", "list" }, new[] { "storage", "blob" } })
+        {
+            output.GetStringBuilder().Clear();
+            Assert.Equal(0, dispatcher.RenderExtensionHelp(path));
+            Assert.Contains("# COMMAND", output.ToString());
+            Assert.Contains($"az {string.Join(" ", path)}:", output.ToString());
+        }
+    }
+
+    [Fact]
     public void TryResolveExtensionCore_ShouldPreferRootLeafOwner_WhenMultipleExtensionsShareVerb()
     {
         // Root-leaf owner sorts later by PackageId; without the root-leaf preference the wrong
