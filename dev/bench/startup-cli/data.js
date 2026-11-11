@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794373428557,
+  "lastUpdate": 1794441403170,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -7392,6 +7392,48 @@ window.BENCHMARK_DATA = {
             "value": 260332907.94,
             "unit": "ns",
             "range": "± 6760849.450991078"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70da7c373c15b213999db4215c0bfc37f0528d40",
+          "message": "{Telemetry} Ensure client request correlation header in SubscriptionService (#1401)\n\nAddresses https://github.com/Azure/azclips/issues/1317\nThis change ensures that every `SubscriptionService` request path\nincludes exactly one valid x-ms-client-request-id.\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-11T22:49:25Z",
+          "tree_id": "09b99c3c43f34894600c213e01e51b63022ca6cb",
+          "url": "https://github.com/Azure/azclips/commit/70da7c373c15b213999db4215c0bfc37f0528d40"
+        },
+        "date": 1794441392773,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Config",
+            "value": 246262079.47,
+            "unit": "ns",
+            "range": "± 3574485.9575437955"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Login",
+            "value": 261544338.86,
+            "unit": "ns",
+            "range": "± 2806849.41331851"
+          },
+          {
+            "name": "Benchmark.Startup.CliWarmStartupBenchmarks.Extension",
+            "value": 245213873.99,
+            "unit": "ns",
+            "range": "± 3497244.337799499"
           }
         ]
       }
