@@ -21,6 +21,9 @@ public class NewSubscriptionDeploymentProcessor_Orchestrator : CreateOrUpdateAtS
 
     protected override Task BeforeProcessAsync()
     {
+        // Without -Mode or a template link, no input has created the properties object yet, and the
+        // flattened getters below read it without a null check.
+        (Body ??= new Deployment()).Properties ??= new DeploymentProperties();
         DeploymentRequestBuilder builder = new()
         {
             Name = DeploymentName,
