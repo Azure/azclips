@@ -23,10 +23,10 @@ Get deployments at tenant scope.
 Get-AzTenantDeployment [[-Name] <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
-### GetByDeploymentId
+### ListByFilter
 
 ```
-Get-AzTenantDeployment -Id <string> [-Profile <string>] [<CommonParameters>]
+Get-AzTenantDeployment -Filter <string> [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -35,8 +35,9 @@ This cmdlet has no aliases.
 
 ## DESCRIPTION
 
-Gets a deployment at the current tenant scope by name or resource ID, mirroring legacy `Get-AzTenantDeployment`.
-Omit `-Name` and `-Id` to list all deployments at tenant scope.
+Gets a deployment at the current tenant scope by name, mirroring legacy `Get-AzTenantDeployment`.
+Omit `-Name` to list all deployments at tenant scope.
+Use `-Filter` to send an OData filter to the tenant deployment list API. `-Filter` cannot be combined with `-Name`.
 
 ## EXAMPLES
 
@@ -56,29 +57,25 @@ Get a single deployment at tenant scope.
 Get-AzTenantDeployment -Name tenantBaseline
 ```
 
-### Example 3: Get a tenant deployment by resource ID
-
-Get a deployment by its fully qualified resource ID.
+### Example 3: List successful tenant deployments
 
 ```powershell
-Get-AzTenantDeployment -Id /providers/Microsoft.Resources/deployments/tenantBaseline
+Get-AzTenantDeployment -Filter "provisioningState eq 'Succeeded'"
 ```
 
 ## PARAMETERS
 
-### -Id
+### -Filter
 
-The fully qualified resource Id of the deployment. example: /providers/Microsoft.Resources/deployments/{deploymentName}
+An OData filter sent to ARM, for example `provisioningState eq 'Succeeded'`.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- DeploymentId
-- ResourceId
+Aliases: []
 ParameterSets:
-- Name: GetByDeploymentId
+- Name: ListByFilter
   Position: Named
   IsRequired: true
   ValueFromPipeline: false

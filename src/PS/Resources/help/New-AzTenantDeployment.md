@@ -20,23 +20,22 @@ Deploy an ARM or Bicep template at tenant scope.
 ### __AllParameterSets
 
 ```
-New-AzTenantDeployment -Location <string> [-Name <string>] [-TemplateObject <hashtable>]
- [-ParametersUri <string>] [-ParametersFile <string>] [-Tag <hashtable>]
- [-DeploymentDebugLogLevel <string>] [-WhatIfResultFormat <string>]
- [-WhatIfExcludeChangeType <string[]>] [-ProceedIfNoChange] [-TemplateUri <string>]
- [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>] [-Parameter <string[]>]
- [-ValidationLevel <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+New-AzTenantDeployment -Location <string> [-Name <string>] [-ParametersUri <string>]
+ [-ParametersFile <string>] [-WhatIfResultFormat <string>] [-WhatIfExcludeChangeType <string[]>]
+ [-TemplateUri <string>] [-TemplateFile <string>] [-TemplateSpecId <string>] [-QueryString <string>]
+ [-Parameter <string[]>] [-ValidationLevel <string>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
 
 ## DESCRIPTION
 
-Validates and then submits a deployment at tenant scope using an ARM/Bicep template supplied inline (`-TemplateFile` or `-TemplateObject`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`. Required template parameters without a default value must be supplied; the cmdlet reports missing ones instead of prompting.
+Validates and then submits a deployment at tenant scope using an ARM/Bicep template supplied inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Supply exactly one template source, or use a `.bicepparam` file with `-ParametersFile` that references its template. Template parameters can be supplied with `-ParametersFile`, `-ParametersUri`, or `-Parameter`. Required template parameters without a default value must be supplied; the cmdlet reports missing ones instead of prompting.
 When `-Name` is omitted, the deployment is named after the template file, else the template URI file name, else a new GUID.
-The cmdlet waits for the deployment to finish and returns the final deployment. If the deployment fails, the error lists up to three failed operation errors and the correlation ID.
+The cmdlet waits for the deployment to finish and returns the final deployment.
 Like the legacy cmdlet, tenant deployments always use `Incremental` mode.
-`-WhatIf` runs a what-if operation and shows its change report instead of deploying. `-Confirm` shows the same report and asks before deploying.
+`-WhatIf` runs a what-if operation and returns its structured result instead of deploying.
 
 ## EXAMPLES
 
@@ -92,27 +91,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -DeploymentDebugLogLevel
-
-The deployment debug log level: `All`, `RequestContent`, `ResponseContent`, or `None`. ARM logs the selected request and/or response content of the deployment. The cmdlet warns that this content, which may include secrets, becomes readable through the deployment operations.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -Location
 
 The Azure location where the deployment metadata is stored.
@@ -142,7 +120,8 @@ The name of the deployment. Used to track and reference the deployment in deploy
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DeploymentName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -184,8 +163,7 @@ Path to a local parameters file (`*.json` or `*.bicepparam`). A `.bicepparam` fi
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- TemplateParameterFile
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -204,28 +182,6 @@ URI of a remote JSON parameters file (for example, a blob URL). Include any requ
 
 ```yaml
 Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- TemplateParameterUri
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -ProceedIfNoChange
-
-With `-Confirm`, deploy without asking when the what-if reports only `NoChange` or `Ignore` changes. The what-if report is still written to the host.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -283,54 +239,12 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Tag
-
-Tags to put on the deployment, as a hash table of name/value pairs, for example `@{ env = 'prod' }`.
-
-```yaml
-Type: System.Collections.Hashtable
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -TemplateFile
 
 Path to a local ARM JSON or Bicep template file. Bicep files require the Bicep CLI.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -TemplateObject
-
-A hash table which represents the template.
-
-```yaml
-Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -433,7 +347,7 @@ HelpMessage: ''
 
 ### -WhatIfExcludeChangeType
 
-Change types to leave out of the what-if report shown by `-WhatIf` or `-Confirm`, for example `NoChange`, `Ignore`.
+Change types to leave out of the what-if result returned by `-WhatIf`, for example `NoChange`, `Ignore`.
 
 ```yaml
 Type: System.String[]
@@ -454,7 +368,7 @@ HelpMessage: ''
 
 ### -WhatIfResultFormat
 
-The what-if result format used by `-WhatIf` or `-Confirm`: `FullResourcePayloads` (default) or `ResourceIdOnly`.
+The what-if result format used by `-WhatIf`: `FullResourcePayloads` (default) or `ResourceIdOnly`.
 
 ```yaml
 Type: System.String
@@ -488,11 +402,15 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 The completed `DeploymentExtended` object containing the deployment name, provisioning state, outputs declared by the template, and correlation ID.
 
+### Microsoft.Azure.Azclips.Extensions.Resources.Models.WhatIfOperationResult
+
+With `-WhatIf`, returns the structured result with `Status` and predicted resource changes in `Changes`, without deploying.
+
 ## NOTES
 
 The deployment is validated first; a validation failure stops the cmdlet before anything is deployed.
 
-Differences from Az.Resources: the cmdlet returns the `DeploymentExtended` model instead of `PSDeployment`. Template parameters are passed with `-Parameter`, `-ParametersFile`, or `-ParametersUri` instead of dynamic parameters or `-TemplateParameterObject`. The legacy parameter names `-TemplateParameterFile` and `-TemplateParameterUri` are accepted as aliases. `-AsJob`, `-SkipTemplateParameterPrompt`, and `-Pre` are not supported.
+Differences from Az.Resources: the cmdlet returns the `DeploymentExtended` model instead of `PSDeployment`. Template parameters are passed with `-Parameter`, `-ParametersFile`, or `-ParametersUri` instead of dynamic parameters or `-TemplateParameterObject`. `-AsJob`, `-SkipTemplateParameterPrompt`, and `-Pre` are not supported.
 
 ## RELATED LINKS
 

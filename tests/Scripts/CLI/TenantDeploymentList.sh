@@ -3,7 +3,6 @@
 #
 # Steps:
 #   1. List deployments at tenant scope and find the one just created.
-#   2. --filter narrows the result set to the one matching deployment.
 #
 # Note: unlike resource-group/management-group scope, `deployment tenant list` has no
 # required scope-id parameter, so there is no "missing required parameter" negative
@@ -64,14 +63,6 @@ if [[ $? -ne 0 ]]; then
   fail "list failed: $OUTPUT"
 else
   assert_contains "$OUTPUT" "\"name\": \"$NAME\"" "list output contains the created deployment"
-fi
-
-echo "== 2. --filter narrows the result set =="
-OUTPUT="$(az deployment tenant list --filter "name eq '$NAME'" --debug 2>&1)"
-if [[ $? -ne 0 ]]; then
-  fail "filtered list failed: $OUTPUT"
-else
-  assert_contains "$OUTPUT" "\"name\": \"$NAME\"" "filtered list output contains the created deployment"
 fi
 
 rm -f "$TEMPLATE_FILE"

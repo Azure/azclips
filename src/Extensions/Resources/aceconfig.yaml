@@ -1,0 +1,12 @@
+schema-version: 1
+
+output-dir: .
+tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/5531fa823aafa40895d51db03315fa749fcb9cf0/specification/resources/resource-manager/Microsoft.Resources/deployments
+entrypoints:
+  - path: ./main.tsp
+    api-version: 2025-04-01
+
+service-name: Resources
+root-namespace: Microsoft.Azure.Azclips.Extensions.Resources
+project-name: Microsoft.Azure.Azclips.Extensions.Resources
+description: Resources extension for AzClips

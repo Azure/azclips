@@ -75,7 +75,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}}}}"
+        "body": "{\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022mode\u0022:\u0022Incremental\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -137,7 +137,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022templateLink\u0022:{\u0022uri\u0022:\u0022https://raw.githubusercontent.com/Azure/azure-quickstart-templates/c56e67ea694a56acb347e3fe6038d047d5d17e44/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json\u0022,\u0022queryString\u0022:\u0022sig=abc\u0022},\u0022parametersLink\u0022:{\u0022uri\u0022:\u0022https://raw.githubusercontent.com/Azure/azure-quickstart-templates/c56e67ea694a56acb347e3fe6038d047d5d17e44/quickstarts/microsoft.storage/storage-account-create/azuredeploy.parameters.json\u0022},\u0022validationLevel\u0022:\u0022Provider\u0022,\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022ResourceIdOnly\u0022}}}"
+        "body": "{\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022uri\u0022:\u0022https://raw.githubusercontent.com/Azure/azure-quickstart-templates/c56e67ea694a56acb347e3fe6038d047d5d17e44/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json\u0022,\u0022queryString\u0022:\u0022sig=abc\u0022},\u0022parametersLink\u0022:{\u0022uri\u0022:\u0022https://raw.githubusercontent.com/Azure/azure-quickstart-templates/c56e67ea694a56acb347e3fe6038d047d5d17e44/quickstarts/microsoft.storage/storage-account-create/azuredeploy.parameters.json\u0022},\u0022mode\u0022:\u0022Incremental\u0022,\u0022validationLevel\u0022:\u0022Provider\u0022,\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022ResourceIdOnly\u0022}}}"
       },
       "response": {
         "statusCode": 202,
@@ -259,7 +259,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022properties\u0022:{\u0022mode\u0022:\u0022Complete\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+        "body": "{\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022mode\u0022:\u0022Complete\u0022,\u0022validationLevel\u0022:\u0022Provider\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -321,7 +321,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022properties\u0022:{\u0022mode\u0022:\u0022Complete\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+        "body": "{\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022mode\u0022:\u0022Complete\u0022,\u0022validationLevel\u0022:\u0022Provider\u0022}}"
       },
       "response": {
         "statusCode": 201,
@@ -503,7 +503,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022properties\u0022:{\u0022mode\u0022:\u0022Complete\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022onErrorDeployment\u0022:{\u0022type\u0022:\u0022LastSuccessful\u0022},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+        "body": "{\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022mode\u0022:\u0022Complete\u0022,\u0022onErrorDeployment\u0022:{\u0022type\u0022:\u0022LastSuccessful\u0022},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -565,7 +565,7 @@
             "application/json; charset=utf-8"
           ]
         },
-        "body": "{\u0022properties\u0022:{\u0022mode\u0022:\u0022Complete\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022onErrorDeployment\u0022:{\u0022type\u0022:\u0022LastSuccessful\u0022},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
+        "body": "{\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022p1\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022count\u0022:{\u0022type\u0022:\u0022int\u0022},\u0022withDefault\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022defaultValue\u0022:\u0022d\u0022}},\u0022resources\u0022:[]},\u0022parameters\u0022:{\u0022p1\u0022:{\u0022value\u0022:\u0022v1\u0022},\u0022count\u0022:{\u0022value\u0022:3}},\u0022mode\u0022:\u0022Complete\u0022,\u0022onErrorDeployment\u0022:{\u0022type\u0022:\u0022LastSuccessful\u0022},\u0022validationLevel\u0022:\u0022Provider\u0022}}"
       },
       "response": {
         "statusCode": 201,

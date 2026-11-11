@@ -17,25 +17,10 @@ Cancel a running deployment at tenant scope.
 
 ## SYNTAX
 
-### StopByDeploymentName (Default)
+### __AllParameterSets
 
 ```
-Stop-AzTenantDeployment [-Name] <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### StopByDeploymentId
-
-```
-Stop-AzTenantDeployment -Id <string> [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
-```
-
-### StopByInputObject
-
-```
-Stop-AzTenantDeployment -InputObject <DeploymentExtended> [-PassThru] [-Profile <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+Stop-AzTenantDeployment [-Name] <string> [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -45,7 +30,6 @@ This cmdlet has no aliases.
 ## DESCRIPTION
 
 Cancels a deployment at the current tenant scope that has started but not completed, mirroring legacy `Stop-AzTenantDeployment`.
-Specify the deployment by name, resource ID, or a deployment object from `Get-AzTenantDeployment`.
 The cmdlet sends the cancellation request directly; Azure Resource Manager checks the deployment state.
 
 ## EXAMPLES
@@ -56,14 +40,6 @@ Cancel a running deployment at tenant scope.
 
 ```powershell
 Stop-AzTenantDeployment -Name tenantRollout
-```
-
-### Example 2: Cancel a tenant deployment from the pipeline
-
-Cancel a deployment returned by Get-AzTenantDeployment and return True.
-
-```powershell
-Get-AzTenantDeployment -Name tenantRollout | Stop-AzTenantDeployment -PassThru
 ```
 
 ## PARAMETERS
@@ -90,50 +66,6 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Id
-
-The fully qualified resource Id of the deployment. example: /providers/Microsoft.Resources/deployments/{deploymentName}
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- DeploymentId
-- ResourceId
-ParameterSets:
-- Name: StopByDeploymentId
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -InputObject
-
-The deployment object.
-
-```yaml
-Type: Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: StopByInputObject
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: true
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -Name
 
 The name of the deployment.
@@ -145,31 +77,9 @@ SupportsWildcards: false
 Aliases:
 - DeploymentName
 ParameterSets:
-- Name: StopByDeploymentName
+- Name: (All)
   Position: 0
   IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -PassThru
-
-Writes `true` after the cancellation call returns without a terminating error.
-No value is written when `-WhatIf` or a declined confirmation skips cancellation. By default, this cmdlet does not generate any output.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -230,16 +140,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Resources.Models.DeploymentExtended
-
-You can pipe a tenant deployment object to this cmdlet.
-
 ## OUTPUTS
 
-### System.Boolean
+### System.Void
 
-No output by default. With `-PassThru`, writes `true` after the cancellation call returns.
-No value is written when `-WhatIf` or a declined confirmation skips cancellation.
+This cmdlet does not return output.
 
 ## NOTES
 

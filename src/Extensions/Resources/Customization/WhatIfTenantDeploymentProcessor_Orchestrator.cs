@@ -7,16 +7,13 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
 /// <summary>
-/// <c>az deployment tenant what-if</c>: POST whatIf, throw when it failed, otherwise write the change report, or the raw
-/// result with <see cref="NoPrettyPrint"/>.
+/// <c>az deployment tenant what-if</c> / <c>Get-AzTenantDeploymentWhatIfResult</c>: POST whatIf, throw when it failed, otherwise write the structured result.
 /// </summary>
 public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrchestratorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
     public string? ResultFormat { get; set; }
 
     public string[]? ExcludeChangeTypes { get; set; }
-
-    public bool NoPrettyPrint { get; set; }
 
     internal override Task<HttpResponseMessage> SendAsync()
     {
@@ -52,22 +49,21 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
     }
 
     // ARM returns a template error with HTTP 200, so check the result before writing it.
-    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
+    protected override Task<bool> BeforeWriteOutputAsyncAndReturn(WhatIfOperationResult? body)
     {
         if (body is null)
         {
-            return false;
+            return Task.FromResult(false);
         }
         if (string.Equals(body.Status, "Failed", StringComparison.OrdinalIgnoreCase) || body.Error is not null)
         {
             throw new InvalidOperationException(NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.BuildErrorMessage(body.Error));
         }
-        if (ExcludeChangeTypes is { Length: > 0 } && body.Properties?.Changes is { } changes)
+        if (ExcludeChangeTypes is { Length: > 0 } && body.Changes is { } changes)
         {
             HashSet<string> excluded = new(ExcludeChangeTypes, StringComparer.OrdinalIgnoreCase);
-            changes.RemoveAll(c => c.ChangeType is not null && excluded.Contains(c.ChangeType));
+            body.Changes = changes.Where(c => c.ChangeType is null || !excluded.Contains(c.ChangeType)).ToList();
         }
-        await WriteOutput(WhatIfReportFormatter.ToOutput(body, NoPrettyPrint));
-        return true;
+        return Task.FromResult(false);
     }
 }

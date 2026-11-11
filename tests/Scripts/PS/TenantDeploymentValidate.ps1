@@ -73,7 +73,8 @@ $DebugPreference = 'Continue'
 
 Write-Host '== 1. happy path: validate succeeds and returns the validation result =='
 $result = Test-AzTenantDeployment -Location WestUS -TemplateFile $templateFile
-Assert-Equal 'validate provisioning state' 'Succeeded' $result.Properties.ProvisioningState
+$result | Out-Host
+Assert-Equal 'validate provisioning state' 'Succeeded' $result.ProvisioningState
 
 Write-Host '== 2. negative: invalid template (default value not in allowedValues) must throw the validation error =='
 try {

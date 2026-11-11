@@ -11,9 +11,12 @@
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "51812eda-bfb0-4a69-8d39-46444453da3d"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]}},\u0022tags\u0022:null}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -33,9 +36,12 @@
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "1bbe9452-1bfb-45eb-85a6-5a184f2d60da"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022,\u0022whatIfSettings\u0022:{\u0022resultFormat\u0022:\u0022FullResourcePayloads\u0022}}}"
       },
       "response": {
         "statusCode": 200,
@@ -55,9 +61,12 @@
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "fbaea3ff-c9ba-4446-81fe-a5d7fa628318"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]}},\u0022tags\u0022:null}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -77,9 +86,12 @@
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "bc879225-e2d6-4f10-8972-17117bd6c91e"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]}},\u0022tags\u0022:null}"
+        "body": "{\u0022location\u0022:\u0022eastus\u0022,\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/managementGroupDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022resources\u0022:[]},\u0022mode\u0022:\u0022Incremental\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -96,7 +108,11 @@
       "request": {
         "method": "GET",
         "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment?api-version=2025-04-01",
-        "headers": {}
+        "headers": {
+          "x-ms-client-request-id": [
+            "4992974e-7bc8-45db-b9e5-a7183e6dcb11"
+          ]
+        }
       },
       "response": {
         "statusCode": 200,
@@ -113,7 +129,11 @@
       "request": {
         "method": "GET",
         "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment?api-version=2025-04-01",
-        "headers": {}
+        "headers": {
+          "x-ms-client-request-id": [
+            "e8402aad-d6c9-4d05-ac10-0e3784754377"
+          ]
+        }
       },
       "response": {
         "statusCode": 200,
@@ -130,7 +150,11 @@
       "request": {
         "method": "GET",
         "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment?api-version=2025-04-01",
-        "headers": {}
+        "headers": {
+          "x-ms-client-request-id": [
+            "ca350ae1-e5bf-4a88-9b13-faf33dcb8083"
+          ]
+        }
       },
       "response": {
         "statusCode": 200,
@@ -147,7 +171,11 @@
       "request": {
         "method": "GET",
         "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments?api-version=2025-04-01",
-        "headers": {}
+        "headers": {
+          "x-ms-client-request-id": [
+            "3facd16d-ab2b-4f51-8c3c-75c294177b98"
+          ]
+        }
       },
       "response": {
         "statusCode": 200,
@@ -164,7 +192,11 @@
       "request": {
         "method": "POST",
         "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment/exportTemplate?api-version=2025-04-01",
-        "headers": {}
+        "headers": {
+          "x-ms-client-request-id": [
+            "d01558a8-b048-4c64-b983-fbc28b57bc97"
+          ]
+        }
       },
       "response": {
         "statusCode": 200,
@@ -181,7 +213,11 @@
       "request": {
         "method": "POST",
         "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment/cancel?api-version=2025-04-01",
-        "headers": {}
+        "headers": {
+          "x-ms-client-request-id": [
+            "871c0666-1b89-4748-9458-2334ee100a19"
+          ]
+        }
       },
       "response": {
         "statusCode": 204,
@@ -194,7 +230,11 @@
       "request": {
         "method": "DELETE",
         "uri": "https://management.azure.com/providers/Microsoft.Management/managementGroups/scenario-management-group/providers/Microsoft.Resources/deployments/scenario-management-group-deployment?api-version=2025-04-01",
-        "headers": {}
+        "headers": {
+          "x-ms-client-request-id": [
+            "51e28058-7644-4e4b-a46c-6a1a1d43d0df"
+          ]
+        }
       },
       "response": {
         "statusCode": 204,

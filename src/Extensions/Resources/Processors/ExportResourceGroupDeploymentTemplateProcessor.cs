@@ -39,7 +39,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// template is not a usable export, so it is reported instead of yielding empty output.
         /// </summary>
         protected JsonElement ExtractTemplate(DeploymentExportResult? body) =>
-            body?.Template
-            ?? throw new InvalidOperationException($"The export response for deployment '{Name}' in resource group '{ResourceGroupName}' did not contain a template.");
+            body?.Template is JsonElement template
+                ? template
+                : throw new InvalidOperationException($"The export response for deployment '{Name}' in resource group '{ResourceGroupName}' did not contain a template.");
     }
 }

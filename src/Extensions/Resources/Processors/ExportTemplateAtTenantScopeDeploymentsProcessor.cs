@@ -10,11 +10,12 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary>Exports the template used for specified deployment.</summary>
-public partial class ExportTemplateAtTenantScopeDeploymentsProcessor : ResourcesProcessorBase<object, DeploymentExportResult>
+public partial class ExportTemplateAtTenantScopeDeploymentsProcessor : ProcessorBase<object, DeploymentExportResult>
 {
     /// <summary>The name of the deployment.</summary>
     public string DeploymentName { get; set; } = string.Empty;
+    internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/exportTemplate?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/exportTemplate?api-version=2025-04-01";
 }

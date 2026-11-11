@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Collections;
 using System.Text.Json;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -13,7 +12,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// owns Location, builds the deployment properties, and runs preflight validation. The shared template, Bicep,
 /// and parameter processing is delegated to the scope-neutral <see cref="DeploymentRequestBuilder"/>.
 /// </summary>
-public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : ResourcesProcessorBase<TRequest, TResponse>
+public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : ProcessorBase<TRequest, TResponse>
     where TRequest : class
     where TResponse : class
 {
@@ -28,8 +27,6 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
     public string? TemplateFile { get => requestBuilder.TemplateFile; set => requestBuilder.TemplateFile = value; }
 
     public string? TemplateSpecId { get => requestBuilder.TemplateSpecId; set => requestBuilder.TemplateSpecId = value; }
-
-    public Hashtable? TemplateObject { get => requestBuilder.TemplateObject; set => requestBuilder.TemplateObject = value; }
 
     public string? QueryString { get => requestBuilder.QueryString; set => requestBuilder.QueryString = value; }
 
@@ -51,7 +48,6 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
         target.TemplateUri = TemplateUri;
         target.TemplateFile = TemplateFile;
         target.TemplateSpecId = TemplateSpecId;
-        target.TemplateObject = TemplateObject;
         target.QueryString = QueryString;
         target.ParametersUri = ParametersUri;
         target.ParametersFile = ParametersFile;
@@ -71,7 +67,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
         return new DeploymentProperties
         {
             // Like legacy tenant deployments, create, validate and what-if always use Incremental.
-            Mode = DeploymentMode.Incremental,
+            Mode = nameof(DeploymentMode.Incremental),
             Template = requestBuilder.BuildTemplate(out TemplateLink? templateLink),
             TemplateLink = templateLink,
             Parameters = requestBuilder.BuildParameters(out ParametersLink? parametersLink),
