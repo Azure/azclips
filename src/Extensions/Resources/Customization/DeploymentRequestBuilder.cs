@@ -23,6 +23,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     {
         private static readonly Regex DeploymentNamePattern = new("^[-\\w\\._\\(\\)]+$", RegexOptions.Compiled);
 
+        // ARM parameter entries ('value', 'reference', ...) are matched case-insensitively, as ARM does.
+        private static readonly JsonSerializerOptions ParameterJsonOptions = new() { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+
         public string Name { get; set; } = string.Empty;
 
         public string? TemplateUri { get; set; }
@@ -67,6 +70,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         private static readonly Version MinBicepParamOverridesVersion = new(0, 22, 6);
 
+        // TemplateFile wins over TemplateUri; the URI's query (e.g. a SAS token) is ignored. A
+        // derived name that is not a valid deployment name falls back to a GUID, as upstream does.
+        private string DefaultName()
+        {
+            string? candidate = null;
+            if (!string.IsNullOrWhiteSpace(TemplateFile))
+            {
+                candidate = Path.GetFileNameWithoutExtension(TemplateFile);
+            }
+            else if (Uri.TryCreate(TemplateUri, UriKind.Absolute, out Uri? uri))
+            {
+                candidate = Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(uri.AbsolutePath));
+            }
+
+            return !string.IsNullOrEmpty(candidate) && candidate.Length <= 64 && DeploymentNamePattern.IsMatch(candidate)
+                ? candidate
+                : Guid.NewGuid().ToString();
+        }
+
         // Validates the template/parameters/mode/inline rules shared by every deployment scope.
         // Fails fast with deterministic ArgumentExceptions. Orchestrators check their scope inputs
         // first, call this, then add their own command-specific rules.
@@ -82,10 +104,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
             if (string.IsNullOrWhiteSpace(Name))
             {
-                // The deployment name is optional: legacy PowerShell's DeploymentName carries no
-                // [Parameter] attribute at all and falls back to Guid.NewGuid(), and the CLI's
-                // --name is declared required=False.
-                Name = Guid.NewGuid().ToString();
+                // The deployment name is optional: like Azure CLI and Azure PowerShell, it defaults
+                // to the template file or URI name, so rerunning a template updates one deployment.
+                Name = DefaultName();
             }
             else if (Name.Length > 64 || !DeploymentNamePattern.IsMatch(Name))
             {
@@ -253,7 +274,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             if (Parameter is not { Length: > 0 })
             {
                 EnsureNoMissingTemplateParameters(fileParameters);
-                return fileParameters?.Deserialize<Dictionary<string, DeploymentParameter>>(s_parameterJsonOptions);
+                return fileParameters?.Deserialize<IDictionary<string, DeploymentParameter>>(ParameterJsonOptions);
             }
 
             // Inline parameters present: start from the file's inner parameters object (the base)
@@ -292,16 +313,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             }
 
             EnsureNoMissingTemplateParameters(parameters);
-            return parameters.Deserialize<Dictionary<string, DeploymentParameter>>(s_parameterJsonOptions);
+            return parameters.Deserialize<IDictionary<string, DeploymentParameter>>(ParameterJsonOptions);
         }
-
-        // A JsonElement from a JSONC file keeps its comments in the raw text, so typed reads must skip them too.
-        private static readonly JsonSerializerOptions s_parameterJsonOptions = new()
-        {
-            PropertyNameCaseInsensitive = true,
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true,
-        };
 
         // Merges one --parameters/-Parameter token into the accumulated parameters. azure-cli's
         // _process_parameters accepts three forms and merges repeats left to right: a JSON

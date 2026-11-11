@@ -16,6 +16,16 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Added subscription-scope deployment cmdlets `New-AzSubDeployment`, `Test-AzSubDeployment`, `Get-AzSubDeployment`, `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, and `Save-AzSubDeploymentTemplate`
+    - Legacy `*-AzSubscriptionDeployment` and `Save-AzSubscriptionDeploymentTemplate` names are accepted as aliases
+    - `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, `Get-AzSubDeployment`, and `Save-AzSubDeploymentTemplate` accept a deployment piped from `Get-AzSubDeployment` (`-InputObject`) and use the subscription in its `Id`; `-PassThru` on Stop/Remove outputs `true` when the cancel or delete runs
+    - `New-AzSubDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
+    - `New-AzSubDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
+* Added `Get-AzSubDeploymentWhatIfResult` to preview subscription-scope deployment changes
+    - The legacy `Get-AzSubscriptionDeploymentWhatIfResult` name is accepted as an alias
+    - The preview always uses `Incremental` mode (no `-Mode`), `-Name` is optional, and `-ResultFormat` selects `FullResourcePayloads` or `ResourceIdOnly`
+* When `-Name` is omitted, `New-AzSubDeployment`, `Test-AzSubDeployment`, `Test-AzResourceGroupDeployment`, and `Test-AzManagementGroupDeployment` name the deployment after the template file or URI instead of a GUID
+    - A GUID is still used when no template file or URI is given, or the derived name is not a valid deployment name
 
 ## Version 0.1.4
 * Added management-group deployment create, get, stop, remove, and test cmdlets.

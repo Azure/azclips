@@ -204,7 +204,7 @@ public sealed class ServerReferenceTests
         // base fills from a public input rather than a value the generator invents.
         string @base = files.Files.Source(result, "ProcessorBase");
         Assert.Contains("protected virtual string Endpoint => $\"https://{AccountName}.example.com/api\";", @base);
-        Assert.Contains("public string AccountName { get; set; } = string.Empty;", @base);
+        Assert.Contains("public virtual string AccountName { get; set; } = string.Empty;", @base);
 
         // The URI interpolates the seam, and the processor does not redeclare the inherited input.
         AssertUri(result, files, "GetProcessor",

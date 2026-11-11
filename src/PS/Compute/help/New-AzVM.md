@@ -819,8 +819,6 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
 Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
@@ -881,11 +879,7 @@ The newly-created `VirtualMachine` object, including its assigned ARM resource I
 
 ## NOTES
 
-Generated help for compute.
 Networking resources are created or reused only in the default `NewNetworkInterface` parameter set.
 The `ExistingNetworkInterface` parameter set uses the existing NICs and their networking configuration without creating networking resources.
 
 ## RELATED LINKS
-
-
-- [Online Version]()

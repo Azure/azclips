@@ -114,6 +114,22 @@ provider registered: what-if links a public quickstart storage template, pinned 
 cancellable. If that deployment finishes before the cancel lands, the test fails asking you to
 re-record; run it again. The run deletes its resource group afterwards.
 
+The subscription deployment scenario
+(`--filter FullyQualifiedName~SubscriptionDeploymentScenarioTests`) records one session at
+subscription scope: validate, what-if, create, show, list, export, cancel, and delete, a
+cancelled in-flight deployment, and failure cases, followed by parameters, what-if, template spec,
+and Bicep parts. Record mode runs the CLI only; playback replays the session through the CLI and
+PowerShell, which has no what-if or export cmdlet at this scope. As with the deployment
+group scenario, the subscription needs the `Microsoft.Storage` provider registered, because the
+in-flight deployment provisions a storage account in `scenario-sub-slow-rg` so it stays
+cancellable. The parameters part reads a remote parameters file pinned to an `Azure/azure-cli`
+commit and a remote template pinned to an `Azure/azure-quickstart-templates` commit, both on
+`raw.githubusercontent.com`. Recording needs the Bicep CLI; playback skips the Bicep part
+unless the Bicep CLI is on `PATH` or in `~/.azure/bin`, where `az bicep install` puts it. The run
+deletes its deployments and the resource groups it created (`scenario-sub-slow-rg`,
+`scenario-sub-template-uri-rg`, `scenario-sub-whatif-rg`, and `scenario-sub-ts-rg`, which holds the
+template spec) afterwards.
+
 ## Secret scanning
 
 The sanitisers are the first line of defence; a PR gate is the second. The

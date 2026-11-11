@@ -5,6 +5,9 @@ using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Text.RegularExpressions;
+using Markdig;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 
 namespace Azclips.Help.Tool.Validation
 {
@@ -23,6 +26,10 @@ namespace Azclips.Help.Tool.Validation
     /// </summary>
     public sealed class PowerShellExampleSyntaxValidator
     {
+        private static readonly MarkdownPipeline s_markdownPipeline = new MarkdownPipelineBuilder()
+            .UsePreciseSourceLocation()
+            .Build();
+
         // Common parameters that every advanced cmdlet inherits. Mirrors the list azure-powershell's
         // ExampleAnalyzer/utils.ps1 whitelists.
         private static readonly HashSet<string> s_commonParameters = new(StringComparer.OrdinalIgnoreCase)
@@ -133,8 +140,20 @@ namespace Azclips.Help.Tool.Validation
             {
                 report.AddError(
                     ProblemIds.PSL12_FillPlaceholder,
-                    $"Help file contains scaffolded placeholder '{token}'. Replace with real content (parameter description, notes, or related links) before merging.",
+                    $"Help file contains scaffolded placeholder '{token}'. Replace with real content (parameter description, notes, or related links) before merging. For optional sections such as Notes, remove the placeholder if no content applies; retain the heading.",
                     $"{filePath}:{lineNumber}");
+            }
+
+            var document = Markdown.Parse(content, s_markdownPipeline);
+            foreach (var link in document.Descendants<LinkInline>())
+            {
+                if (!link.IsImage && string.IsNullOrWhiteSpace(link.Url))
+                {
+                    report.AddError(
+                        ProblemIds.PSL16_EmptyLinkTarget,
+                        "Markdown link has an empty destination. Provide a URL or relative path, or remove the link entry if it is not useful. Optional sections such as Related Links may be left empty.",
+                        $"{filePath}:{link.Line + 1}");
+                }
             }
 
             var fenceCount = 0;

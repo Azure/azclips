@@ -621,9 +621,4 @@ The virtual network that was created, including its address space, subnets, and 
 
 ## NOTES
 
-Generated help for network.
-
 ## RELATED LINKS
-
-
-- [Online Version]()

@@ -1234,6 +1234,34 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void StorageSku_OsForm_WritesOsDiskStorageAccountType()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--storage-sku", "os=Premium_LRS"]);
+
+        Assert.Equal("Premium_LRS", OsDiskStorageAccountType(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
+    public void StorageSku_DataDiskLun_FailsBeforeAnyAzureWrite()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--storage-sku", "0=Premium_LRS"]);
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Equal("Data-disk SKU assignments are not supported. Specify a SKU or os=SKU.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
+    [Fact]
+    public void StorageSku_PowerShell_OsForm_WritesOsDiskStorageAccountType()
+    {
+        var parameters = PsParameters();
+        parameters["StorageSku"] = "os=Premium_LRS";
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        Assert.Equal("Premium_LRS", OsDiskStorageAccountType(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
     public void StorageSku_PowerShell_WritesOsDiskStorageAccountType()
     {
         var parameters = PsParameters();
@@ -1316,11 +1344,13 @@ public class VmCreateOrchestrationTests
         Assert.False(osDisk.TryGetProperty("deleteOption", out _));
     }
 
-    [Fact]
-    public void OsDiskDeleteOption_CombinesWithStorageSkuAndConfidentialVmDiskSecurity()
+    [Theory]
+    [InlineData("Premium_LRS")]
+    [InlineData("os=Premium_LRS")]
+    public void OsDiskDeleteOption_CombinesWithStorageSkuAndConfidentialVmDiskSecurity(string storageSku)
     {
         var record = RecordCli(new FakeVmArmBackend(SubscriptionId),
-            [.. s_cliArgs, "--os-disk-delete-option", "Delete", "--storage-sku", "Premium_LRS",
+            [.. s_cliArgs, "--os-disk-delete-option", "Delete", "--storage-sku", storageSku,
                 "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "DiskWithVMGuestState",
                 "--os-disk-secure-vm-disk-encryption-set", "mydes"]);
 

@@ -223,9 +223,4 @@ Each object carries only `Id`, `OperationId`, `ProvisioningState`, `StatusCode`,
 
 ## NOTES
 
-Generated help for resources.
-
 ## RELATED LINKS
-
-- [Online Version]()
-

@@ -34,7 +34,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         public string? RollbackToDeploymentName { get; set; }
 
         // Builds the deployment request body (after validating the inputs) and delegates the POST to
-        // the atomic TestResourceGroupDeploymentProcessor, which also owns the HTTP 400 handling.
+        // the atomic TestResourceGroupDeploymentProcessor. SendAsyncAllowBadRequest returns the HTTP 400
+        // untouched and polls Location without an extra final GET of the one-shot result.
         internal override async Task<HttpResponseMessage> SendAsync()
         {
             ValidateInputs();
@@ -58,7 +59,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.Properties = properties;
             });
 
-            return await processor.SendAsync();
+            return await processor.SendAsyncAllowBadRequest();
         }
 
         // ARM reports a template that fails validation as HTTP 400 whose body is a regular

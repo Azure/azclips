@@ -49,6 +49,53 @@ Run it locally before submitting new configuration keys:
 dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter FullyQualifiedName~ConfigurationSchemaLintTests
 ```
 
+### CLI Command-Tree Conventions
+
+Extension-contributed CLI paths must follow these rules:
+
+- A node is either executable or a command group, never both. For example,
+  registering both `az sample item` and `az sample item show` is invalid; put
+  the action at `az sample item show` instead. A standalone root executable
+  without descendants is valid. Comparisons are case-insensitive and use token
+  boundaries, so `sample bar` and `sample barcode` are distinct siblings.
+- No command/group segment may reuse a global argument name or alias. The
+  reserved names come from `KnownGlobalFlags.All`, with leading dashes removed
+  and internal hyphens preserved. This includes long names such as `help`,
+  `debug`, `output`, `query`, and `no-cache`, short aliases such as `h` and `o`,
+  and symbolic aliases such as `?`, at every depth including the root verb.
+  Normal global flags on invocations and intrinsic CLI help/version handling
+  are unchanged.
+
+The [CLI extension tests](tests/Cli.Tests/Extensions/CommandTreeConventionValidatorTests.cs)
+enforce these rules using a
+[test-only validator](tests/Cli.Tests/Extensions/CommandTreeConventionValidator.cs).
+The built-extension test checks the combined tree from the extension indexes in
+the test output, using both the CLI command table and `GetCommandKeys(ClientType.CLI)`,
+including keys contributed by extensions that share a verb. Metadata-only aliases
+are not routed paths; an alias exposed as a command key is validated like any other
+path. Synthetic cases verify the validator against collisions and every defined
+global name and alias. PowerShell cmdlet names are outside these CLI rules.
+
+The test project automatically references extension projects under
+`src/Extensions/*/*.csproj`, plus the Agent command project. New extensions in
+that layout do not need individual test-project references. Before linting, the
+test compares discovered indexes with assembly names declared by repository
+extension projects, excluding the command-free ExtensionRuntime infrastructure
+project. A missing extension fails the test instead of silently reducing coverage.
+
+Run locally after building:
+
+```powershell
+dotnet build azclips.slnx
+dotnet test tests\Cli.Tests\Cli.Tests.csproj --filter "FullyQualifiedName~CommandTreeConventionValidatorTests"
+```
+
+The CLI test suite runs these checks in CI. Violations fail the built-extension
+test with diagnostics identifying the command paths, extension owners, and
+reserved global names. The test also fails if no extension indexes are discovered.
+These are test-time extension rules: runtime dispatch, help validation, and docs
+export do not invoke this validator.
+
 ## Pull Requests
 
 - Keep pull requests focused and small enough to review confidently.

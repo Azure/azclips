@@ -22,6 +22,7 @@ public enum ColorMode
 /// <remarks>
 /// Precedence, top to bottom (first match wins):
 /// <list type="number">
+///   <item><description>Console initialization failed → no color, including forced color.</description></item>
 ///   <item><description><c>NO_COLOR</c> env (any non-empty value) → no color. See https://no-color.org.</description></item>
 ///   <item><description><c>FORCE_COLOR</c> env (any non-empty value) → force color.</description></item>
 ///   <item><description>Configured <see cref="ColorMode.Always"/> → force color.</description></item>
@@ -39,6 +40,7 @@ public static class ColorPolicy
     // Cached mode set once at process startup via Initialize. Default Auto keeps the pre-config
     // behavior for tests and hosts that never call Initialize.
     private static ColorMode _mode = ColorMode.Auto;
+    private static bool _supportsColor = true;
 
     /// <summary>Current cached mode. Exposed internal for test scoping.</summary>
     internal static ColorMode CurrentMode => _mode;
@@ -46,7 +48,17 @@ public static class ColorPolicy
     /// <summary>
     /// Sets the persistent color mode. Called once at process startup after config is resolved.
     /// </summary>
-    public static void Initialize(ColorMode mode) => _mode = mode;
+    public static void Initialize(ColorMode mode) => Initialize(mode, supportsColor: true);
+
+    /// <summary>
+    /// Sets the color preference and whether console initialization permits styling.
+    /// An unsupported console suppresses styling even when color is forced.
+    /// </summary>
+    public static void Initialize(ColorMode mode, bool supportsColor)
+    {
+        _mode = mode;
+        _supportsColor = supportsColor;
+    }
 
     /// <summary>
     /// Parses a <c>core.output.color</c> config value into a <see cref="ColorMode"/>.
@@ -73,6 +85,8 @@ public static class ColorPolicy
     /// </param>
     public static bool ShouldEmitColor(bool targetIsRedirected)
     {
+        if (!_supportsColor) return false;
+
         if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")))
         {
             return false;

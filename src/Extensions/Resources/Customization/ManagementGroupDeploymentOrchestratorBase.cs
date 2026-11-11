@@ -21,11 +21,11 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
 {
     private readonly DeploymentRequestBuilder requestBuilder = new();
 
+    // The generated deployment models carry fields ARM rejects even when null (e.g. externalInputDefinitions),
+    // so omit nulls; child processors inherit these options through CreateExtendedProcessor.
     protected override void AfterInit()
     {
         base.AfterInit();
-        // The regenerated deployment models send unset properties as explicit nulls, which ARM rejects.
-        // Child processors inherit these options through CreateExtendedProcessor.
         JsonOptions = new JsonSerializerOptions(JsonOptions) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     }
 
