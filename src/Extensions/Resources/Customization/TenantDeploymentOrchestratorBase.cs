@@ -11,9 +11,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// Tenant scope for <c>az deployment tenant create|validate|what-if</c>, <c>New-/Test-AzTenantDeployment</c> and
 /// <c>Get-AzTenantDeploymentWhatIfResult</c>: owns Location, resolves the template and parameter inputs through the
 /// scope-neutral <see cref="DeploymentRequestBuilder"/>, and runs preflight validation. Tenant deployments are always
-/// Incremental, so there is no Mode input: the atomic processors send the model's default mode.
+/// Incremental, so there is no Mode input: the orchestrators set it on the generated request models.
 /// </summary>
-public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : ResourcesProcessorBase<TRequest, TResponse>
+public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : ProcessorBase<TRequest, TResponse>
     where TRequest : class
     where TResponse : class
 {
@@ -45,9 +45,23 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
     {
         requestBuilder.ValidateCommonInputs();
         object? template = requestBuilder.BuildTemplate(out TemplateLink? templateLink);
-        object? parameters = requestBuilder.BuildParameters(out ParametersLink? parametersLink);
+        IDictionary<string, DeploymentParameter>? parameters = requestBuilder.BuildParameters(out ParametersLink? parametersLink);
         return new ResolvedDeployment(template, templateLink, parameters, parametersLink, DeploymentRequestBuilder.NormalizeValidationLevel(ValidationLevel));
     }
+
+    protected ScopedDeployment BuildDeployment(ResolvedDeployment resolved) => new()
+    {
+        Location = Location,
+        Properties = new DeploymentProperties
+        {
+            Mode = "Incremental",
+            Template = resolved.Template,
+            TemplateLink = resolved.TemplateLink,
+            Parameters = resolved.Parameters,
+            ParametersLink = resolved.ParametersLink,
+            ValidationLevel = resolved.ValidationLevel,
+        },
+    };
 
     // POST validate; a template error (HTTP 200 or 400) throws like Test-AzResourceGroupDeployment.
     protected async Task<HttpResponseMessage> ValidateAsync(ResolvedDeployment resolved)
@@ -55,12 +69,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
         HttpResponseMessage response = await CreateExtendedProcessor<ValidateAtTenantScopeDeploymentsProcessor>(p =>
         {
             p.DeploymentName = Name;
-            p.Location = Location;
-            p.Template = resolved.Template;
-            p.TemplateLink = resolved.TemplateLink;
-            p.Parameters = resolved.Parameters;
-            p.ParametersLink = resolved.ParametersLink;
-            p.ValidationLevel = resolved.ValidationLevel;
+            p.Body = BuildDeployment(resolved);
         }).SendAsyncAllowBadRequest();
 
         string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
@@ -86,7 +95,7 @@ public abstract class TenantDeploymentOrchestratorBase<TRequest, TResponse> : Re
     protected sealed record ResolvedDeployment(
         object? Template,
         TemplateLink? TemplateLink,
-        object? Parameters,
+        IDictionary<string, DeploymentParameter>? Parameters,
         ParametersLink? ParametersLink,
         string? ValidationLevel);
 }

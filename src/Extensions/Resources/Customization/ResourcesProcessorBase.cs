@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 
@@ -12,6 +13,30 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         where TRequest : class
         where TResponse : class
     {
+        internal Task<HttpResponseMessage> SendAsyncPollLocation() =>
+            DeploymentTransport.SendAsyncPollLocation(CreateRequestMessage, Publisher, HttpPipeline);
+
+        internal Task<HttpResponseMessage> SendAsyncAllowBadRequest() =>
+            DeploymentTransport.SendAsyncAllowBadRequest(CreateRequestMessage, Publisher, HttpPipeline);
+
+        internal Task<HttpResponseMessage> SendAsyncOnce() =>
+            DeploymentTransport.SendAsyncOnce(CreateRequestMessage, Publisher, HttpPipeline);
+    }
+
+    public abstract partial class ProcessorBase
+    {
+        internal Task<HttpResponseMessage> SendAsyncPollLocation() =>
+            DeploymentTransport.SendAsyncPollLocation(CreateRequestMessage, Publisher, HttpPipeline);
+
+        internal Task<HttpResponseMessage> SendAsyncAllowBadRequest() =>
+            DeploymentTransport.SendAsyncAllowBadRequest(CreateRequestMessage, Publisher, HttpPipeline);
+
+        internal Task<HttpResponseMessage> SendAsyncOnce() =>
+            DeploymentTransport.SendAsyncOnce(CreateRequestMessage, Publisher, HttpPipeline);
+    }
+
+    internal static class DeploymentTransport
+    {
         // TODO: Consolidate common send/tracing and polling behavior in HttpRuntime, with forwarding support
         // in ProcessorBaseGenerator. Keep deployment-specific response/error interpretation in the orchestrators.
 
@@ -20,10 +45,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// Used by what-if: the shared LRO poller turns ARM's 200 "status: Failed" body into a body-less
         /// exception and re-GETs the POST-only /whatIf URI (404). The caller inspects the result.
         /// </summary>
-        internal async Task<HttpResponseMessage> SendAsyncPollLocation()
+        internal static async Task<HttpResponseMessage> SendAsyncPollLocation(
+            Func<Task<HttpRequestMessage>> createRequest, IEventPublisher publisher, IRuntimeHttpPipeline pipeline)
         {
-            HttpResponseMessage response = await HttpRuntime.SendAsync(CreateRequestMessage, Publisher, HttpPipeline);
-            return await PollLocationAsync(response);
+            HttpResponseMessage response = await HttpRuntime.SendAsync(createRequest, publisher, pipeline);
+            return await PollLocationAsync(response, publisher, pipeline);
         }
 
         /// <summary>
@@ -31,14 +57,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// Unlike <see cref="HttpRuntime.SendAsyncLRO"/>, it makes no extra "final" GET after the terminal
         /// response, because ARM operation results under Location are one-shot and can answer 404 when re-read.
         /// </summary>
-        private async Task<HttpResponseMessage> PollLocationAsync(HttpResponseMessage response)
+        private static async Task<HttpResponseMessage> PollLocationAsync(
+            HttpResponseMessage response, IEventPublisher publisher, IRuntimeHttpPipeline pipeline)
         {
             string location = string.Empty;
             while (response.StatusCode == HttpStatusCode.Accepted)
             {
                 // A later 202 may omit Location; keep polling the last one ARM gave.
                 location = response.GetFirstHeader("Location") is { Length: > 0 } header ? header : location;
-                int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? HttpPipeline.PollingInterval);
+                int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? pipeline.PollingInterval);
                 response.Dispose();
 
                 if (string.IsNullOrWhiteSpace(location))
@@ -47,9 +74,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                         "The operation returned 202 Accepted without a Location header, so its result cannot be retrieved.");
                 }
 
-                await Publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
-                await Task.Delay(delay * 1000, Publisher.Token);
-                response = await HttpRuntime.SendAsync(() => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, location)), Publisher, HttpPipeline);
+                await publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
+                await Task.Delay(delay * 1000, publisher.Token);
+                response = await HttpRuntime.SendAsync(() => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, location)), publisher, pipeline);
             }
 
             return response;
@@ -60,15 +87,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// Used by validate: ARM reports a failed template as 400 whose body is a typed <c>DeploymentValidateResult</c>, which
         /// the shared <see cref="HttpRuntime"/> helpers would reduce to text in an exception. The caller deserializes the 400.
         /// </summary>
-        internal async Task<HttpResponseMessage> SendAsyncAllowBadRequest()
+        internal static async Task<HttpResponseMessage> SendAsyncAllowBadRequest(
+            Func<Task<HttpRequestMessage>> createRequest, IEventPublisher publisher, IRuntimeHttpPipeline pipeline)
         {
-            HttpResponseMessage response;
-            using (HttpRequestMessage request = await CreateRequestMessage())
-            {
-                response = await HttpPipeline.SendAsync(request, Publisher);
-            }
-
-            await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+            HttpResponseMessage response = await SendAsyncOnce(createRequest, publisher, pipeline);
 
             // A 400 can only come from the initial POST: ARM checks the template before starting async work.
             if (response.StatusCode == HttpStatusCode.BadRequest)
@@ -79,12 +101,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
             // Continue with GETs on Location; the POST URI itself cannot be re-fetched.
             if (response.StatusCode == HttpStatusCode.Accepted)
             {
-                return await PollLocationAsync(response);
+                return await PollLocationAsync(response, publisher, pipeline);
             }
 
             try
             {
-                await response.EnsureSuccessAsync(Publisher);
+                await response.EnsureSuccessAsync(publisher);
             }
             catch
             {
@@ -100,15 +122,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         /// which is left to the caller. Used by tenant create <c>--no-wait</c> (the PUT submission only) and by
         /// tenant wait (one GET per poll, where a 404 is an expected answer rather than an error).
         /// </summary>
-        internal async Task<HttpResponseMessage> SendAsyncOnce()
+        internal static async Task<HttpResponseMessage> SendAsyncOnce(
+            Func<Task<HttpRequestMessage>> createRequest, IEventPublisher publisher, IRuntimeHttpPipeline pipeline)
         {
             HttpResponseMessage response;
-            using (HttpRequestMessage request = await CreateRequestMessage())
+            using (HttpRequestMessage request = await createRequest())
             {
-                response = await HttpPipeline.SendAsync(request, Publisher);
+                response = await pipeline.SendAsync(request, publisher);
             }
 
-            await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+            await publisher.Publish(Events.TracingHttpResponseMessage, response);
             return response;
         }
     }

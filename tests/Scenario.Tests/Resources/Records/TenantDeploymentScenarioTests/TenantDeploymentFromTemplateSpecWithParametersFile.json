@@ -13,7 +13,7 @@
             "application/json; charset=utf-8"
           ],
           "x-ms-client-request-id": [
-            "07b2a968-b5b0-43a9-97b0-7dd7d759da13"
+            "2b6fe1f8-2d07-4cdb-9014-abe0ea1099e4"
           ]
         },
         "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-tenant-template-spec-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022WestUS\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
@@ -34,13 +34,13 @@
             "2999"
           ],
           "x-ms-request-id": [
-            "fa1b37ee-59d1-401b-8a22-93d0f556a358"
+            "689eb28f-5878-402d-9862-b9f0563977cb"
           ],
           "x-ms-correlation-request-id": [
-            "fa1b37ee-59d1-401b-8a22-93d0f556a358"
+            "689eb28f-5878-402d-9862-b9f0563977cb"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIASOUTHEAST:20261110T050307Z:fa1b37ee-59d1-401b-8a22-93d0f556a358"
+            "AUSTRALIAEAST:20261111T101537Z:689eb28f-5878-402d-9862-b9f0563977cb"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -52,10 +52,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 3A867A5BE95E49E792F5F7C4D3818501 Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:04Z"
+            "Ref A: FE3B71F493EA4F4D98032E104995FC9C Ref B: SYD281080705031 Ref C: 2026-11-11T10:15:34Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:06 GMT"
+            "Wed, 11 Nov 2026 10:15:37 GMT"
           ]
         },
         "contentHeaders": {
@@ -78,7 +78,7 @@
             "application/json"
           ],
           "x-ms-client-request-id": [
-            "f3b9fe54-8b86-4261-b02f-9b62c3ee3c73"
+            "0590b26e-dfcb-41cc-9eab-3a5f6645d495"
           ]
         },
         "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{}}"
@@ -93,7 +93,7 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "e796dc2d-7cf1-492a-8380-e9fd86a77833"
+            "a686ecc6-6db8-4d7c-8721-a2037aec7763"
           ],
           "x-ms-ratelimit-remaining-subscription-writes": [
             "199"
@@ -102,10 +102,10 @@
             "2999"
           ],
           "x-ms-correlation-request-id": [
-            "8163a246-30de-4381-bfc9-abe1fae2fec5"
+            "d7986389-6f76-4bbd-bb78-59d77bec5a8c"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS:20261110T050307Z:8163a246-30de-4381-bfc9-abe1fae2fec5"
+            "WESTUS:20261111T101540Z:d7986389-6f76-4bbd-bb78-59d77bec5a8c"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -117,10 +117,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 690515D9985542AA9B8D7BA3BE280A0A Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:07Z"
+            "Ref A: 2A2816D767EC4257A26413D420444120 Ref B: SYD281080705031 Ref C: 2026-11-11T10:15:39Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:07 GMT"
+            "Wed, 11 Nov 2026 10:15:40 GMT"
           ]
         },
         "contentHeaders": {
@@ -131,7 +131,7 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022location\u0022: \u0022WestUS\u0022,\r\n  \u0022properties\u0022: {},\r\n  \u0022systemData\u0022: {\r\n    \u0022createdBy\u0022: \u0022recording-user@example.invalid\u0022,\r\n    \u0022createdByType\u0022: \u0022User\u0022,\r\n    \u0022createdAt\u0022: \u00222026-11-10T05:03:07.73172Z\u0022,\r\n    \u0022lastModifiedBy\u0022: \u0022recording-user@example.invalid\u0022,\r\n    \u0022lastModifiedByType\u0022: \u0022User\u0022,\r\n    \u0022lastModifiedAt\u0022: \u00222026-11-10T05:03:07.73172Z\u0022\r\n  },\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/templateSpecs\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-template-spec\u0022\r\n}"
+        "body": "{\r\n  \u0022location\u0022: \u0022WestUS\u0022,\r\n  \u0022properties\u0022: {},\r\n  \u0022systemData\u0022: {\r\n    \u0022createdBy\u0022: \u0022recording-user@example.invalid\u0022,\r\n    \u0022createdByType\u0022: \u0022User\u0022,\r\n    \u0022createdAt\u0022: \u00222026-11-11T10:15:40.4410056Z\u0022,\r\n    \u0022lastModifiedBy\u0022: \u0022recording-user@example.invalid\u0022,\r\n    \u0022lastModifiedByType\u0022: \u0022User\u0022,\r\n    \u0022lastModifiedAt\u0022: \u00222026-11-11T10:15:40.4410056Z\u0022\r\n  },\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/templateSpecs\u0022,\r\n  \u0022name\u0022: \u0022scenario-tenant-template-spec\u0022\r\n}"
       }
     },
     {
@@ -143,7 +143,7 @@
             "application/json"
           ],
           "x-ms-client-request-id": [
-            "3e7a082a-fd1d-4ca9-a464-86bd78b971af"
+            "369726a6-9967-405b-899b-278034776ad2"
           ]
         },
         "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022mainTemplate\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022string\u0022}},\u0022resources\u0022:[],\u0022outputs\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027foo\\u0027)]\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022value\u0022:\u0022[parameters(\\u0027bar\\u0027)]\u0022}}}}}"
@@ -158,7 +158,7 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "c4c62e39-2c68-4109-a227-07329f467081"
+            "51e54834-9874-436f-94a3-c8518c2bedad"
           ],
           "x-ms-ratelimit-remaining-subscription-writes": [
             "199"
@@ -167,10 +167,10 @@
             "2999"
           ],
           "x-ms-correlation-request-id": [
-            "1d1e4815-30d6-4283-80d3-d0e00e865ad8"
+            "f6fb6b27-7388-4eeb-9778-4ff2fdcfe1a1"
           ],
           "x-ms-routing-request-id": [
-            "WESTUS:20261110T050309Z:1d1e4815-30d6-4283-80d3-d0e00e865ad8"
+            "WESTUS:20261111T101541Z:f6fb6b27-7388-4eeb-9778-4ff2fdcfe1a1"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -182,10 +182,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: BF155207E3E64F40B3EE38C1505B8F5B Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:08Z"
+            "Ref A: 10795A8860844229AF9F1050EFAAD7B6 Ref B: SYD281080705031 Ref C: 2026-11-11T10:15:40Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:08 GMT"
+            "Wed, 11 Nov 2026 10:15:41 GMT"
           ]
         },
         "contentHeaders": {
@@ -196,7 +196,7 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022location\u0022: \u0022WestUS\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022mainTemplate\u0022: {\r\n      \u0022$schema\u0022: \u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\r\n      \u0022contentVersion\u0022: \u00221.0.0.0\u0022,\r\n      \u0022parameters\u0022: {\r\n        \u0022foo\u0022: {\r\n          \u0022type\u0022: \u0022string\u0022\r\n        },\r\n        \u0022bar\u0022: {\r\n          \u0022type\u0022: \u0022string\u0022\r\n        }\r\n      },\r\n      \u0022resources\u0022: [],\r\n      \u0022outputs\u0022: {\r\n        \u0022foo\u0022: {\r\n          \u0022type\u0022: \u0022string\u0022,\r\n          \u0022value\u0022: \u0022[parameters(\u0027foo\u0027)]\u0022\r\n        },\r\n        \u0022bar\u0022: {\r\n          \u0022type\u0022: \u0022string\u0022,\r\n          \u0022value\u0022: \u0022[parameters(\u0027bar\u0027)]\u0022\r\n        }\r\n      }\r\n    }\r\n  },\r\n  \u0022systemData\u0022: {\r\n    \u0022createdBy\u0022: \u0022recording-user@example.invalid\u0022,\r\n    \u0022createdByType\u0022: \u0022User\u0022,\r\n    \u0022createdAt\u0022: \u00222026-11-10T05:03:08.9003427Z\u0022,\r\n    \u0022lastModifiedBy\u0022: \u0022recording-user@example.invalid\u0022,\r\n    \u0022lastModifiedByType\u0022: \u0022User\u0022,\r\n    \u0022lastModifiedAt\u0022: \u00222026-11-10T05:03:08.9003427Z\u0022\r\n  },\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/templateSpecs/versions\u0022,\r\n  \u0022name\u0022: \u0022v1\u0022\r\n}"
+        "body": "{\r\n  \u0022location\u0022: \u0022WestUS\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022mainTemplate\u0022: {\r\n      \u0022$schema\u0022: \u0022https://schema.management.azure.com/schemas/2019-08-01/tenantDeploymentTemplate.json#\u0022,\r\n      \u0022contentVersion\u0022: \u00221.0.0.0\u0022,\r\n      \u0022parameters\u0022: {\r\n        \u0022foo\u0022: {\r\n          \u0022type\u0022: \u0022string\u0022\r\n        },\r\n        \u0022bar\u0022: {\r\n          \u0022type\u0022: \u0022string\u0022\r\n        }\r\n      },\r\n      \u0022resources\u0022: [],\r\n      \u0022outputs\u0022: {\r\n        \u0022foo\u0022: {\r\n          \u0022type\u0022: \u0022string\u0022,\r\n          \u0022value\u0022: \u0022[parameters(\u0027foo\u0027)]\u0022\r\n        },\r\n        \u0022bar\u0022: {\r\n          \u0022type\u0022: \u0022string\u0022,\r\n          \u0022value\u0022: \u0022[parameters(\u0027bar\u0027)]\u0022\r\n        }\r\n      }\r\n    }\r\n  },\r\n  \u0022systemData\u0022: {\r\n    \u0022createdBy\u0022: \u0022recording-user@example.invalid\u0022,\r\n    \u0022createdByType\u0022: \u0022User\u0022,\r\n    \u0022createdAt\u0022: \u00222026-11-11T10:15:41.4128396Z\u0022,\r\n    \u0022lastModifiedBy\u0022: \u0022recording-user@example.invalid\u0022,\r\n    \u0022lastModifiedByType\u0022: \u0022User\u0022,\r\n    \u0022lastModifiedAt\u0022: \u00222026-11-11T10:15:41.4128396Z\u0022\r\n  },\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Resources/templateSpecs/versions\u0022,\r\n  \u0022name\u0022: \u0022v1\u0022\r\n}"
       }
     },
     {
@@ -208,10 +208,10 @@
             "application/json; charset=utf-8"
           ],
           "x-ms-client-request-id": [
-            "932366c5-5ea5-45d7-8a1d-ddb340bec353"
+            "3460e854-a022-43bf-8094-b8303de6e366"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022},\u0022parameters\u0022:{\u0022foo\u0022:{\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022value\u0022:\u0022xyz\u0022}}},\u0022tags\u0022:null}"
+        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022},\u0022parameters\u0022:{\u0022foo\u0022:{\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022value\u0022:\u0022xyz\u0022}},\u0022mode\u0022:\u0022Incremental\u0022}}"
       },
       "response": {
         "statusCode": 200,
@@ -226,13 +226,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "97d637d3-cc41-45cc-a082-b15e77af6776"
+            "27e65fef-88ea-4c61-97bd-a31df7af5e62"
           ],
           "x-ms-correlation-request-id": [
-            "97d637d3-cc41-45cc-a082-b15e77af6776"
+            "27e65fef-88ea-4c61-97bd-a31df7af5e62"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261110T050311Z:97d637d3-cc41-45cc-a082-b15e77af6776"
+            "AUSTRALIAEAST:20261111T101544Z:27e65fef-88ea-4c61-97bd-a31df7af5e62"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -244,10 +244,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: CA18DF79EEDB404387CEFE003B7F5017 Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:09Z"
+            "Ref A: 64971166DE1848B0AF2F27844407E3C2 Ref B: SYD281080705031 Ref C: 2026-11-11T10:15:41Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:10 GMT"
+            "Wed, 11 Nov 2026 10:15:44 GMT"
           ]
         },
         "contentHeaders": {
@@ -258,7 +258,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec\u0022,\u0022name\u0022:\u0022scenario-tenant-template-spec\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022},\u0022templateHash\u0022:\u002212766005808083567375\u0022,\u0022parameters\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022xyz\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-10T05:03:11.2346425Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u002297d637d3-cc41-45cc-a082-b15e77af6776\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022validatedResources\u0022:[]}}"
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec\u0022,\u0022name\u0022:\u0022scenario-tenant-template-spec\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022},\u0022templateHash\u0022:\u002212766005808083567375\u0022,\u0022parameters\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022xyz\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-11T10:15:44.0979875Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u002227e65fef-88ea-4c61-97bd-a31df7af5e62\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022validatedResources\u0022:[]}}"
       }
     },
     {
@@ -270,10 +270,10 @@
             "application/json; charset=utf-8"
           ],
           "x-ms-client-request-id": [
-            "e650abc3-c462-4888-b734-429aecae85cd"
+            "13d2010c-a6fe-41d6-92e6-f80f46af9154"
           ]
         },
-        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022},\u0022parameters\u0022:{\u0022foo\u0022:{\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022value\u0022:\u0022xyz\u0022}}},\u0022tags\u0022:null}"
+        "body": "{\u0022location\u0022:\u0022WestUS\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022},\u0022parameters\u0022:{\u0022foo\u0022:{\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022value\u0022:\u0022xyz\u0022}},\u0022mode\u0022:\u0022Incremental\u0022}}"
       },
       "response": {
         "statusCode": 201,
@@ -285,7 +285,7 @@
             "no-cache"
           ],
           "Azure-AsyncOperation": [
-            "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639298837974835888\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639299889516616863\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "x-ms-deployment-engine-version": [
             "1.792.0"
@@ -294,13 +294,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "89f91e2b-96d9-4fbc-b73a-b612ebe60dd2"
+            "9828fbab-e84c-4957-8e12-bf18f0658d34"
           ],
           "x-ms-correlation-request-id": [
-            "89f91e2b-96d9-4fbc-b73a-b612ebe60dd2"
+            "9828fbab-e84c-4957-8e12-bf18f0658d34"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261110T050317Z:89f91e2b-96d9-4fbc-b73a-b612ebe60dd2"
+            "AUSTRALIAEAST:20261111T101551Z:9828fbab-e84c-4957-8e12-bf18f0658d34"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -312,10 +312,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 582396B0CBC24CD8A0B80597E912AA2E Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:11Z"
+            "Ref A: 85721ACF9FC84949B1593CFB346A443A Ref B: SYD281080705031 Ref C: 2026-11-11T10:15:44Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:17 GMT"
+            "Wed, 11 Nov 2026 10:15:51 GMT"
           ]
         },
         "contentHeaders": {
@@ -326,16 +326,16 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec\u0022,\u0022name\u0022:\u0022scenario-tenant-template-spec\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022},\u0022templateHash\u0022:\u002212766005808083567375\u0022,\u0022parameters\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022xyz\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-11-10T05:03:12.6397675Z\u0022,\u0022duration\u0022:\u0022PT0.0005675S\u0022,\u0022correlationId\u0022:\u002289f91e2b-96d9-4fbc-b73a-b612ebe60dd2\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[]}}"
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec\u0022,\u0022name\u0022:\u0022scenario-tenant-template-spec\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022},\u0022templateHash\u0022:\u002212766005808083567375\u0022,\u0022parameters\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022xyz\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-11-11T10:15:46.3647858Z\u0022,\u0022duration\u0022:\u0022PT0.0006265S\u0022,\u0022correlationId\u0022:\u00229828fbab-e84c-4957-8e12-bf18f0658d34\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[]}}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639298837974835888\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639299889516616863\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {
           "x-ms-client-request-id": [
-            "04b37c7a-3e5a-4b98-ad33-04ce717e1fd4"
+            "da22270a-98ed-457c-9ad8-21f0c9c86630"
           ]
         }
       },
@@ -352,13 +352,13 @@
             "249"
           ],
           "x-ms-request-id": [
-            "e196f577-4cd1-4dc0-a943-cb6e963f39a3"
+            "ff4e6e08-fc09-48c5-8fb4-7006ccbc98a8"
           ],
           "x-ms-correlation-request-id": [
-            "e196f577-4cd1-4dc0-a943-cb6e963f39a3"
+            "ff4e6e08-fc09-48c5-8fb4-7006ccbc98a8"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261110T050333Z:e196f577-4cd1-4dc0-a943-cb6e963f39a3"
+            "AUSTRALIASOUTHEAST:20261111T101607Z:ff4e6e08-fc09-48c5-8fb4-7006ccbc98a8"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -370,10 +370,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: FEC2E4E0A9784C1D8F6BB11F5F7E1FCE Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:32Z"
+            "Ref A: FA1763C5F6E046F7BD705AFC0F639E31 Ref B: SYD281080705031 Ref C: 2026-11-11T10:16:06Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:32 GMT"
+            "Wed, 11 Nov 2026 10:16:07 GMT"
           ]
         },
         "contentHeaders": {
@@ -393,7 +393,7 @@
         "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec?api-version=2025-04-01",
         "headers": {
           "x-ms-client-request-id": [
-            "a93e1804-681a-48c8-9a62-9bf183b4d0f5"
+            "ee176727-ba4e-4834-b8b8-dab7db676ea5"
           ]
         }
       },
@@ -410,13 +410,13 @@
             "249"
           ],
           "x-ms-request-id": [
-            "9c1f5683-54dc-4983-b714-ce0cd184d8b8"
+            "1c3f07b6-7518-4dc6-84b1-d7699cc26643"
           ],
           "x-ms-correlation-request-id": [
-            "9c1f5683-54dc-4983-b714-ce0cd184d8b8"
+            "1c3f07b6-7518-4dc6-84b1-d7699cc26643"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIASOUTHEAST:20261110T050334Z:9c1f5683-54dc-4983-b714-ce0cd184d8b8"
+            "AUSTRALIASOUTHEAST:20261111T101608Z:1c3f07b6-7518-4dc6-84b1-d7699cc26643"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -428,10 +428,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 88A0CA2448AC4BA7AE2DB9974F6FC98D Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:33Z"
+            "Ref A: 47D1D5565F5B45B0992EAE22F24C5F66 Ref B: SYD281080705031 Ref C: 2026-11-11T10:16:07Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:33 GMT"
+            "Wed, 11 Nov 2026 10:16:08 GMT"
           ]
         },
         "contentHeaders": {
@@ -442,7 +442,7 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec\u0022,\u0022name\u0022:\u0022scenario-tenant-template-spec\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022},\u0022templateHash\u0022:\u002212766005808083567375\u0022,\u0022parameters\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022xyz\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-10T05:03:19.8529807Z\u0022,\u0022duration\u0022:\u0022PT7.2132132S\u0022,\u0022correlationId\u0022:\u002289f91e2b-96d9-4fbc-b73a-b612ebe60dd2\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022xyz\u0022}},\u0022outputResources\u0022:[]}}"
+        "body": "{\u0022id\u0022:\u0022/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec\u0022,\u0022name\u0022:\u0022scenario-tenant-template-spec\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022templateLink\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-tenant-template-spec-rg/providers/Microsoft.Resources/templateSpecs/scenario-tenant-template-spec/versions/v1\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022},\u0022templateHash\u0022:\u002212766005808083567375\u0022,\u0022parameters\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022xyz\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-11T10:15:52.1817819Z\u0022,\u0022duration\u0022:\u0022PT5.8169961S\u0022,\u0022correlationId\u0022:\u00229828fbab-e84c-4957-8e12-bf18f0658d34\u0022,\u0022providers\u0022:[],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022foo\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022abc\u0022},\u0022bar\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022xyz\u0022}},\u0022outputResources\u0022:[]}}"
       }
     },
     {
@@ -451,7 +451,7 @@
         "uri": "https://management.azure.com/providers/Microsoft.Resources/deployments/scenario-tenant-template-spec?api-version=2025-04-01",
         "headers": {
           "x-ms-client-request-id": [
-            "6c9ea625-1465-4de2-ad39-96b9e2e62813"
+            "c39e34d1-fc9b-41ce-8cd2-22ad6ceb58fb"
           ]
         }
       },
@@ -465,7 +465,7 @@
             "no-cache"
           ],
           "Location": [
-            "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639298838180545000\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639299889725931902\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "Retry-After": [
             "15"
@@ -474,13 +474,13 @@
             "199"
           ],
           "x-ms-request-id": [
-            "7e51c185-6773-46e0-92e6-0f9b18a4382b"
+            "2f9be2ec-2d2d-47fc-9cb8-f6f5d348947d"
           ],
           "x-ms-correlation-request-id": [
-            "7e51c185-6773-46e0-92e6-0f9b18a4382b"
+            "2f9be2ec-2d2d-47fc-9cb8-f6f5d348947d"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261110T050338Z:7e51c185-6773-46e0-92e6-0f9b18a4382b"
+            "AUSTRALIAEAST:20261111T101612Z:2f9be2ec-2d2d-47fc-9cb8-f6f5d348947d"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -492,10 +492,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 2D4E5CA3DF564875B42F6BD4CD37449B Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:34Z"
+            "Ref A: 587D386C2DC049FF881EA3B7479D9DA0 Ref B: SYD281080705031 Ref C: 2026-11-11T10:16:08Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:37 GMT"
+            "Wed, 11 Nov 2026 10:16:12 GMT"
           ]
         },
         "contentHeaders": {
@@ -509,10 +509,10 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639298838180545000\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639299889725931902\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {
           "x-ms-client-request-id": [
-            "45e41dc2-2e46-4211-ba45-6b7d9dc5b302"
+            "e2355862-8bfc-4d00-b81a-b6ffe89effc4"
           ]
         }
       },
@@ -529,13 +529,13 @@
             "249"
           ],
           "x-ms-request-id": [
-            "7a45ad4b-69dd-4c10-b100-e16b09c98400"
+            "fd188e57-a9b5-4c1f-b40e-5d4aa264d73e"
           ],
           "x-ms-correlation-request-id": [
-            "7a45ad4b-69dd-4c10-b100-e16b09c98400"
+            "fd188e57-a9b5-4c1f-b40e-5d4aa264d73e"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261110T050353Z:7a45ad4b-69dd-4c10-b100-e16b09c98400"
+            "AUSTRALIACENTRAL2:20261111T101628Z:fd188e57-a9b5-4c1f-b40e-5d4aa264d73e"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -547,10 +547,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 838F9E41D0F143DBAF785B6A04FDC1BE Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:53Z"
+            "Ref A: 27B9C2CF41204BACB5CFAF1F4C10A030 Ref B: SYD281080705031 Ref C: 2026-11-11T10:16:27Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:53 GMT"
+            "Wed, 11 Nov 2026 10:16:28 GMT"
           ]
         },
         "contentHeaders": {
@@ -564,10 +564,10 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639298838180545000\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/providers/Microsoft.Resources/operationResults/sanitized-operation-token?api-version=2025-04-01\u0026t=639299889725931902\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {
           "x-ms-client-request-id": [
-            "fb2edd94-a32d-415d-be9c-6e84a3901e4c"
+            "826f93a4-f5db-436d-a2b7-1f90f5fa0d12"
           ]
         }
       },
@@ -584,13 +584,13 @@
             "249"
           ],
           "x-ms-request-id": [
-            "5c8cc755-58de-49dc-adc6-04523a5cea46"
+            "ac0e6922-2ad7-45ab-8a58-b9dbc194e727"
           ],
           "x-ms-correlation-request-id": [
-            "5c8cc755-58de-49dc-adc6-04523a5cea46"
+            "ac0e6922-2ad7-45ab-8a58-b9dbc194e727"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIASOUTHEAST:20261110T050354Z:5c8cc755-58de-49dc-adc6-04523a5cea46"
+            "AUSTRALIAEAST:20261111T101629Z:ac0e6922-2ad7-45ab-8a58-b9dbc194e727"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -602,10 +602,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: A7CCEB1135494B9B9EBB2E9EF3B6769F Ref B: SYD281080708060 Ref C: 2026-11-10T05:03:53Z"
+            "Ref A: 1DF0BAF76E1646C3A356D87D2E4F002F Ref B: SYD281080705031 Ref C: 2026-11-11T10:16:28Z"
           ],
           "Date": [
-            "Tue, 10 Nov 2026 05:03:54 GMT"
+            "Wed, 11 Nov 2026 10:16:29 GMT"
           ]
         },
         "contentHeaders": {

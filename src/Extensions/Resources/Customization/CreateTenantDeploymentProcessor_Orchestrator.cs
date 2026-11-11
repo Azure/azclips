@@ -25,12 +25,7 @@ public class CreateTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
         CreateOrUpdateAtTenantScopeDeploymentsProcessor put = CreateExtendedProcessor<CreateOrUpdateAtTenantScopeDeploymentsProcessor>(p =>
         {
             p.DeploymentName = Name;
-            p.Location = Location;
-            p.Template = resolved.Template;
-            p.TemplateLink = resolved.TemplateLink;
-            p.Parameters = resolved.Parameters;
-            p.ParametersLink = resolved.ParametersLink;
-            p.ValidationLevel = resolved.ValidationLevel;
+            p.Body = BuildDeployment(resolved);
         });
 
         if (!NoWait)

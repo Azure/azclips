@@ -19,15 +19,22 @@ public class WhatIfTenantDeploymentProcessor_Orchestrator : TenantDeploymentOrch
         return CreateExtendedProcessor<WhatIfAtTenantScopeDeploymentsProcessor>(p =>
         {
             p.DeploymentName = Name;
-            p.Location = Location;
-            p.Template = resolved.Template;
-            p.TemplateLink = resolved.TemplateLink;
-            p.Parameters = resolved.Parameters;
-            p.ParametersLink = resolved.ParametersLink;
-            p.ValidationLevel = resolved.ValidationLevel;
-            p.WhatIfSettings = new DeploymentWhatIfSettings
+            p.Body = new ScopedDeploymentWhatIf
             {
-                ResultFormat = NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.NormalizeResultFormat(ResultFormat),
+                Location = Location,
+                Properties = new DeploymentWhatIfProperties
+                {
+                    Mode = "Incremental",
+                    Template = resolved.Template,
+                    TemplateLink = resolved.TemplateLink,
+                    Parameters = resolved.Parameters,
+                    ParametersLink = resolved.ParametersLink,
+                    ValidationLevel = resolved.ValidationLevel,
+                    WhatIfSettings = new DeploymentWhatIfSettings
+                    {
+                        ResultFormat = NewResourceGroupDeploymentWhatIfProcessor_Orchestrator.NormalizeResultFormat(ResultFormat),
+                    },
+                },
             };
         }).SendAsyncPollLocation();
     }

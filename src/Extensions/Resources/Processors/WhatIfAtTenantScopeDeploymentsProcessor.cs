@@ -10,40 +10,71 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary>Returns changes that will be made by the deployment if executed at the scope of the tenant group.</summary>
-public partial class WhatIfAtTenantScopeDeploymentsProcessor : ResourcesProcessorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
+public partial class WhatIfAtTenantScopeDeploymentsProcessor : ProcessorBase<ScopedDeploymentWhatIf, WhatIfOperationResult>
 {
     /// <summary>The name of the deployment.</summary>
     public string DeploymentName { get; set; } = string.Empty;
+    /// <summary>Body parameter's content type. Known values are application/json</summary>
+    internal string ContentType { get; set; } = string.Empty;
+    internal string Accept { get; set; } = string.Empty;
+    /// <summary>Parameters to validate.</summary>
+    internal ScopedDeploymentWhatIf? Body { get; set; }
     /// <summary>The location to store the deployment data.</summary>
-    public string Location { get; set; } = string.Empty;
-    /// <summary>The template content. Use either Template or TemplateLink, but not both.</summary>
-    public object? Template { get; set; }
-    /// <summary>The URI or Template Spec id of the template. Use either Template or TemplateLink, but not both.</summary>
-    public TemplateLink? TemplateLink { get; set; }
-    /// <summary>Name and value pairs that define the deployment parameters. Use either Parameters or ParametersLink, but not both.</summary>
-    public object? Parameters { get; set; }
-    /// <summary>The URI of the parameters file. Use either Parameters or ParametersLink, but not both.</summary>
-    public ParametersLink? ParametersLink { get; set; }
-    /// <summary>The validation level of the deployment: Template, Provider, or ProviderNoRbac.</summary>
-    public string? ValidationLevel { get; set; }
-    /// <summary>Optional What-If operation settings, such as the result format.</summary>
-    public DeploymentWhatIfSettings? WhatIfSettings { get; set; }
+    public string? Location { get => Body?.Location; set => (Body ??= new ScopedDeploymentWhatIf()).Location = value!; }
+    /// <summary>The template content. You use this element when you want to pass the template syntax directly in the request rather than link to an existing template. It can be a JObject or well-formed JSON string. Use either the templateLink property or the template property, but not both.</summary>
+    public object? Template { get => Body?.Template; set => (Body ??= new ScopedDeploymentWhatIf()).Template = value; }
+    /// <summary>Name and value pairs that define the deployment parameters for the template. You use this element when you want to provide the parameter values directly in the request rather than link to an existing parameter file. Use either the parametersLink property or the parameters property, but not both. It can be a JObject or a well formed JSON string.</summary>
+    public IDictionary<string, DeploymentParameter>? Parameters { get => Body?.Parameters; set => (Body ??= new ScopedDeploymentWhatIf()).Parameters = value; }
+    /// <summary>External input values, used by external tooling for parameter evaluation.</summary>
+    public IDictionary<string, DeploymentExternalInput>? ExternalInputs { get => Body?.ExternalInputs; set => (Body ??= new ScopedDeploymentWhatIf()).ExternalInputs = value; }
+    /// <summary>External input definitions, used by external tooling to define expected external input values.</summary>
+    public IDictionary<string, DeploymentExternalInputDefinition>? ExternalInputDefinitions { get => Body?.ExternalInputDefinitions; set => (Body ??= new ScopedDeploymentWhatIf()).ExternalInputDefinitions = value; }
+    /// <summary>The configurations to use for deployment extensions. The keys of this object are deployment extension aliases as defined in the deployment template.</summary>
+    public IDictionary<string, IDictionary<string, DeploymentExtensionConfigItem>>? ExtensionConfigs { get => Body?.ExtensionConfigs; set => (Body ??= new ScopedDeploymentWhatIf()).ExtensionConfigs = value; }
+    /// <summary>The mode that is used to deploy resources. This value can be either Incremental or Complete. In Incremental mode, resources are deployed without deleting existing resources that are not included in the template. In Complete mode, resources are deployed and existing resources in the resource group that are not included in the template are deleted. Be careful when using Complete mode as you may unintentionally delete resources.</summary>
+    /// <remarks>Allowed values (fixed enum DeploymentMode): "Incremental", "Complete".</remarks>
+    public string? Mode { get => Body?.Mode; set => (Body ??= new ScopedDeploymentWhatIf()).Mode = value!; }
+    /// <summary>The validation level of the deployment</summary>
+    /// <remarks>
+    /// Known values (extensible enum ValidationLevel):
+    /// <list type="bullet">
+    /// <item><description>"Template": Static analysis of the template is performed.</description></item>
+    /// <item><description>"Provider": Static analysis of the template is performed and resource declarations are sent to resource providers for semantic validation. Validates that the caller has RBAC write permissions on each resource.</description></item>
+    /// <item><description>"ProviderNoRbac": Static analysis of the template is performed and resource declarations are sent to resource providers for semantic validation. Skips validating that the caller has RBAC write permissions on each resource.</description></item>
+    /// </list>
+    /// </remarks>
+    public string? ValidationLevel { get => Body?.ValidationLevel; set => (Body ??= new ScopedDeploymentWhatIf()).ValidationLevel = value; }
+    /// <summary>The URI of the template to deploy. Use either the uri or id property, but not both.</summary>
+    public string? TemplateLinkUri { get => Body?.TemplateLinkUri; set => (Body ??= new ScopedDeploymentWhatIf()).TemplateLinkUri = value; }
+    /// <summary>The resource id of a Template Spec. Use either the id or uri property, but not both.</summary>
+    public string? TemplateLinkId { get => Body?.TemplateLinkId; set => (Body ??= new ScopedDeploymentWhatIf()).TemplateLinkId = value; }
+    /// <summary>The relativePath property can be used to deploy a linked template at a location relative to the parent. If the parent template was linked with a TemplateSpec, this will reference an artifact in the TemplateSpec.  If the parent was linked with a URI, the child deployment will be a combination of the parent and relativePath URIs</summary>
+    public string? TemplateLinkRelativePath { get => Body?.TemplateLinkRelativePath; set => (Body ??= new ScopedDeploymentWhatIf()).TemplateLinkRelativePath = value; }
+    /// <summary>If included, must match the ContentVersion in the template.</summary>
+    public string? TemplateLinkContentVersion { get => Body?.TemplateLinkContentVersion; set => (Body ??= new ScopedDeploymentWhatIf()).TemplateLinkContentVersion = value; }
+    /// <summary>The query string (for example, a SAS token) to be used with the templateLink URI.</summary>
+    public string? TemplateLinkQueryString { get => Body?.TemplateLinkQueryString; set => (Body ??= new ScopedDeploymentWhatIf()).TemplateLinkQueryString = value; }
+    /// <summary>The URI of the parameters file.</summary>
+    public string? ParametersLinkUri { get => Body?.ParametersLinkUri; set => (Body ??= new ScopedDeploymentWhatIf()).ParametersLinkUri = value; }
+    /// <summary>If included, must match the ContentVersion in the template.</summary>
+    public string? ParametersLinkContentVersion { get => Body?.ParametersLinkContentVersion; set => (Body ??= new ScopedDeploymentWhatIf()).ParametersLinkContentVersion = value; }
+    /// <summary>Specifies the type of information to log for debugging. The permitted values are none, requestContent, responseContent, or both requestContent and responseContent separated by a comma. The default is none. When setting this value, carefully consider the type of information you are passing in during deployment. By logging information about the request or response, you could potentially expose sensitive data that is retrieved through the deployment operations.</summary>
+    public string? DebugSettingDetailLevel { get => Body?.DebugSettingDetailLevel; set => (Body ??= new ScopedDeploymentWhatIf()).DebugSettingDetailLevel = value; }
+    /// <summary>The deployment on error behavior type. Possible values are LastSuccessful and SpecificDeployment.</summary>
+    /// <remarks>Allowed values (fixed enum OnErrorDeploymentType): "LastSuccessful", "SpecificDeployment".</remarks>
+    public string? OnErrorDeploymentType { get => Body?.OnErrorDeploymentType; set => (Body ??= new ScopedDeploymentWhatIf()).OnErrorDeploymentType = value; }
+    /// <summary>The deployment to be used on error case.</summary>
+    public string? OnErrorDeploymentDeploymentName { get => Body?.OnErrorDeploymentDeploymentName; set => (Body ??= new ScopedDeploymentWhatIf()).OnErrorDeploymentDeploymentName = value; }
+    /// <summary>The scope to be used for evaluation of parameters, variables and functions in a nested template.</summary>
+    /// <remarks>Known values (extensible enum ExpressionEvaluationOptionsScopeType): "NotSpecified", "Outer", "Inner".</remarks>
+    public string? ExpressionEvaluationOptionsScope { get => Body?.ExpressionEvaluationOptionsScope; set => (Body ??= new ScopedDeploymentWhatIf()).ExpressionEvaluationOptionsScope = value; }
+    /// <summary>The format of the What-If results</summary>
+    /// <remarks>Allowed values (fixed enum WhatIfResultFormat): "ResourceIdOnly", "FullResourcePayloads".</remarks>
+    public string? WhatIfSettingsResultFormat { get => Body?.WhatIfSettingsResultFormat; set => (Body ??= new ScopedDeploymentWhatIf()).WhatIfSettingsResultFormat = value; }
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/whatIf?api-version=2025-04-01";
-    protected override ScopedDeploymentWhatIf? CreateRequestBody() => new ScopedDeploymentWhatIf
-    {
-        Location = Location,
-        Properties = new DeploymentWhatIfProperties
-        {
-            Template = Template,
-            TemplateLink = TemplateLink,
-            Parameters = Parameters,
-            ParametersLink = ParametersLink,
-            ValidationLevel = ValidationLevel,
-            WhatIfSettings = WhatIfSettings,
-        },
-    };
+    protected override string CreateRequestUri() => $"{Endpoint}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/whatIf?api-version=2025-04-01";
+    protected override ScopedDeploymentWhatIf? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");

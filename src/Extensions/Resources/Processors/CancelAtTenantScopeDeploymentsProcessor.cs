@@ -10,11 +10,11 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 /// <summary>You can cancel a deployment only if the provisioningState is Accepted or Running. After the deployment is canceled, the provisioningState is set to Canceled. Canceling a template deployment stops the currently running template deployment and leaves the resources partially deployed.</summary>
-public partial class CancelAtTenantScopeDeploymentsProcessor : ResourcesProcessorBase<object, object>
+public partial class CancelAtTenantScopeDeploymentsProcessor : ProcessorBase<object, object>
 {
     /// <summary>The name of the deployment.</summary>
     public string DeploymentName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Post;
 
-    protected override string CreateRequestUri() => $"https://management.azure.com/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/cancel?api-version=2025-04-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/providers/Microsoft.Resources/deployments/{Uri.EscapeDataString(DeploymentName)}/cancel?api-version=2025-04-01";
 }
