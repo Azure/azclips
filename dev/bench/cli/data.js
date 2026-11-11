@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794359539518,
+  "lastUpdate": 1794365687832,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -18440,6 +18440,48 @@ window.BENCHMARK_DATA = {
             "value": 37331119.28611445,
             "unit": "ns",
             "range": "± 1646488.4949376804"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "67583f311c51216fbce954bee52f9abbb8261a7c",
+          "message": "{Docs} Remove generated PowerShell Notes boilerplate (#1390)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nPowerShell help across Accounts, Compute, Config, Network, Resources and\nStorage\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nRemove legacy \"Generated help for ...\" boilerplate from 33 PowerShell\nhelp pages.\nRetain every `## NOTES` heading and preserve useful command-specific\nnotes, including\nNew-AzVM's networking guidance. Pages with no remaining notes have an\nempty Notes body,\nwhich Learn omits when rendering.\n\nClarify `PSL12_FillPlaceholder` diagnostics and the help-authoring\nguide: for optional\nsections such as Notes, remove the placeholder if no content applies and\nretain the\nheading. Extend the existing Notes/Related Links placeholder test to\nverify this guidance.\n\nNo scaffolder, refresh, validation severity, parameter metadata, or\npublishing logic changes.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n- `dotnet test\n.\\tools\\Help\\Azclips.Help.Tool.Tests\\Azclips.Help.Tool.Tests.csproj\n--filter FullyQualifiedName~PowerShellExampleSyntaxValidatorTests\n--no-restore --verbosity minimal`\n  - Passed: 50 tests, zero failures.\n- `Test-MarkdownCommandHelp -Path <changed-page>` and\n  `Import-MarkdownCommandHelp -Path <changed-page>` using\n  `Microsoft.PowerShell.PlatyPS` 1.0.1\n  - Passed for all 33 changed help pages.\n- Exact source comparison against the branch baseline\n- Passed: only the boilerplate sentence and its redundant blank line\nwere removed;\n    all Notes headings and other authored content remain intact.\n- `git diff --check`\n  - Passed.\n\nFull solution build and hosted Learn regeneration were not run. The\ntargeted test\ncommand built the validator and its dependencies. Hosted verification\nfollows a\nsubsequent docs review-branch sync.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n{Docs} Remove generated PowerShell Notes boilerplate and clarify\noptional-section authoring guidance\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-11T13:27:16+11:00",
+          "tree_id": "004658bec57cfc94fd203ece04dda84404166f4f",
+          "url": "https://github.com/Azure/azclips/commit/67583f311c51216fbce954bee52f9abbb8261a7c"
+        },
+        "date": 1794365675127,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 15803914.484981978,
+            "unit": "ns",
+            "range": "± 1728900.293250382"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 30798603.705988746,
+            "unit": "ns",
+            "range": "± 1643958.3586629871"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 37632071.531850964,
+            "unit": "ns",
+            "range": "± 1847846.0560306439"
           }
         ]
       }
