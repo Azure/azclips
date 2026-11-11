@@ -62,6 +62,7 @@
     <Project Path="tests/Fixtures/ExtraVerb/Azclips.Tests.Fixtures.ExtraVerb.csproj" />
     <Project Path="tests/Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj" />
     <Project Path="tests/Fixtures/FakeAgent/FakeAgent.csproj" />
+    <Project Path="tests/Fixtures/WindowsConsoleWorker/WindowsConsole.TestWorker.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
   <Folder Name="/tools/">
