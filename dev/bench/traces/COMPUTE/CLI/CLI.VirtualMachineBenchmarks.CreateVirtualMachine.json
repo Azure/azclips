@@ -4,10 +4,10 @@
   "extension": "COMPUTE",
   "product": "CLI",
   "source": {
-    "commit": "15acd292266dc60f1c67f6b572093059bccefbeb",
+    "commit": "1b874733c2e00069345674e8d4fa1b0228a907d6",
     "ref": "refs/heads/main",
-    "run_id": "42960776767",
-    "generated": "2026-11-11T05:31:38Z"
+    "run_id": "43009757459",
+    "generated": "2026-11-11T11:38:21Z"
   },
   "traces": 100,
   "diagnostics": {
@@ -23,7 +23,7 @@
           0
         ]
       ],
-      "avg_ms": 11.795625000000006,
+      "avg_ms": 12.650130999999998,
       "occurrences": 100,
       "offset_ms": 0.0
     },
@@ -38,7 +38,7 @@
           0
         ]
       ],
-      "avg_ms": 1.804777,
+      "avg_ms": 1.9533079999999998,
       "occurrences": 100,
       "offset_ms": 0.0
     },
@@ -53,9 +53,9 @@
           0
         ]
       ],
-      "avg_ms": 0.002455,
+      "avg_ms": 0.003024,
       "occurrences": 100,
-      "offset_ms": 1.8321000000000003
+      "offset_ms": 1.9819099999999998
     },
     {
       "path": [
@@ -68,9 +68,9 @@
           0
         ]
       ],
-      "avg_ms": 0.166496,
+      "avg_ms": 0.198979,
       "occurrences": 100,
-      "offset_ms": 1.8568400000000005
+      "offset_ms": 2.0081700000000007
     },
     {
       "path": [
@@ -83,9 +83,9 @@
           0
         ]
       ],
-      "avg_ms": 9.713418999999993,
+      "avg_ms": 10.380219,
       "occurrences": 100,
-      "offset_ms": 2.0637600000000007
+      "offset_ms": 2.2494
     },
     {
       "path": [
@@ -102,9 +102,9 @@
           0
         ]
       ],
-      "avg_ms": 0.046903999999999973,
+      "avg_ms": 0.05894399999999998,
       "occurrences": 100,
-      "offset_ms": 0.001490000000000001
+      "offset_ms": 0.0016800000000000012
     },
     {
       "path": [
@@ -121,9 +121,9 @@
           0
         ]
       ],
-      "avg_ms": 0.030319999999999993,
+      "avg_ms": 0.035673,
       "occurrences": 100,
-      "offset_ms": 0.049219999999999986
+      "offset_ms": 0.06196999999999999
     },
     {
       "path": [
@@ -140,9 +140,9 @@
           0
         ]
       ],
-      "avg_ms": 0.006271,
+      "avg_ms": 0.008058999999999997,
       "occurrences": 100,
-      "offset_ms": 0.09817000000000004
+      "offset_ms": 0.11903999999999997
     },
     {
       "path": [
@@ -159,9 +159,9 @@
           0
         ]
       ],
-      "avg_ms": 1.687937,
+      "avg_ms": 1.8127470000000008,
       "occurrences": 100,
-      "offset_ms": 0.10441000000000006
+      "offset_ms": 0.12713
     },
     {
       "path": [
@@ -178,9 +178,9 @@
           0
         ]
       ],
-      "avg_ms": 9.191339,
+      "avg_ms": 9.790962000000004,
       "occurrences": 100,
-      "offset_ms": 2.5678300000000003
+      "offset_ms": 2.8191500000000014
     },
     {
       "path": [
@@ -197,9 +197,9 @@
           0
         ]
       ],
-      "avg_ms": 8.573010000000002,
+      "avg_ms": 9.136745000000001,
       "occurrences": 100,
-      "offset_ms": 3.1615800000000003
+      "offset_ms": 3.4475300000000004
     },
     {
       "path": [
@@ -216,9 +216,9 @@
           0
         ]
       ],
-      "avg_ms": 0.28675900000000004,
+      "avg_ms": 0.3027119999999998,
       "occurrences": 100,
-      "offset_ms": 3.746000000000001
+      "offset_ms": 4.085379999999998
     },
     {
       "path": [
@@ -235,9 +235,9 @@
           0
         ]
       ],
-      "avg_ms": 0.23536600000000008,
+      "avg_ms": 0.24894399999999997,
       "occurrences": 100,
-      "offset_ms": 3.7605400000000015
+      "offset_ms": 4.1003
     },
     {
       "path": [
@@ -254,9 +254,9 @@
           1
         ]
       ],
-      "avg_ms": 0.21379599999999996,
+      "avg_ms": 0.2290739999999999,
       "occurrences": 100,
-      "offset_ms": 4.138310000000001
+      "offset_ms": 4.5050799999999995
     },
     {
       "path": [
@@ -273,9 +273,9 @@
           1
         ]
       ],
-      "avg_ms": 0.17255499999999993,
+      "avg_ms": 0.18460600000000008,
       "occurrences": 100,
-      "offset_ms": 4.15149
+      "offset_ms": 4.519279999999999
     },
     {
       "path": [
@@ -292,9 +292,9 @@
           2
         ]
       ],
-      "avg_ms": 0.2388079999999999,
+      "avg_ms": 0.2512229999999999,
       "occurrences": 100,
-      "offset_ms": 4.585489999999999
+      "offset_ms": 4.9856
     },
     {
       "path": [
@@ -311,9 +311,9 @@
           2
         ]
       ],
-      "avg_ms": 0.19445999999999994,
+      "avg_ms": 0.204013,
       "occurrences": 100,
-      "offset_ms": 4.598900000000001
+      "offset_ms": 4.999969999999998
     },
     {
       "path": [
@@ -330,9 +330,9 @@
           3
         ]
       ],
-      "avg_ms": 0.19999499999999998,
+      "avg_ms": 0.21865399999999988,
       "occurrences": 100,
-      "offset_ms": 4.9092899999999995
+      "offset_ms": 5.32816
     },
     {
       "path": [
@@ -349,9 +349,9 @@
           3
         ]
       ],
-      "avg_ms": 0.161372,
+      "avg_ms": 0.17700399999999994,
       "occurrences": 100,
-      "offset_ms": 4.922849999999997
+      "offset_ms": 5.3427
     },
     {
       "path": [
@@ -368,9 +368,9 @@
           4
         ]
       ],
-      "avg_ms": 0.27956800000000004,
+      "avg_ms": 0.29235800000000006,
       "occurrences": 100,
-      "offset_ms": 5.72726
+      "offset_ms": 6.204019999999996
     },
     {
       "path": [
@@ -387,9 +387,9 @@
           4
         ]
       ],
-      "avg_ms": 0.22924400000000011,
+      "avg_ms": 0.24026799999999998,
       "occurrences": 100,
-      "offset_ms": 5.74168
+      "offset_ms": 6.218639999999997
     },
     {
       "path": [
@@ -406,9 +406,9 @@
           5
         ]
       ],
-      "avg_ms": 0.20003800000000005,
+      "avg_ms": 0.21448699999999996,
       "occurrences": 100,
-      "offset_ms": 6.0865
+      "offset_ms": 6.579279999999999
     },
     {
       "path": [
@@ -425,9 +425,9 @@
           5
         ]
       ],
-      "avg_ms": 0.161782,
+      "avg_ms": 0.17335599999999998,
       "occurrences": 100,
-      "offset_ms": 6.099360000000001
+      "offset_ms": 6.592479999999999
     },
     {
       "path": [
@@ -444,9 +444,9 @@
           6
         ]
       ],
-      "avg_ms": 0.2463509999999999,
+      "avg_ms": 0.2602070000000001,
       "occurrences": 100,
-      "offset_ms": 6.619089999999999
+      "offset_ms": 7.1501800000000015
     },
     {
       "path": [
@@ -461,182 +461,182 @@
         [
           "MsalAuthService.AcquireTokenSilentlyAsync",
           6
+        ]
+      ],
+      "avg_ms": 0.210998,
+      "occurrences": 100,
+      "offset_ms": 7.164370000000003
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          7
+        ]
+      ],
+      "avg_ms": 0.21905000000000002,
+      "occurrences": 100,
+      "offset_ms": 7.520289999999999
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          7
+        ]
+      ],
+      "avg_ms": 0.17713500000000004,
+      "occurrences": 100,
+      "offset_ms": 7.534000000000003
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          8
+        ]
+      ],
+      "avg_ms": 0.3108559999999999,
+      "occurrences": 100,
+      "offset_ms": 11.297369999999999
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          8
+        ]
+      ],
+      "avg_ms": 0.2543879999999999,
+      "occurrences": 100,
+      "offset_ms": 11.313570000000004
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          9
+        ]
+      ],
+      "avg_ms": 0.22946399999999997,
+      "occurrences": 100,
+      "offset_ms": 11.726870000000003
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          9
+        ]
+      ],
+      "avg_ms": 0.18346700000000002,
+      "occurrences": 100,
+      "offset_ms": 11.741380000000003
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          10
+        ]
+      ],
+      "avg_ms": 0.20594899999999997,
+      "occurrences": 100,
+      "offset_ms": 12.024869999999995
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "MsalAuthService.AcquireTokenSilentlyAsync",
+          10
+        ]
+      ],
+      "avg_ms": 0.16675400000000004,
+      "occurrences": 100,
+      "offset_ms": 12.038540000000006
+    },
+    {
+      "path": [
+        [
+          "CLI.Activity.Root",
+          0
+        ],
+        [
+          "AzureCLI.ProcessCommand",
+          0
+        ],
+        [
+          "AuthBeforeTokenAcquisition",
+          11
         ]
       ],
       "avg_ms": 0.19985800000000004,
       "occurrences": 100,
-      "offset_ms": 6.632189999999998
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "AuthBeforeTokenAcquisition",
-          7
-        ]
-      ],
-      "avg_ms": 0.206046,
-      "occurrences": 100,
-      "offset_ms": 6.96858
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "MsalAuthService.AcquireTokenSilentlyAsync",
-          7
-        ]
-      ],
-      "avg_ms": 0.167006,
-      "occurrences": 100,
-      "offset_ms": 6.981880000000001
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "AuthBeforeTokenAcquisition",
-          8
-        ]
-      ],
-      "avg_ms": 0.29477200000000003,
-      "occurrences": 100,
-      "offset_ms": 10.528279999999997
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "MsalAuthService.AcquireTokenSilentlyAsync",
-          8
-        ]
-      ],
-      "avg_ms": 0.24104099999999998,
-      "occurrences": 100,
-      "offset_ms": 10.543530000000006
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "AuthBeforeTokenAcquisition",
-          9
-        ]
-      ],
-      "avg_ms": 0.21534299999999995,
-      "occurrences": 100,
-      "offset_ms": 10.932720000000009
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "MsalAuthService.AcquireTokenSilentlyAsync",
-          9
-        ]
-      ],
-      "avg_ms": 0.17253900000000008,
-      "occurrences": 100,
-      "offset_ms": 10.947390000000002
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "AuthBeforeTokenAcquisition",
-          10
-        ]
-      ],
-      "avg_ms": 0.190827,
-      "occurrences": 100,
-      "offset_ms": 11.212570000000001
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "MsalAuthService.AcquireTokenSilentlyAsync",
-          10
-        ]
-      ],
-      "avg_ms": 0.153145,
-      "occurrences": 100,
-      "offset_ms": 11.225389999999997
-    },
-    {
-      "path": [
-        [
-          "CLI.Activity.Root",
-          0
-        ],
-        [
-          "AzureCLI.ProcessCommand",
-          0
-        ],
-        [
-          "AuthBeforeTokenAcquisition",
-          11
-        ]
-      ],
-      "avg_ms": 0.19100899999999998,
-      "occurrences": 100,
-      "offset_ms": 11.474500000000004
+      "offset_ms": 12.306369999999998
     },
     {
       "path": [
@@ -653,9 +653,9 @@
           11
         ]
       ],
-      "avg_ms": 0.156553,
+      "avg_ms": 0.1645150000000001,
       "occurrences": 100,
-      "offset_ms": 11.48764
+      "offset_ms": 12.319939999999997
     }
   ]
 }
