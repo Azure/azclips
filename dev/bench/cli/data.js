@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794373347537,
+  "lastUpdate": 1794375108431,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips Resources CLI Benchmarks": [
@@ -18608,6 +18608,48 @@ window.BENCHMARK_DATA = {
             "value": 38086505.571457244,
             "unit": "ns",
             "range": "± 1512137.262709527"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "15acd292266dc60f1c67f6b572093059bccefbeb",
+          "message": "{Docs} Reject empty link targets in PowerShell help (#1397)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\nPowerShell help authoring and validation\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\nAdd `PSL16_EmptyLinkTarget` to reject Markdown links with empty\ndestinations in\nPowerShell help. Optional sections such as Related Links remain\noptional: an empty\nsection is valid, but an included link must have a destination.\n\nUse the existing Markdig dependency to inspect parsed prose links,\nexcluding images,\ninline code and fenced code. Diagnostics include the source line and\nexplain that\nauthors can supply a URL/relative path or remove an unnecessary entry.\nNonempty\nURLs, relative paths and fragments are accepted without network\nrequests.\n\nAdd focused tests and update the help-authoring guide.\n\nClean up the existing 64 empty links across 47 pages: remove 37 empty\nOnline Version\nentries and give 27 named related-cmdlet links verified relative\ndestinations.\nPreserve all section headings and existing valid links.\n\nThe initial lint-only commit intentionally failed CI with exactly 64\n`PSL16_EmptyLinkTarget` errors across 47 pages, confirming the rule\ncatches the\nexisting defects. The cleanup is now included and local validation\npasses;\nreplacement CI results are pending.\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n- `dotnet test\n.\\tools\\Help\\Azclips.Help.Tool.Tests\\Azclips.Help.Tool.Tests.csproj\n--filter FullyQualifiedName~PowerShellExampleSyntaxValidatorTests\n--no-restore --verbosity minimal`\n  - Passed: 61 tests, zero failures.\n- `dotnet run --project\n.\\tools\\Help\\Azclips.Help.Tool\\Azclips.Help.Tool.csproj --no-restore`\n- Before cleanup: failed as intended with exactly 64\n`PSL16_EmptyLinkTarget`\nerrors across 47 pages, reproduced locally and in the CI help-validate\njob.\n- After cleanup: passed, \"Help validation: no issues.\" Independently\nreproduced\n    by the author in a local manual run.\n- `Test-MarkdownCommandHelp -Path <changed-page>` and\n  `Import-MarkdownCommandHelp -Path <changed-page>` with PlatyPS 1.0.1\n- Passed for all 47 changed pages. All 27 new relative destinations\nexist on disk;\nexact source comparisons confirmed only link cleanup and trailing\nblank-line removal.\n- `git diff --check`\n  - Passed.\n\nFull solution build was not run locally; the targeted test command built\nthe\nvalidator and its dependencies. Hosted Learn verification follows a docs\nsync\nafter product merge.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n{Docs} Reject empty Markdown link destinations in PowerShell help while\nallowing empty optional sections\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-11T04:40:34Z",
+          "tree_id": "0a32885b7b9548db2ed104a37abcab3cbd0090fa",
+          "url": "https://github.com/Azure/azclips/commit/15acd292266dc60f1c67f6b572093059bccefbeb"
+        },
+        "date": 1794375096446,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.ListVirtualMachines",
+            "value": 16177601.653437562,
+            "unit": "ns",
+            "range": "± 1754208.6042606647"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.CreateVirtualMachine",
+            "value": 31878640.436057016,
+            "unit": "ns",
+            "range": "± 1845961.5805239833"
+          },
+          {
+            "name": "Benchmark.CLI.VirtualMachineBenchmarks.GetVirtualMachine",
+            "value": 39057126.71442886,
+            "unit": "ns",
+            "range": "± 1805112.7757538226"
           }
         ]
       }
