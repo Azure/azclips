@@ -7,7 +7,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
-namespace Microsoft.Azure.Azclips.Extensions.Storage.Models;
+namespace Microsoft.Azure.Azclips.Extensions.Storage.Management.Models;
 
 // Response shape. Most members are marked read-only by the service, so this type is
 // never used for a create request; see StorageAccountCreateParameters.

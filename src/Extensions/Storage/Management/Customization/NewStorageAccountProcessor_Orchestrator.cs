@@ -5,9 +5,9 @@ using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
-using Microsoft.Azure.Azclips.Extensions.Storage.Models;
+using Microsoft.Azure.Azclips.Extensions.Storage.Management.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors
 {
     /// <summary>
     /// The customer-facing <c>az storage account create</c> / <c>New-AzStorageAccount</c> command.

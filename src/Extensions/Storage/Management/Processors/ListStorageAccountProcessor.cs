@@ -2,9 +2,9 @@
 // Licensed under the MIT License.
 
 using Microsoft.Azure.Azclips.ExtensionRuntime;
-using Microsoft.Azure.Azclips.Extensions.Storage.Models;
+using Microsoft.Azure.Azclips.Extensions.Storage.Management.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors
 {
     /// <summary>
     /// Lists every storage account in the subscription (<c>StorageAccounts_List</c>). Choosing

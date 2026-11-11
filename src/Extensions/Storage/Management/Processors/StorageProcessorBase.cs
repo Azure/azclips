@@ -10,7 +10,7 @@ using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using ProfileModel = Core.Abstractions.Profile;
 
-namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors
 {
     /// <summary>
     /// Non-generic base used as a marker so that <see cref="CreateExtendedProcessor{T}"/> and

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors
 {
     /// <summary>
     /// The customer-facing <c>az storage account list</c> / <c>Get-AzStorageAccount</c> (resource

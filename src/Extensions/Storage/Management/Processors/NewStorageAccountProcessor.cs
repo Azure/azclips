@@ -2,9 +2,9 @@
 // Licensed under the MIT License.
 
 using Microsoft.Azure.Azclips.ExtensionRuntime;
-using Microsoft.Azure.Azclips.Extensions.Storage.Models;
+using Microsoft.Azure.Azclips.Extensions.Storage.Management.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors
 {
     /// <summary>
     /// Pure transport for <c>PUT .../storageAccounts/{accountName}</c>: it serializes the

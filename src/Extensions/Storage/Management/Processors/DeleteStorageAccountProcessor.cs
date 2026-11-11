@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.Extensions.Storage.Models;
+using Microsoft.Azure.Azclips.Extensions.Storage.Management.Models;
 
-namespace Microsoft.Azure.Azclips.Extensions.Storage.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors
 {
     /// <summary>
     /// Deletes a storage account (<c>StorageAccounts_Delete</c>). A plain passthrough, matching

@@ -19,6 +19,13 @@
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
+    <!-- Hand-maintained wrapper: Management, Blob and File are per-service folders (own namespace, base and
+         aceconfig.yaml) compiled into this single assembly. Exclude stale per-service build output. -->
+    <ItemGroup>
+        <Compile Remove="*\bin\**;*\obj\**" />
+        <None Remove="*\bin\**;*\obj\**" />
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>
