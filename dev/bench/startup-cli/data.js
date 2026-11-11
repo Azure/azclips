@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794359613610,
+  "lastUpdate": 1794359619950,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Azclips CLI Startup (warm)": [
@@ -14660,6 +14660,48 @@ window.BENCHMARK_DATA = {
             "value": 308319440.45,
             "unit": "ns",
             "range": "± 2818202.836304931"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfbbee57becbf931c44c5bc86354d7db34f3907a",
+          "message": "[CLI] Fix bold help headings and ANSI formatting in Windows consoles (#1290)\n\n**Related command**\n<!-- If applicable, provide the related command, for example: az vm\ncreate, az login, or Az.Compute. -->\n\n`az config --help`, `az vm create --help`, and other CLI output using\nANSI formatting\n\n**Description**\n<!-- Why this PR? What changed? What is the user or maintainer impact?\n-->\n\nFixes Azure/azclips#1104.\n\nFixes https://github.com/Azure/azclips/issues/1333\n\nHelp headings can display literal ANSI escape sequences in standalone\nWindows consoles when launched from either Windows PowerShell 5.1 or\nPowerShell 7, while rendering correctly in Windows Terminal and Git\nBash.\n\n- Enable virtual-terminal processing for Windows console stdout and\nstderr, preserving existing mode flags and skipping\nredirected/non-console handles\n- Warn and fall back to plain output for the invocation if console\ninitialization fails, including when color is forced\n- Apply the fallback through the existing color policy so help, colored\nJSON/YAML, and diagnostics remain consistent\n- Add a Windows-only native-console regression that launches the built\nCLI in an isolated worker, verifies actual console modes and text\nattributes, and uses an isolated state directory with telemetry disabled\n- Add Windows Release unit tests to the existing Azure Pipelines Test\nstage using the existing Windows pool, in parallel with Linux unit tests\nand Ubuntu scenario tests; publish TRX results and require all three\njobs to succeed during finalization\n- Fix two existing Windows persistence failures exposed by enabling the\nfull suite: retry access/sharing failures during atomic rename for up to\ntwo seconds with cancellation, and accept the platform-specific\nexception when a directory blocks replacement\n- Add reader/replacement, cancellation, timeout, and temporary-file\ncleanup coverage; update pipeline and persistence documentation without\nintroducing new dependencies\n\n**Testing Guide**\n<!-- List validation commands or manual test steps. -->\n\n- Passed: `dotnet build azclips.slnx -c Release --no-restore --verbosity\nquiet` (0 errors; existing unrelated warnings)\n- Passed: `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj -c Release\n--no-restore --filter\n\"FullyQualifiedName~PersistenceStoreTests|FullyQualifiedName~WindowsConsole\"\n--verbosity quiet` (41 passed, 0 failed)\n- Passed: `dotnet test azclips.slnx -c Release --no-build --no-restore\n--verbosity quiet --filter \"FullyQualifiedName!~Scenario.Tests\" --logger\ntrx --results-directory\n\"C:\\Users\\dlanguiller\\.copilot\\session-state\\d9914a61-fac3-4f12-8235-c6f37136b1d6\\files\\windows-unit-tests-final\"`\n(4,467 passed, 12 skipped, 0 failed on Windows; use a local results\ndirectory when repeating)\n- Passed: native console regression with initial modes 3, 7, and 11. The\nCLI enables VT processing, preserves other flags, renders bold headings\nwith normal body attributes, and emits no literal escape sequences into\nthe console buffer\n- Passed: redirected help remains plain by default; `FORCE_COLOR`\npreserves forced styling and `NO_COLOR` takes precedence\n- Passed: YAML parsing with the existing YamlDotNet dependency, Windows\npool/command/result-publication wiring, and all 27\nsuccess/failure/skipped combinations for finalization's combined test\nresult\n- The full Windows run initially exposed two persistence failures; both\nwere reproduced independently and fixed before the successful full rerun\n- Linux/macOS were not run locally; the native console integration cases\nare skipped there, and existing Ubuntu CI coverage remains enabled\n\nTo reproduce manually, run the built executable's `config --help` and\n`vm create --help` in a fresh standalone Windows PowerShell console,\nthen repeat with `pwsh -NoLogo -NoProfile` in the same window. Expect\nbold headings and no literal escape sequences. Compare with Windows\nTerminal.\n\n**History Notes**\n<!--\nRelease notes are generated from PR metadata during stable release\npreparation.\n\nUse [Component Name] for customer-facing changes that should appear in\nrelease notes.\nUse {Component Name} for internal, test-only, docs-only, or\nrelease-process changes that should not appear in release notes.\n\nPR titles must not end with trailing punctuation or trailing spaces.\n\nIf one PR needs multiple release-note entries, or if the PR title is\nonly a summary, add notes below in this format:\n\n[Component Name] `az command`: Add customer-facing behavior\n[Component Name] BREAKING CHANGE: `az command`: Remove deprecated\nbehavior\n\nHistory note lines must not end with trailing punctuation or trailing\nspaces.\n\nCommon components: CLI, PowerShell, Agent, Auth, Packaging, DevOps,\nDocs.\nDelete this section only when no release note is needed.\n-->\n\n[CLI] Fix bold help headings and ANSI formatting in standalone Windows\nconsoles\n\n[CLI] Improve Windows persistence reliability during concurrent reads\n\n---\n\n- [x] The PR title starts with `[Component Name]` for customer-facing\nchanges or `{Component Name}` for non-customer-facing changes, and does\nnot end with trailing punctuation or spaces.\n- [x] Customer-facing changes include a useful release note in the PR\ntitle or the **History Notes** section.\n- [x] I added or updated tests for behavior changes.\n- [x] I updated documentation when behavior, setup, support, or security\nguidance changed.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-11T11:10:22+11:00",
+          "tree_id": "cbc586f903ca2d4f8ecdba1902cd1bf53b703d99",
+          "url": "https://github.com/Azure/azclips/commit/bfbbee57becbf931c44c5bc86354d7db34f3907a"
+        },
+        "date": 1794359619624,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Config",
+            "value": 332454512.52,
+            "unit": "ns",
+            "range": "± 5679306.67441857"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Login",
+            "value": 347655608.85,
+            "unit": "ns",
+            "range": "± 4523819.812374772"
+          },
+          {
+            "name": "Benchmark.Startup.CliColdStartupBenchmarks.Extension",
+            "value": 329988305.07,
+            "unit": "ns",
+            "range": "± 5144480.319156389"
           }
         ]
       }
