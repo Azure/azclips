@@ -24,6 +24,8 @@ public class CliArgumentBindingTests
     [InlineData("deployment sub validate", "location", "westus", false)]
     [InlineData("deployment sub create", "location", "westus", true)]
     [InlineData("deployment sub validate", "location", "westus", true)]
+    [InlineData("deployment mg create", "management-group-id", "test-mg", false)]
+    [InlineData("deployment mg what-if", "management-group-id", "test-mg", false)]
     public async Task DeploymentDefaults_BindAndReachArmWithExpectedNameAndMode(
         string command, string scopeFlag, string scopeValue, bool explicitOverrides)
     {
@@ -36,6 +38,10 @@ public class CliArgumentBindingTests
         {
             $"--{scopeFlag}", scopeValue, "--template-uri", "https://example.com/templates/azuredeploy.json"
         };
+        if (scopeFlag == "management-group-id")
+        {
+            args.AddRange(["--location", "westus"]);
+        }
         if (explicitOverrides)
         {
             args.AddRange(["--name", "custom-deployment", "--mode", "Complete"]);
@@ -48,7 +54,9 @@ public class CliArgumentBindingTests
         Assert.NotEmpty(sent);
         Assert.All(sent, request =>
         {
-            Assert.Contains($"/subscriptions/{SubscriptionId}/", request.Uri);
+            Assert.Contains(scopeFlag == "management-group-id"
+                ? $"/providers/Microsoft.Management/managementGroups/{scopeValue}/"
+                : $"/subscriptions/{SubscriptionId}/", request.Uri);
             Assert.Contains($"/deployments/{(explicitOverrides ? "custom-deployment" : "azuredeploy")}", request.Uri);
         });
         var bodies = sent.Where(request => request.Body is not null).ToList();
@@ -68,6 +76,10 @@ public class CliArgumentBindingTests
     [InlineData("deployment group what-if", "resource-group")]
     [InlineData("deployment sub create", "location")]
     [InlineData("deployment sub what-if", "location")]
+    [InlineData("deployment mg create", "management-group-id")]
+    [InlineData("deployment mg create", "location")]
+    [InlineData("deployment mg what-if", "management-group-id")]
+    [InlineData("deployment mg what-if", "location")]
     public void DeploymentDefaults_DoNotRelaxRequiredScopeArguments(string command, string requiredFlag)
     {
         var metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
