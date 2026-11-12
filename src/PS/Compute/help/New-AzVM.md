@@ -83,7 +83,7 @@ Provision an Ubuntu VM using an existing SSH public key. Because `-AdminPassword
 
 ```powershell
 $sshPublicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8g'
-New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest -AdminUsername azureuser -SshKeyValues $sshPublicKey -NetworkInterfaceName mynic -VirtualNetworkName myvnet
+New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest -AdminUsername azureuser -SshKeyValues $sshPublicKey -VirtualNetworkName myvnet
 ```
 
 ### Create a VM that uses an existing network security group
