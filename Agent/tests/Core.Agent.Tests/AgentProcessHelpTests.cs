@@ -16,7 +16,9 @@ public class AgentProcessHelpTests
     // Starts the built agent exe. The help prefetch for the failed command loads az.dll types
     // in the agent process. The invalid reasoning effort then stops the run before the
     // Copilot daemon or any model call starts.
+    // A real agent process runs `az agent tool docs generate` under ShellOutHelper's 30s real-time limit.
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public async Task RealAgentProcess_LoadsCliHelpTypesForFailedCommand()
     {
         var root = FindRepositoryRoot();
