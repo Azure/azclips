@@ -201,7 +201,7 @@ You can pipe a resource group name and storage account name to this cmdlet by pr
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Storage.Models.StorageAccount
+### Microsoft.Azure.Azclips.Extensions.Storage.Management.Models.StorageAccount
 
 Gets Azure Storage accounts, either a single account by name or all accounts in a resource group or subscription.
 
