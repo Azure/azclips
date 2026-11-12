@@ -104,7 +104,6 @@ create_vm() {
         --size "$VM_SIZE" \
         --admin-username azadmin \
         --admin-password "$ADMIN_PASSWORD" \
-        --network-interface-name "${PREFIX}-nic-$suffix" \
         --virtual-network-name "${PREFIX}-vnet-$suffix" \
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "${PREFIX}-subnet-$suffix" \

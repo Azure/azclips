@@ -147,7 +147,6 @@ VM_CREATE_ATTEMPTED=1
     --size "$VM_SIZE" \
     --admin-username Artemis \
     --admin-password "$ADMIN_PASSWORD" \
-    --network-interface-name "azclips-vmiv-nic-$SUFFIX" \
     --virtual-network-name "azclips-vmiv-vnet-$SUFFIX" \
     --address-prefixes 10.0.0.0/16 \
     --subnet-names "azclips-vmiv-subnet-$SUFFIX" \

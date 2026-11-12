@@ -112,7 +112,6 @@ try {
         -SecurityType Standard `
         -AdminUsername $adminUsername `
         -SshKeyValues $resolvedPublicKeyPath `
-        -NetworkInterfaceName "$vmName-nic" `
         -VirtualNetworkName "$vmName-vnet" `
         -AddressPrefixes '10.0.0.0/16' `
         -SubnetNames "$vmName-subnet" `

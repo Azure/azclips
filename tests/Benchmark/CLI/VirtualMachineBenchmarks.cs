@@ -36,7 +36,6 @@ public class VirtualMachineBenchmarks : CLIBenchmarkBase
             "--size", "Standard_D2s_v5",
             "--admin-username", "benchadmin",
             "--admin-password", "Benchmark!Pass123",
-            "--network-interface-name", $"bench-nic-{n}",
             "--virtual-network-name", $"bench-vnet-{n}");
     }
 
