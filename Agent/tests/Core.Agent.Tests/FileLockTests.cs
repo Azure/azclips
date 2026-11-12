@@ -41,7 +41,7 @@ public sealed class FileLockTests : IDisposable
         File.WriteAllText(path, """{"a":1}""");
         using var held = FileLock.TryAcquire($"{path}.lock", TimeSpan.Zero);
 
-        var updated = Task.Run(() => FileLock.UpdateJson(path, document => document["b"] = 2));
+        var updated = Task.Run(() => FileLock.UpdateJson(path, document => document["b"] = 2, TestTimeout));
 
         Assert.False(updated.Wait(TimeSpan.FromSeconds(1)));
         held!.Dispose();
@@ -54,7 +54,7 @@ public sealed class FileLockTests : IDisposable
     public void Concurrent_readers_do_not_make_updates_fail()
     {
         var path = Path.Combine(_root, "state.json");
-        FileLock.UpdateJson(path, document => document["n"] = 0);
+        Assert.True(FileLock.UpdateJson(path, document => document["n"] = 0, TestTimeout));
         using var stop = new CancellationTokenSource();
         var reader = Task.Run(() =>
         {
@@ -63,7 +63,7 @@ public sealed class FileLockTests : IDisposable
         });
 
         for (var i = 1; i <= 200; i++)
-            Assert.True(FileLock.UpdateJson(path, document => document["n"] = i));
+            Assert.True(FileLock.UpdateJson(path, document => document["n"] = i, TestTimeout));
 
         stop.Cancel();
         reader.Wait();

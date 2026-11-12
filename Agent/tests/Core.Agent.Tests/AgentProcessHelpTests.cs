@@ -6,6 +6,7 @@ using System.IO.Pipes;
 using System.Text.Json;
 using Core.Abstractions.Recovery;
 using Core.Agent.Tools.Help;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -50,7 +51,6 @@ public class AgentProcessHelpTests
             input.DisposeLocalCopyOfClientHandle();
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
             try
             {
                 await JsonSerializer.SerializeAsync(input, new RecoveryRequest
@@ -58,9 +58,9 @@ public class AgentProcessHelpTests
                     FailedCommand = "config set --key core.output --value json",
                     ErrorText = "test error",
                     SessionStyle = "oneshot",
-                }, cancellationToken: timeout.Token);
+                }).DefaultTimeout();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync(timeout.Token);
+                await process.WaitForExitAsync().TimeoutAfter(TimeSpan.FromSeconds(120));
             }
             finally
             {

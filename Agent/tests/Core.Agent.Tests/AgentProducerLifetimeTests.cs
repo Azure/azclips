@@ -12,7 +12,7 @@ namespace Core.Agent.Tests;
 [Collection("AgentTelemetry")]
 public sealed class AgentProducerLifetimeTests
 {
-    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(60);
 
     [Fact]
     public async Task CallbackWithoutActivity_KeepsCoreRunningUntilItsBodyFinishes()

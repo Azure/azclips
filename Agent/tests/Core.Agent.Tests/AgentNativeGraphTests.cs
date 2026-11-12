@@ -10,6 +10,7 @@ using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using GitHub.Copilot;
 using Microsoft.Extensions.AI;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -568,7 +569,8 @@ public sealed class AgentNativeGraphTests
         // Cancellation, not a transport fault or a cross-thread context Stop, ends the send.
         // Actual layer tests separately cover uncooperative cleanup and its shared deadline.
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        // Never cancelled by a timer, so only disposal can end the live send.
+        using var live = new CancellationTokenSource();
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
@@ -579,17 +581,25 @@ public sealed class AgentNativeGraphTests
         var agent = await ConnectOfflineAsync(
             server, context, BlockingTool(entered, never.Task, trace.StartToolActivity), timeout.Token);
 
-        var sending = agent.SendAsync("hold the slot", liveBudget.Token);
-        await entered.Task.WaitAsync(timeout.Token);
-        var sendActivity = context.CurrentOperation!.Activity!;
+        var sending = agent.SendAsync("hold the slot", live.Token);
+        try
+        {
+            await entered.Task.DefaultTimeout();
+            var sendActivity = context.CurrentOperation!.Activity!;
 
-        await agent.DisposeAsync();
+            await agent.DisposeAsync().DefaultTimeout();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => sending.WaitAsync(TimeSpan.FromSeconds(60)));
-        Assert.True(sendActivity.IsStopped);
-        Assert.Null(context.CurrentOperation);
-        Assert.DoesNotContain("Abandoned", sendActivity.StatusDescription ?? "");
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sending.DefaultTimeout());
+            Assert.False(live.IsCancellationRequested);
+            Assert.True(sendActivity.IsStopped);
+            Assert.Null(context.CurrentOperation);
+            Assert.DoesNotContain("Abandoned", sendActivity.StatusDescription ?? "");
+        }
+        finally
+        {
+            live.Cancel();
+            await Task.WhenAny(sending, Task.Delay(TimeSpan.FromSeconds(60)));
+        }
         server.ThrowIfFaulted();
     }
 

@@ -10,6 +10,7 @@ using Core.Cli;
 using Core.Cli.Parser;
 using Core.Cli.Recovery;
 using Core.Runtime.Recovery;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Tests.Common.Utilities;
 using Xunit;
@@ -276,7 +277,8 @@ public class FailureCaptureBehaviorTests
         using var scope = new FailureHistoryTestScope(replace: (_, _) =>
             throw new IOException("The process cannot access the file.", unchecked((int)0x80070020)));
         var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original"), 1,
-            "vm show", null, () => Manual(), () => scope.CreateStore(), false, getParentProcessId: () => 321);
+            "vm show", null, () => Manual(), () => scope.CreateStore(), false, getParentProcessId: () => 321,
+            timeProvider: new FakeTimeProvider());
 
         var cause = Assert.IsType<FailureHistoryException>(result.Cause);
         Assert.Equal("failure_history_io", cause.Code);
@@ -481,10 +483,21 @@ public class FailureCaptureBehaviorTests
     public async Task Worker_ChildThatHangsKeepsItsPartialStderrAtTheDeadline()
     {
         var debug = new List<string>();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var written = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".written");
+        using var deadline = new CancellationTokenSource();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => FailureHistoryWorker.SaveAsync(
-            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-hang")));
+        var saving = FailureHistoryWorker.SaveAsync(
+            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-hang", written));
+        try
+        {
+            await WaitForFileAsync(written, saving).DefaultTimeout();
+        }
+        finally
+        {
+            deadline.Cancel();
+            File.Delete(written);
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => saving.DefaultTimeout());
 
         Assert.Equal("history worker stderr: partial-diagnostic-before-hang", Assert.Single(debug));
     }
@@ -493,10 +506,21 @@ public class FailureCaptureBehaviorTests
     public async Task Worker_ChildThatHangsKeepsPartialMultiByteStderrAtTheDeadline()
     {
         var debug = new List<string>();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var written = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".written");
+        using var deadline = new CancellationTokenSource();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => FailureHistoryWorker.SaveAsync(
-            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-utf8-hang")));
+        var saving = FailureHistoryWorker.SaveAsync(
+            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-utf8-hang", written));
+        try
+        {
+            await WaitForFileAsync(written, saving).DefaultTimeout();
+        }
+        finally
+        {
+            deadline.Cancel();
+            File.Delete(written);
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => saving.DefaultTimeout());
 
         Assert.Equal("history worker stderr: " + new string('é', 2048), Assert.Single(debug));
     }
@@ -535,7 +559,7 @@ public class FailureCaptureBehaviorTests
     }
 
     // Starts the offline test worker in one of its stderr modes in place of the CLI history worker.
-    private static Func<string, ProcessStartInfo> TestWorker(string mode) => handle =>
+    private static Func<string, ProcessStartInfo> TestWorker(string mode, string? writtenFile = null) => handle =>
     {
         var root = Path.GetDirectoryName(typeof(FailureCaptureBehaviorTests).Assembly.Location);
         while (root is not null && !File.Exists(Path.Combine(root, "azclips.slnx")))
@@ -551,8 +575,21 @@ public class FailureCaptureBehaviorTests
         start.ArgumentList.Add(Path.Combine(root, "tests", "Fixtures", "FailureHistoryWorker", "bin", configuration, "net10.0", "FailureHistory.TestWorker.dll"));
         start.ArgumentList.Add(mode);
         start.ArgumentList.Add(handle);
+        if (writtenFile is not null)
+            start.Environment["AZCLIPS_TEST_STDERR_WRITTEN_FILE"] = writtenFile;
         return start;
     };
+
+    // Waits until the worker reports that its partial stderr is written, or fails if the save ends first.
+    private static async Task WaitForFileAsync(string path, Task saving)
+    {
+        while (!File.Exists(path))
+        {
+            if (saving.IsCompleted)
+                await saving;
+            await Task.Delay(10);
+        }
+    }
 
     private static AgentOptions Manual() => new() { Recovery = new() { Trigger = "manual" } };
 

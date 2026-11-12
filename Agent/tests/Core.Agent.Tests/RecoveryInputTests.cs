@@ -10,6 +10,7 @@ using Core.Agent.AgentMode;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using GitHub.Copilot;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -126,13 +127,12 @@ public class RecoveryInputTests
             input.DisposeLocalCopyOfClientHandle();
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             try
             {
                 await JsonSerializer.SerializeAsync(input, CreateRequest(),
-                    cancellationToken: timeout.Token);
+                    cancellationToken: CancellationToken.None).DefaultTimeout();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync(timeout.Token);
+                await process.WaitForExitAsync().DefaultTimeout();
             }
             finally
             {
@@ -198,14 +198,13 @@ public class RecoveryInputTests
             input.DisposeLocalCopyOfClientHandle();
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             try
             {
                 await JsonSerializer.SerializeAsync(input,
                     CreateRequest() with { Trigger = RecoveryTrigger.Manual, SessionStyle = "oneshot" },
-                    cancellationToken: timeout.Token);
+                    cancellationToken: CancellationToken.None).DefaultTimeout();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync(timeout.Token);
+                await process.WaitForExitAsync().DefaultTimeout();
             }
             finally
             {
