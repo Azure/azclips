@@ -230,6 +230,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["EnableVtpm"]                     = new("EnableVtpm", "EnableVtpm", typeof(bool), "Enable or disable vTPM in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AdminUsername"]                  = new("AdminUsername", "AdminUsername", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["AdminPassword"]                  = new("AdminPassword", "AdminPassword", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["SshKeyValues"]                   = new("SshKeyValues", "SshKeyValues", typeof(List<string>), "SSH public key values or public key file paths.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["VirtualNetworkName"]             = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), "The virtual network name to create or use for a named subnet.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["SubnetName"]                     = new("SubnetName", "SubnetName", typeof(string), "Name or resource ID of the subnet for the new network interface.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["NetworkInterfaceId"]             = new("NetworkInterfaceIds", "NetworkInterfaceId", typeof(List<string>), "Names or resource IDs of existing network interfaces to attach. The first is primary.", IsRequired: false, Aliases: [], AllowedValues: []),
