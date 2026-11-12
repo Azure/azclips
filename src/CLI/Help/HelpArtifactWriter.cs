@@ -24,19 +24,29 @@ namespace Core.Cli.Help
             IList<HelpManifest> manifests,
             HelpIndex index,
             CancellationToken ct = default)
+            => WriteCatalog(outputDirectory, header, manifests, index, ct, timeProvider: null);
+
+        internal static void WriteCatalog(
+            string outputDirectory,
+            HelpCatalogHeader header,
+            IList<HelpManifest> manifests,
+            HelpIndex index,
+            CancellationToken ct,
+            TimeProvider? timeProvider)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
             ct.ThrowIfCancellationRequested();
             Directory.CreateDirectory(outputDirectory);
-            using var lease = AcquireCatalogLock(outputDirectory, ct);
+            using var lease = AcquireCatalogLock(outputDirectory, ct, timeProvider);
             WriteAtomic(Path.Combine(outputDirectory, "HelpManifest.json"), new HelpManifestDocument(header, manifests), ct);
             WriteAtomic(Path.Combine(outputDirectory, "HelpIndex.json"), new HelpIndexDocument(header, index), ct);
         }
 
-        private static FileStream AcquireCatalogLock(string directory, CancellationToken ct)
+        private static FileStream AcquireCatalogLock(string directory, CancellationToken ct, TimeProvider? timeProvider)
         {
             ct.ThrowIfCancellationRequested();
-            return FileLock.TryAcquireAsync(Path.Combine(directory, CatalogLockFileName), FileLock.DefaultWait, ct)
+            return FileLock.TryAcquireAsync(Path.Combine(directory, CatalogLockFileName), FileLock.DefaultWait, ct,
+                    ownerOnly: false, timeProvider)
                     .GetAwaiter().GetResult()
                 ?? throw new IOException($"The help catalog in '{directory}' is locked by another process.");
         }

@@ -71,14 +71,25 @@ public class HelpArtifactWriterTests
     }
 
     [Fact]
-    public void WriteCatalog_CancellationWhileWaitingForAnotherPublisher_DoesNotPublish()
+    public async Task WriteCatalog_CancellationWhileWaitingForAnotherPublisher_DoesNotPublish()
     {
         using var output = new TempOutputFixture();
         using var lease = new FileStream(Path.Combine(output.DirectoryPath, HelpArtifactWriter.CatalogLockFileName),
             FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-        Assert.ThrowsAny<OperationCanceledException>(() => HelpArtifactWriter.WriteCatalog(
-            output.DirectoryPath, new HelpCatalogHeader(1, "test", "stamp"), [], new([], []), cts.Token));
+        using var cts = new CancellationTokenSource();
+        var clock = new SignalingFakeTimeProvider();
+        var publish = Task.Run(() => HelpArtifactWriter.WriteCatalog(
+            output.DirectoryPath, new HelpCatalogHeader(1, "test", "stamp"), [], new([], []), cts.Token, clock));
+        try
+        {
+            await clock.WaitForTimerAsync(dueTime => dueTime > TimeSpan.Zero, AgentTestTimeouts.HangGuard);
+            Assert.False(publish.IsCompleted);
+        }
+        finally
+        {
+            cts.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => publish.WithAgentHangGuard());
+        }
         Assert.False(File.Exists(Path.Combine(output.DirectoryPath, "HelpManifest.json")));
         Assert.False(File.Exists(Path.Combine(output.DirectoryPath, "HelpIndex.json")));
     }
