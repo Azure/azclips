@@ -107,7 +107,7 @@ If you encounter an issue:
 1. Verify that you're using a supported operating system and shell.
 1. Reproduce the issue, if possible.
 1. Collect any relevant error messages or command output.
-1. Open an issue in [the AzCLIPS GitHub repository][01].
+1. Open an issue in [the GitHub repository][01].
 
 When reporting an issue, include:
 

@@ -8,7 +8,9 @@ using Core.Abstractions;
 using Core.AssemblyLoading;
 using Core.Telemetry;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Time.Testing;
 using OpenTelemetry.Trace;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -116,18 +118,21 @@ internal sealed class AgentLayerTestHarness
     {
         DirectoryPath = Path.Combine(AppContext.BaseDirectory, "TestArtifacts", "AgentLayers", Guid.NewGuid().ToString("N"));
         Configuration = new AgentTestConfiguration(enabled);
+        Clock = timeProvider ?? new FakeTimeProvider();
         Factory = new TelemetryLayerScopeFactory(new TraceDirectory(DirectoryPath), Configuration,
             new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()),
-            timeProvider: timeProvider);
+            timeProvider: Clock);
         Context = context ?? new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), enabled);
     }
 
     internal string DirectoryPath { get; }
+
+    /// <summary>The clock for every product budget in the test; it advances only when the test advances it.</summary>
+    internal TimeProvider Clock { get; }
     internal AgentTestConfiguration Configuration { get; }
     internal TelemetryLayerScopeFactory Factory { get; }
     internal TelemetryInvocationContext Context { get; }
     internal LayerTelemetryScope? Scope { get; private set; }
-    private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(10);
     private readonly List<LayerTelemetryScope> _owned = [];
 
     /// <summary>Creates the harness scope. Use <see cref="Own"/> for any further scope.</summary>
@@ -148,7 +153,7 @@ internal sealed class AgentLayerTestHarness
     internal static async Task ReleaseAsync(LayerTelemetryScope scope)
     {
         await scope.DisposeAsync();
-        if (!await scope.ProviderDisposalCompletion.WaitAsync(ReleaseTimeout))
+        if (!await scope.ProviderDisposalCompletion.WaitAsync(AgentTestTimeouts.HangGuard))
             throw new InvalidOperationException("The Agent layer scope did not release its telemetry provider.");
     }
 

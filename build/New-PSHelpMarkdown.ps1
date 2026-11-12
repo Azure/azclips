@@ -231,6 +231,9 @@ foreach ($name in $modules)
             # to capture required parameters as JSON for the placeholder post-processor.
             pwsh -NoProfile -Command {
                 param($manifestPath, $mdPaths, $tempDir, $moduleName)
+                $culture = [System.Globalization.CultureInfo]::CurrentCulture.Clone()
+                $culture.DateTimeFormat = [System.Globalization.CultureInfo]::InvariantCulture.DateTimeFormat.Clone()
+                [System.Globalization.CultureInfo]::CurrentCulture = $culture
                 Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
                 # Name-form RequiredModules refer to sibling modules; import them first.
                 foreach ($required in @((Import-PowerShellDataFile $manifestPath).RequiredModules))
@@ -321,6 +324,9 @@ foreach ($name in $modules)
         # New-MarkdownCommandHelp emits files under $tempDir/<ModuleName>/.
         pwsh -NoProfile -Command {
             param($manifestPath, $tempDir, $moduleName)
+            $culture = [System.Globalization.CultureInfo]::CurrentCulture.Clone()
+            $culture.DateTimeFormat = [System.Globalization.CultureInfo]::InvariantCulture.DateTimeFormat.Clone()
+            [System.Globalization.CultureInfo]::CurrentCulture = $culture
             Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
             # Name-form RequiredModules refer to sibling modules; import them first.
             foreach ($required in @((Import-PowerShellDataFile $manifestPath).RequiredModules))
