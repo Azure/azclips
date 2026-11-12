@@ -28,7 +28,7 @@ permissions:
 
 concurrency:
   group: benchmark-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ─────────────── Detect which extensions / families changed ───────────────

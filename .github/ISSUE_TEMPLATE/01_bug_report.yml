@@ -1,11 +1,11 @@
 name: "🐞 Bug Report"
-description: Report a problem you encountered while testing AzCLIPS.
+description: Report a problem you encountered while testing next gen Azure CLI and Azure PowerShell.
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping us test **AzCLIPS**!
+        Thanks for helping us test **next gen Azure CLI and Azure PowerShell**!
 
         - Please make sure you are running the latest public-preview build.
         - Search the [existing issues](https://github.com/Azure/azclips/issues) first to avoid duplicates.
@@ -75,9 +75,9 @@ body:
       label: Environment
       description: >
         Provide your version and OS. For the CLI, paste the output of `az version`.
-        For PowerShell, paste the output of `$PSVersionTable` and the installed azclips module version.
+        For PowerShell, paste the output of `$PSVersionTable` and the installed Azure PowerShell preview module version.
       placeholder: |
-        azclips build: 
+        Preview build: 
         OS: Windows 11 / Ubuntu 22.04 / macOS 14
         Shell: PowerShell 7.5 / bash / zsh
       render: shell

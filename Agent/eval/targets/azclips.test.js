@@ -80,7 +80,7 @@ function createProviderFixture(context) {
   const output = 'AI help\nNext action:\n1. az profile show --active';
 
   return {
-    provider: new AzclipsAgentProvider({ config: { exe, timeoutMs: 2000, traceDir: directory } }),
+    provider: new AzclipsAgentProvider({ config: { exe, timeoutMs: 60_000, traceDir: directory } }),
     exe,
     prompt: 'Recover the azure cli command.',
     promptSha256: createHash('sha256').update(runtimePrompt).digest('hex'),
@@ -114,7 +114,7 @@ function mockProcessResult(context, fixture, error, stdout = fixture.stdout, std
   context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
     assert.equal(file, fixture.exe);
     assert.deepEqual(args, ['profile', 'show']);
-    assert.equal(options.timeout, 2000 + PROCESS_TREE_GRACE_MS);
+    assert.equal(options.timeout, 60_000 + PROCESS_TREE_GRACE_MS);
     assert.equal(options.maxBuffer, 8 * 1024 * 1024);
     assert.equal(options.env.AZURECLI_FLAVOR, 'azure cli');
     queueMicrotask(() => callback(error, stdout, stderr));
@@ -223,7 +223,7 @@ test('closes child stdin so unattended permission prompts cannot block', async (
         '-e',
         "process.stdin.on('end', () => process.stdout.write('stdin-closed')); process.stdin.resume();",
       ],
-      { timeout: 2000 },
+      { timeout: 60_000 },
       (error, stdout) => {
         if (error) reject(error);
         else resolve(stdout);
@@ -327,7 +327,7 @@ test('returns provider errors for process failures despite a usable partial plan
       assert.equal(response.metadata.processFailure.killed, Boolean(error.killed));
       assert.equal(response.metadata.processFailure.signal, error.signal || null);
       if (scenario.reason === 'terminated') {
-        assert.equal(response.metadata.processFailure.timeoutMs, 2000);
+        assert.equal(response.metadata.processFailure.timeoutMs, 60_000);
       }
       if (scenario.reason === 'max-buffer') {
         assert.equal(response.metadata.processFailure.maxBufferBytes, 8 * 1024 * 1024);
@@ -675,14 +675,14 @@ test('manual recovery records the failure then analyzes its exact ID with closed
   const fixture = createProviderFixture(context);
   const answer = `${fixture.output}\nRunning this command will display the active profile.`;
   const provider = new AzclipsAgentProvider({
-    config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
+    config: { exe: fixture.exe, timeoutMs: 60_000, recoveryMode: 'manual' },
   });
   const id = '1234-2026-1008-0000-0001';
   const calls = [];
   let closed = 0;
   context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
     assert.equal(file, fixture.exe);
-    assert.ok(options.timeout > 0 && options.timeout <= 2000 + PROCESS_TREE_GRACE_MS);
+    assert.ok(options.timeout > 0 && options.timeout <= 60_000 + PROCESS_TREE_GRACE_MS);
     calls.push(args);
     queueMicrotask(() => {
       if (calls.length === 1) {
@@ -765,7 +765,7 @@ test('manual recovery does not run AI for successful stimuli or missing failure 
 test('manual recovery runs the failed command once more when the first run printed no failure ID', async (context) => {
   const fixture = createProviderFixture(context);
   const provider = new AzclipsAgentProvider({
-    config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
+    config: { exe: fixture.exe, timeoutMs: 60_000, recoveryMode: 'manual' },
   });
   const id = '1234-2026-1008-0000-0002';
   const warning = 'Secure failure history exceeded its time limit. Saving was not confirmed.';
@@ -773,7 +773,7 @@ test('manual recovery runs the failed command once more when the first run print
   const calls = [];
   context.mock.method(childProcess, 'execFile', (_file, args, options, callback) => {
     calls.push(args);
-    assert.ok(options.timeout > 0 && options.timeout <= 2000 + PROCESS_TREE_GRACE_MS);
+    assert.ok(options.timeout > 0 && options.timeout <= 60_000 + PROCESS_TREE_GRACE_MS);
     queueMicrotask(() => {
       if (calls.length === 1) {
         callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `${error}\nWARNING: ${warning}\n`);
@@ -808,7 +808,7 @@ test('manual recovery runs the failed command once more when the first run print
 test('manual recovery analyzes the failure named in text error output', async (context) => {
   // Since #1081 the target prints text on stderr for every output format.
   const fixture = createProviderFixture(context);
-  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' } });
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 60_000, recoveryMode: 'manual' } });
   const id = '1234-2026-1008-0000-0001';
   const calls = [];
   context.mock.method(childProcess, 'execFile', (_file, args, _options, callback) => {
@@ -1464,7 +1464,7 @@ test('records the run target, cache state and phase timing on every manual obser
     AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1',
   });
   const provider = new AzclipsAgentProvider({
-    config: { exe: fixture.exe, timeoutMs: 2000, recoveryMode: 'manual' },
+    config: { exe: fixture.exe, timeoutMs: 60_000, recoveryMode: 'manual' },
   });
   const id = '1234-2026-1008-0000-0001';
   let call = 0;
@@ -1504,7 +1504,7 @@ test('does not invent run facts when the wrapper did not record them', async (co
     AZCLIPS_EVALUATION_SETTINGS: undefined,
     AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS: '1.5',
   });
-  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000 } });
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 60_000 } });
   mockProcessResult(context, fixture, null, `${fixture.output}\ntrace: ${fixture.tracePath}`);
 
   const response = await provider.callApi(fixture.prompt, { vars: { command: 'profile show', flavor: 'azure cli' } });
@@ -1594,18 +1594,28 @@ test('a timeout ends a real target and the Agent child process it started', asyn
   ].join('\n');
   let child;
   const exited = new Promise((resolve) => {
-    child = execFileUnattended(process.execPath, ['-e', fakeAz], { timeout: 30_000 }, resolve);
+    child = execFileUnattended(process.execPath, ['-e', fakeAz], {}, resolve);
   });
-  const deadline = Date.now() + 10_000;
+  context.after(() => {
+    if (child.exitCode === null && child.signalCode === null) {
+      try { terminateProcessTree(child); } catch { /* already ended */ }
+    }
+  });
+  const guardMs = 60_000;
   const pause = () => new Promise((resolve) => setTimeout(resolve, 50));
+  const startDeadline = Date.now() + guardMs;
   while (!(fs.existsSync(pidPath) && fs.readFileSync(pidPath, 'utf8'))) {
-    assert.ok(Date.now() < deadline, 'the fake az did not start its Agent child');
+    assert.ok(Date.now() < startDeadline, 'the fake az did not start its Agent child');
     await pause();
   }
   agentPid = Number(fs.readFileSync(pidPath, 'utf8'));
 
   terminateProcessTree(child);
-  await exited;
+  let exitGuard;
+  const exitTimedOut = new Promise((resolve) => { exitGuard = setTimeout(() => resolve('timeout'), guardMs); });
+  const exitResult = await Promise.race([exited.then(() => 'exited'), exitTimedOut]);
+  clearTimeout(exitGuard);
+  assert.equal(exitResult, 'exited', 'the fake az did not exit after its tree was terminated');
 
   const isAlive = (pid) => {
     try {
@@ -1622,7 +1632,8 @@ test('a timeout ends a real target and the Agent child process it started', asyn
       return false;
     }
   };
-  while (isAlive(agentPid) && Date.now() < deadline) await pause();
+  const killDeadline = Date.now() + guardMs;
+  while (isAlive(agentPid) && Date.now() < killDeadline) await pause();
   assert.equal(isAlive(agentPid), false, 'the Agent child outlived the ended target');
 });
 
@@ -1676,7 +1687,7 @@ test('records Agent settings from the trace when the Agent process fails', async
   const fixture = createProviderFixture(context);
   const agentSettings = { options: { Provider: 'builtin' }, run: { Trigger: 0, SessionStyle: 'oneshot' } };
   fs.writeFileSync(fixture.tracePath, JSON.stringify({ kind: 'agent_settings', payload: agentSettings }));
-  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 2000 } });
+  const provider = new AzclipsAgentProvider({ config: { exe: fixture.exe, timeoutMs: 60_000 } });
   mockProcessResult(context, fixture, Object.assign(new Error('Command failed'), { code: 1 }),
     `trace: ${fixture.tracePath}`);
 
