@@ -30,7 +30,7 @@ jobs:
       set -euo pipefail
       dotnet restore azclips.slnx
       dotnet build azclips.slnx -c Release --no-restore
-      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests"
+      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests&Category!=LocalOnly"
     displayName: Run Unit Tests
 
 - job: UnitTestsWindows
@@ -60,7 +60,7 @@ jobs:
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         dotnet build azclips.slnx -c Release --no-restore
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests" --logger trx --results-directory "$(Agent.TempDirectory)/windows-unit-tests"
+        dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests&Category!=LocalOnly" --logger trx --results-directory "$(Agent.TempDirectory)/windows-unit-tests"
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   - task: PublishTestResults@2

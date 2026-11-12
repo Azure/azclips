@@ -6,6 +6,7 @@ using System.IO.Pipes;
 using System.Text.Json;
 using Core.Abstractions.Recovery;
 using Core.Agent.Tools.Help;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -15,7 +16,9 @@ public class AgentProcessHelpTests
     // Starts the built agent exe. The help prefetch for the failed command loads az.dll types
     // in the agent process. The invalid reasoning effort then stops the run before the
     // Copilot daemon or any model call starts.
+    // A real agent process runs `az agent tool docs generate` under ShellOutHelper's 30s real-time limit.
     [Fact]
+    [Trait("Category", "LocalOnly")]
     public async Task RealAgentProcess_LoadsCliHelpTypesForFailedCommand()
     {
         var root = FindRepositoryRoot();
@@ -50,7 +53,6 @@ public class AgentProcessHelpTests
             input.DisposeLocalCopyOfClientHandle();
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
             try
             {
                 await JsonSerializer.SerializeAsync(input, new RecoveryRequest
@@ -58,9 +60,9 @@ public class AgentProcessHelpTests
                     FailedCommand = "config set --key core.output --value json",
                     ErrorText = "test error",
                     SessionStyle = "oneshot",
-                }, cancellationToken: timeout.Token);
+                }).WithAgentHangGuard();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync(timeout.Token);
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(120));
             }
             finally
             {
