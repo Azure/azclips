@@ -28,6 +28,7 @@ public class ExtensionIndex : IExtensionIndex
         Add<DownloadCertificateCommand>("download", "Export-AzKeyVaultCertificate", hasName: true, version: true, certificate: true);
         Add<RemoveCertificateCommand>("delete", "Remove-AzKeyVaultCertificate", hasName: true, certificate: true);
         if (!cli) Add<RecoverCertificateCommand>("recover", "Undo-AzKeyVaultCertificateRemoval", hasName: true, certificate: true);
+        if (cli) AddDefaultParameterSets(table);
         return table;
 
         void Add<T>(string verb, string psName, bool hasName = false, bool version = false, bool attributes = false, bool page = false, bool certificate = false)
@@ -93,6 +94,32 @@ public class ExtensionIndex : IExtensionIndex
                 string name = cli ? cliName : psParameter;
                 parameters.Add(name, new ParameterMetadata(property, name, type, help, IsRequired: required, Aliases: [], AllowedValues: []));
             }
+        }
+    }
+
+    /// <summary>
+    /// Adds a default set to commands without explicit sets, preserving parameter-level requiredness.
+    /// Call after injecting any shared parameters, and only on the CLI table.
+    /// </summary>
+    private static void AddDefaultParameterSets(IDictionary<string, CommandMetadata> commands)
+    {
+        foreach (var key in commands.Keys.ToArray())
+        {
+            var command = commands[key];
+            if (command.ParameterSets is { Count: > 0 })
+            {
+                continue;
+            }
+
+            commands[key] = command with
+            {
+                ParameterSets = new Dictionary<string, ParameterSetMetadata>
+                {
+                    ["Default"] = new("Default", IsDefault: true, Parameters: command.Parameters.Values.ToDictionary(
+                        parameter => parameter.Name,
+                        parameter => new ParameterReference(parameter.Name, IsRequired: parameter.IsRequired))),
+                },
+            };
         }
     }
 
