@@ -447,9 +447,14 @@ This cmdlet does not accept pipeline input.
 
 This cmdlet returns no output.
 
+### System.Object
+
+TODO - describe what Remove-AzStorageBlob does and when to use it.
+
 ## NOTES
 
 ## RELATED LINKS
+
 
 - [Delete Blob REST API](https://learn.microsoft.com/rest/api/storageservices/delete-blob)
 - [Get-AzStorageBlob](Get-AzStorageBlob.md)

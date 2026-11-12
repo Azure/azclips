@@ -249,9 +249,14 @@ This cmdlet does not accept pipeline input.
 
 The properties of the directory.
 
+### System.Object
+
+TODO - describe what Get-AzStorageDirectory does and when to use it.
+
 ## NOTES
 
 ## RELATED LINKS
+
 
 - [Get Directory Properties REST API](https://learn.microsoft.com/rest/api/storageservices/get-directory-properties)
 - [New-AzStorageDirectory](New-AzStorageDirectory.md)

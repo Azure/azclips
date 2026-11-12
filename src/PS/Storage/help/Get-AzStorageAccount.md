@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Storage.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Storage
-ms.date: 10/13/2026
+ms.date: 11/12/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzStorageAccount
 ---
@@ -208,3 +208,6 @@ Gets Azure Storage accounts, either a single account by name or all accounts in 
 ## NOTES
 
 ## RELATED LINKS
+
+{{ Fill in the related links here }}
+

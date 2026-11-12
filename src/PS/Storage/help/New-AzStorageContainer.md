@@ -298,9 +298,14 @@ This cmdlet does not accept pipeline input.
 
 The ETag and last-modified time of the new container.
 
+### System.Object
+
+TODO - describe what New-AzStorageContainer does and when to use it.
+
 ## NOTES
 
 ## RELATED LINKS
+
 
 - [Create Container REST API](https://learn.microsoft.com/rest/api/storageservices/create-container)
 - [Remove-AzStorageContainer](Remove-AzStorageContainer.md)

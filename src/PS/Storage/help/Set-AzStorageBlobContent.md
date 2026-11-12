@@ -447,9 +447,14 @@ This cmdlet does not accept pipeline input.
 
 The ETag, last-modified time and version of the uploaded blob.
 
+### System.Object
+
+TODO - describe what Set-AzStorageBlobContent does and when to use it.
+
 ## NOTES
 
 ## RELATED LINKS
+
 
 - [Put Blob REST API](https://learn.microsoft.com/rest/api/storageservices/put-blob)
 - [Get-AzStorageBlobContent](Get-AzStorageBlobContent.md)

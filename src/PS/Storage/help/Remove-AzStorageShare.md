@@ -271,9 +271,14 @@ This cmdlet does not accept pipeline input.
 
 This cmdlet returns no output.
 
+### System.Object
+
+TODO - describe what Remove-AzStorageShare does and when to use it.
+
 ## NOTES
 
 ## RELATED LINKS
+
 
 - [Delete Share REST API](https://learn.microsoft.com/rest/api/storageservices/delete-share)
 - [New-AzStorageShare](New-AzStorageShare.md)

@@ -228,9 +228,14 @@ This cmdlet does not accept pipeline input.
 
 This cmdlet returns no output.
 
+### System.Object
+
+TODO - describe what Remove-AzStorageDirectory does and when to use it.
+
 ## NOTES
 
 ## RELATED LINKS
+
 
 - [Delete Directory REST API](https://learn.microsoft.com/rest/api/storageservices/delete-directory)
 - [New-AzStorageDirectory](New-AzStorageDirectory.md)
