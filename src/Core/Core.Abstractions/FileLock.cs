@@ -23,8 +23,12 @@ public static class FileLock
     /// With <paramref name="ownerOnly"/>, on Unix the directory is created 0700 and the lock file 0600.
     /// <paramref name="timeProvider"/> measures the wait (default <see cref="TimeProvider.System"/>).
     /// </summary>
+    public static Task<FileStream?> TryAcquireAsync(string lockPath, TimeSpan wait, CancellationToken ct = default, bool ownerOnly = false)
+        => TryAcquireAsync(lockPath, wait, ct, ownerOnly, timeProvider: null);
+
+    /// <inheritdoc cref="TryAcquireAsync(string, TimeSpan, CancellationToken, bool)"/>
     public static async Task<FileStream?> TryAcquireAsync(
-        string lockPath, TimeSpan wait, CancellationToken ct = default, bool ownerOnly = false, TimeProvider? timeProvider = null)
+        string lockPath, TimeSpan wait, CancellationToken ct, bool ownerOnly, TimeProvider? timeProvider)
     {
         timeProvider ??= TimeProvider.System;
         var directory = Path.GetDirectoryName(lockPath);
@@ -64,8 +68,11 @@ public static class FileLock
         }
     }
 
-    public static FileStream? TryAcquire(string lockPath, TimeSpan wait, bool ownerOnly = false, TimeProvider? timeProvider = null)
-        => TryAcquireAsync(lockPath, wait, ownerOnly: ownerOnly, timeProvider: timeProvider).GetAwaiter().GetResult();
+    public static FileStream? TryAcquire(string lockPath, TimeSpan wait, bool ownerOnly = false)
+        => TryAcquire(lockPath, wait, ownerOnly, timeProvider: null);
+
+    public static FileStream? TryAcquire(string lockPath, TimeSpan wait, bool ownerOnly, TimeProvider? timeProvider)
+        => TryAcquireAsync(lockPath, wait, CancellationToken.None, ownerOnly, timeProvider).GetAwaiter().GetResult();
 
     /// <summary>Reads a JSON object without locking; a missing or unreadable file yields an empty object.</summary>
     public static JsonObject ReadJson(string path)
@@ -90,9 +97,13 @@ public static class FileLock
     /// and replaces the file. Keys the update does not touch are kept. Returns <c>false</c> when
     /// the lock is not obtained within <paramref name="wait"/> (default <see cref="DefaultWait"/>).
     /// </summary>
-    public static bool UpdateJson(string path, Action<JsonObject> update, TimeSpan? wait = null, TimeProvider? timeProvider = null)
+    public static bool UpdateJson(string path, Action<JsonObject> update, TimeSpan? wait = null)
+        => UpdateJson(path, update, wait, timeProvider: null);
+
+    /// <inheritdoc cref="UpdateJson(string, Action{JsonObject}, TimeSpan?)"/>
+    public static bool UpdateJson(string path, Action<JsonObject> update, TimeSpan? wait, TimeProvider? timeProvider)
     {
-        using var gate = TryAcquire($"{path}.lock", wait ?? DefaultWait, timeProvider: timeProvider);
+        using var gate = TryAcquire($"{path}.lock", wait ?? DefaultWait, ownerOnly: false, timeProvider);
         if (gate is null)
             return false;
 

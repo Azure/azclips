@@ -65,11 +65,11 @@ public class SpinnerServiceTests
         Assert.InRange(afterPause - beforePause, 0, 1);
         Assert.True(stopAfterPause >= 1, "Pause must clear the spinner line");
 
-        fake.FrameSeen.Reset();
         spinner.Resume();
-        Assert.True(fake.FrameSeen.Wait(FrameWaitMs), "Resume produced no frames within timeout");
+        // Two frames beyond the paused count: at most one of them can be the frame in flight at Pause().
+        Assert.True(SpinWait.SpinUntil(() => fake.FrameCalls >= afterPause + 2, FrameWaitMs),
+            "Resume produced no new frames within timeout");
         spinner.Stop();
-        Assert.True(fake.FrameCalls > afterPause, "Resume must re-emit frames");
     }
 
     [Fact]

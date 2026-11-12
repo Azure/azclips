@@ -39,10 +39,13 @@ public static class PipeProcessRunner
         catch
         {
             ioCancellation.Cancel();
-            await StopAsync(process).ConfigureAwait(false);
+            var exited = await StopAsync(process).ConfigureAwait(false);
             await input.DisposeAsync().ConfigureAwait(false);
             await ObserveClosedPipeAsync(sent).ConfigureAwait(false);
-            await ObserveClosedPipeAsync(received).ConfigureAwait(false);
+            if (exited)
+                await ObserveClosedPipeAsync(received).ConfigureAwait(false);
+            else
+                _ = ObserveClosedPipeAsync(received);
             throw;
         }
     }
@@ -74,7 +77,8 @@ public static class PipeProcessRunner
         }
     }
 
-    private static async Task StopAsync(Process process)
+    /// <summary>Kills the child and waits a bounded time for it to exit; returns whether it exited.</summary>
+    private static async Task<bool> StopAsync(Process process)
     {
         try
         {
@@ -88,10 +92,12 @@ public static class PipeProcessRunner
         try
         {
             await process.WaitForExitAsync().WaitAsync(ExitWaitAfterKill).ConfigureAwait(false);
+            return true;
         }
         catch (TimeoutException)
         {
-            // The caller rethrows the original failure whether or not the child has exited yet.
+            // The caller rethrows the original failure without waiting on the child's open pipes.
+            return false;
         }
     }
 
