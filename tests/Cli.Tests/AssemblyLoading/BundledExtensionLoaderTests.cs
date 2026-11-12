@@ -99,6 +99,30 @@ public class BundledExtensionLoaderTests
     }
 
     [Fact]
+    public void GetInstalledExtensions_ShouldReportStorageVersion_WhenNupkgAbsent()
+    {
+        var name = $"Storage_{UniqueSuffix()}";
+        try
+        {
+            var dllPath = CreatePackage(name, realDll: false);
+            File.Copy(
+                typeof(Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex).Assembly.Location,
+                dllPath,
+                overwrite: true);
+
+            var installed = CreateLoader().GetInstalledExtensions().ToArray();
+
+            var entry = Assert.Single(installed, x => x.Name == name);
+            Assert.False(string.IsNullOrWhiteSpace(entry.Version));
+            Assert.DoesNotContain('+', entry.Version);
+        }
+        finally
+        {
+            SafeDeletePackage(name);
+        }
+    }
+
+    [Fact]
     public void GetInstalledExtensions_ShouldReturnEmptyVersion_WhenNupkgAbsentAndDllUnreadable()
     {
         // Neither .nupkg nor a loadable DLL — fallback returns empty (defensive posture).
