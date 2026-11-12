@@ -21,7 +21,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
             {
                 ["url"] = new("Url", "url", typeof(string), "The container URL. Alternative to --account-name and --container-name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container (and blob) name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
+                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["prefix"] = new("Prefix", "prefix", typeof(string), "Filters the results to return only resources whose name begins with the specified prefix.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -32,10 +32,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["start-from"] = new("StartFrom", "start-from", typeof(string), "Specifies the relative path to list paths from.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["c"] = "container-name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageBlobShow = new(
@@ -49,8 +46,8 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
             {
                 ["url"] = new("Url", "url", typeof(string), "The blob URL. Alternative to --account-name, --container-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container (and blob) name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
-                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "Specifies the snapshot of the blob.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -67,11 +64,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["if-tags"] = new("IfTags", "if-tags", typeof(string), "Specifies a SQL-like where clause on blob tags to operate only on a blob with matching tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["c"] = "container-name",
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageBlobCopyStart = new(
@@ -87,9 +80,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Destination storage account name. Used with the container and blob name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Destination storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature for the destination. Alternative to --account-key; a source SAS goes in --source-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["destination-container"] = new("ContainerName", "destination-container", typeof(string), "The destination container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
-                ["destination-blob"] = new("BlobName", "destination-blob", typeof(string), "The destination blob name.", IsRequired: false, Aliases: ["b"], AllowedValues: []),
-                ["source-uri"] = new("SourceUrl", "source-uri", typeof(string), "The source blob URL. It must be public, in the destination account, or carry a SAS.", IsRequired: true, Aliases: ["u"], AllowedValues: []),
+                ["destination-container"] = new("ContainerName", "destination-container", typeof(string), "The destination container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["destination-blob"] = new("BlobName", "destination-blob", typeof(string), "The destination blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["source-uri"] = new("SourceUrl", "source-uri", typeof(string), "The source blob URL. It must be public, in the destination account, or carry a SAS.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Destination metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["tags"] = new("Tags", "tags", typeof(string[]), "Destination tags in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["tier"] = new("Tier", "tier", typeof(string), "The tier to be set on the destination blob.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -108,12 +101,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["c"] = "destination-container",
-                ["b"] = "destination-blob",
-                ["u"] = "source-uri",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageBlobUpload = new(
@@ -129,9 +117,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container and blob name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
-                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
-                ["file"] = new("FilePath", "file", typeof(string), "Path of the local file to upload. An existing blob is not overwritten.", IsRequired: true, Aliases: ["f"], AllowedValues: []),
+                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["file"] = new("FilePath", "file", typeof(string), "Path of the local file to upload. An existing blob is not overwritten.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["tags"] = new("Tags", "tags", typeof(string[]), "Tags in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["content-type"] = new("BlobContentType", "content-type", typeof(string), "The blob's content type.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -144,12 +132,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["c"] = "container-name",
-                ["n"] = "name",
-                ["f"] = "file",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageBlobUploadFromUrl = new(
@@ -165,9 +148,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container and blob name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature for the destination. Alternative to --account-key; a source SAS goes in --source-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
-                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
-                ["source-uri"] = new("SourceUrl", "source-uri", typeof(string), "The source blob URL. It must be public, in the destination account, or carry a SAS. An existing destination blob is not overwritten.", IsRequired: true, Aliases: ["u"], AllowedValues: []),
+                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["source-uri"] = new("SourceUrl", "source-uri", typeof(string), "The source blob URL. It must be public, in the destination account, or carry a SAS. An existing destination blob is not overwritten.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["tags"] = new("Tags", "tags", typeof(string[]), "Tags in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["content-type"] = new("BlobContentType", "content-type", typeof(string), "The blob's content type.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -181,12 +164,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["c"] = "container-name",
-                ["n"] = "name",
-                ["u"] = "source-uri",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageBlobDownload = new(
@@ -202,9 +180,9 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container and blob name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
-                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
-                ["file"] = new("FilePath", "file", typeof(string), "Path of the local file to create. An existing file is not overwritten.", IsRequired: true, Aliases: ["f"], AllowedValues: []),
+                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["file"] = new("FilePath", "file", typeof(string), "Path of the local file to create. An existing file is not overwritten.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The snapshot of the blob to download.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["version-id"] = new("VersionId", "version-id", typeof(string), "The version ID of the blob to download.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "If specified, the operation only succeeds if the blob's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -219,12 +197,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["c"] = "container-name",
-                ["n"] = "name",
-                ["f"] = "file",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageBlobDelete = new(
@@ -240,8 +213,8 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container and blob name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: ["c"], AllowedValues: []),
-                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["container-name"] = new("ContainerName", "container-name", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("BlobName", "name", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["delete-snapshots"] = new("DeleteSnapshots", "delete-snapshots", typeof(string), "Required if the blob has snapshots. 'include' deletes the blob and its snapshots; 'only' deletes just the snapshots.", IsRequired: false, Aliases: [], AllowedValues: ["include", "only"]),
                 ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The snapshot of the blob to delete.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["version-id"] = new("VersionId", "version-id", typeof(string), "The version ID of the blob to delete.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -255,11 +228,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["c"] = "container-name",
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageContainerCreate = new(
@@ -275,20 +244,15 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("ContainerName", "name", typeof(string), "The container name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("ContainerName", "name", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["public-access"] = new("PublicAccess", "public-access", typeof(string), "The public access level. Omit for private access.", IsRequired: false, Aliases: [], AllowedValues: ["blob", "container"]),
-                ["default-encryption-scope"] = new("DefaultEncryptionScope", "default-encryption-scope", typeof(string), "The default encryption scope for all writes to the container.", IsRequired: false, Aliases: ["d"], AllowedValues: []),
-                ["prevent-encryption-scope-override"] = new("PreventEncryptionScopeOverride", "prevent-encryption-scope-override", typeof(bool), "Block writes that specify an encryption scope other than the container default.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["default-encryption-scope"] = new("DefaultEncryptionScope", "default-encryption-scope", typeof(string), "The default encryption scope for all writes to the container.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["prevent-encryption-scope-override"] = new("PreventEncryptionScopeOverride", "prevent-encryption-scope-override", typeof(bool), "Block writes that specify an encryption scope other than the container default.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["n"] = "name",
-                ["d"] = "default-encryption-scope",
-                ["p"] = "prevent-encryption-scope-override",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageContainerDelete = new(
@@ -304,17 +268,14 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the container name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("ContainerName", "name", typeof(string), "The container name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("ContainerName", "name", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "If specified, the operation only succeeds if the container's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["if-modified-since"] = new("IfModifiedSince", "if-modified-since", typeof(string), "Delete only if the container has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["if-unmodified-since"] = new("IfUnmodifiedSince", "if-unmodified-since", typeof(string), "Delete only if the container has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         #endregion
 

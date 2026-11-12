@@ -21,22 +21,18 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The share URL. Alternative to --account-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("ShareName", "name", typeof(string), "The share name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("ShareName", "name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["quota"] = new("Quota", "quota", typeof(int), "The maximum size of the share in GiB.", IsRequired: false, Aliases: ["q"], AllowedValues: []),
+                ["quota"] = new("Quota", "quota", typeof(int), "The maximum size of the share in GiB.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["access-tier"] = new("AccessTier", "access-tier", typeof(string), "The access tier of the share.", IsRequired: false, Aliases: [], AllowedValues: ["TransactionOptimized", "Hot", "Cool", "Premium"]),
                 ["enabled-protocols"] = new("EnabledProtocols", "enabled-protocols", typeof(string), "The protocol to enable for the share.", IsRequired: false, Aliases: [], AllowedValues: ["SMB", "NFS"]),
                 ["root-squash"] = new("RootSquash", "root-squash", typeof(string), "Root squashing behavior on the share. Only valid for NFS shares.", IsRequired: false, Aliases: [], AllowedValues: ["NoRootSquash", "RootSquash", "AllSquash"]),                
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["n"] = "name",
-                ["q"] = "quota",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageShareShow = new(
@@ -50,7 +46,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The share URL. Alternative to --account-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("ShareName", "name", typeof(string), "The share name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("ShareName", "name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The share snapshot to query.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -58,10 +54,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageShareList = new(
@@ -98,21 +91,17 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The share URL. Alternative to --account-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("ShareName", "name", typeof(string), "The share name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("ShareName", "name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["quota"] = new("Quota", "quota", typeof(int), "The maximum size of the share in GiB.", IsRequired: false, Aliases: ["q"], AllowedValues: []),
+                ["quota"] = new("Quota", "quota", typeof(int), "The maximum size of the share in GiB.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["access-tier"] = new("AccessTier", "access-tier", typeof(string), "The access tier of the share.", IsRequired: false, Aliases: [], AllowedValues: ["TransactionOptimized", "Hot", "Cool", "Premium"]),
                 ["root-squash"] = new("RootSquash", "root-squash", typeof(string), "Root squashing behavior on the share. Only valid for NFS shares.", IsRequired: false, Aliases: [], AllowedValues: ["NoRootSquash", "RootSquash", "AllSquash"]),
                                 ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "If specified, the operation only succeeds if the share's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
                                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["n"] = "name",
-                ["q"] = "quota",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageShareDelete = new(
@@ -126,7 +115,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The share URL. Alternative to --account-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("ShareName", "name", typeof(string), "The share name.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["name"] = new("ShareName", "name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Sharesnapshot", "snapshot", typeof(string), "Delete only this share snapshot.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -134,10 +123,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
                                 ["lease-id"] = new("LeaseId", "lease-id", typeof(string), "If specified, the operation only succeeds if the share's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),                ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageDirectoryCreate = new(
@@ -151,19 +137,15 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The directory URL. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and directory path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child. The parent must exist.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child. The parent must exist.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Metadata in space-separated key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageDirectoryShow = new(
@@ -177,19 +159,15 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The directory URL. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and directory path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The share snapshot to query.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageFileList = new(
@@ -203,8 +181,8 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The URL of the share or directory to list. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path to list, e.g. parent/child. Lists the share root when not given.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path to list, e.g. parent/child. Lists the share root when not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Sharesnapshot", "snapshot", typeof(string), "The share snapshot to list.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -215,11 +193,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
 
         private static readonly CommandMetadata cliStorageDirectoryDelete = new(
@@ -233,18 +207,14 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The directory URL. Alternative to --account-name, --share-name and --name.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and directory path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child. The directory must be empty.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("DirectoryPath", "name", typeof(string), "The directory path within the share, e.g. parent/child. The directory must be empty.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["n"] = "name",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata cliStorageFileShow = new(
             Name: nameof(GetPropertiesFileProcessor_Orchestrator),
@@ -257,19 +227,15 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["snapshot"] = new("Snapshot", "snapshot", typeof(string), "The share snapshot to query.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["p"] = "path",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata cliStorageFileCreate = new(
             Name: nameof(CreateFileProcessor_Orchestrator),
@@ -282,8 +248,8 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt. The directory must exist; an existing file is replaced.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt. The directory must exist; an existing file is replaced.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["size"] = new("Size", "size", typeof(long), "The file size in bytes. The file is created empty, filled with zeros.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -296,11 +262,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["p"] = "path",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata cliStorageFileUpload = new(
             Name: nameof(UploadFileProcessor_Orchestrator),
@@ -313,8 +275,8 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["path"] = new("FilePath", "path", typeof(string), "The destination file path within the share, e.g. dir/file.txt. The directory must exist; an existing file is replaced.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The destination file path within the share, e.g. dir/file.txt. The directory must exist; an existing file is replaced.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["source"] = new("Source", "source", typeof(string), "Path of the local file to upload.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -327,11 +289,7 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["p"] = "path",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata cliStorageFileDownload = new(
             Name: nameof(DownloadFileProcessor_Orchestrator),
@@ -344,19 +302,15 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["dest"] = new("Destination", "dest", typeof(string), "Path of the local file to write. An existing file is not overwritten.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["p"] = "path",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata cliStorageFileCopyStart = new(
             Name: nameof(StartCopyFileProcessor_Orchestrator),
@@ -369,21 +323,16 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The destination file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["path"] = new("FilePath", "path", typeof(string), "The destination file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The destination file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["source-uri"] = new("SourceUrl", "source-uri", typeof(string), "The source file or blob URL. It must be in the destination account or carry a SAS.", IsRequired: false, Aliases: ["u"], AllowedValues: []),
+                ["source-uri"] = new("SourceUrl", "source-uri", typeof(string), "The source file or blob URL. It must be in the destination account or carry a SAS.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["metadata"] = new("Metadata", "metadata", typeof(string[]), "Destination metadata in space-separated key=value pairs. The source metadata is copied when not given.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["p"] = "path",
-                ["u"] = "source-uri",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata cliStorageFileDelete = new(
             Name: nameof(DeleteFileProcessor),
@@ -396,18 +345,14 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageFile
             {
                 ["url"] = new("Url", "url", typeof(string), "The file URL. Alternative to --account-name, --share-name and --path.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-name"] = new("StorageAccountName", "account-name", typeof(string), "Storage account name. Used with the share name and file path when --url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: ["s"], AllowedValues: []),
-                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["share-name"] = new("ShareName", "share-name", typeof(string), "The share name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["path"] = new("FilePath", "path", typeof(string), "The file path within the share, e.g. dir/file.txt.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["account-key"] = new("StorageAccountKey", "account-key", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["sas-token"] = new("SasToken", "sas-token", typeof(string), "A shared access signature. Alternative to --account-key.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["s"] = "share-name",
-                ["p"] = "path",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         #endregion
 
