@@ -15,9 +15,9 @@ The Azure CLI public preview ships as **azcli** — the `az` command-line tool (
 
 ## Install azcli (one command)
 
-Public preview artifacts are available from the [GitHub Releases](https://github.com/Azure/azclips/releases) page. The installer downloads the latest release anonymously: no GitHub CLI, account, or token is required.
+The installer downloads the latest release from [GitHub Releases](https://github.com/Azure/azclips/releases).
 
-- **Linux / macOS / WSL:** Bash, `curl`, `tar`, and standard system text utilities. No GitHub CLI, JSON parser, or Python installation is required.
+- **Linux / macOS / WSL:** Bash, `curl`, `tar`, and standard system text utilities.
 - **Windows:** PowerShell 7+.
 
 **Linux / macOS / WSL:**
@@ -111,7 +111,7 @@ Removes the install directory. Download and review the uninstall script first if
 
 ## Download troubleshooting
 
-The installer reports failed downloads and missing or ambiguous release assets. GitHub's anonymous API is rate-limited; if a release lookup returns HTTP 403 or 429, check GitHub's response and retry after the rate limit resets. You can also download the archive from [GitHub Releases](https://github.com/Azure/azclips/releases) and follow the [manual guide](./install-cli-manual.md).
+The installer reports failed downloads and missing or ambiguous release assets. GitHub's API is rate-limited; if a release lookup returns HTTP 403 or 429, check GitHub's response and retry after the rate limit resets. You can also download the archive from [GitHub Releases](https://github.com/Azure/azclips/releases) and follow the [manual guide](./install-cli-manual.md).
 
 Piped Bash execution may not report the downloader's exit status. If the bootstrap download fails, do not assume installation succeeded; use the download-and-review workflow to check download success separately.
 

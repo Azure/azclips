@@ -14,7 +14,7 @@ export FIXTURE_URL="https://github.com/${AZCLI_REPO:-Azure/azclips}/releases/dow
 export TMPDIR="$fixture_root/tmp"
 unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN
 
-# Limit PATH to standard utilities so jq, gh, and Python are genuinely unavailable.
+# Limit PATH to the installer's declared system utilities.
 for utility in bash basename cat chmod cksum cp dirname grep gzip ls mkdir mktemp mv rm sed tar touch tr uname; do
   ln -s "$(command -v "$utility")" "$fixture_root/bin/$utility"
 done
@@ -107,7 +107,7 @@ done
 for scenario in missing duplicate malformed query extra-path http wrong-repo missing-quote other-field escaped-body unsafe-filename wrong-platform metadata-failure download-failure; do
   export FIXTURE_CASE="$scenario"
   case "$scenario" in
-    metadata-failure) expected='anonymous API rate limit' ;;
+    metadata-failure) expected='API rate limit' ;;
     download-failure) expected='Could not download' ;;
     *) expected='Expected exactly one' ;;
   esac
@@ -131,7 +131,7 @@ for scenario in valid compact; do
 done
 [[ -f "$fixture_root/downloaded" ]] ||
   { echo "FAIL: Public installation did not use only the fixture download." >&2; exit 1; }
-echo "PASS: Public download selection, failure handling, piped help, and installation using the pipeline archive without jq, gh, or Python."
+echo "PASS: Download selection, failure handling, piped help, and installation using the pipeline archive."
 
 export FIXTURE_ARCHIVE="$fixture_root/azcli-extensions-0.0.0.tar.gz"
 export FIXTURE_URL="https://github.com/Azure/azclips/releases/download/v-fixture.timestamp/azcli-extensions-0.0.0.tar.gz"
@@ -145,7 +145,7 @@ before="$(cksum azcli-extensions.tar.gz)"
 for scenario in missing duplicate malformed query extra-path http wrong-repo missing-quote other-field escaped-body unsafe-filename metadata-failure rate-limit not-found not-found-latest download-failure missing-download; do
   export FIXTURE_CASE="$scenario"
   case "$scenario" in
-    metadata-failure|rate-limit|not-found-latest) expected='anonymous API rate limit' ;;
+    metadata-failure|rate-limit|not-found-latest) expected='API rate limit' ;;
     not-found) expected="Release tag 'v-fixture.timestamp' was not found" ;;
     download-failure) expected='Could not download' ;;
     missing-download) expected='Download did not produce' ;;
@@ -200,4 +200,4 @@ if output="$(bash < "$repo_root/install/azcli-extensions-download.sh" 2>&1)"; th
   echo "FAIL: Download helper accepted a directory as its output file." >&2; exit 1
 fi
 grep -q 'non-file destination' <<<"$output"
-echo "PASS: Download-only extensions helper, pinned release, failure preservation, and cleanup without jq, gh, or Python."
+echo "PASS: Download-only extensions helper, pinned release, failure preservation, and cleanup."

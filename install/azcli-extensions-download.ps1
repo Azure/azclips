@@ -1,9 +1,8 @@
 <#
 .SYNOPSIS
-  Downloads the public CLI extensions bundle into the current directory.
+  Downloads the CLI extensions bundle into the current directory.
 .DESCRIPTION
   Saves azcli-extensions.tar.gz without extracting or installing extensions.
-  No GitHub CLI, authentication, or external JSON parser is required.
 .EXAMPLE
   ./azcli-extensions-download.ps1
 

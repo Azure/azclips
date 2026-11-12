@@ -2,8 +2,8 @@
 .SYNOPSIS
   Installs the Azure PowerShell preview modules on Windows, Linux, and macOS.
 .DESCRIPTION
-  Downloads the latest public release bundle without GitHub authentication and
-  delegates installation to its InstallModule.ps1 helper. Requires PowerShell 7.6+.
+  Downloads the latest release bundle and delegates installation to its
+  InstallModule.ps1 helper. Requires PowerShell 7.6+.
 .EXAMPLE
   ./azps-install.ps1
 

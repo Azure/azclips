@@ -26,7 +26,7 @@ Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShel
 
 All steps below run in **PowerShell 7.6+**.
 
-The bootstrap downloads the latest public release and invokes its bundled module installer. No GitHub CLI, GitHub sign-in, or token is required. `tar` must be available on `PATH`.
+The bootstrap downloads the latest release and invokes its bundled module installer. `tar` must be available on `PATH`.
 
 ```powershell
 irm https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps1 -ErrorAction Stop | iex
@@ -89,5 +89,5 @@ The `Az.*` modules should be listed. Cmdlets that contact Azure require sign-in 
 | `Install-Module` cannot find the module | Run it from the extracted `azps-cmdlets` folder, or pass the correct `-Repository`/`SourceLocation` path. |
 | Command conflicts with an existing Az install | Open a fresh PowerShell session, or use `-AllowClobber`. |
 | Need a machine-wide install | Use `-Scope AllUsers` from an elevated PowerShell session. |
-| Release lookup returns HTTP 403 or 429 | Check GitHub's response for an anonymous API rate limit; retry after it resets, or download the bundle manually from GitHub Releases. |
+| Release lookup returns HTTP 403 or 429 | Check GitHub's response for an API rate limit; retry after it resets, or download the bundle manually from GitHub Releases. |
 | Bootstrap says the repository already exists | Choose a different `-RepositoryName`; the bootstrap does not replace existing repositories. |

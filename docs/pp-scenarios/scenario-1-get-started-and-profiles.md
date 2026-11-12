@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- Bash, `curl`, `tar`, and standard system text utilities for the CLI Bash path; `tar` for the PowerShell module path. Downloads from the public [AzCLIPS releases](https://github.com/Azure/azclips/releases) require no GitHub account or token.
+- Bash, `curl`, `tar`, and standard system text utilities for the CLI Bash path; `tar` for the PowerShell module path.
 - [PowerShell 7.6+](https://aka.ms/powershell) for the AzCLIPS PowerShell modules and for the Windows CLI path.
 - Your existing (classic) Azure CLI and/or Azure PowerShell, already installed. Step 4 switches between them and the preview.
 - Two Azure subscriptions or accounts you can sign in to. They can belong to the same tenant.

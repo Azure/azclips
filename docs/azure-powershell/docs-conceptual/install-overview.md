@@ -12,7 +12,7 @@ The Azure PowerShell public preview ships as **azps** — the Az PowerShell modu
 
 ## Install azps (one command)
 
-Public preview artifacts are available from the [GitHub Releases](https://github.com/Azure/azclips/releases) page. The installer downloads the latest release anonymously: no GitHub CLI, account, or token is required.
+The installer downloads the latest release from [GitHub Releases](https://github.com/Azure/azclips/releases).
 
 **Prerequisites:**
 

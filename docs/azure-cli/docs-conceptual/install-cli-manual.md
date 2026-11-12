@@ -11,7 +11,7 @@ Get from a downloaded azcli archive to a working `az` command: pick the file for
 
 ## Pick your download
 
-Download the archive from the public [GitHub Releases](https://github.com/Azure/azclips/releases) page. No GitHub account or token is required.
+Download the archive from [GitHub Releases](https://github.com/Azure/azclips/releases).
 
 First choose a package type:
 

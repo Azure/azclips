@@ -3,8 +3,7 @@
   azcli installer (Windows).
 
 .DESCRIPTION
-  Downloads the latest signed release of the az CLI from public GitHub Releases.
-  No GitHub account or token is required.
+  Downloads the latest signed release of the az CLI from GitHub Releases.
 
   The CLI is installed in isolation and PATH is NOT modified, so it coexists
   with the classic azure-cli.

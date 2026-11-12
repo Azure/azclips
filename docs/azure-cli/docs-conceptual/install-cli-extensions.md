@@ -27,7 +27,7 @@ Add-on extensions ship as NuGet packages named `azcli.extensions.<name>.<version
 
 Each release includes a single `azcli-extensions-<version>.tar.gz` containing every extension package plus `NOTICE`/`LICENSE`. This bundle is how add-on extensions are distributed.
 
-Download `azcli-extensions-<version>.tar.gz` from the public [GitHub Releases](https://github.com/Azure/azclips/releases) page, choosing the same release you installed azcli from. No GitHub account or token is required.
+Download `azcli-extensions-<version>.tar.gz` from [GitHub Releases](https://github.com/Azure/azclips/releases), choosing the same release you installed azcli from.
 
 The download-only helpers below fetch the latest bundle and save it as `azcli-extensions.tar.gz` in the current directory. They do not extract or install extensions. If your CLI is from an older release, use the release-pinned examples below or download its bundle manually.
 

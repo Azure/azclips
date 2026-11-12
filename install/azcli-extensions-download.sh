@@ -25,7 +25,7 @@ main() {
     die "Invalid release tag. Use letters, digits, dots, underscores, and hyphens."
   [[ ! -L ./azcli-extensions.tar.gz && (! -e ./azcli-extensions.tar.gz || -f ./azcli-extensions.tar.gz) ]] ||
     die "Refusing to replace a non-file destination: ./azcli-extensions.tar.gz."
-  command -v curl >/dev/null 2>&1 || die "curl is required for public downloads."
+  command -v curl >/dev/null 2>&1 || die "curl is required to download release archives."
   endpoint="https://api.github.com/repos/Azure/azclips/releases/latest"
   [[ -z "$release_tag" ]] || endpoint="https://api.github.com/repos/Azure/azclips/releases/tags/$release_tag"
   stage="$(mktemp -d "./.azcli-extensions-download.XXXXXX")"
@@ -34,7 +34,7 @@ main() {
     if [[ -n "$release_tag" && "$http_status" == 404 ]]; then
       die "Release tag '$release_tag' was not found in Azure/azclips."
     fi
-    die "Could not retrieve the release. Check network access and GitHub's anonymous API rate limit."
+    die "Could not retrieve the release. Check network access and GitHub's API rate limit."
   fi
   tr -d '\r\n' < "$stage/release.json" > "$stage/release-line.txt"
   # Include the closing quote so a URL with a query or extra path cannot match a prefix.

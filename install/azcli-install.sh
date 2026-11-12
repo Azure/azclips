@@ -6,8 +6,6 @@
 # then extracts and installs the `az` command in isolation (PATH is NOT
 # modified, so it coexists with the classic azure-cli).
 #
-# Public downloads do not require a GitHub account or token.
-#
 # Usage:
 #   ./azcli-install.sh [--package lean|full]
 #
@@ -128,13 +126,13 @@ if [[ -n "$ARCHIVE_PATH" ]]; then
   fi
   echo "Archive    : $archive"
 else
-  command -v curl >/dev/null 2>&1 || die "curl is required for public downloads."
+  command -v curl >/dev/null 2>&1 || die "curl is required to download release archives."
 
   # Resolve names from metadata: release tags and package versions can differ.
   tmp="$(mktemp -d)"
   curl --fail --show-error --silent --location \
     "https://api.github.com/repos/$REPO/releases/latest" -o "$tmp/release.json" ||
-    die "Could not retrieve the latest release for $REPO. Check network access and GitHub's anonymous API rate limit."
+    die "Could not retrieve the latest release for $REPO. Check network access and GitHub's API rate limit."
   # Match complete, quoted GitHub asset URL fields, never URL prefixes or links in release notes.
   tr -d '\r\n' < "$tmp/release.json" > "$tmp/release-line.txt"
   grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"https://github[.]com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/releases/download/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"' \
