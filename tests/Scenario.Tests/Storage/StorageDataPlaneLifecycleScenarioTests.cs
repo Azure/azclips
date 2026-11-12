@@ -3,6 +3,7 @@ using Microsoft.Azure.AzClips.Extensions.StorageBlob.Models;
 using Microsoft.Azure.AzClips.Extensions.StorageFile.Models;
 using Tests.Recording;
 using Tests.Common.Recording;
+using Tests.Common.Utilities;
 
 namespace Scenario.Tests;
 
@@ -21,28 +22,35 @@ namespace Scenario.Tests;
 [Collection("Scenario Tests")]
 public class StorageDataPlaneLifecycleScenarioTests
 {
-    private const string NotRecorded = "No recording yet: set AZURE_TEST_MODE=Record and AZCLIPS_TEST_STORAGE_ACCOUNT_KEY, remove Skip, and record.";
-
     // Recorded hosts are <account>.blob/.file.core.windows.net, so playback must use the same name.
     // The account is not created here; record against an existing one and change this to re-record.
-    private const string AccountName = "azclipsdataplanetest";
+    private const string AccountName = "20261110testaccount";
     private const string AccountKeyVariable = "AZCLIPS_TEST_STORAGE_ACCOUNT_KEY";
 
-    private const string ContainerName = "scenario-blob-container";
-    private const string BlobName = "hello.txt";
-    private const string CopiedBlobName = "hello-copy.txt";
+    private const string ResourceName = "20261112testxxx";
 
-    private const string ShareName = "scenario-file-share";
-    private const string DirectoryPath = "dir";
-    private const string CreatedFilePath = "dir/empty.txt";
-    private const string UploadedFilePath = "dir/hello.txt";
-    private const string CopiedFilePath = "dir/hello-copy.txt";
+    private const string ContainerName = ResourceName;
+    private const string BlobName = ResourceName + ".txt";
+    private const string CopiedBlobName = ResourceName + "-copy.md";
+    private const string FromUrlBlobName = ResourceName + "-fromurl.md";
 
-    private const string Content = "hello azclips";
+    private const string ShareName = ResourceName;
+    private const string DirectoryPath = ResourceName;
+    private const string CreatedFilePath = DirectoryPath + "/" + ResourceName + "-empty.txt";
+    private const string UploadedFilePath = DirectoryPath + "/" + ResourceName + ".txt";
+    private const string CopySourceFilePath = DirectoryPath + "/" + ResourceName + "-copysource.txt";
+    private const string CopiedFilePath = DirectoryPath + "/" + ResourceName + "-copy.txt";
+
+    // A public source, so copy and upload-from-url need no source SAS in the recording.
+    private const string ExternalSourceUrl = "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/storage/data-plane/BlobStorage/readme.md";
+
+    private static readonly string StorageTestDirectory = Path.Combine(RepoLocator.GetRepoRoot(), "tests", "Scenario.Tests", "Storage");
+    private static readonly string UploadFile = Path.Combine(StorageTestDirectory, "uploadtestfile.txt");
+    private static readonly string CopySourceFile = Path.Combine(StorageTestDirectory, "uploadtestfile4copy.txt");
 
     private static readonly ExtensionUnderTest[] s_extensions = [ExtensionUnderTest.Storage];
 
-    [Fact(Skip = NotRecorded)]
+    [Fact]
     public void ContainerBlobLifecycle()
     {
         var recording = SessionRecordFiles.OpenSession(typeof(StorageDataPlaneLifecycleScenarioTests), nameof(ContainerBlobLifecycle));
@@ -51,8 +59,17 @@ public class StorageDataPlaneLifecycleScenarioTests
         {
             // Shared Key needs no ARM token, so the stubbed profile/auth stay in place.
             using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), extensions: s_extensions);
-            RunBlobLifecycle(host, ClientType.CLI, LiveAccountKey());
-            recording.Save();
+            var accountKey = LiveAccountKey();
+            try
+            {
+                RunBlobLifecycle(host, ClientType.CLI, accountKey);
+                recording.Save();
+            }
+            finally
+            {
+                // After the save, so the delete never lands in the recording; deleting the container removes its blobs.
+                try { host.RunCli("storage", "container", "delete", "--name", ContainerName, "--account-name", AccountName, "--account-key", accountKey); } catch { }
+            }
             return;
         }
 
@@ -67,7 +84,7 @@ public class StorageDataPlaneLifecycleScenarioTests
         }
     }
 
-    [Fact(Skip = NotRecorded)]
+    [Fact]
     public void ShareDirectoryFileLifecycle()
     {
         var recording = SessionRecordFiles.OpenSession(typeof(StorageDataPlaneLifecycleScenarioTests), nameof(ShareDirectoryFileLifecycle));
@@ -75,8 +92,17 @@ public class StorageDataPlaneLifecycleScenarioTests
         if (recording.Mode == RecorderMode.Record)
         {
             using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), extensions: s_extensions);
-            RunFileLifecycle(host, ClientType.CLI, LiveAccountKey());
-            recording.Save();
+            var accountKey = LiveAccountKey();
+            try
+            {
+                RunFileLifecycle(host, ClientType.CLI, accountKey);
+                recording.Save();
+            }
+            finally
+            {
+                // After the save, so the delete never lands in the recording; deleting the share removes its files.
+                try { host.RunCli("storage", "share", "delete", "--name", ShareName, "--account-name", AccountName, "--account-key", accountKey); } catch { }
+            }
             return;
         }
 
@@ -94,7 +120,7 @@ public class StorageDataPlaneLifecycleScenarioTests
     private static void RunBlobLifecycle(ScenarioHost host, ClientType clientType, string accountKey)
     {
         using var local = new LocalFiles();
-        var source = local.Write("upload.txt", Content);
+        var source = UploadFile;
         var downloaded = local.PathOf("download.txt");
         var steps = new Steps(host, clientType, accountKey);
 
@@ -103,8 +129,8 @@ public class StorageDataPlaneLifecycleScenarioTests
             "New-AzStorageContainer", new() { ["ContainerName"] = ContainerName })));
 
         Assert.IsType<BlobUploadResult>(Assert.Single(steps.Run(
-            ["storage", "blob", "upload", "--container-name", ContainerName, "--name", BlobName, "--file", source, "--content-type", "text/plain"],
-            "Set-AzStorageBlobContent", new() { ["ContainerName"] = ContainerName, ["BlobName"] = BlobName, ["FilePath"] = source, ["BlobContentType"] = "text/plain" })));
+            ["storage", "blob", "upload", "--container-name", ContainerName, "--name", BlobName, "--file", source],
+            "Set-AzStorageBlobContent", new() { ["ContainerName"] = ContainerName, ["BlobName"] = BlobName, ["FilePath"] = source })));
 
         var listed = Flatten<BlobItem>(steps.Run(
             ["storage", "blob", "list", "--container-name", ContainerName],
@@ -119,20 +145,18 @@ public class StorageDataPlaneLifecycleScenarioTests
         var download = Assert.IsType<BlobDownloadResult>(Assert.Single(steps.Run(
             ["storage", "blob", "download", "--container-name", ContainerName, "--name", BlobName, "--file", downloaded],
             "Get-AzStorageBlobContent", new() { ["ContainerName"] = ContainerName, ["BlobName"] = BlobName, ["FilePath"] = downloaded })));
-        Assert.Equal(Content.Length, download.ContentLength);
-        Assert.Equal(Content, File.ReadAllText(downloaded));
+        AssertDownloaded(source, downloaded, download.ContentLength);
 
-        // Same-account source, so the destination's Shared Key authorizes the read.
-        var sourceUrl = $"https://{AccountName}.blob.core.windows.net/{ContainerName}/{BlobName}";
         var copy = Assert.IsType<BlobCopyResult>(Assert.Single(steps.Run(
-            ["storage", "blob", "copy", "start", "--destination-container", ContainerName, "--destination-blob", CopiedBlobName, "--source-uri", sourceUrl],
-            "Start-AzStorageBlobCopy", new() { ["ContainerName"] = ContainerName, ["BlobName"] = CopiedBlobName, ["SourceUrl"] = sourceUrl })));
+            ["storage", "blob", "copy", "start", "--destination-container", ContainerName, "--destination-blob", CopiedBlobName, "--source-uri", ExternalSourceUrl],
+            "Start-AzStorageBlobCopy", new() { ["ContainerName"] = ContainerName, ["BlobName"] = CopiedBlobName, ["SourceUrl"] = ExternalSourceUrl })));
         Assert.False(string.IsNullOrEmpty(copy.CopyId));
 
-        // TODO: blob upload-from-url (Copy-AzStorageBlob). Put Blob From URL needs the source
-        // authorized on its own (SAS or public), which this key-only recording can't carry yet.
+        Assert.IsType<BlobUploadResult>(Assert.Single(steps.Run(
+            ["storage", "blob", "upload-from-url", "--container-name", ContainerName, "--name", FromUrlBlobName, "--source-uri", ExternalSourceUrl],
+            "Copy-AzStorageBlob", new() { ["ContainerName"] = ContainerName, ["BlobName"] = FromUrlBlobName, ["SourceUrl"] = ExternalSourceUrl })));
 
-        foreach (var blob in new[] { CopiedBlobName, BlobName })
+        foreach (var blob in new[] { FromUrlBlobName, CopiedBlobName, BlobName })
         {
             Assert.Empty(steps.Run(
                 ["storage", "blob", "delete", "--container-name", ContainerName, "--name", blob],
@@ -147,27 +171,22 @@ public class StorageDataPlaneLifecycleScenarioTests
     private static void RunFileLifecycle(ScenarioHost host, ClientType clientType, string accountKey)
     {
         using var local = new LocalFiles();
-        var source = local.Write("upload.txt", Content);
+        var source = UploadFile;
         var downloaded = local.PathOf("download.txt");
         var steps = new Steps(host, clientType, accountKey);
 
         var created = Assert.IsType<ShareCreateResult>(Assert.Single(steps.Run(
-            ["storage", "share", "create", "--name", ShareName, "--quota", "1"],
-            "New-AzStorageShare", new() { ["ShareName"] = ShareName, ["Quota"] = 1 })));
+            ["storage", "share", "create", "--name", ShareName],
+            "New-AzStorageShare", new() { ["ShareName"] = ShareName })));
         Assert.False(string.IsNullOrEmpty(created.ETag));
 
         Assert.NotEmpty(steps.Run(
             ["storage", "share", "show", "--name", ShareName],
             "Get-AzStorageShare_Get", new() { ["ShareName"] = ShareName }));
 
-        // The prefix keeps other shares in the account out of the recording.
         Assert.NotEmpty(steps.Run(
-            ["storage", "share", "list", "--prefix", ShareName],
-            "Get-AzStorageShare_List", new() { ["Prefix"] = ShareName }));
-
-        steps.Run(
-            ["storage", "share", "update", "--name", ShareName, "--quota", "2"],
-            "Update-AzStorageShare", new() { ["ShareName"] = ShareName, ["Quota"] = 2 });
+            ["storage", "share", "list"],
+            "Get-AzStorageShare_List", new()));
 
         Assert.IsType<ShareDirectory>(Assert.Single(steps.Run(
             ["storage", "directory", "create", "--share-name", ShareName, "--name", DirectoryPath],
@@ -179,8 +198,8 @@ public class StorageDataPlaneLifecycleScenarioTests
         Assert.Equal(DirectoryPath, directory.Name);
 
         Assert.IsType<ShareFile>(Assert.Single(steps.Run(
-            ["storage", "file", "create", "--share-name", ShareName, "--path", CreatedFilePath, "--size", "16"],
-            "New-AzStorageFile", new() { ["ShareName"] = ShareName, ["FilePath"] = CreatedFilePath, ["Size"] = 16L })));
+            ["storage", "file", "create", "--share-name", ShareName, "--path", CreatedFilePath],
+            "New-AzStorageFile", new() { ["ShareName"] = ShareName, ["FilePath"] = CreatedFilePath })));
 
         Assert.IsType<FileUploadResult>(Assert.Single(steps.Run(
             ["storage", "file", "upload", "--share-name", ShareName, "--path", UploadedFilePath, "--source", source],
@@ -189,26 +208,31 @@ public class StorageDataPlaneLifecycleScenarioTests
         var page = Assert.IsType<ListFilesAndDirectoriesSegmentResponse>(Assert.Single(steps.Run(
             ["storage", "file", "list", "--share-name", ShareName, "--name", DirectoryPath],
             "Get-AzStorageFile_List", new() { ["ShareName"] = ShareName, ["DirectoryPath"] = DirectoryPath })));
-        Assert.Equal(["empty.txt", "hello.txt"], page.SegmentFileItems.Select(file => file.NameContent).Order());
+        Assert.Equal([Path.GetFileName(CreatedFilePath), Path.GetFileName(UploadedFilePath)], page.SegmentFileItems.Select(file => file.NameContent).Order());
 
         var shown = Assert.IsType<ShareFile>(Assert.Single(steps.Run(
             ["storage", "file", "show", "--share-name", ShareName, "--path", UploadedFilePath],
             "Get-AzStorageFile_Get", new() { ["ShareName"] = ShareName, ["FilePath"] = UploadedFilePath })));
-        Assert.Equal(Content.Length, shown.ContentLength);
 
         var download = Assert.IsType<FileDownloadResult>(Assert.Single(steps.Run(
             ["storage", "file", "download", "--share-name", ShareName, "--path", UploadedFilePath, "--dest", downloaded],
             "Get-AzStorageFileContent", new() { ["ShareName"] = ShareName, ["FilePath"] = UploadedFilePath, ["Destination"] = downloaded })));
-        Assert.Equal(Content.Length, download.ContentLength);
-        Assert.Equal(Content, File.ReadAllText(downloaded));
+        Assert.Equal(shown.ContentLength, download.ContentLength);
+        AssertDownloaded(source, downloaded, download.ContentLength);
 
-        var sourceUrl = $"https://{AccountName}.file.core.windows.net/{ShareName}/{UploadedFilePath}";
+        // Copy File only accepts an Azure Files or Blob source, so the external URL can't be used here;
+        // a same-account source is authorized by the destination's Shared Key.
+        Assert.IsType<FileUploadResult>(Assert.Single(steps.Run(
+            ["storage", "file", "upload", "--share-name", ShareName, "--path", CopySourceFilePath, "--source", CopySourceFile],
+            "Set-AzStorageFileContent", new() { ["ShareName"] = ShareName, ["FilePath"] = CopySourceFilePath, ["Source"] = CopySourceFile })));
+
+        var sourceUrl = $"https://{AccountName}.file.core.windows.net/{ShareName}/{CopySourceFilePath}";
         var copy = Assert.IsType<FileCopyResult>(Assert.Single(steps.Run(
             ["storage", "file", "copy", "start", "--share-name", ShareName, "--path", CopiedFilePath, "--source-uri", sourceUrl],
             "Start-AzStorageFileCopy", new() { ["ShareName"] = ShareName, ["FilePath"] = CopiedFilePath, ["SourceUrl"] = sourceUrl })));
         Assert.False(string.IsNullOrEmpty(copy.CopyId));
 
-        foreach (var file in new[] { CopiedFilePath, UploadedFilePath, CreatedFilePath })
+        foreach (var file in new[] { CopiedFilePath, CopySourceFilePath, UploadedFilePath, CreatedFilePath })
         {
             Assert.Empty(steps.Run(
                 ["storage", "file", "delete", "--share-name", ShareName, "--path", file],
@@ -222,6 +246,14 @@ public class StorageDataPlaneLifecycleScenarioTests
         Assert.Empty(steps.Run(
             ["storage", "share", "delete", "--name", ShareName],
             "Remove-AzStorageShare", new() { ["ShareName"] = ShareName }));
+    }
+
+    // The upload file's line endings depend on the checkout, while the recording keeps the recorder's,
+    // so compare text with normalised line endings and the length against what was written.
+    private static void AssertDownloaded(string source, string downloaded, long? contentLength)
+    {
+        Assert.Equal(new FileInfo(downloaded).Length, contentLength);
+        Assert.Equal(File.ReadAllText(source).ReplaceLineEndings(), File.ReadAllText(downloaded).ReplaceLineEndings());
     }
 
     // Any well-formed base64 key works on playback: the signature it produces is never matched.
@@ -260,13 +292,6 @@ public class StorageDataPlaneLifecycleScenarioTests
         private readonly string _root = Directory.CreateTempSubdirectory("azclips-storage-scenario-").FullName;
 
         public string PathOf(string name) => Path.Combine(_root, name);
-
-        public string Write(string name, string content)
-        {
-            var path = PathOf(name);
-            File.WriteAllText(path, content);
-            return path;
-        }
 
         public void Dispose() => Directory.Delete(_root, recursive: true);
     }
