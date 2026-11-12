@@ -89,42 +89,11 @@ irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-uninstall
 
 Removes the install directory. Download and review the uninstall script first if preferred. To remove a folder that doesn't look like an azcli install, pass `--force` with `bash -s -- --force`, or download the PowerShell script and run `./azcli-uninstall.ps1 -Force`.
 
-## Alternative: download and run
-
-Use this optional workflow to inspect the script before running it or to pass installer parameters.
-
-Download the script for your platform:
-
-```bash
-# Linux / macOS / WSL
-curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.sh -o azcli-install.sh
-```
-
-```powershell
-# Windows (PowerShell 7+)
-Invoke-WebRequest https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.ps1 -OutFile ./azcli-install.ps1 -ErrorAction Stop
-```
-
-After a successful download, review the script, then run:
-
-```bash
-# Linux / macOS / WSL
-bash ./azcli-install.sh
-```
-
-```powershell
-# Windows (PowerShell 7+)
-./azcli-install.ps1
-```
-
-For the lean package, pass `--package lean` (Bash) or `-Package lean` (PowerShell).
-The `AZCLI_PACKAGE` environment variable is also supported; the default is `full`.
-
 ## Download troubleshooting
 
 The installer reports failed downloads and missing or ambiguous release assets. GitHub's API is rate-limited; if a release lookup returns HTTP 403 or 429, check GitHub's response and retry after the rate limit resets. You can also download the archive from [GitHub Releases](https://github.com/Azure/azclips/releases) and follow the [manual guide](./install-cli-manual.md).
 
-Piped Bash execution may not report the downloader's exit status. If the bootstrap download fails, do not assume installation succeeded; use the [download-and-run workflow](#alternative-download-and-run) to check download success separately.
+Piped Bash execution may not report the downloader's exit status. If the bootstrap download fails, do not assume installation succeeded; check the error output or use the [manual guide](./install-cli-manual.md).
 
 ## Other install scenarios
 

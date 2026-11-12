@@ -28,7 +28,7 @@ irm https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps
 
 The bootstrap downloads and extracts the bundle into a temporary directory, invokes its `InstallModule.ps1` helper for the current user, and removes its temporary repository and files afterward.
 
-To inspect the script or pass module/version/scope options, use the optional [download-and-run workflow](./install-powershell-modules.md#alternative-download-and-run). The same guide also covers [manual/offline installation](./install-powershell-modules.md#manual--offline-installation).
+For module/version/scope options or manual/offline installation, see the [module installation guide](./install-powershell-modules.md).
 
 ## Verify
 
