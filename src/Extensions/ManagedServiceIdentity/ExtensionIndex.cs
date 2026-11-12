@@ -247,12 +247,13 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity
             ProcessorType: typeof(ShowIdentityProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs. Provide either --ids or other Resource Id arguments.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("ResourceName", "name", typeof(string), "The name of the identity resource.", IsRequired: false, Aliases: ["resource-name", "n"], AllowedValues: []),
-                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Name of resource group.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs. Provide either --ids or other Resource Id arguments.", IsRequired: false, Aliases: [], AllowedValues: [], ParameterSets: IdentityByIdParameterSet()),
+                ["name"] = new("ResourceName", "name", typeof(string), "The name of the identity resource.", IsRequired: false, Aliases: ["resource-name", "n"], AllowedValues: [], ParameterSets: IdentityByNameParameterSet()),
+                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Name of resource group.", IsRequired: false, Aliases: ["g"], AllowedValues: [], ParameterSets: IdentityByNameParameterSet()),
                 ["subscription"] = new("SubscriptionId", "subscription", typeof(string), "Name or ID of subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: CliAliases(("g", "resource-group"), ("n", "name"), ("resource-name", "name"))
+            ParameterAliases: CliAliases(("g", "resource-group"), ("n", "name"), ("resource-name", "name")),
+            ParameterSets: IdentityAddressParameterSets()
         );
 
         private static readonly CommandMetadata cliIdentityUpdate = new(
@@ -266,11 +267,11 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity
             {
                 ["add"] = new("Add", "add", typeof(string[]), "Add an object to a list of objects by specifying a path and key value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["force-string"] = new("ForceString", "force-string", typeof(string), "When using 'set' or 'add', preserve string literals instead of attempting to convert to JSON.", IsRequired: false, Aliases: [], AllowedValues: ["0", "1", "f", "false", "n", "no", "t", "true", "y", "yes"]),
-                ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs. Provide either --ids or other Resource Id arguments.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs. Provide either --ids or other Resource Id arguments.", IsRequired: false, Aliases: [], AllowedValues: [], ParameterSets: IdentityByIdParameterSet()),
                 ["isolation-scope"] = new("IsolationScope", "isolation-scope", typeof(string), "Enum to configure regional restrictions on identity assignment, as necessary.", IsRequired: false, Aliases: [], AllowedValues: ["None", "Regional"]),
-                ["name"] = new("ResourceName", "name", typeof(string), "The name of the identity resource.", IsRequired: false, Aliases: ["resource-name", "n"], AllowedValues: []),
+                ["name"] = new("ResourceName", "name", typeof(string), "The name of the identity resource.", IsRequired: false, Aliases: ["resource-name", "n"], AllowedValues: [], ParameterSets: IdentityByNameParameterSet()),
                 ["remove"] = new("Remove", "remove", typeof(string[]), "Remove a property or an element from a list.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Name of resource group.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Name of resource group.", IsRequired: false, Aliases: ["g"], AllowedValues: [], ParameterSets: IdentityByNameParameterSet()),
                 ["resource-restriction"] = new("ResourceRestriction", "resource-restriction", typeof(string[]), "Restrictions on which resource providers this identity can be assigned to.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["set"] = new("Set", "set", typeof(string[]), "Update an object by specifying a property path and value to set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["subscription"] = new("SubscriptionId", "subscription", typeof(string), "Name or ID of subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -278,7 +279,10 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity
                 ["acquire-policy-token"] = new("AcquirePolicyToken", "acquire-policy-token", typeof(bool), "Acquiring an Azure Policy token automatically for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["change-reference"] = new("ChangeReference", "change-reference", typeof(string), "The related change reference ID for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: CliAliases(("g", "resource-group"), ("n", "name"), ("resource-name", "name"))
+            ParameterAliases: CliAliases(("g", "resource-group"), ("n", "name"), ("resource-name", "name")),
+            ParameterSets: IdentityAddressParameterSets(
+                "Add", "ForceString", "IsolationScope", "Remove", "ResourceRestriction", "Set", "TagsInput",
+                "AcquirePolicyToken", "ChangeReference")
         );
 
         private static readonly CommandMetadata cliIdentityDelete = new(
@@ -290,14 +294,15 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity
             ProcessorType: typeof(DeleteIdentityProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs. Provide either --ids or other Resource Id arguments.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"] = new("ResourceName", "name", typeof(string), "The name of the identity resource.", IsRequired: false, Aliases: ["resource-name", "n"], AllowedValues: []),
-                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Name of resource group.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["ids"] = new("Ids", "ids", typeof(string[]), "One or more resource IDs. Provide either --ids or other Resource Id arguments.", IsRequired: false, Aliases: [], AllowedValues: [], ParameterSets: IdentityByIdParameterSet()),
+                ["name"] = new("ResourceName", "name", typeof(string), "The name of the identity resource.", IsRequired: false, Aliases: ["resource-name", "n"], AllowedValues: [], ParameterSets: IdentityByNameParameterSet()),
+                ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Name of resource group.", IsRequired: false, Aliases: ["g"], AllowedValues: [], ParameterSets: IdentityByNameParameterSet()),
                 ["subscription"] = new("SubscriptionId", "subscription", typeof(string), "Name or ID of subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["acquire-policy-token"] = new("AcquirePolicyToken", "acquire-policy-token", typeof(bool), "Acquiring an Azure Policy token automatically for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["change-reference"] = new("ChangeReference", "change-reference", typeof(string), "The related change reference ID for this resource operation.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: CliAliases(("g", "resource-group"), ("n", "name"), ("resource-name", "name"))
+            ParameterAliases: CliAliases(("g", "resource-group"), ("n", "name"), ("resource-name", "name")),
+            ParameterSets: IdentityAddressParameterSets("AcquirePolicyToken", "ChangeReference")
         );
 
         private static readonly CommandMetadata cliFederatedCredentialCreate = new(
@@ -436,6 +441,33 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity
 
         private static Dictionary<string, string> CliAliases(params (string Alias, string Canonical)[] aliases) =>
             aliases.ToDictionary(alias => alias.Alias, alias => alias.Canonical, StringComparer.OrdinalIgnoreCase);
+
+        private static Dictionary<string, ParameterSetReference> IdentityByNameParameterSet() =>
+            new() { ["ByName"] = new("ByName", IsRequired: true) };
+
+        private static Dictionary<string, ParameterSetReference> IdentityByIdParameterSet() =>
+            new() { ["ById"] = new("ById", IsRequired: true) };
+
+        private static Dictionary<string, ParameterSetMetadata> IdentityAddressParameterSets(params string[] optionalParameters)
+        {
+            Dictionary<string, ParameterReference> CommonParameters() => optionalParameters
+                .ToDictionary(parameter => parameter, parameter => new ParameterReference(parameter));
+
+            var byName = CommonParameters();
+            byName["SubscriptionId"] = new("SubscriptionId");
+            byName["ResourceName"] = new("ResourceName", IsRequired: true);
+            byName["ResourceGroup"] = new("ResourceGroup", IsRequired: true);
+
+            var byId = CommonParameters();
+            byId["SubscriptionId"] = new("SubscriptionId");
+            byId["Ids"] = new("Ids", IsRequired: true);
+
+            return new Dictionary<string, ParameterSetMetadata>
+            {
+                ["ByName"] = new("ByName", IsDefault: true, Parameters: byName),
+                ["ById"] = new("ById", Parameters: byId),
+            };
+        }
 
         private static Dictionary<string, CommandMetadata> BuildCommandTable(params CommandMetadata[] commands) =>
             commands.ToDictionary(cmd => cmd.InvocationName, cmd => cmd);

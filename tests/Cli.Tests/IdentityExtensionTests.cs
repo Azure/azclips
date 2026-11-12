@@ -75,6 +75,29 @@ public class IdentityExtensionTests
         Assert.Equal("TagsInput", metadata.Parameters["tags"].Name);
     }
 
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public void CliAddressedIdentityCommand_DefinesRequiredAddressParameterSets(string commandName)
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata(commandName, ClientType.CLI);
+
+        Assert.NotNull(metadata.ParameterSets);
+
+        var byName = metadata.ParameterSets["ByName"];
+        Assert.True(byName.IsDefault);
+        Assert.True(byName.Parameters!["ResourceName"].IsRequired);
+        Assert.True(byName.Parameters["ResourceGroup"].IsRequired);
+        Assert.DoesNotContain("Ids", byName.Parameters.Keys);
+
+        var byId = metadata.ParameterSets["ById"];
+        Assert.False(byId.IsDefault);
+        Assert.True(byId.Parameters!["Ids"].IsRequired);
+        Assert.DoesNotContain("ResourceName", byId.Parameters.Keys);
+        Assert.DoesNotContain("ResourceGroup", byId.Parameters.Keys);
+    }
+
     [Fact]
     public void CliBinding_BindsDocumentedAliases_ToRefactoredProcessorProperties()
     {
