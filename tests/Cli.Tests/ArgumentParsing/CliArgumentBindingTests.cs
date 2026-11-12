@@ -9,11 +9,48 @@ using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Runtime;
 using Moq;
+using static Cli.Tests.DeploymentProcessorTestKit;
 
 namespace Cli.Tests.ArgumentParsing;
 
 public class CliArgumentBindingTests
 {
+    [Theory]
+    [InlineData("group create", "location", false)]
+    [InlineData("group create", "location", true)]
+    [InlineData("network vnet show", "resource-group", false)]
+    [InlineData("network vnet show", "resource-group", true)]
+    public async Task MissingRequiredServiceArguments_StopBeforeArmRequest(
+        string command, string secondRequiredFlag, bool explicitSubscription)
+    {
+        IExtensionIndex index = command == "group create"
+            ? new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            : new Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex();
+        var metadata = index.GetCommandMetadata(command, ClientType.CLI);
+        var (pipeline, output, sent) = Fake(_ => Status(System.Net.HttpStatusCode.NotFound,
+            """{"message":"No HTTP resource was found that matches the request URI."}"""));
+        var processor = Configure(metadata.GetInstance(), pipeline, output, _ => { });
+        var args = explicitSubscription
+            ? Arguments("--subscription-id", SubscriptionId)
+            : new Dictionary<string, object>();
+
+        var error = await Record.ExceptionAsync(async () =>
+        {
+            CreateBinder().BindArgumentsToProcessor(
+                processor, args, metadata, new Profile { SubscriptionId = SubscriptionId });
+            await processor.ProcessAsync();
+        });
+
+        Assert.True(sent.Count == 0,
+            $"Unexpected ARM requests: {string.Join(", ", sent.Select(request => $"{request.Method} {request.Uri}"))}; error: {error}");
+        var missing = Assert.IsType<MissingRequiredArgumentException>(error);
+        Assert.Contains("Required parameter '--name' is missing.", missing.Message);
+        Assert.Contains($"Required parameter '--{secondRequiredFlag}' is missing.", missing.Message);
+        Assert.Equal(2, missing.ExitCode);
+        Assert.False(missing.AgentFallbackEligible);
+        Assert.Empty(output.WrittenValues);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
