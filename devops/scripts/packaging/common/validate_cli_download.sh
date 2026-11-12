@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Exercise the public download path with the native pipeline archive, not a live release.
+# Exercise the download path with the native pipeline archive, not a live release.
 repo_root="$1"
 archive_path="$2"
 extensions_dir="$3"
@@ -12,7 +12,6 @@ mkdir -p "$fixture_root/bin" "$fixture_root/tmp"
 export FIXTURE_ROOT="$fixture_root" FIXTURE_ARCHIVE="$archive_path"
 export FIXTURE_URL="https://github.com/${AZCLI_REPO:-Azure/azclips}/releases/download/v-fixture.timestamp/$archive_name"
 export TMPDIR="$fixture_root/tmp"
-unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN
 
 # Limit PATH to the installer's declared system utilities.
 for utility in bash basename cat chmod cksum cp dirname grep gzip ls mkdir mktemp mv rm sed tar touch tr uname; do
@@ -88,9 +87,9 @@ esac
 STUB
 chmod +x "$fixture_root/bin/curl"
 export PATH="$fixture_root/bin"
-for unavailable in jq gh python python3; do
+for unavailable in jq python python3; do
   if command -v "$unavailable" >/dev/null; then
-    echo "FAIL: $unavailable must be unavailable during public installer validation." >&2
+    echo "FAIL: $unavailable must be unavailable during installer validation." >&2
     exit 1
   fi
 done

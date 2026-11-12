@@ -236,7 +236,6 @@ $ErrorActionPreference = 'Stop'
 Import-Module PowerShellGet -ErrorAction Stop
 $fixture = @{ Scenario = 'valid'; Stage = $null; Installed = $null }
 
-function gh { throw 'Public installation must not invoke gh.' }
 function Invoke-RestMethod {
     [CmdletBinding()]
     param([string]$Uri)

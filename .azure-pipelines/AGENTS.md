@@ -90,9 +90,9 @@ adding exact filenames from `devops/scripts/compliance/binskim-runtime-exclusion
 
 ## Packaging Roots (`packaging.yml`)
 
-- Native installer lifecycle jobs exercise release metadata/download and piped-invocation paths using local HTTP-command fixtures backed by the selected pipeline archive. Linux/macOS share `packaging/common/validate_public_cli_download.sh`, which restricts the installer environment to its declared system utilities. Windows uses scoped HTTP fixtures, and signed PowerShell validation runs the module bootstrap and bundled helper in isolated processes.
+- Native installer lifecycle jobs exercise release metadata/download and piped-invocation paths using local HTTP-command fixtures backed by the selected pipeline archive. Linux/macOS share `packaging/common/validate_cli_download.sh`, which restricts the installer environment to its declared system utilities. Windows uses scoped HTTP fixtures, and signed PowerShell validation runs the module bootstrap and bundled helper in isolated processes.
 - `PackagingScriptsRoot = devops/scripts/packaging`
-- Extension download-only helper checks run inside the same native CLI lifecycle jobs: Bash through the shared CLI fixture, and PowerShell through `common/test_public_extensions_download.ps1`. Both build fixture bundles from the downloaded pipeline extension packages and check pinned releases, failure preservation, and cleanup without live release downloads.
+- Extension download-only helper checks run inside the same native CLI lifecycle jobs: Bash through the shared CLI fixture, and PowerShell through `common/test_extensions_download.ps1`. Both build fixture bundles from the downloaded pipeline extension packages and check pinned releases, failure preservation, and cleanup without live release downloads.
 - `PackagingOutRoot = devops/out` (with `common/`, `linux/`, `windows/`, `macos/` subfolders)
 - Default RIDs: `linux-x64`, `win-x64`, `osx-arm64`.
 - Pipeline jobs shell out to `devops/scripts/` (`ci/`, `compliance/`, `packaging/`, `publishing/`). When changing a build step, update the script there rather than embedding logic in YAML.

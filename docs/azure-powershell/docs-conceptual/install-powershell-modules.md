@@ -59,7 +59,7 @@ Example — install just the Compute module for all users:
 
 ## Manual / offline installation
 
-Download `azps-cmdlets-<version>.tar.gz` from the public [GitHub Releases](https://github.com/Azure/azclips/releases) page. Use a fresh extraction directory for each release:
+Download `azps-cmdlets-<version>.tar.gz` from [GitHub Releases](https://github.com/Azure/azclips/releases). Use a fresh extraction directory for each release:
 
 ```powershell
 New-Item -ItemType Directory -Path azps-cmdlets | Out-Null

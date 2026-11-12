@@ -274,7 +274,7 @@ echo "classic az sentinel" >"$SIM_ROOT/classic-bin/az"
 chmod +x "$SIM_ROOT/classic-bin/az"
 
 HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" AZCLI_PACKAGE="$PACKAGE_PROFILE" \
-  bash "$PACKAGING_ROOT/common/validate_public_cli_download.sh" "$REPO_ROOT" "$CLI_TAR_PATH" "$EXT_PACK_DIR"
+  bash "$PACKAGING_ROOT/common/validate_cli_download.sh" "$REPO_ROOT" "$CLI_TAR_PATH" "$EXT_PACK_DIR"
 
 AZ="$SIM_ROOT/install/az"
 

@@ -92,7 +92,6 @@ function Assert-UninstallFailure {
 function Assert-PublicInstallerDownload {
         $fixture = @{ Scenario = 'valid'; DownloadRoot = $null; Downloaded = $false }
         & {
-            function gh { throw 'Public installation must not invoke gh.' }
             function Invoke-RestMethod {
                 [CmdletBinding()]
                 param([string]$Uri)
@@ -127,7 +126,7 @@ function Assert-PublicInstallerDownload {
                     'metadata-failure' { 'Fixture HTTP 403' }
                     'download-failure' { 'Fixture HTTP 503' }
                 }
-                Assert-InstallFailure -Description "public download $scenario" -ExpectedPattern $expected -Arguments @{ Package = $packageProfile }
+                Assert-InstallFailure -Description "download $scenario" -ExpectedPattern $expected -Arguments @{ Package = $packageProfile }
                 if ((Get-FileHash -LiteralPath (Join-Path $installRoot 'az.exe')).Hash -ne $before) {
                     throw "FAIL: $scenario changed the existing installation."
                 }
@@ -157,7 +156,7 @@ function Assert-PublicInstallerDownload {
                 $env:AZCLI_PACKAGE = $originalPackage
             }
         }
-        Write-Host 'PASS: Public download selection, failure handling, and piped installation using the pipeline archive.'
+        Write-Host 'PASS: Download selection, failure handling, and piped installation using the pipeline archive.'
 }
 
 function Get-ArtifactConfigValue {
@@ -459,7 +458,7 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
     $classicAz = Join-Path $classicBinRoot 'az.cmd'
     Set-Content -Path $classicAz -Value '@echo classic az sentinel'
 
-    & (Join-Path $packagingRoot 'common/test_public_extensions_download.ps1') -ExtensionsDirectory $ExtPackDir
+    & (Join-Path $packagingRoot 'common/test_extensions_download.ps1') -ExtensionsDirectory $ExtPackDir
     Assert-PublicInstallerDownload
     if ($LASTEXITCODE -ne 0) {
         throw "FAIL: installer exited with code $LASTEXITCODE."

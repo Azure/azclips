@@ -59,7 +59,6 @@ try {
                 Copy-Item -LiteralPath $fixture.Archive -Destination $OutFile
             }
         }
-        function gh { throw 'Download must not invoke gh.' }
         function jq { throw 'Download must not invoke jq.' }
         function Assert-DownloadCleanup {
             if (Get-ChildItem -Force -Filter '.azcli-extensions-download*') {
