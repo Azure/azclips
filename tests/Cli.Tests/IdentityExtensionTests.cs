@@ -98,6 +98,33 @@ public class IdentityExtensionTests
         Assert.DoesNotContain("ResourceGroup", byId.Parameters.Keys);
     }
 
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public void CliBinding_AddressedIdentityCommandWithoutAddress_ThrowsUsageError(string commandName)
+    {
+        Assert.Throws<UsageErrorException>(() => BindIdentityCommand(commandName, new()));
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public void CliBinding_AddressedIdentityCommandWithNameOnly_ThrowsUsageError(string commandName)
+    {
+        Assert.Throws<UsageErrorException>(() => BindIdentityCommand(commandName, new() { ["name"] = "identity-name" }));
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public void CliBinding_AddressedIdentityCommandWithResourceGroupOnly_ThrowsUsageError(string commandName)
+    {
+        Assert.Throws<UsageErrorException>(() => BindIdentityCommand(commandName, new() { ["resource-group"] = "test-rg" }));
+    }
+
     [Fact]
     public void CliBinding_BindsDocumentedAliases_ToRefactoredProcessorProperties()
     {
@@ -843,6 +870,22 @@ public class IdentityExtensionTests
         processor.ForceString = "maybe";
 
         await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+    }
+
+    private static IProcessor BindIdentityCommand(string commandName, Dictionary<string, string> arguments)
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata(commandName, ClientType.CLI);
+        IProcessor processor = metadata.GetInstance();
+        var logging = new ConsoleLoggingService();
+        var binder = new ArgumentParsingService(
+            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
+            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
+
+        return binder.BindArgumentsToProcessor(
+            processor,
+            arguments.ToDictionary(kvp => kvp.Key, kvp => (object)new List<List<string>> { new() { kvp.Value } }),
+            metadata,
+            new Profile { SubscriptionId = TestSubscriptionId });
     }
 
     private static T CreateProcessor<T>(IRuntimeHttpPipeline pipeline, IOutputHandler output, Profile? profile = null)
