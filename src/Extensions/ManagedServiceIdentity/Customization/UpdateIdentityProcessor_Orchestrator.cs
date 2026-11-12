@@ -89,6 +89,7 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
     {
         if (Ids is null || Ids.Length == 0)
         {
+            ManagedIdentityResolver.ValidateInputs(ResourceGroup, ResourceName);
             await base.ProcessAsync();
             return;
         }
@@ -154,7 +155,7 @@ public class UpdateIdentityProcessor_Orchestrator : UpdateIdentityProcessor
 
     private UpdateIdentityProcessor_Orchestrator CreateUpdateProcessor(string id)
     {
-        var identityId = IdentityIdResolver.ParseIdentityResourceId(id);
+        var identityId = ManagedIdentityResolver.ParseResourceId(id);
         return CreateExtendedProcessor<UpdateIdentityProcessor_Orchestrator>(p =>
         {
             p.SubscriptionId = identityId.SubscriptionId;

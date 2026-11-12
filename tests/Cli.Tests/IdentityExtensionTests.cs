@@ -23,6 +23,7 @@ namespace Cli.Tests;
 public class IdentityExtensionTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
+    private const string MissingIdentityAddressMessage = "Provide either --ids, or both --name and --resource-group.";
 
     [Fact]
     public void CliMetadata_ExposesDocumentedIdentityCommandSet()
@@ -79,50 +80,36 @@ public class IdentityExtensionTests
     [InlineData("identity show")]
     [InlineData("identity update")]
     [InlineData("identity delete")]
-    public void CliAddressedIdentityCommand_DefinesRequiredAddressParameterSets(string commandName)
+    public async Task CliProcess_AddressedIdentityCommandWithoutAddress_ThrowsInvalidInput(string commandName)
     {
-        var metadata = new ExtensionIndex().GetCommandMetadata(commandName, ClientType.CLI);
+        IProcessor processor = BindIdentityCommand(commandName, new());
 
-        Assert.NotNull(metadata.ParameterSets);
-
-        var byName = metadata.ParameterSets["ByName"];
-        Assert.True(byName.IsDefault);
-        Assert.True(byName.Parameters!["ResourceName"].IsRequired);
-        Assert.True(byName.Parameters["ResourceGroup"].IsRequired);
-        Assert.DoesNotContain("Ids", byName.Parameters.Keys);
-
-        var byId = metadata.ParameterSets["ById"];
-        Assert.False(byId.IsDefault);
-        Assert.True(byId.Parameters!["Ids"].IsRequired);
-        Assert.DoesNotContain("ResourceName", byId.Parameters.Keys);
-        Assert.DoesNotContain("ResourceGroup", byId.Parameters.Keys);
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
     }
 
     [Theory]
     [InlineData("identity show")]
     [InlineData("identity update")]
     [InlineData("identity delete")]
-    public void CliBinding_AddressedIdentityCommandWithoutAddress_ThrowsUsageError(string commandName)
+    public async Task CliProcess_AddressedIdentityCommandWithNameOnly_ThrowsInvalidInput(string commandName)
     {
-        Assert.Throws<UsageErrorException>(() => BindIdentityCommand(commandName, new()));
+        IProcessor processor = BindIdentityCommand(commandName, new() { ["name"] = "identity-name" });
+
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
     }
 
     [Theory]
     [InlineData("identity show")]
     [InlineData("identity update")]
     [InlineData("identity delete")]
-    public void CliBinding_AddressedIdentityCommandWithNameOnly_ThrowsUsageError(string commandName)
+    public async Task CliProcess_AddressedIdentityCommandWithResourceGroupOnly_ThrowsInvalidInput(string commandName)
     {
-        Assert.Throws<UsageErrorException>(() => BindIdentityCommand(commandName, new() { ["name"] = "identity-name" }));
-    }
+        IProcessor processor = BindIdentityCommand(commandName, new() { ["resource-group"] = "test-rg" });
 
-    [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public void CliBinding_AddressedIdentityCommandWithResourceGroupOnly_ThrowsUsageError(string commandName)
-    {
-        Assert.Throws<UsageErrorException>(() => BindIdentityCommand(commandName, new() { ["resource-group"] = "test-rg" }));
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
     }
 
     [Fact]
