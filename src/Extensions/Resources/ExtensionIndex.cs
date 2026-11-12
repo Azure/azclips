@@ -1079,9 +1079,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]             = new("DeploymentName", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]             = new("DeploymentName", "name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
-                ["mode"]             = new("Mode", "mode", typeof(string), "The mode that is used to deploy resources.", IsRequired: true, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["mode"]             = new("Mode", "mode", typeof(string), "The mode that is used to deploy resources.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
                 ["template-uri"]     = new("TemplateLinkUri", "template-uri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-spec-id"] = new("TemplateLinkId", "template-spec-id", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
