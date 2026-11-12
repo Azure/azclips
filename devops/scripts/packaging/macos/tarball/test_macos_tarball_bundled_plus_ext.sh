@@ -284,9 +284,8 @@ echo "  PASS: idempotent, guarded, and forced uninstall behavior succeeded"
 printf '#!/usr/bin/env sh\necho classic az sentinel\n' >"$SIM_ROOT/classic-bin/az"
 chmod +x "$SIM_ROOT/classic-bin/az"
 
-HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
-  --package "$PACKAGE_PROFILE" \
-  --archive "$CLI_TAR_PATH"
+HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" AZCLI_PACKAGE="$PACKAGE_PROFILE" \
+  bash "$PACKAGING_ROOT/common/validate_public_cli_download.sh" "$REPO_ROOT" "$CLI_TAR_PATH"
 
 AZ="$SIM_ROOT/install/az"
 if [[ ! -x "$AZ" ]]; then
@@ -618,7 +617,7 @@ fi
 
 echo ""
 echo "[17/17] Uninstall isolated azcli and preserve classic az"
-HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-uninstall.sh"
+HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" bash < "$REPO_ROOT/install/azcli-uninstall.sh"
 if [[ -e "$SIM_ROOT/install" ]]; then
   echo "  FAIL: azcli install root remains after uninstall"
   exit 1

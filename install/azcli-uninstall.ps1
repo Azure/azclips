@@ -9,6 +9,7 @@
   ./azcli-uninstall.ps1
   ./azcli-uninstall.ps1 -Force
 #>
+& {
 [CmdletBinding()]
 param(
   [switch]$Force
@@ -68,3 +69,4 @@ else {
 
 Write-Host ""
 Write-Host "Done."
+} @args

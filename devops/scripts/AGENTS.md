@@ -32,6 +32,13 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/signing/`    | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping.                                                                                               |
 | `publishing/`           | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`).                                                                                                                 |
 
+## Installer Download Validation
+
+- The existing Linux/macOS lifecycle validators use `packaging/common/validate_public_cli_download.sh` for the public-download install, then continue their native runtime and extension checks. The shared fixture substitutes `curl` with local release metadata and the exact pipeline archive; it rejects `gh`/`jq` use and exercises missing/duplicate assets, invalid or truncated URLs, malformed metadata, HTTP failures, piped help, and truncated scripts. It preserves the existing local-archive safety coverage without requiring a JSON parser.
+- Windows zip validation substitutes HTTP cmdlets in a child scope and installs the selected pipeline archive through `Invoke-Expression`; its existing offline and native lifecycle checks remain.
+- `packaging/powershell/test_signed_azps_cmdlets.ps1` validates both the bundled helper and the public `install/azps-install.ps1` bootstrap in isolated PowerShell processes. Bootstrap HTTP fixtures copy the selected signed archive, exercise default and parameterized installation/import, and check error cleanup and existing-repository preservation.
+- These checks run in the existing ADO validation jobs without Pester, GitHub authentication, or a live latest-release lookup. Keep shared Bash fixtures compatible with macOS Bash 3.2 and Alpine.
+
 ## Credential Scanner Suppressions
 
 `compliance/CredScanSuppressions.json` records file paths, scanner-provided SARIF

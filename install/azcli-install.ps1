@@ -3,18 +3,17 @@
   azcli installer (Windows).
 
 .DESCRIPTION
-  Downloads the latest signed release of the az CLI from a PRIVATE GitHub repo
-  using your authenticated GitHub CLI (gh) session.
+  Downloads the latest signed release of the az CLI from public GitHub Releases.
+  No GitHub account or token is required.
 
   The CLI is installed in isolation and PATH is NOT modified, so it coexists
   with the classic azure-cli.
-
-  Private-preview users only need read access to the repo and a logged-in `gh`.
 
 .EXAMPLE
   ./azcli-install.ps1
   ./azcli-install.ps1 -Package lean
 #>
+& {
 [CmdletBinding()]
 param(
   [ValidateSet('lean', 'full')]
@@ -133,50 +132,36 @@ try {
     Write-Host "Archive    : $archive"
   }
   else {
-    # 2. Require an authenticated GitHub CLI.
-    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-      throw "GitHub CLI 'gh' is required. Install it from https://cli.github.com/ and re-run."
-    }
-    gh auth status *> $null
-    if ($LASTEXITCODE -ne 0) {
-      Write-Host "You are not signed in to GitHub. Launching 'gh auth login'..."
-      gh auth login
-      if ($LASTEXITCODE -ne 0) { throw "gh auth login did not complete." }
-    }
-
-    # 3. Resolve the latest release tag.
-    $tag = (gh release view --repo $Repo --json tagName --jq '.tagName')
-    if ($LASTEXITCODE -ne 0 -or -not $tag) {
-      throw "Could not resolve a release for $Repo. Confirm you have read access and that a release exists."
+    # Resolve names from metadata: release tags and package versions can differ.
+    $release = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -ErrorAction Stop
+    $tag = $release.tag_name
+    if ([string]::IsNullOrWhiteSpace($tag)) {
+      throw "Release metadata for $Repo has no valid tag_name."
     }
     Write-Host "Release    : $tag"
 
     # 4. Choose the matching asset for this platform + package.
-    $assetNames = gh release view $tag --repo $Repo --json assets --jq '.assets[].name'
-    if ($LASTEXITCODE -ne 0 -or -not $assetNames) {
-      throw "Release $tag has no downloadable assets."
-    }
-
-    $chosen = $assetNames | Where-Object {
-      $_.EndsWith($suffix) -and (
-        ($Package -eq 'lean' -and $_ -like "$leanStem-*") -or
-        ($Package -eq 'full' -and $_ -like "$fullStem-*" -and $_ -notlike "$leanStem-*")
+    $assets = @($release.assets | Where-Object {
+      $_.name -is [string] -and $_.name.EndsWith($suffix) -and (
+        ($Package -eq 'lean' -and $_.name -like "$leanStem-*") -or
+        ($Package -eq 'full' -and $_.name -like "$fullStem-*" -and $_.name -notlike "$leanStem-*")
       )
-    } | Select-Object -First 1
+    })
 
-    if (-not $chosen) {
-      Write-Host "Available assets in ${tag}:"
-      $assetNames | ForEach-Object { Write-Host "  $_" }
-      throw "No $Package CLI asset found for $assetLabel in release $tag."
+    if ($assets.Count -ne 1) {
+      throw "Expected exactly one $Package CLI asset for $assetLabel in release $tag; found $($assets.Count)."
+    }
+    $asset = $assets[0]
+    $chosen = $asset.name
+    if ($chosen -notmatch '^[A-Za-z0-9._-]+$' -or $asset.browser_download_url -notmatch '^https://') {
+      throw 'Release asset has an invalid filename or HTTPS download URL.'
     }
     Write-Host "Asset      : $chosen"
 
-    # 5. Download via the authenticated gh session (handles private-repo access).
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
     New-Item -ItemType Directory -Path $tmp -Force | Out-Null
-    gh release download $tag --repo $Repo --pattern $chosen --dir $tmp --clobber
-    if ($LASTEXITCODE -ne 0) { throw "gh release download failed for $chosen." }
     $archive = Join-Path $tmp $chosen
+    Invoke-WebRequest $asset.browser_download_url -OutFile $archive -ErrorAction Stop
     if (-not (Test-Path $archive)) { throw "Download did not produce the expected file: $archive" }
   }
 
@@ -222,3 +207,4 @@ Write-Host "Done. Installed in isolation - PATH was not modified (coexists with 
 Write-Host ""
 Write-Host "  Run it directly:               $azExe --help"
 Write-Host "  Or add to PATH (this session): `$env:Path = `"$InstallRoot;`$env:Path`""
+} @args

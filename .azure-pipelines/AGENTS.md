@@ -89,6 +89,8 @@ adding exact filenames from `devops/scripts/compliance/binskim-runtime-exclusion
 - Some jobs also rely on **service connections** (`ame_esrp_connection` for ESRP, `AzureSubscription` for Key Vault) and **persisted checkout credentials** (`persistCredentials: true`, for checkout/fetch). Git tag/push and `gh` operations authenticate with the Key Vault `GH_TOKEN`, not the persisted checkout credentials — use these built-in mechanisms rather than embedding tokens.
 
 ## Packaging Roots (`packaging.yml`)
+
+- Existing native installer lifecycle jobs also exercise public metadata/download and piped-invocation paths using local HTTP-command fixtures backed by the selected pipeline archive, never GitHub's latest release. Linux/macOS share `packaging/common/validate_public_cli_download.sh`, which rejects `jq`/`gh` use; no JSON parser installation is needed on glibc, musl, or macOS. Windows uses scoped HTTP fixtures, and signed PowerShell validation runs the new public bootstrap as well as the bundled helper in isolated processes. No additional test matrix, Pester dependency, or GitHub Actions wiring is required.
 - `PackagingScriptsRoot = devops/scripts/packaging`
 - `PackagingOutRoot = devops/out` (with `common/`, `linux/`, `windows/`, `macos/` subfolders)
 - Default RIDs: `linux-x64`, `win-x64`, `osx-arm64`.

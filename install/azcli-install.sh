@@ -6,13 +6,14 @@
 # then extracts and installs the `az` command in isolation (PATH is NOT
 # modified, so it coexists with the classic azure-cli).
 #
-# Private-preview users only need read access to the repo and a logged-in `gh`.
+# Public downloads do not require a GitHub account or token.
 #
 # Usage:
 #   ./azcli-install.sh [--package lean|full]
 #
 # Environment overrides: AZCLI_PACKAGE
 #
+main() {
 set -euo pipefail
 
 # REPO and INSTALL_ROOT are fixed. Their AZCLI_REPO / AZCLI_INSTALL_ROOT env
@@ -35,7 +36,12 @@ cleanup() {
 trap cleanup EXIT
 
 usage() {
-  sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'HELP'
+azcli installer (Linux / macOS / WSL)
+Usage: azcli-install.sh [--package lean|full]
+Environment override: AZCLI_PACKAGE (default: full)
+Online installation requires curl, tar, and standard text utilities.
+HELP
   exit 0
 }
 
@@ -122,47 +128,42 @@ if [[ -n "$ARCHIVE_PATH" ]]; then
   fi
   echo "Archive    : $archive"
 else
-  # 2. Require an authenticated GitHub CLI.
-  command -v gh >/dev/null 2>&1 || die "GitHub CLI 'gh' is required. Install it from https://cli.github.com/ and re-run."
-  if ! gh auth status >/dev/null 2>&1; then
-    echo "You are not signed in to GitHub. Launching 'gh auth login'..."
-    gh auth login
-  fi
+  command -v curl >/dev/null 2>&1 || die "curl is required for public downloads."
 
-  # 3. Resolve the latest release tag.
-  tag="$(gh release view --repo "$REPO" --json tagName --jq '.tagName' 2>/dev/null || true)"
-  [[ -n "$tag" ]] || die "Could not resolve a release for $REPO. Confirm you have read access and that a release exists."
+  # Resolve names from metadata: release tags and package versions can differ.
+  tmp="$(mktemp -d)"
+  curl --fail --show-error --silent --location \
+    "https://api.github.com/repos/$REPO/releases/latest" -o "$tmp/release.json" ||
+    die "Could not retrieve the latest release for $REPO. Check network access and GitHub's anonymous API rate limit."
+  # Match complete, quoted GitHub asset URL fields, never URL prefixes or links in release notes.
+  tr -d '\r\n' < "$tmp/release.json" > "$tmp/release-line.txt"
+  grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"https://github[.]com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/releases/download/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"' \
+    "$tmp/release-line.txt" > "$tmp/download-fields.txt" || {
+      [[ $? -eq 1 ]] || die "Could not read release download links."
+    }
+  prefix="https://github.com/$REPO/releases/download/"
+  matches=0
+  url=""
+  while IFS= read -r field; do
+    candidate_url="https://${field#*\"https://}"
+    candidate_url="${candidate_url%\"}"
+    [[ "$candidate_url" == "$prefix"* ]] || continue
+    candidate_name="${candidate_url##*/}"
+    [[ "$candidate_name" == "$stem"-[0-9]*"$suffix" ]] || continue
+    matches=$((matches + 1))
+    url="$candidate_url"
+  done < "$tmp/download-fields.txt"
+  [[ "$matches" -eq 1 ]] ||
+    die "Expected exactly one $PACKAGE CLI download URL for $asset_label; found $matches."
+  chosen="${url##*/}"
+  release_path="${url%/*}"
+  tag="${release_path##*/}"
   echo "Release    : $tag"
-
-  # 4. Choose the matching asset for this platform + package.
-  # (Portable read loop; macOS ships bash 3.2 which lacks `mapfile`.)
-  asset_names=()
-  while IFS= read -r name; do
-    [[ -n "$name" ]] && asset_names+=("$name")
-  done < <(gh release view "$tag" --repo "$REPO" --json assets --jq '.assets[].name')
-  [[ ${#asset_names[@]} -gt 0 ]] || die "Release $tag has no downloadable assets."
-
-  chosen=""
-  for name in "${asset_names[@]}"; do
-    [[ "$name" == *"$suffix" ]] || continue
-    if [[ "$PACKAGE" == "lean" ]]; then
-      [[ "$name" == azcli-lean-* ]] && { chosen="$name"; break; }
-    else
-      [[ "$name" == azcli-* && "$name" != azcli-lean-* ]] && { chosen="$name"; break; }
-    fi
-  done
-
-  if [[ -z "$chosen" ]]; then
-    echo "Available assets in $tag:" >&2
-    printf '  %s\n' "${asset_names[@]}" >&2
-    die "No $PACKAGE CLI asset found for $asset_label in release $tag."
-  fi
   echo "Asset      : $chosen"
 
-  # 5. Download via the authenticated gh session (handles private-repo access).
-  tmp="$(mktemp -d)"
-  gh release download "$tag" --repo "$REPO" --pattern "$chosen" --dir "$tmp" --clobber
   archive="$tmp/$chosen"
+  curl --fail --show-error --location "$url" -o "$archive" ||
+    die "Could not download $chosen. Check network access and retry."
   [[ -f "$archive" ]] || die "Download did not produce the expected file: $archive"
 fi
 
@@ -194,3 +195,6 @@ echo "Done. Installed in isolation — PATH was not modified (coexists with clas
 echo
 echo "  Run it directly:                $INSTALL_ROOT/az --help"
 echo "  Or add to PATH (this session):  export PATH=\"$INSTALL_ROOT:\$PATH\""
+}
+
+main "$@"
