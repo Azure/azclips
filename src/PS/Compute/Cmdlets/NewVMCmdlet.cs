@@ -71,9 +71,6 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string AdminPassword { get; set; } = "";
 
-    [Parameter(Mandatory = true, ParameterSetName = NewNetworkInterfaceParameterSet)]
-    public string NetworkInterfaceName { get; set; } = "";
-
     [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string VirtualNetworkName { get; set; } = "";
 
@@ -140,7 +137,6 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecureVMDiskEncryptionSet))){ parameters.Add("OsDiskSecureVMDiskEncryptionSet", OSDiskSecureVMDiskEncryptionSet!); }
         if (EnableSecureBoot.HasValue)                                                        { parameters.Add("EnableSecureBoot", EnableSecureBoot.Value); }
         if (EnableVtpm.HasValue)                                                              { parameters.Add("EnableVtpm", EnableVtpm.Value); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))           { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))             { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetName)))                     { parameters.Add("SubnetName", SubnetName!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceId)))             { parameters.Add("NetworkInterfaceIds", NetworkInterfaceId!.ToList()); }

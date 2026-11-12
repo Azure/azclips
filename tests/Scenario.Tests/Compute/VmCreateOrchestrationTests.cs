@@ -62,7 +62,6 @@ public class VmCreateOrchestrationTests
         "--image", Image,
         "--admin-username", "azadmin",
         "--admin-password", Password,
-        "--network-interface-name", "scenario-vm-nic",
         "--virtual-network-name", "scenario-vm-vnet",
         "--subnet-names", "default",
         "--subnet-address-prefixes", "10.0.0.0/24",
@@ -84,7 +83,6 @@ public class VmCreateOrchestrationTests
         ["Image"] = Image,
         ["AdminUsername"] = "azadmin",
         ["AdminPassword"] = Password,
-        ["NetworkInterfaceName"] = "scenario-vm-nic",
         ["VirtualNetworkName"] = "scenario-vm-vnet",
         ["SecurityGroupName"] = "scenario-vm-nsg",
         ["SubnetNames"] = new List<string> { "default" },
@@ -586,7 +584,7 @@ public class VmCreateOrchestrationTests
         var uris = record.Entries.Select(e => e.Request.Uri).ToList();
         Assert.Contains(uris, u => u.Contains("/virtualNetworks/scenario-vm-vnet"));
         Assert.Contains(uris, u => u.Contains("/networkSecurityGroups/scenario-vm-nsg"));
-        Assert.Contains(uris, u => u.Contains("/networkInterfaces/scenario-vm-nic"));
+        Assert.Contains(uris, u => u.Contains("/networkInterfaces/scenario-vmVMNic"));
         Assert.Contains(uris, u => u.Contains("/virtualMachines/scenario-vm"));
         Assert.Contains(uris, u => u.Contains("/operations/vm-create"));
 
@@ -595,7 +593,7 @@ public class VmCreateOrchestrationTests
         Assert.Contains("/subnets/default", nicBody);
         Assert.Contains("/networkSecurityGroups/scenario-vm-nsg", nicBody);
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
-        Assert.Contains("/networkInterfaces/scenario-vm-nic", vmBody);
+        Assert.Contains("/networkInterfaces/scenario-vmVMNic", vmBody);
 
         // Sanitised: the password really went over the wire, but never into the record.
         Assert.Contains(recorder.Sent, r => r.Body is not null && r.Body.Contains(Password));
@@ -1468,7 +1466,6 @@ public class VmCreateOrchestrationTests
     {
         foreach (string name in new[]
         {
-            "NetworkInterfaceName",
             "VirtualNetworkName",
             "SecurityGroupName",
             "SubnetNames",

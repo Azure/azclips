@@ -31,7 +31,6 @@ public class NewVMCmdletTests
     {
         foreach (string propertyName in new[]
         {
-            nameof(NewVMCmdlet.NetworkInterfaceName),
             nameof(NewVMCmdlet.VirtualNetworkName),
             nameof(NewVMCmdlet.SubnetName),
             nameof(NewVMCmdlet.SubnetNames),
@@ -107,7 +106,7 @@ public class NewVMCmdletTests
         Assert.Equal("FutureOption", Assert.IsType<string>(bound[nameof(NewVMCmdlet.OSDiskDeleteOption)]));
     }
 
-    private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass -NetworkInterfaceName nic";
+    private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass";
 
     private static Hashtable Bind(string invocation)
     {

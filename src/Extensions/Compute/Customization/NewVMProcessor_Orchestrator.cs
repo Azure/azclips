@@ -53,9 +53,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         public List<string> SshKeyValues { get; set; } = [];
 
         [ParameterGroup("Network Arguments")]
-        public string NetworkInterfaceName { get; set; } = string.Empty;
-
-        [ParameterGroup("Network Arguments")]
         public string VirtualNetworkName { get; set; } = string.Empty;
 
         [ParameterGroup("Network Arguments")]
@@ -145,7 +142,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
                 {
                     p.SubscriptionId = SubscriptionId;
-                    p.Name = NetworkInterfaceName;
+                    p.Name = $"{Name}VMNic";
                     p.Location = Location;
                     p.ResourceGroupName = ResourceGroupName;
                     p.VirtualNetworkName = VirtualNetworkName;
@@ -220,16 +217,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         {
             if (NetworkInterfaceIds.Count == 0)
             {
-                if (string.IsNullOrWhiteSpace(NetworkInterfaceName))
-                {
-                    throw AzclipsErrorException.UsageError(
-                        "Specify a name for the new network interface when existing network interfaces are not supplied.");
-                }
                 return;
             }
 
             var conflicts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(NetworkInterfaceName)) conflicts.Add("a new network interface name");
             if (!string.IsNullOrWhiteSpace(VirtualNetworkName)) conflicts.Add("a virtual network name");
             if (SubnetName is not null) conflicts.Add("a subnet");
             if (SubnetNames.Count > 0) conflicts.Add("subnet names");

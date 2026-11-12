@@ -126,6 +126,25 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
         }
 
         List<string> subnetNames = SubnetName is null ? SubnetNames : [SubnetName];
+        if (subnetNames.Count == 0)
+        {
+            subnetNames = ["default"];
+        }
+
+        // Match legacy `az vm create`: default to 10.0.0.0/16 and a 10.0.0.0/24 first subnet.
+        List<string> addressPrefixes = AddressPrefixes.Count == 0 ? ["10.0.0.0/16"] : AddressPrefixes;
+        List<List<string>> subnetAddressPrefixes = [.. SubnetAddressPrefixes];
+        if (AddressPrefixes.Count == 0 && (subnetAddressPrefixes.Count == 0 || subnetAddressPrefixes[0].Count == 0))
+        {
+            if (subnetAddressPrefixes.Count == 0)
+            {
+                subnetAddressPrefixes.Add(["10.0.0.0/24"]);
+            }
+            else
+            {
+                subnetAddressPrefixes[0] = ["10.0.0.0/24"];
+            }
+        }
         NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
             p.SubscriptionId = SubscriptionId;
@@ -133,8 +152,8 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
             p.SubnetNames = subnetNames;
-            p.SubnetAddressPrefixes = SubnetAddressPrefixes;
-            p.AddressPrefixes = AddressPrefixes;
+            p.SubnetAddressPrefixes = subnetAddressPrefixes;
+            p.AddressPrefixes = addressPrefixes;
             p.Tags = Tags;
         });
         using HttpResponseMessage vnetResponse = await vnetProcessor.SendAsync();

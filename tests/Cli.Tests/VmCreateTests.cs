@@ -130,7 +130,6 @@ public class VmCreateTests
         Assert.Equal("NetworkInterfaceIds", metadata.Parameters["nics"].Name);
         Assert.Equal(typeof(List<string>), metadata.Parameters["nic-delete-option"].ParameterType);
         Assert.Equal("NicDeleteOptions", metadata.Parameters["nic-delete-option"].Name);
-        Assert.False(metadata.Parameters["network-interface-name"].IsRequired);
         Assert.False(metadata.Parameters["virtual-network-name"].IsRequired);
     }
 
@@ -158,7 +157,6 @@ public class VmCreateTests
         Assert.Equal("NetworkInterfaceIds", metadata.Parameters["NetworkInterfaceId"].Name);
         Assert.Equal(typeof(string), metadata.Parameters["NetworkInterfaceDeleteOption"].ParameterType);
         Assert.Equal(["Delete", "Detach"], metadata.Parameters["NetworkInterfaceDeleteOption"].AllowedValues);
-        Assert.False(metadata.Parameters["NetworkInterfaceName"].IsRequired);
         Assert.False(metadata.Parameters["VirtualNetworkName"].IsRequired);
     }
 

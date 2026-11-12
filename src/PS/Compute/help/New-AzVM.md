@@ -21,7 +21,7 @@ Create a virtual machine with a new network interface or attach existing network
 
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
- -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
+ -AdminUsername <string> -AdminPassword <string>
  [-SubscriptionId <string>] [-Zone <string>] [-StorageSku <string>] [-OSDiskDeleteOption <string>]
  [-Image <string>] [-SecurityType <string>] [-OSDiskSecurityEncryptionType <string>]
  [-OSDiskSecureVMDiskEncryptionSet <string>] [-EnableSecureBoot <bool>] [-EnableVtpm <bool>]
@@ -73,7 +73,7 @@ Assign `$adminPassword` from a secure source in your own pipeline before invokin
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet
+New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet
 ```
 
 ### Create a VM that uses an existing network security group
@@ -83,7 +83,7 @@ The network security group is attached as-is; its rules are not changed.
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -SecurityGroupName mynsg
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet -SecurityGroupName mynsg
 ```
 
 ### Create a VM with a named public IP address
@@ -93,7 +93,7 @@ If a public IP address named `myvm-ip` already exists in `myrg`, it is attached 
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName myvm-ip
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet -PublicIpAddressName myvm-ip
 ```
 
 ### Create a Trusted Launch VM with secure boot disabled
@@ -102,7 +102,7 @@ Provision a Trusted Launch VM and explicitly disable secure boot while keeping v
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -SecurityType TrustedLaunch -EnableSecureBoot $false -EnableVtpm $true -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -SecurityType TrustedLaunch -EnableSecureBoot $false -EnableVtpm $true -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet
 ```
 
 ### Create a VM without a public IP address
@@ -112,7 +112,7 @@ The virtual machine is then reachable only from inside its virtual network.
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName ''
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet -PublicIpAddressName ''
 ```
 
 ### Create a VM in a selected subnet
@@ -122,7 +122,7 @@ can be supplied instead of the subnet name.
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -SubnetName app
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet -SubnetName app
 ```
 
 ### Create a VM with existing network interfaces
@@ -145,7 +145,7 @@ Provision the same stack and tag the virtual machine, network interface, virtual
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tags @{ env = 'prod'; owner = 'team-a' }
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet -Tags @{ env = 'prod'; owner = 'team-a' }
 ```
 
 ### Create a VM in availability zone 1
@@ -154,7 +154,7 @@ Deploy the VM in zone `1`.
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Zone 1
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet -Zone 1
 ```
 
 ### Create a VM with a Premium SSD OS disk
@@ -163,7 +163,7 @@ Use Premium SSD storage for the managed OS disk.
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -StorageSku Premium_LRS
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet -StorageSku Premium_LRS
 ```
 
 ### Create a VM whose OS disk is deleted with the VM
@@ -172,7 +172,7 @@ Delete the managed OS disk when the VM is deleted.
 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
-New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -OSDiskDeleteOption Delete
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -VirtualNetworkName myvnet -OSDiskDeleteOption Delete
 ```
 
 ## PARAMETERS
@@ -394,7 +394,7 @@ HelpMessage: ''
 
 Specifies what happens to attached network interfaces when the virtual machine is deleted. The
 value applies to every interface supplied through `-NetworkInterfaceId`, or to the interface
-created through `-NetworkInterfaceName`.
+created by the command.
 
 ```yaml
 Type: System.String
@@ -428,28 +428,6 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: ExistingNetworkInterface
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -NetworkInterfaceName
-
-The network interface name to create. This parameter cannot be combined with
-`-NetworkInterfaceId`.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: NewNetworkInterface
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
