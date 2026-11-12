@@ -1596,6 +1596,11 @@ test('a timeout ends a real target and the Agent child process it started', asyn
   const exited = new Promise((resolve) => {
     child = execFileUnattended(process.execPath, ['-e', fakeAz], {}, resolve);
   });
+  context.after(() => {
+    if (child.exitCode === null && child.signalCode === null) {
+      try { terminateProcessTree(child); } catch { /* already ended */ }
+    }
+  });
   const guardMs = 60_000;
   const pause = () => new Promise((resolve) => setTimeout(resolve, 50));
   const startDeadline = Date.now() + guardMs;

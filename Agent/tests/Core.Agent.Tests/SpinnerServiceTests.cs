@@ -56,14 +56,13 @@ public class SpinnerServiceTests
         spinner.Start();
         Assert.True(fake.FrameSeen.Wait(FrameWaitMs), "spinner produced no frames before pause");
         spinner.Pause();
-        // A frame already in flight when Pause() returns lands within one interval.
-        await Task.Delay(IntervalMs * 2);
         var beforePause = fake.FrameCalls;
         var stopAfterPause = fake.StopCalls;
 
         await Task.Delay(PauseProbeMs);
         var afterPause = fake.FrameCalls;
-        Assert.Equal(beforePause, afterPause);
+        // The loop may already be past its pause check when Pause() returns, so one frame can land.
+        Assert.InRange(afterPause - beforePause, 0, 1);
         Assert.True(stopAfterPause >= 1, "Pause must clear the spinner line");
 
         fake.FrameSeen.Reset();

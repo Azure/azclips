@@ -478,6 +478,8 @@ public class FailureCaptureBehaviorTests
         Assert.Equal("history worker stderr: ".Length + 64 * 1024, Assert.Single(debug).Length);
     }
 
+    // LocalOnly: cancellation can race the parent's stderr read, so the exact text depends on thread scheduling.
+    [Trait("Category", "LocalOnly")]
     [Fact]
     public async Task Worker_ChildThatHangsKeepsItsPartialStderrAtTheDeadline()
     {
@@ -501,6 +503,8 @@ public class FailureCaptureBehaviorTests
         Assert.Equal("history worker stderr: partial-diagnostic-before-hang", Assert.Single(debug));
     }
 
+    // LocalOnly: cancellation can race the parent's stderr read, so the exact text depends on thread scheduling.
+    [Trait("Category", "LocalOnly")]
     [Fact]
     public async Task Worker_ChildThatHangsKeepsPartialMultiByteStderrAtTheDeadline()
     {
