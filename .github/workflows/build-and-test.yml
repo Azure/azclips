@@ -30,7 +30,7 @@ jobs:
         # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
       - name: Run tests
-        run: dotnet test azclips.slnx --no-build --configuration Debug --verbosity normal
+        run: dotnet test azclips.slnx --no-build --configuration Debug --verbosity normal --filter "Category!=LocalOnly"
 
       - name: E2E - CLI Help
         run: |
@@ -79,7 +79,7 @@ jobs:
         run: dotnet build azclips.slnx --no-restore --configuration Debug
 
       - name: Run Agent tests
-        run: dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj --no-build --configuration Debug --verbosity normal --blame-hang-timeout 10min --blame-hang-dump-type none --logger trx --results-directory TestResults
+        run: dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj --no-build --configuration Debug --verbosity normal --filter "Category!=LocalOnly" --blame-hang-timeout 10min --blame-hang-dump-type none --logger trx --results-directory TestResults
 
       - name: Upload test results
         if: failure()
