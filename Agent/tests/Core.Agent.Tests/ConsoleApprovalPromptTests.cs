@@ -85,7 +85,7 @@ public class ConsoleApprovalPromptTests
         Assert.False(approved);
     }
 
-    // #1295 test 1: a watcher past KeyAvailable must not block Ctrl+C once the approval read is abandoned.
+    // A watcher past KeyAvailable must not block Ctrl+C once the approval read is abandoned.
     [Fact]
     public async Task Watcher_PastGate_DoesNotBlockCtrlC_WhenApprovalReadIsAbandoned()
     {
@@ -131,7 +131,7 @@ public class ConsoleApprovalPromptTests
         }
     }
 
-    // #1295 test 2: Esc read before an approval opens rejects that approval without a prompt.
+    // Esc read before an approval opens rejects that approval without a prompt.
     [Fact]
     public async Task EscBeforeApprovalOpens_RejectsApproval_AndSkipsPrompt()
     {
@@ -162,7 +162,7 @@ public class ConsoleApprovalPromptTests
         }
     }
 
-    // #1295 test 4a: a key seen by KeyAvailable after the watcher was cancelled is not read.
+    // A key seen by KeyAvailable after the watcher was cancelled is not read.
     [Fact]
     public async Task TurnEnd_KeyTypedAfterStop_IsNotConsumedByWatcher()
     {
@@ -179,7 +179,7 @@ public class ConsoleApprovalPromptTests
         Assert.Equal(0, aborts);
     }
 
-    // #1295 test 4c: approvals still queued when the turn ends are resolved.
+    // Approvals still queued when the turn ends are resolved.
     [Fact]
     public async Task TurnEnd_ResolvesEveryQueuedApproval()
     {
@@ -220,7 +220,7 @@ public class ConsoleApprovalPromptTests
         };
     }
 
-    // #1295 test 5: 995 without a cancelled session re-reads instead of returning an empty line.
+    // 995 without a cancelled session re-reads instead of returning an empty line.
     [Fact]
     public async Task WindowsRead_995WithoutCancel_ContinuesReading()
     {
@@ -234,7 +234,7 @@ public class ConsoleApprovalPromptTests
         Assert.Equal("y", await line.WaitAsync(TimeSpan.FromSeconds(60)));
     }
 
-    // #1295 test 5b: the approval prompt reads through the injected console-aware reader.
+    // The approval prompt reads through the injected console-aware reader.
     [Fact]
     public async Task ApprovalPrompt_UsesConsoleAwareReader_OnWindows()
     {
@@ -261,7 +261,7 @@ public class ConsoleApprovalPromptTests
         }
     }
 
-    // #1295 test 6: 995 after partial input is still an interrupt.
+    // 995 after partial input is still an interrupt.
     [Fact]
     public async Task WindowsRead_995AfterPartialInput_IsInterrupted()
     {

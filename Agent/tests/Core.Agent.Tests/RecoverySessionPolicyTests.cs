@@ -91,7 +91,7 @@ public class RecoverySessionPolicyTests
         }
     }
 
-    // #1295 test 4b: an Esc that arrives after the turn completed is not an abort.
+    // An Esc that arrives after the turn completed is not an abort.
     [Fact]
     public async Task LateEsc_AfterTurnCompleted_DoesNotReportAbort()
     {
@@ -118,7 +118,7 @@ public class RecoverySessionPolicyTests
         }
     }
 
-    // #1295 test 7: Ctrl+C read by the watcher runs the same handler as CancelKeyPress.
+    // Ctrl+C read by the watcher runs the same handler as CancelKeyPress.
     [Fact]
     public async Task WatcherCtrlC_RunsSameHandler_FlagThenForcedExit()
     {
@@ -142,7 +142,7 @@ public class RecoverySessionPolicyTests
             () => ctrlC.SessionCancelled).WaitAsync(TimeSpan.FromSeconds(60)));
     }
 
-    // #1295 test 8a: Ctrl+C whose cancel has not landed yet still keeps the next '> ' prompt closed.
+    // Ctrl+C whose cancel has not landed yet still keeps the next '> ' prompt closed.
     [Fact]
     public async Task CtrlC_AfterLoopCheck_BeforeNextPrompt_DoesNotOpenPrompt()
     {

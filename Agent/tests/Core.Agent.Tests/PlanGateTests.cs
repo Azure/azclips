@@ -481,7 +481,7 @@ public class PlanGateTests
     private static ConsoleApprovalPrompt.PlanContent OnePlan() => new(
         ["x"], [new ConsoleApprovalPrompt.PlanStep(1, "Create RG", "az group create -n foo -l eastus")], null, null);
 
-    // #1295 test 3: a plan rendered from another thread during the approval read does not restart the watcher.
+    // A plan rendered from another thread during the approval read does not restart the watcher.
     [Fact]
     public async Task HookResumeDuringApprovalRead_DoesNotRestartWatcher()
     {
@@ -516,7 +516,7 @@ public class PlanGateTests
         }
     }
 
-    // #1295 test 12: Ctrl+C read by the watcher before a plan approval arrives rejects it without a prompt.
+    // Ctrl+C read by the watcher before a plan approval arrives rejects it without a prompt.
     [Fact]
     public async Task WatcherQuit_BeforeApprovalRead_RejectsAndBreaks()
     {

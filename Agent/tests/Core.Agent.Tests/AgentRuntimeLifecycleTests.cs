@@ -376,7 +376,7 @@ public sealed class AgentRuntimeLifecycleTests
         AgentLayerTestHarness.Tags(Assert.Single(harness.ReadEntries(),
             entry => entry.GetProperty("operationName").GetString() == "Agent.Session"))[TelemetryTags.RecoveryOutcome].GetString();
 
-    // #1295 test 8b: Ctrl+C during startup exits cancelled even when startup then returns normally.
+    // Ctrl+C during startup exits cancelled even when startup then returns normally.
     [Fact]
     public async Task CtrlC_DuringStartup_ExitsCancelled()
     {
@@ -397,7 +397,7 @@ public sealed class AgentRuntimeLifecycleTests
         });
     }
 
-    // #1295 test 9: the flag set before the token is cancelled still wins over a send that completed.
+    // The flag set before the token is cancelled still wins over a send that completed.
     [Fact]
     public async Task CtrlC_FlagSetBeforeCancel_SdkReturnsOk_Exits130()
     {
@@ -428,7 +428,7 @@ public sealed class AgentRuntimeLifecycleTests
         });
     }
 
-    // #1295 tests 10 and 11: the forced exit returns 130 while cleanup is blocked, after restoring the console.
+    // The forced exit returns 130 while cleanup is blocked, after restoring the console.
     [Fact]
     public async Task ForcedExit_WhileFinallyDrainsTelemetry_Returns130_AndRestoresConsole()
     {
@@ -470,27 +470,19 @@ public sealed class AgentRuntimeLifecycleTests
         });
     }
 
-    // #1295 test 11: the console restore quiesces the spinner before showing the cursor.
+    // The console restore quiesces the spinner before showing the cursor.
     [Fact]
     public void RestoreConsole_QuiescesSpinner_ThenShowsCursor()
     {
         var order = new List<string>();
         var renderer = new RecordingSpinnerRenderer(order);
         var spinner = new SpinnerService(renderer, TimeSpan.FromDays(1));
-        var prevOut = Console.Out;
-        Console.SetOut(TextWriter.Null);
-        try
-        {
-            AgentModeEntry.RestoreConsole(spinner, () => order.Add("cursor"));
-            spinner.Resume();
-            spinner.Start();
 
-            Assert.Equal(["stop", "cursor"], order);
-        }
-        finally
-        {
-            Console.SetOut(prevOut);
-        }
+        AgentModeEntry.RestoreConsole(spinner, () => order.Add("cursor"));
+        spinner.Resume();
+        spinner.Start();
+
+        Assert.Equal(["stop", "cursor"], order);
     }
 
     private sealed class RecordingSpinnerRenderer(List<string> order) : IAgentRenderer
