@@ -10,24 +10,6 @@
             "request": "attach"
         },
         {
-            "name": "C#: storage blob list debug",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
-            "args": [
-                "storage",
-                "blob",
-                "list",
-                "--url",
-                "https://20261106testaccountblob.blob.core.windows.net/2026-011-06-test-container",
-                "--account-key",
-                "wEHEnVZ1SI0Iy2m/o8ysEeCv79XuJ1CUl5mv6CoFqBduztF9I1FutHtFfrntUDrZFplUrdjS1g+I+AStAV92DQ=="
-            ],
-            "cwd": "${workspaceFolder}/artifacts/Debug/Core",
-            "console": "integratedTerminal"
-        },
-        {
             "name": "C#: group create Debug",
             "type": "coreclr",
             "request": "launch",
