@@ -176,18 +176,47 @@ internal sealed class AgentLayerTestHarness
             }).ToArray();
     }
 
-    /// <summary>Runs <paramref name="body"/>, then releases every owned scope.</summary>
-    internal static async Task RunAsync(AgentLayerTestHarness harness, Func<AgentLayerTestHarness, Task> body)
+    /// <summary>
+    /// Runs <paramref name="body"/> with console output captured, then releases every owned scope.
+    /// Callers are in the non-parallel "AgentTelemetry" collection, so swapping the console is safe.
+    /// </summary>
+    internal static Task RunAsync(AgentLayerTestHarness harness, Func<AgentLayerTestHarness, Task> body) =>
+        WithCapturedConsoleAsync(async () =>
+        {
+            try
+            {
+                await body(harness);
+            }
+            finally
+            {
+                foreach (var scope in harness._owned)
+                    await ReleaseAsync(scope);
+                harness._owned.Clear();
+            }
+        });
+
+    /// <summary>
+    /// Runs <paramref name="body"/> with <see cref="Console.Out"/> and <see cref="Console.Error"/>
+    /// redirected to a buffer, so simulated failures do not reach the test log.
+    /// </summary>
+    internal static async Task<T> WithCapturedConsoleAsync<T>(Func<Task<T>> body)
     {
+        var previousOut = Console.Out;
+        var previousError = Console.Error;
+        using var captured = new StringWriter();
+        Console.SetOut(captured);
+        Console.SetError(captured);
         try
         {
-            await body(harness);
+            return await body();
         }
         finally
         {
-            foreach (var scope in harness._owned)
-                await ReleaseAsync(scope);
-            harness._owned.Clear();
+            Console.SetOut(previousOut);
+            Console.SetError(previousError);
         }
     }
+
+    internal static Task WithCapturedConsoleAsync(Func<Task> body) =>
+        WithCapturedConsoleAsync(async () => { await body(); return true; });
 }
