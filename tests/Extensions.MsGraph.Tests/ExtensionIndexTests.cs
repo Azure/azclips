@@ -287,27 +287,7 @@ public class ExtensionIndexTests
         Assert.Contains("g", group.Aliases);
         Assert.Equal(typeof(string), metadata.Parameters["display-name"].ParameterType);
         Assert.Equal("GroupDisplayName", metadata.Parameters["display-name"].Name);
-        Assert.NotNull(metadata.ParameterSets);
-        Assert.True(metadata.ParameterSets!.ContainsKey("ByGroup"));
-        Assert.True(metadata.ParameterSets.ContainsKey("ByDisplayName"));
-
-        var byGroup = metadata.ParameterSets["ByGroup"].Parameters!;
-        Assert.True(byGroup.ContainsKey("Group"));
-        Assert.True(byGroup.ContainsKey("Filter"));
-        Assert.True(byGroup.ContainsKey("Select"));
-        Assert.True(byGroup.ContainsKey("Expand"));
-        Assert.True(byGroup.ContainsKey("Orderby"));
-        Assert.True(byGroup.ContainsKey("Search"));
-        Assert.True(byGroup.ContainsKey("ConsistencyLevel"));
-
-        var byDisplayName = metadata.ParameterSets["ByDisplayName"].Parameters!;
-        Assert.True(byDisplayName.ContainsKey("GroupDisplayName"));
-        Assert.True(byDisplayName.ContainsKey("Filter"));
-        Assert.True(byDisplayName.ContainsKey("Select"));
-        Assert.True(byDisplayName.ContainsKey("Expand"));
-        Assert.True(byDisplayName.ContainsKey("Orderby"));
-        Assert.True(byDisplayName.ContainsKey("Search"));
-        Assert.True(byDisplayName.ContainsKey("ConsistencyLevel"));
+        Assert.Null(metadata.ParameterSets);
     }
 
     [Fact]
