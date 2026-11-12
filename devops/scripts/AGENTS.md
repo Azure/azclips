@@ -40,6 +40,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 - These checks run in the native ADO validation jobs using local HTTP-command fixtures and pipeline artifacts. Keep shared Bash fixtures compatible with macOS Bash 3.2 and Alpine.
 - The Bash fixture also validates `install/azcli-extensions-download.sh` against a bundle made from the pipeline's extension packages. Windows calls `packaging/common/test_extensions_download.ps1` for the PowerShell equivalent. These download-only helpers support a pinned release, save `azcli-extensions.tar.gz` in the working directory, preserve an existing bundle on failure, and never extract or install it.
 - Bash metadata fixtures distinguish a missing pinned release (HTTP 404) from HTTP 403/429 failures; only the pinned 404 reports that the requested release tag was not found.
+- Unversioned local CLI archives receive a synthetic `0.0.0` version only in fixture release asset names; downloads still copy the exact original archive.
 
 ## Credential Scanner Suppressions
 

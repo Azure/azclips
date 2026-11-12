@@ -6,6 +6,11 @@ repo_root="$1"
 archive_path="$2"
 extensions_dir="$3"
 archive_name="$(basename "$archive_path")"
+# Local builds may omit the version; release metadata still needs a versioned name.
+case "$archive_name" in
+  azcli-lean-linux-*|azcli-lean-macos-*) archive_name="azcli-lean-0.0.0-${archive_name#azcli-lean-}" ;;
+  azcli-linux-*|azcli-macos-*) archive_name="azcli-0.0.0-${archive_name#azcli-}" ;;
+esac
 fixture_root="$(mktemp -d)"
 trap 'rm -rf "$fixture_root"' EXIT
 mkdir -p "$fixture_root/bin" "$fixture_root/tmp"
