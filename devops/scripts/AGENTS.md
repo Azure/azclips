@@ -32,6 +32,16 @@ output/staging path, update this guide in the same PR so it stays accurate.
 | `packaging/signing/`    | ESRP input prep, repack, and verification of signed outputs, including collision-resistant macOS bundle ZIP mapping.                                                                                               |
 | `publishing/`           | Release publishing helpers (`Update-ReleaseChangelog.ps1`, `Update-ChangedExtensionVersions.ps1`).                                                                                                                 |
 
+## Installer Download Validation
+
+- The Linux/macOS lifecycle validators use `packaging/common/validate_cli_download.sh` for the download install, then continue their native runtime and extension checks. The shared fixture substitutes `curl` with local release metadata and the exact pipeline archive; it restricts the installer to standard system utilities and exercises missing/duplicate assets, invalid or truncated URLs, malformed metadata, HTTP failures, piped help, and truncated scripts. It preserves the existing local-archive safety coverage.
+- Windows zip validation substitutes HTTP cmdlets in a child scope and installs the selected pipeline archive through `Invoke-Expression`; its existing offline and native lifecycle checks remain.
+- `packaging/powershell/test_signed_azps_cmdlets.ps1` validates both the bundled helper and the `install/azps-install.ps1` bootstrap in isolated PowerShell processes. Bootstrap HTTP fixtures copy the selected signed archive, exercise default and parameterized installation/import, and check error cleanup and existing-repository preservation.
+- These checks run in the native ADO validation jobs using local HTTP-command fixtures and pipeline artifacts. Keep shared Bash fixtures compatible with macOS Bash 3.2 and Alpine.
+- The Bash fixture also validates `install/azcli-extensions-download.sh` against a bundle made from the pipeline's extension packages. Windows calls `packaging/common/test_extensions_download.ps1` for the PowerShell equivalent. These download-only helpers support a pinned release, save `azcli-extensions.tar.gz` in the working directory, preserve an existing bundle on failure, and never extract or install it.
+- Bash metadata fixtures distinguish a missing pinned release (HTTP 404) from HTTP 403/429 failures; only the pinned 404 reports that the requested release tag was not found.
+- Unversioned local CLI archives receive a synthetic `0.0.0` version only in fixture release asset names; downloads still copy the exact original archive.
+
 ## Credential Scanner Suppressions
 
 `compliance/CredScanSuppressions.json` records file paths, scanner-provided SARIF

@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- [GitHub CLI](https://cli.github.com/), signed in with `gh auth login` and with access to the [AzCLIPS releases](https://github.com/Azure/azclips/releases).
+- Bash, `curl`, `tar`, and standard system text utilities for the CLI Bash path; `tar` for the PowerShell module path.
 - [PowerShell 7.6+](https://aka.ms/powershell) for the AzCLIPS PowerShell modules and for the Windows CLI path.
 - Your existing (classic) Azure CLI and/or Azure PowerShell, already installed. Step 4 switches between them and the preview.
 - Two Azure subscriptions or accounts you can sign in to. They can belong to the same tenant.
@@ -15,7 +15,7 @@ Find each subscription ID and its directory (tenant) ID in **Azure portal > Subs
 
 ## User journey
 
-Choose one command path below: **AzCLIPS CLI in Bash** (Linux and macOS), **AzCLIPS CLI in PowerShell** (Windows) or **AzCLIPS PowerShell**. Each path follows the same steps. Installing the preview does not replace your existing Azure CLI or Azure PowerShell. The preview does not share sign-in context or tokens with them, so profiles switch work environments within the preview only.
+Choose one command path below: **AzCLIPS CLI in Bash** (Linux, macOS, and WSL), **AzCLIPS CLI in PowerShell** (Windows) or **AzCLIPS PowerShell**. Each path follows the same steps. Installing the preview does not replace your existing Azure CLI or Azure PowerShell. The preview does not share sign-in context or tokens with them, so profiles switch work environments within the preview only.
 
 - **1. Install the preview:** Install the preview next to your existing tools and make it active for the current session.
 - **2. Verify the installation:** Confirm the preview starts and is the one your session uses.
@@ -45,8 +45,7 @@ profile_b="review-b-$run"
 **1. Install the preview**
 
 ```bash
-gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' > azcli-install.sh
-bash azcli-install.sh
+curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.sh | bash
 export PATH="$HOME/.local/share/azcli:$PATH"
 ```
 
@@ -70,12 +69,14 @@ az extension show --name compute
 If `compute` is not listed, download the extensions bundle from the release you installed, unpack it and add the extension:
 
 ```bash
-gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
+curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.sh | bash
 mkdir -p azcli-extensions
-tar -xzf ./azcli-extensions-*.tar.gz -C azcli-extensions
+tar -xzf ./azcli-extensions.tar.gz -C azcli-extensions
 az extension add --path ./azcli-extensions/azcli.extensions.compute.*.nupkg
 az extension list
 ```
+
+The helper defaults to the latest release. For an older CLI, use `bash -s -- --release '<release-tag>'` instead of `bash` in the download command, or download the matching bundle manually.
 
 **4. Switch between classic and preview**
 
@@ -155,14 +156,14 @@ $profileB = "review-b-$run"
 ```powershell
 if ($IsWindows) {
     # Windows
-    gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1
-    .\azcli-install.ps1
+    irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.ps1 -ErrorAction Stop | iex
     $env:PATH = "$env:LOCALAPPDATA\Programs\azcli$([IO.Path]::PathSeparator)$env:PATH"
 }
 else {
     # macOS and Linux
-    gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' > azcli-install.sh
-    bash azcli-install.sh
+    Invoke-WebRequest https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.sh -OutFile ./azcli-install.sh -ErrorAction Stop
+    bash ./azcli-install.sh
+    if ($LASTEXITCODE -ne 0) { throw 'CLI installation failed.' }
     $env:PATH = "$HOME/.local/share/azcli$([IO.Path]::PathSeparator)$env:PATH"
 }
 ```
@@ -187,10 +188,10 @@ az extension show --name compute
 If `compute` is not listed, download the extensions bundle from the release you installed, unpack it and add the extension:
 
 ```powershell
-gh release download --repo Azure/azclips --pattern 'azcli-extensions-*.tar.gz' --dir . --clobber
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.ps1 -ErrorAction Stop | iex
 New-Item -ItemType Directory -Force -Path azcli-extensions | Out-Null
-$bundle = Get-ChildItem azcli-extensions-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-tar -xzf $bundle.FullName -C azcli-extensions
+tar -xzf ./azcli-extensions.tar.gz -C azcli-extensions
+if ($LASTEXITCODE -ne 0) { throw 'Extensions bundle extraction failed.' }
 $compute = Get-ChildItem azcli-extensions/azcli.extensions.compute.*.nupkg | Select-Object -First 1
 az extension add --path $compute.FullName
 az extension list
@@ -296,15 +297,20 @@ $profileB = "review-b-$run"
 
 **1. Install the preview**
 
-Download the module bundle into a new temporary folder. The bundled installer installs the modules without replacing your existing ones.
+Download the module bundle into a new temporary folder. This scenario uses the manual bundle workflow so it can read the exact component versions for the import commands below. For the simpler default install, use the [one-command bootstrap](../azure-powershell/docs-conceptual/install-overview.md).
 
 ```powershell
 $stage = Join-Path ([IO.Path]::GetTempPath()) "azclips-modules-$run"
 New-Item -ItemType Directory -Path $stage | Out-Null
-gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir $stage
-$bundle = Get-ChildItem -LiteralPath $stage -Filter 'azps-cmdlets-*.tar.gz'
-tar -xzf $bundle.FullName -C $stage
+$release = Invoke-RestMethod https://api.github.com/repos/Azure/azclips/releases/latest -ErrorAction Stop
+$assets = @($release.assets | Where-Object name -Like 'azps-cmdlets-*.tar.gz')
+if ($assets.Count -ne 1) { throw 'Expected exactly one PowerShell bundle.' }
+$archive = Join-Path $stage $assets[0].name
+Invoke-WebRequest $assets[0].browser_download_url -OutFile $archive -ErrorAction Stop
+tar -xzf $archive -C $stage
+if ($LASTEXITCODE -ne 0) { throw 'PowerShell bundle extraction failed.' }
 & (Join-Path $stage 'InstallModule.ps1')
+Unregister-PSRepository -Name LocalAzclips
 $accountsPackage = Get-ChildItem -LiteralPath $stage -Filter 'Az.Accounts.*.nupkg'
 $accountsVersion = $accountsPackage.BaseName.Substring('Az.Accounts.'.Length)
 $resourcesPackage = Get-ChildItem -LiteralPath $stage -Filter 'Az.Resources.*.nupkg'
