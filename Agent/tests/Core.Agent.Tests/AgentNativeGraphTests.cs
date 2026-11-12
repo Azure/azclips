@@ -604,6 +604,8 @@ public sealed class AgentNativeGraphTests
     }
 
     [Fact]
+    // LocalOnly: the SDK's own session-error fault races our Cancel(), so the exception type depends on thread scheduling.
+    [Trait("Category", "LocalOnly")]
     public async Task SessionError_CancelsTheLiveSend()
     {
         // The SessionErrored branch is the third reader of the turn's cancellation source and the
