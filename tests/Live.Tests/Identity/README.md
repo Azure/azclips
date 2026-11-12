@@ -54,3 +54,11 @@ set your `ALIAS`.
 Deletes the resource group (and everything in it) and the GitHub environment. Leaves
 the workflow file itself in place.
 
+## Security note: fork PRs can't trigger this pipeline
+
+`bug-bash-identity.yml` is `workflow_dispatch`-only - it has no `pull_request`
+trigger, so opening a PR from a fork never runs it automatically. Triggering it
+still requires `gh workflow run` with write access to `Azure/azclips` (as in
+`bug-bash-identity-bootstrap-and-run.sh`), so a PR author without that access
+cannot execute code against the federated OIDC credential through a PR alone.
+
