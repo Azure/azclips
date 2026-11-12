@@ -114,7 +114,7 @@ function mockProcessResult(context, fixture, error, stdout = fixture.stdout, std
   context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
     assert.equal(file, fixture.exe);
     assert.deepEqual(args, ['profile', 'show']);
-    assert.equal(options.timeout, 2000 + PROCESS_TREE_GRACE_MS);
+    assert.equal(options.timeout, 60_000 + PROCESS_TREE_GRACE_MS);
     assert.equal(options.maxBuffer, 8 * 1024 * 1024);
     assert.equal(options.env.AZURECLI_FLAVOR, 'azure cli');
     queueMicrotask(() => callback(error, stdout, stderr));
@@ -682,7 +682,7 @@ test('manual recovery records the failure then analyzes its exact ID with closed
   let closed = 0;
   context.mock.method(childProcess, 'execFile', (file, args, options, callback) => {
     assert.equal(file, fixture.exe);
-    assert.ok(options.timeout > 0 && options.timeout <= 2000 + PROCESS_TREE_GRACE_MS);
+    assert.ok(options.timeout > 0 && options.timeout <= 60_000 + PROCESS_TREE_GRACE_MS);
     calls.push(args);
     queueMicrotask(() => {
       if (calls.length === 1) {
@@ -773,7 +773,7 @@ test('manual recovery runs the failed command once more when the first run print
   const calls = [];
   context.mock.method(childProcess, 'execFile', (_file, args, options, callback) => {
     calls.push(args);
-    assert.ok(options.timeout > 0 && options.timeout <= 2000 + PROCESS_TREE_GRACE_MS);
+    assert.ok(options.timeout > 0 && options.timeout <= 60_000 + PROCESS_TREE_GRACE_MS);
     queueMicrotask(() => {
       if (calls.length === 1) {
         callback(Object.assign(new Error('Command failed'), { code: 2 }), '', `${error}\nWARNING: ${warning}\n`);
