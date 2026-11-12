@@ -205,10 +205,11 @@ public class StorageDataPlaneLifecycleScenarioTests
             ["storage", "file", "upload", "--share-name", ShareName, "--path", UploadedFilePath, "--source", source],
             "Set-AzStorageFileContent", new() { ["ShareName"] = ShareName, ["FilePath"] = UploadedFilePath, ["Source"] = source })));
 
-        var page = Assert.IsType<ListFilesAndDirectoriesSegmentResponse>(Assert.Single(steps.Run(
+        // Pages are written as one batch; collect the file entries across them.
+        var pages = Flatten<ListFilesAndDirectoriesSegmentResponse>(steps.Run(
             ["storage", "file", "list", "--share-name", ShareName, "--name", DirectoryPath],
-            "Get-AzStorageFile_List", new() { ["ShareName"] = ShareName, ["DirectoryPath"] = DirectoryPath })));
-        Assert.Equal([Path.GetFileName(CreatedFilePath), Path.GetFileName(UploadedFilePath)], page.SegmentFileItems.Select(file => file.NameContent).Order());
+            "Get-AzStorageFile_List", new() { ["ShareName"] = ShareName, ["DirectoryPath"] = DirectoryPath }));
+        Assert.Equal([Path.GetFileName(CreatedFilePath), Path.GetFileName(UploadedFilePath)], pages.SelectMany(page => page.SegmentFileItems).Select(file => file.NameContent).Order());
 
         var shown = Assert.IsType<ShareFile>(Assert.Single(steps.Run(
             ["storage", "file", "show", "--share-name", ShareName, "--path", UploadedFilePath],
