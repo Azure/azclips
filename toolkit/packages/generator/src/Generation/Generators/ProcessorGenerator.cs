@@ -250,11 +250,15 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 : SyntaxKind.PublicKeyword))
             .WithAccessorList(AutoAccessors());
 
-        // Give required string parameters a non-null default, matching the hand-written processors.
-        if (type == "string")
+        // Give required reference-type parameters a non-null default: strings an empty value,
+        // matching the hand-written processors, and any other reference type `null!` as models do.
+        string? initializer = type == "string"
+            ? "string.Empty"
+            : !type.EndsWith('?') && !IrTypeMapper.IsValueType(parameter.Type, index) ? "null!" : null;
+        if (initializer is not null)
         {
             decl = decl
-                .WithInitializer(EqualsValueClause(ParseExpression("string.Empty")))
+                .WithInitializer(EqualsValueClause(ParseExpression(initializer)))
                 .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         }
 
@@ -634,6 +638,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         }
 
         var chain = new StringBuilder("body");
+        bool previousNullable = false;
         foreach (IRId id in (reference.Via ?? []).Append(reference.Property))
         {
             if (context.Index.Property(id) is not { } property)
@@ -641,7 +646,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 return null;
             }
 
-            chain.Append('.').Append(property.Name.Identifier());
+            // A container the model types as nullable must be stepped through with `?.`.
+            chain.Append(previousNullable ? "?." : ".").Append(property.Name.Identifier());
+            previousNullable = property.Optional || property.Nullable;
         }
 
         return chain.ToString();
