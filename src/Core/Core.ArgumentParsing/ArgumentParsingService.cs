@@ -15,25 +15,6 @@ namespace Core.ArgumentParsing
             IDictionary<string, ParameterSetMetadata>? parameterSets = command.ParameterSets;
             IDictionary<string, (string, object)> parsedArgs = provider.ParseArguments(args, parameters, parameterAliases);
 
-            var argsWithDefaults = new Dictionary<string, (string, object)>(parsedArgs);
-            var missingProfileDefaults = new List<string>();
-
-            if (ShouldApplyProfileDefaults(processor.GetType().Name))
-            {
-                ApplyProfileDefaults(argsWithDefaults, canonicalParameters, missingProfileDefaults, profile);
-            }
-
-            if (!provider.ValidateArguments(argsWithDefaults, canonicalParameters, out IList<string>? argumentValidationErrors) && argumentValidationErrors is not null && argumentValidationErrors.Count > 0)
-            {
-                var message = $"Invalid arguments: {string.Join(Environment.NewLine, argumentValidationErrors)}";
-                if (canonicalParameters.Values.Any(parameter => parameter.IsRequired && !argsWithDefaults.ContainsKey(parameter.Name)))
-                {
-                    throw AzclipsErrorException.MissingRequiredParameters(message);
-                }
-                throw AzclipsErrorException.UsageError(message);
-            }
-
-            // Preserve explicit-input set resolution; profile defaults must not select or exclude a set.
             string? resolvedParameterSetName = provider.ResolveParameterSet(parsedArgs, canonicalParameters, parameterSets, ValidateParameterSets, out IList<string>? parameterSetValidationErrors);
             if (parameterSetValidationErrors is not null && parameterSetValidationErrors.Count > 0)
             {
@@ -41,12 +22,22 @@ namespace Core.ArgumentParsing
                 throw AzclipsErrorException.UsageError(message);
             }
 
-            if (missingProfileDefaults.Count > 0)
+            if (!provider.ValidateArguments(parsedArgs, canonicalParameters, out IList<string>? argumentValidationErrors) && argumentValidationErrors is not null && argumentValidationErrors.Count > 0)
             {
-                throw AzclipsErrorException.MissingRequiredParameters(string.Join(Environment.NewLine, missingProfileDefaults));
+                var message = $"Invalid arguments: {string.Join(Environment.NewLine, argumentValidationErrors)}";
+                if (canonicalParameters.Values.Any(parameter => parameter.IsRequired && !parsedArgs.ContainsKey(parameter.Name)))
+                {
+                    throw AzclipsErrorException.MissingRequiredParameters(message);
+                }
+                throw AzclipsErrorException.UsageError(message);
             }
 
-            argsWithDefaults.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
+            if (ShouldApplyProfileDefaults(processor.GetType().Name))
+            {
+                ApplyProfileDefaults(parsedArgs, canonicalParameters, profile);
+            }
+
+            parsedArgs.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value.Item2));
             return processor;
         }
 
@@ -57,23 +48,21 @@ namespace Core.ArgumentParsing
         }
 
         private void ApplyProfileDefaults(
-            IDictionary<string, (string, object)> argsWithDefaults,
+            IDictionary<string, (string, object)> parsedArgs,
             IDictionary<string, ParameterMetadata> canonicalParameters,
-            IList<string> missingProfileDefaults,
             Profile? profile)
         {
             foreach (var key in profileService.GetProfileKeysForDefault())
             {
-                object? value = argsWithDefaults.TryGetValue(key, out var parsedArg) ? parsedArg.Item2 : null;
+                object? value = parsedArgs.TryGetValue(key, out var parsedArg) ? parsedArg.Item2 : null;
                 if (value is null && canonicalParameters.ContainsKey(key))
                 {
                     string invocationName = canonicalParameters[key].InvocationName;
                     if (profileService.GetProfileValueByKey(profile, key) is not {} profileValue)
                     {
-                        missingProfileDefaults.Add($"{invocationName} is not provided from input and not present in profile either");
-                        continue;
+                        throw AzclipsErrorException.UsageError($"{invocationName} is not provided from input and not present in profile either");
                     }
-                    argsWithDefaults[key] = (invocationName, profileValue);
+                    parsedArgs[key] = (invocationName, profileValue);
                 }
             }
         }
