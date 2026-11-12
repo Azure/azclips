@@ -442,6 +442,11 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity
         #endregion
 
         #region Interface Implementation
+        static ExtensionIndex()
+        {
+            cliTable.AddDefaultParameterSets();
+        }
+
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
         {
             return GetCommandTable(clientType).TryGetValue(name, out var metadata)

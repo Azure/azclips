@@ -174,6 +174,11 @@ public class ExtensionIndex : IExtensionIndex
         ["config info"]   = s_infoConfig_CLI,
     };
 
+    static ExtensionIndex()
+    {
+        s_cliTable.AddDefaultParameterSets();
+    }
+
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
     {
         var table = clientType switch

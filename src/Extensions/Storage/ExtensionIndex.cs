@@ -439,6 +439,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage
                     parameterSet.Parameters?.TryAdd("Profile", new ParameterReference("Profile"));
                 }
             }
+            s_cliTable.AddDefaultParameterSets();
             foreach (var metadata in s_psTable.Values)
             {
                 metadata.Parameters.TryAdd("Profile", new ParameterMetadata("Profile", "Profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));

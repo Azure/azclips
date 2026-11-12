@@ -217,6 +217,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ["troubleshoot show"]         = s_troubleshootShow_CLI,
         };
 
+        static ExtensionIndex()
+        {
+            s_cliTable.AddDefaultParameterSets();
+        }
+
         // ── Lookup ──
 
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)

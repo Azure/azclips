@@ -128,6 +128,11 @@ public class ExtensionIndex : IExtensionIndex
         ["extension pin"]    = s_pinExtension_CLI,
         ["extension unpin"]  = s_unpinExtension_CLI,
     };
+    static ExtensionIndex()
+    {
+        s_cliTable.AddDefaultParameterSets();
+    }
+
     // ── Lookup ──
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
     {
