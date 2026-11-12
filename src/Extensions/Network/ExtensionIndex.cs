@@ -878,10 +878,36 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             {
                 metadata.Parameters.TryAdd("profile", new ParameterMetadata("Profile", "profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
             }
-            s_cliTable.AddDefaultParameterSets();
+            AddDefaultParameterSets(s_cliTable);
             foreach (var metadata in s_psTable.Values)
             {
                 metadata.Parameters.TryAdd("Profile", new ParameterMetadata("Profile", "Profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
+            }
+        }
+
+        /// <summary>
+        /// Adds a default set to commands without explicit sets, preserving parameter-level requiredness.
+        /// Call after injecting any shared parameters, and only on the CLI table.
+        /// </summary>
+        private static void AddDefaultParameterSets(IDictionary<string, CommandMetadata> commands)
+        {
+            foreach (var key in commands.Keys.ToArray())
+            {
+                var command = commands[key];
+                if (command.ParameterSets is { Count: > 0 })
+                {
+                    continue;
+                }
+
+                commands[key] = command with
+                {
+                    ParameterSets = new Dictionary<string, ParameterSetMetadata>
+                    {
+                        ["Default"] = new("Default", IsDefault: true, Parameters: command.Parameters.Values.ToDictionary(
+                            parameter => parameter.Name,
+                            parameter => new ParameterReference(parameter.Name, IsRequired: parameter.IsRequired))),
+                    },
+                };
             }
         }
 

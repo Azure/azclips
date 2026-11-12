@@ -444,7 +444,33 @@ namespace Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity
         #region Interface Implementation
         static ExtensionIndex()
         {
-            cliTable.AddDefaultParameterSets();
+            AddDefaultParameterSets(cliTable);
+        }
+
+        /// <summary>
+        /// Adds a default set to commands without explicit sets, preserving parameter-level requiredness.
+        /// Call after injecting any shared parameters, and only on the CLI table.
+        /// </summary>
+        private static void AddDefaultParameterSets(IDictionary<string, CommandMetadata> commands)
+        {
+            foreach (var key in commands.Keys.ToArray())
+            {
+                var command = commands[key];
+                if (command.ParameterSets is { Count: > 0 })
+                {
+                    continue;
+                }
+
+                commands[key] = command with
+                {
+                    ParameterSets = new Dictionary<string, ParameterSetMetadata>
+                    {
+                        ["Default"] = new("Default", IsDefault: true, Parameters: command.Parameters.Values.ToDictionary(
+                            parameter => parameter.Name,
+                            parameter => new ParameterReference(parameter.Name, IsRequired: parameter.IsRequired))),
+                    },
+                };
+            }
         }
 
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)

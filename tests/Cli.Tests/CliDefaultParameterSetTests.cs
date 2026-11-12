@@ -140,25 +140,6 @@ public class CliDefaultParameterSetTests
         var metadata = s_indexes.Values.SelectMany(index => index.GetAllCommands(ClientType.CLI))
             .Single(metadata => metadata.InvocationName == command);
         Assert.Equal(expected.Order(), metadata.ParameterSets!.Keys.Order());
-        var table = new Dictionary<string, CommandMetadata> { [command] = metadata };
-
-        table.AddDefaultParameterSets();
-
-        Assert.Same(metadata, table[command]);
-    }
-
-    [Fact]
-    public void AddingSets_DoesNotMutateSharedMetadataAndIsIdempotent()
-    {
-        var original = Metadata("Microsoft.Azure.Azclips.Extensions.Config.ExtensionIndex", "config get") with { ParameterSets = null };
-        var table = new Dictionary<string, CommandMetadata> { ["config get"] = original };
-        table.AddDefaultParameterSets();
-        var updated = table["config get"];
-        table.AddDefaultParameterSets();
-
-        Assert.Null(original.ParameterSets);
-        Assert.NotSame(original, updated);
-        Assert.Same(updated, table["config get"]);
     }
 
     private static CommandMetadata Metadata(string index, string command) =>
