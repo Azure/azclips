@@ -23,7 +23,7 @@ public class StorageAccountParameterSetTests
     [InlineData("storage account delete")]
     public void CliBinding_MissingResourceGroup_ThrowsUsageError(string command)
     {
-        Assert.Throws<UsageErrorException>(() => Bind(command, new() { ["name"] = "azclipsaccount" }));
+        Assert.Throws<MissingRequiredArgumentException>(() => Bind(command, new() { ["name"] = "azclipsaccount" }));
     }
 
     [Theory]
@@ -32,7 +32,7 @@ public class StorageAccountParameterSetTests
     [InlineData("storage account delete")]
     public void CliBinding_MissingName_ThrowsUsageError(string command)
     {
-        Assert.Throws<UsageErrorException>(() => Bind(command, new() { ["resource-group"] = "test-rg" }));
+        Assert.Throws<MissingRequiredArgumentException>(() => Bind(command, new() { ["resource-group"] = "test-rg" }));
     }
 
     [Fact]
