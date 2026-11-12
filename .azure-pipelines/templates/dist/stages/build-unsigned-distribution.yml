@@ -175,6 +175,7 @@ stages:
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
       windows_pool: ${{ parameters.windows_pool }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
 
 - stage: Benchmark
   displayName: Benchmark
@@ -291,7 +292,7 @@ stages:
       ValidateDockerResult: Succeeded
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
-    TestResult: $[ iif(eq(stageDependencies.Test.UnitTests.result, 'Succeeded'), iif(eq(stageDependencies.Test.UnitTestsWindows.result, 'Succeeded'), stageDependencies.Test.ScenarioTests.result, stageDependencies.Test.UnitTestsWindows.result), stageDependencies.Test.UnitTests.result) ]
+    TestResult: $[ iif(eq(stageDependencies.Test.UnitTestsLinux.result, 'Succeeded'), iif(eq(stageDependencies.Test.UnitTestsWindows.result, 'Succeeded'), iif(eq(stageDependencies.Test.UnitTestsMacOS.result, 'Succeeded'), stageDependencies.Test.ScenarioTests.result, stageDependencies.Test.UnitTestsMacOS.result), stageDependencies.Test.UnitTestsWindows.result), stageDependencies.Test.UnitTestsLinux.result) ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     PSBinaryAnalysisResult: $[ stageDependencies.ValidatePSModules.PSBinaryAnalysis.result ]

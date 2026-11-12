@@ -3,9 +3,11 @@ parameters:
   type: string
 - name: windows_pool
   type: string
+- name: macos_arm64_pool
+  type: string
 
 jobs:
-- job: UnitTests
+- job: UnitTestsLinux
   displayName: Unit Tests (Linux)
   timeoutInMinutes: 30
   pool:
@@ -30,8 +32,16 @@ jobs:
       set -euo pipefail
       dotnet restore azclips.slnx
       dotnet build azclips.slnx -c Release --no-restore
-      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests&Category!=LocalOnly"
+      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests&Category!=LocalOnly" --logger trx --results-directory "$(Agent.TempDirectory)/linux-unit-tests"
     displayName: Run Unit Tests
+
+  - task: PublishTestResults@2
+    displayName: Publish Linux Unit Test Results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: '$(Agent.TempDirectory)/linux-unit-tests/**/*.trx'
+      testRunTitle: Linux Unit Tests
 
 - job: UnitTestsWindows
   displayName: Unit Tests (Windows)
@@ -70,6 +80,37 @@ jobs:
       testResultsFormat: VSTest
       testResultsFiles: '$(Agent.TempDirectory)/windows-unit-tests/**/*.trx'
       testRunTitle: Windows Unit Tests
+
+- job: UnitTestsMacOS
+  displayName: Unit Tests (macOS)
+  timeoutInMinutes: 30
+  pool:
+    vmImage: ${{ parameters.macos_arm64_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - bash: |
+      set -euo pipefail
+      dotnet restore azclips.slnx
+      dotnet build azclips.slnx -c Release --no-restore
+      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests&Category!=LocalOnly" --logger trx --results-directory "$(Agent.TempDirectory)/macos-unit-tests"
+    displayName: Run Unit Tests
+
+  - task: PublishTestResults@2
+    displayName: Publish macOS Unit Test Results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: '$(Agent.TempDirectory)/macos-unit-tests/**/*.trx'
+      testRunTitle: macOS Unit Tests
 
 # The scenario suite runs apart from the unit tests so a recording failure surfaces as its
 # own check, and the suite can grow without stretching the unit job.
