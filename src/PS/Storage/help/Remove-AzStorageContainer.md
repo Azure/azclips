@@ -271,14 +271,9 @@ This cmdlet does not accept pipeline input.
 
 This cmdlet returns no output.
 
-### System.Object
-
-TODO - describe what Remove-AzStorageContainer does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Delete Container REST API](https://learn.microsoft.com/rest/api/storageservices/delete-container)
 - [New-AzStorageContainer](New-AzStorageContainer.md)

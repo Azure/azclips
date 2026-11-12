@@ -8,6 +8,8 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
+[OutputType("Microsoft.Azure.AzClips.Extensions.StorageFile.Models.ListFilesAndDirectoriesSegmentResponse")]
+[OutputType("Microsoft.Azure.AzClips.Extensions.StorageFile.Models.ShareFile")]
 [Cmdlet(VerbsCommon.Get, "AzStorageFile", DefaultParameterSetName = ListParameterSet)]
 public class GetStorageFileCmdlet : PSCmdlet
 {

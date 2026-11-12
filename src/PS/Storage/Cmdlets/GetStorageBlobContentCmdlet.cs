@@ -8,6 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
+[OutputType("Microsoft.Azure.AzClips.Extensions.StorageBlob.Models.BlobDownloadResult")]
 [Cmdlet(VerbsCommon.Get, "AzStorageBlobContent")]
 public class GetStorageBlobContentCmdlet : PSCmdlet
 {

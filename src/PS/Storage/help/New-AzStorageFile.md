@@ -383,14 +383,9 @@ This cmdlet does not accept pipeline input.
 
 The properties of the new file.
 
-### System.Object
-
-TODO - describe what New-AzStorageFile does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Create File REST API](https://learn.microsoft.com/rest/api/storageservices/create-file)
 - [Set-AzStorageFileContent](Set-AzStorageFileContent.md)

@@ -8,6 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
+[OutputType(typeof(void))]
 [Cmdlet(VerbsData.Update, "AzStorageShare")]
 public class UpdateStorageShareCmdlet : PSCmdlet
 {

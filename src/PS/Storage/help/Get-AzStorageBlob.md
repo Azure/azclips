@@ -588,14 +588,9 @@ This cmdlet does not accept pipeline input.
 
 The blobs in the container, or the properties of the specified blob.
 
-### System.Object
-
-TODO - describe what Get-AzStorageBlob does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [List Blobs REST API](https://learn.microsoft.com/rest/api/storageservices/list-blobs)
 - [Get Blob Properties REST API](https://learn.microsoft.com/rest/api/storageservices/get-blob-properties)

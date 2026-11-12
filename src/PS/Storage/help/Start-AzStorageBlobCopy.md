@@ -575,14 +575,9 @@ This cmdlet does not accept pipeline input.
 
 The copy ID and copy status of the scheduled copy.
 
-### System.Object
-
-TODO - describe what Start-AzStorageBlobCopy does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Copy Blob REST API](https://learn.microsoft.com/rest/api/storageservices/copy-blob)
 - [Copy-AzStorageBlob](Copy-AzStorageBlob.md)

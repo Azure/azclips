@@ -221,5 +221,3 @@ Removes an Azure Storage account and all of the data it contains.
 
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-

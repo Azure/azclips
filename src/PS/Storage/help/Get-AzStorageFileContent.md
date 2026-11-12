@@ -249,14 +249,9 @@ This cmdlet does not accept pipeline input.
 
 The local path, number of bytes written and the properties of the downloaded file.
 
-### System.Object
-
-TODO - describe what Get-AzStorageFileContent does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Get File REST API](https://learn.microsoft.com/rest/api/storageservices/get-file)
 - [Set-AzStorageFileContent](Set-AzStorageFileContent.md)

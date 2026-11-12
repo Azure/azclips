@@ -377,14 +377,9 @@ This cmdlet does not accept pipeline input.
 
 The ETag, last-modified time and size of the uploaded file.
 
-### System.Object
-
-TODO - describe what Set-AzStorageFileContent does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Create File REST API](https://learn.microsoft.com/rest/api/storageservices/create-file)
 - [Put Range REST API](https://learn.microsoft.com/rest/api/storageservices/put-range)

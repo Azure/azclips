@@ -8,6 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
+[OutputType("Microsoft.Azure.AzClips.Extensions.StorageBlob.Models.ContainerCreateResult")]
 [Cmdlet(VerbsCommon.New, "AzStorageContainer")]
 public class NewStorageContainerCmdlet : PSCmdlet
 {

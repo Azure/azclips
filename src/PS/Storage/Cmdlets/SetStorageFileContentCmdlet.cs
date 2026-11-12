@@ -8,6 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
+[OutputType("Microsoft.Azure.AzClips.Extensions.StorageFile.Models.FileUploadResult")]
 [Cmdlet(VerbsCommon.Set, "AzStorageFileContent")]
 public class SetStorageFileContentCmdlet : PSCmdlet
 {

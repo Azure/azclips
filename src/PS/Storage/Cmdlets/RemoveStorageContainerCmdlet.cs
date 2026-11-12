@@ -8,6 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
+[OutputType(typeof(void))]
 [Cmdlet(VerbsCommon.Remove, "AzStorageContainer")]
 public class RemoveStorageContainerCmdlet : PSCmdlet
 {

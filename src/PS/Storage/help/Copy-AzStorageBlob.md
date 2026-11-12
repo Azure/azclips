@@ -462,14 +462,9 @@ This cmdlet does not accept pipeline input.
 
 The ETag, last-modified time and version of the new blob.
 
-### System.Object
-
-TODO - describe what Copy-AzStorageBlob does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Put Blob From URL REST API](https://learn.microsoft.com/rest/api/storageservices/put-blob-from-url)
 - [Start-AzStorageBlobCopy](Start-AzStorageBlobCopy.md)

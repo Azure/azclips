@@ -209,5 +209,3 @@ Gets Azure Storage accounts, either a single account by name or all accounts in 
 
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-

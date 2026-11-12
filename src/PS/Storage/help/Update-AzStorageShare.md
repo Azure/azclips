@@ -292,14 +292,9 @@ This cmdlet does not accept pipeline input.
 
 This cmdlet returns no output. Use Get-AzStorageShare to read the updated properties.
 
-### System.Object
-
-TODO - describe what Update-AzStorageShare does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Set Share Properties REST API](https://learn.microsoft.com/rest/api/storageservices/set-share-properties)
 - [Get-AzStorageShare](Get-AzStorageShare.md)

@@ -483,14 +483,9 @@ This cmdlet does not accept pipeline input.
 
 The local path, number of bytes written and the properties of the downloaded blob.
 
-### System.Object
-
-TODO - describe what Get-AzStorageBlobContent does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Get Blob REST API](https://learn.microsoft.com/rest/api/storageservices/get-blob)
 - [Set-AzStorageBlobContent](Set-AzStorageBlobContent.md)

@@ -8,6 +8,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
+[OutputType("Microsoft.Azure.AzClips.Extensions.StorageFile.Models.ShareCreateResult")]
 [Cmdlet(VerbsCommon.New, "AzStorageShare")]
 public class NewStorageShareCmdlet : PSCmdlet
 {

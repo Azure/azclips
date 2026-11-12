@@ -394,16 +394,15 @@ This cmdlet does not accept pipeline input.
 
 ### Microsoft.Azure.AzClips.Extensions.StorageFile.Models.ListFilesAndDirectoriesSegmentResponse
 
-When listing, one result per page, each with the files and directories it contains. When -FilePath is given, a Microsoft.Azure.AzClips.Extensions.StorageFile.Models.ShareFile with the properties of the file.
+When listing, one result per page, each with the files and directories it contains.
 
-### System.Object
+### Microsoft.Azure.AzClips.Extensions.StorageFile.Models.ShareFile
 
-TODO - describe what Get-AzStorageFile does and when to use it.
+When -FilePath is given, the properties of the file.
 
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [List Directories and Files REST API](https://learn.microsoft.com/rest/api/storageservices/list-directories-and-files)
 - [Get File Properties REST API](https://learn.microsoft.com/rest/api/storageservices/get-file-properties)

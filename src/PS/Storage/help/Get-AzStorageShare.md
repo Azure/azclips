@@ -353,14 +353,9 @@ This cmdlet does not accept pipeline input.
 
 The file shares in the account, or the properties of the specified share.
 
-### System.Object
-
-TODO - describe what Get-AzStorageShare does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [List Shares REST API](https://learn.microsoft.com/rest/api/storageservices/list-shares)
 - [Get Share Properties REST API](https://learn.microsoft.com/rest/api/storageservices/get-share-properties)

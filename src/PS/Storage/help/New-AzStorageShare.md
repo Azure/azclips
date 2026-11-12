@@ -319,14 +319,9 @@ This cmdlet does not accept pipeline input.
 
 The ETag and last-modified time of the new share.
 
-### System.Object
-
-TODO - describe what New-AzStorageShare does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Create Share REST API](https://learn.microsoft.com/rest/api/storageservices/create-share)
 - [Get-AzStorageShare](Get-AzStorageShare.md)

@@ -255,14 +255,9 @@ This cmdlet does not accept pipeline input.
 
 The properties of the new directory.
 
-### System.Object
-
-TODO - describe what New-AzStorageDirectory does and when to use it.
-
 ## NOTES
 
 ## RELATED LINKS
-
 
 - [Create Directory REST API](https://learn.microsoft.com/rest/api/storageservices/create-directory)
 - [Get-AzStorageDirectory](Get-AzStorageDirectory.md)
