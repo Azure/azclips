@@ -6,7 +6,20 @@
   delegates installation to its InstallModule.ps1 helper. Requires PowerShell 7.6+.
 .EXAMPLE
   ./azps-install.ps1
+
+  Installs the Az rollup for CurrentUser using a unique temporary repository.
+
+.EXAMPLE
   ./azps-install.ps1 -ModuleName Az.Compute -Scope AllUsers
+
+  Installs a specific module for all users. AllUsers may require elevation;
+  CurrentUser is the default scope.
+
+.EXAMPLE
+  ./azps-install.ps1 -ModuleName Az.Compute -RequiredVersion '<module-version>' -Scope CurrentUser -RepositoryName 'AzclipsInstallTest'
+
+  Pins the module version and chooses the temporary repository name. Module
+  versions are independent of release tags. RepositoryName must not already exist.
 #>
 & {
 [CmdletBinding()]

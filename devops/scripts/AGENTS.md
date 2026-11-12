@@ -39,6 +39,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 - `packaging/powershell/test_signed_azps_cmdlets.ps1` validates both the bundled helper and the public `install/azps-install.ps1` bootstrap in isolated PowerShell processes. Bootstrap HTTP fixtures copy the selected signed archive, exercise default and parameterized installation/import, and check error cleanup and existing-repository preservation.
 - These checks run in the existing ADO validation jobs without Pester, GitHub authentication, or a live latest-release lookup. Keep shared Bash fixtures compatible with macOS Bash 3.2 and Alpine.
 - The Bash fixture also validates `install/azcli-extensions-download.sh` against a bundle made from the pipeline's extension packages. Windows calls `packaging/common/test_public_extensions_download.ps1` for the PowerShell equivalent. These download-only helpers support a pinned release, save `azcli-extensions.tar.gz` in the working directory, preserve an existing bundle on failure, and never extract or install it.
+- Bash metadata fixtures distinguish a missing pinned release (HTTP 404) from HTTP 403/429 failures; only the pinned 404 reports that the requested release tag was not found.
 
 ## Credential Scanner Suppressions
 

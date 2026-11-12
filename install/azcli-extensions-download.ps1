@@ -6,7 +6,13 @@
   No GitHub CLI, authentication, or external JSON parser is required.
 .EXAMPLE
   ./azcli-extensions-download.ps1
+
+  Downloads the latest release bundle without extracting or installing it.
+
+.EXAMPLE
   ./azcli-extensions-download.ps1 -Release v0.1.7.20261104T200741Z
+
+  Pins the GitHub release tag with -Release; this is not a module/package version.
 #>
 & {
   [CmdletBinding()]

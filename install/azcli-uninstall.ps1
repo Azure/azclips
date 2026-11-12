@@ -7,7 +7,14 @@
 
 .EXAMPLE
   ./azcli-uninstall.ps1
+
+  Removes a recognized azcli installation.
+
+.EXAMPLE
   ./azcli-uninstall.ps1 -Force
+
+  Also permits removing an unrecognized install folder. Use -Force only after
+  verifying that the install folder contains nothing you need to keep.
 #>
 & {
 [CmdletBinding()]

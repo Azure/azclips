@@ -35,9 +35,11 @@ cat > "$fixture_root/bin/curl" <<'STUB'
 set -euo pipefail
 url=""
 destination=""
+write_status=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -o) destination="$2"; shift 2 ;;
+    --write-out|-w) write_status=true; shift 2 ;;
     https://*) url="$1"; shift ;;
     *) shift ;;
   esac
@@ -46,7 +48,15 @@ case "$url" in
   "https://api.github.com/repos/${AZCLI_REPO:-Azure/azclips}/releases/latest"|"https://api.github.com/repos/Azure/azclips/releases/tags/v-fixture.timestamp")
     printf '%s\n' "$url" > "$FIXTURE_ROOT/metadata-url"
     case "${FIXTURE_CASE:-valid}" in
-      metadata-failure) echo "HTTP 403: fixture rate limit" >&2; exit 22 ;;
+      metadata-failure|rate-limit|not-found|not-found-latest)
+        case "$FIXTURE_CASE" in
+          metadata-failure) status=403 ;;
+          rate-limit) status=429 ;;
+          not-found|not-found-latest) status=404 ;;
+        esac
+        if [[ "$write_status" == true ]]; then printf '%s' "$status"; fi
+        echo "HTTP $status: fixture metadata failure" >&2
+        exit 22 ;;
       missing) printf '{"assets":[]}' > "$destination" ;;
       duplicate) printf '{"assets":[{"browser_download_url":"%s"},{"browser_download_url":"%s"}]}' "$FIXTURE_URL" "$FIXTURE_URL" > "$destination" ;;
       malformed) printf '{invalid' > "$destination" ;;
@@ -132,15 +142,22 @@ mkdir "$fixture_root/extensions-download"
 cd "$fixture_root/extensions-download"
 printf 'existing bundle sentinel\n' > azcli-extensions.tar.gz
 before="$(cksum azcli-extensions.tar.gz)"
-for scenario in missing duplicate malformed query extra-path http wrong-repo missing-quote other-field escaped-body unsafe-filename metadata-failure download-failure missing-download; do
+for scenario in missing duplicate malformed query extra-path http wrong-repo missing-quote other-field escaped-body unsafe-filename metadata-failure rate-limit not-found not-found-latest download-failure missing-download; do
   export FIXTURE_CASE="$scenario"
   case "$scenario" in
-    metadata-failure) expected='anonymous API rate limit' ;;
+    metadata-failure|rate-limit|not-found-latest) expected='anonymous API rate limit' ;;
+    not-found) expected="Release tag 'v-fixture.timestamp' was not found" ;;
     download-failure) expected='Could not download' ;;
     missing-download) expected='Download did not produce' ;;
     *) expected='Expected exactly one' ;;
   esac
-  if output="$(bash < "$repo_root/install/azcli-extensions-download.sh" 2>&1)"; then
+  if output="$(
+    if [[ "$scenario" == not-found || "$scenario" == metadata-failure || "$scenario" == rate-limit ]]; then
+      bash -s -- --release v-fixture.timestamp < "$repo_root/install/azcli-extensions-download.sh" 2>&1
+    else
+      bash < "$repo_root/install/azcli-extensions-download.sh" 2>&1
+    fi
+  )"; then
     echo "FAIL: Extensions download $scenario unexpectedly succeeded." >&2; exit 1
   fi
   grep -Fq "$expected" <<<"$output" ||

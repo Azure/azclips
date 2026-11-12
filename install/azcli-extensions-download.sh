@@ -29,8 +29,13 @@ main() {
   endpoint="https://api.github.com/repos/Azure/azclips/releases/latest"
   [[ -z "$release_tag" ]] || endpoint="https://api.github.com/repos/Azure/azclips/releases/tags/$release_tag"
   stage="$(mktemp -d "./.azcli-extensions-download.XXXXXX")"
-  curl --fail --show-error --silent --location "$endpoint" -o "$stage/release.json" ||
+  if ! http_status="$(curl --fail --show-error --silent --location \
+    --write-out '%{http_code}' "$endpoint" -o "$stage/release.json")"; then
+    if [[ -n "$release_tag" && "$http_status" == 404 ]]; then
+      die "Release tag '$release_tag' was not found in Azure/azclips."
+    fi
     die "Could not retrieve the release. Check network access and GitHub's anonymous API rate limit."
+  fi
   tr -d '\r\n' < "$stage/release.json" > "$stage/release-line.txt"
   # Include the closing quote so a URL with a query or extra path cannot match a prefix.
   grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"https://github[.]com/Azure/azclips/releases/download/[A-Za-z0-9._-]+/azcli-extensions-[0-9][A-Za-z0-9._-]*[.]tar[.]gz"' \

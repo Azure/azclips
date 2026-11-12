@@ -11,7 +11,19 @@
 
 .EXAMPLE
   ./azcli-install.ps1
+
+  Installs the full package, or the package selected by AZCLI_PACKAGE.
+
+.EXAMPLE
   ./azcli-install.ps1 -Package lean
+
+  Selects lean explicitly. -Package accepts lean or full.
+
+.EXAMPLE
+  ./azcli-install.ps1 -Package lean -ArchivePath 'C:\artifacts\azcli-lean-<version>-win-x64.zip'
+
+  Internal release validation only: installs an exact local archive instead of
+  downloading a release. The archive must match the package and host architecture.
 #>
 & {
 [CmdletBinding()]
