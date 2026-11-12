@@ -78,6 +78,7 @@ namespace Azclips.Help.Tool.Validation
         public const string PSL15_MetadataDrift = "PSL15_MetadataDrift";
 
         public const string PSL16_EmptyLinkTarget = "PSL16_EmptyLinkTarget";
+        public const string PSL17_InvalidDate = "PSL17_InvalidDate";
 
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";
