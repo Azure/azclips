@@ -29,18 +29,27 @@ All steps below run in **PowerShell 7.6+**.
 The bootstrap downloads the latest release and invokes its bundled module installer. `tar` must be available on `PATH`.
 
 ```powershell
+# Linux / macOS / WSL / Windows (PowerShell 7.6+)
 irm https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps1 -ErrorAction Stop | iex
 ```
 
-To inspect the bootstrap or pass options, save it first:
+The bootstrap installs the `Az` roll-up and its dependencies for the current user by default. It uses a unique temporary local PSRepository and removes that repository and the extracted files afterward.
+
+### Alternative: download and run
+
+Use this optional workflow to inspect the script before running it or to pass installer parameters.
+Download the script:
 
 ```powershell
+# Linux / macOS / WSL / Windows (PowerShell 7.6+)
 Invoke-WebRequest https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps1 -OutFile ./azps-install.ps1 -ErrorAction Stop
-# Review the file, then:
-./azps-install.ps1
 ```
 
-The bootstrap installs the `Az` roll-up and its dependencies for the current user by default. It uses a unique temporary local PSRepository and removes that repository and the extracted files afterward.
+After a successful download, review the script, then run:
+
+```powershell
+./azps-install.ps1
+```
 
 ### Bootstrap options
 

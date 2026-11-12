@@ -37,23 +37,15 @@ The bundle unpacks as loose `.nupkg` files, so extract it into a folder and inst
 
 Requires Bash, `curl`, `tar`, and standard system text utilities:
 
+**1. Download and extract**
+
+Run each command only after the previous one succeeds:
+
 ```bash
-(
-set -euo pipefail
+# Linux / macOS / WSL
 curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.sh | bash
 mkdir -p azcli-extensions
 tar -xzf ./azcli-extensions.tar.gz -C azcli-extensions
-
-# Install one extension (e.g. compute)
-az extension add --path ./azcli-extensions/azcli.extensions.compute.*.nupkg
-
-# Or install every bundled extension
-for pkg in ./azcli-extensions/azcli.extensions.*.nupkg; do
-  az extension add --path "$pkg"
-done
-
-az extension list
-)
 ```
 
 For a specific release, replace the download command with:
@@ -62,24 +54,38 @@ For a specific release, replace the download command with:
 curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.sh | bash -s -- --release '<release-tag>'
 ```
 
+**2. Install extensions**
+
+Choose **one** of the following options.
+
+Install one extension (for example, Compute):
+
+```bash
+az extension add --path ./azcli-extensions/azcli.extensions.compute.*.nupkg
+```
+
+Or install every bundled extension:
+
+```bash
+for pkg in ./azcli-extensions/azcli.extensions.*.nupkg; do
+  az extension add --path "$pkg"
+done
+```
+
 ### Windows (PowerShell)
 
 PowerShell doesn't expand `*` for external commands, so resolve the paths explicitly with `Get-ChildItem`:
 
+**1. Download and extract**
+
+Run each command only after the previous one succeeds:
+
 ```powershell
+# Windows (PowerShell 7+)
 irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.ps1 -ErrorAction Stop | iex
 New-Item -ItemType Directory -Force -Path azcli-extensions | Out-Null
 tar -xzf ./azcli-extensions.tar.gz -C azcli-extensions
 if ($LASTEXITCODE -ne 0) { throw 'Extensions bundle extraction failed.' }
-
-# Install one extension (e.g. compute)
-$compute = Get-ChildItem azcli-extensions/azcli.extensions.compute.*.nupkg | Select-Object -First 1
-az extension add --path $compute.FullName
-
-# Or install every bundled extension
-Get-ChildItem azcli-extensions/azcli.extensions.*.nupkg | ForEach-Object { az extension add --path $_.FullName }
-
-az extension list
 ```
 
 For a specific release, download the helper and pass the tag explicitly:
@@ -89,7 +95,26 @@ Invoke-WebRequest https://raw.githubusercontent.com/Azure/azclips/main/install/a
 ./azcli-extensions-download.ps1 -Release '<release-tag>'
 ```
 
+**2. Install extensions**
+
+Choose **one** of the following options.
+
+Install one extension (for example, Compute):
+
+```powershell
+$compute = Get-ChildItem azcli-extensions/azcli.extensions.compute.*.nupkg | Select-Object -First 1
+az extension add --path $compute.FullName
+```
+
+Or install every bundled extension:
+
+```powershell
+Get-ChildItem azcli-extensions/azcli.extensions.*.nupkg | ForEach-Object { az extension add --path $_.FullName }
+```
+
 ## Verify
+
+In either shell, list the installed extensions:
 
 ```bash
 az extension list

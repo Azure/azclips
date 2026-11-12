@@ -23,52 +23,32 @@ The installer downloads the latest release from [GitHub Releases](https://github
 **Linux / macOS / WSL:**
 
 ```bash
+# Linux / macOS / WSL
 curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.sh | bash
 ```
 
 **Windows (PowerShell 7+):**
 
 ```powershell
+# Windows (PowerShell 7+)
 irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.ps1 -ErrorAction Stop | iex
 ```
 
-For the lean package:
+### Install the lean package
+
+To install only the built-in extensions, use:
 
 ```bash
+# Linux / macOS / WSL
 curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.sh | AZCLI_PACKAGE=lean bash
 ```
 
 ```powershell
+# Windows (PowerShell 7+)
 $env:AZCLI_PACKAGE='lean'; irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.ps1 -ErrorAction Stop | iex
 ```
 
 The Bash assignment applies only to the installer process. The PowerShell variable persists for the current session; run `Remove-Item Env:AZCLI_PACKAGE` afterward to restore the default full-package selection.
-
-### Prefer to review the script first?
-
-The commands above execute downloaded code. To inspect it before execution, download the script and run the execution command only after a successful download and review:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.sh -o azcli-install.sh
-# Review the file, then:
-bash ./azcli-install.sh
-```
-
-```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.ps1 -OutFile ./azcli-install.ps1 -ErrorAction Stop
-# Review the file, then:
-./azcli-install.ps1
-```
-
-Pass options to a saved script with `bash ./azcli-install.sh --package lean` or `./azcli-install.ps1 -Package lean`.
-
-### Installer options
-
-| Option (bash) | Option (PowerShell) | Default | Purpose |
-| --- | --- | --- | --- |
-| `--package lean\|full` | `-Package lean\|full` | `full` | Full = built-in + add-on extensions bundled; lean = built-in extensions only. |
-
-Environment variable equivalent (bash and PowerShell): `AZCLI_PACKAGE`.
 
 ## Run azcli
 
@@ -83,7 +63,7 @@ By default the installer does **not** modify your `PATH`, so azcli (`az`) instal
 - **Add to `PATH` for this session** (recommended during public preview; does not persist or shadow classic `az` in new shells):
 
   ```bash
-  export PATH="$HOME/.local/share/azcli:$PATH"     # Linux / macOS — current shell only
+  export PATH="$HOME/.local/share/azcli:$PATH"     # Linux / macOS / WSL — current shell only
   ```
 
   ```powershell
@@ -113,7 +93,7 @@ Removes the install directory. Download and review the uninstall script first if
 
 The installer reports failed downloads and missing or ambiguous release assets. GitHub's API is rate-limited; if a release lookup returns HTTP 403 or 429, check GitHub's response and retry after the rate limit resets. You can also download the archive from [GitHub Releases](https://github.com/Azure/azclips/releases) and follow the [manual guide](./install-cli-manual.md).
 
-Piped Bash execution may not report the downloader's exit status. If the bootstrap download fails, do not assume installation succeeded; use the download-and-review workflow to check download success separately.
+Piped Bash execution may not report the downloader's exit status. If the bootstrap download fails, do not assume installation succeeded; check the error output or use the [manual guide](./install-cli-manual.md).
 
 ## Other install scenarios
 
