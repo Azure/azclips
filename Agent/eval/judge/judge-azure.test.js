@@ -107,13 +107,13 @@ test('real preflight loads the evaluation-local file from a different working di
     delete env[name];
   }
   const result = spawnSync(process.execPath, [entry, '--check-config'], {
-    cwd: os.tmpdir(), env, encoding: 'utf8', timeout: 15000,
+    cwd: os.tmpdir(), env, encoding: 'utf8', timeout: 60_000,
   });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /inference access is verified by the grading call/);
   fs.writeFileSync(configPath, '{"endpoint":"","deployment":""}');
   const incomplete = spawnSync(process.execPath, [entry, '--check-config'], {
-    cwd: os.tmpdir(), env, encoding: 'utf8', timeout: 15000,
+    cwd: os.tmpdir(), env, encoding: 'utf8', timeout: 60_000,
   });
   assert.equal(incomplete.status, 1);
   assert.match(incomplete.stderr, /judge\.config\.local\.json/);

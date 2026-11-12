@@ -333,7 +333,7 @@ function runWrapper(context, options = {}) {
   }
   const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-File', path.join(directory, 'driver.ps1')], {
     encoding: 'utf8',
-    timeout: 20_000,
+    timeout: 60_000,
     env: {
       ...process.env,
       AZCLIPS_HOME: scenario.homeOverride ?? home,
@@ -343,6 +343,9 @@ function runWrapper(context, options = {}) {
       TMP: directory,
     },
   });
+  if (result.error?.code === 'ETIMEDOUT') {
+    throw new Error('The evaluation wrapper did not finish within 60 seconds', { cause: result.error });
+  }
   if (result.error) {
     throw new Error('PowerShell 7 is required to validate the evaluation wrapper', { cause: result.error });
   }

@@ -3,6 +3,8 @@
 
 using Core.Abstractions;
 using Core.Agent.AgentMode;
+using Microsoft.Extensions.Time.Testing;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -19,7 +21,7 @@ public sealed class RetiredAgentKeysTests
             ["agent.provider"] = "github",
         });
 
-        await RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None);
+        await RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None, new FakeTimeProvider());
 
         Assert.Equal(["agent.enabled", "agent.sessionStyle", "agent.builtin.endpoint"], config.Deleted);
         Assert.Equal("github", config.Values["agent.provider"]);
@@ -29,7 +31,7 @@ public sealed class RetiredAgentKeysTests
     public async Task NoRetiredKeys_DeletesNothing()
     {
         var config = new RecordingConfiguration(new() { ["agent.provider"] = "builtin" });
-        await RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None);
+        await RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None, new FakeTimeProvider());
         Assert.Empty(config.Deleted);
     }
 
@@ -37,19 +39,23 @@ public sealed class RetiredAgentKeysTests
     public async Task ConfigurationFailure_DoesNotFailAgentStart()
     {
         var config = new RecordingConfiguration([]) { Fail = true };
-        await RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None);
+        await RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None, new FakeTimeProvider());
         Assert.Empty(config.Deleted);
     }
 
     [Fact]
-    public async Task SlowDelete_ReturnsWithinTheCleanupBudget()
+    public async Task SlowDelete_ReturnsWhenTheCleanupBudgetExpires()
     {
         var config = new RecordingConfiguration(new() { ["agent.enabled"] = true }) { HangOnDelete = true };
-        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        var clock = new SignalingFakeTimeProvider();
 
-        await RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None);
+        var cleanup = RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None, clock);
+        await clock.WaitForTimerAsync(RetiredAgentKeys.CleanupBudget, AgentTestTimeouts.HangGuard);
+        Assert.False(cleanup.IsCompleted);
+        clock.Advance(RetiredAgentKeys.CleanupBudget);
 
-        Assert.True(elapsed.Elapsed < RetiredAgentKeys.CleanupBudget + TimeSpan.FromSeconds(5), $"elapsed {elapsed.Elapsed}");
+        await cleanup.WaitAsync(AgentTestTimeouts.HangGuard);
+        Assert.Empty(config.Deleted);
     }
 
     private sealed class RecordingConfiguration(Dictionary<string, object?> values) : IConfigurationService
