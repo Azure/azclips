@@ -47,19 +47,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         }
 
         /// <summary>
-        /// The base pipeline deserializes the first page then hands it here. This is the seam where
-        /// the remaining pages are collected, the name filter is applied, and the detail fan-out
-        /// runs — all before a single write. Returning true tells the base not to write again.
+        /// Collects the lazy pages before applying the name filter and detail fan-out,
+        /// then writes once. Paging is execution, not an output-hook side effect.
         /// </summary>
-        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachineListResult? body)
+        protected override async Task ExecuteAsync()
         {
-            List<VirtualMachine> virtualMachines = await body.CollectWithNextLinkAsync(
-                pageBody => pageBody.Value,
-                pageBody => pageBody.NextLink,
-                CreateRequestMessage,
-                Publisher,
-                HttpPipeline,
-                JsonOptions);
+            List<VirtualMachine> virtualMachines = await ReadPagesAsync()
+                .CollectItemsAsync(pageBody => pageBody.Value);
 
             if (!string.IsNullOrWhiteSpace(Name))
             {
@@ -70,7 +64,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
             await EnrichAllAsync(virtualMachines);
             await WriteOutput(virtualMachines);
-            return true;
         }
 
         /// <summary>

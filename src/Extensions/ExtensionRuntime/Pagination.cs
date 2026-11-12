@@ -3,46 +3,47 @@
 
 namespace Microsoft.Azure.Azclips.ExtensionRuntime;
 
-using System.Net.Http;
-using System.Threading.Tasks;
-using Core.Abstractions.Runtime;
-using Core.Abstractions;
 using System.Text.Json;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
 
 public static class Pagination
 {
     /// <summary>
-    /// Follows every <c>nextLink</c> and returns the accumulated items without writing them.
-    /// Use this when a caller needs to filter, sort or enrich the full result set before output;
-    /// use <c>WriteOutputWithPaginationAsync</c> when the raw set should go straight out.
+    /// Reads typed pages lazily, following next-link URLs. The first request runs only when
+    /// enumeration starts; subsequent requests run only when the consumer advances.
+    /// Cancellation uses the execution publisher's token.
     /// </summary>
-    public static async Task<List<TItem>> CollectWithNextLinkAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
+    public static async IAsyncEnumerable<TBody> ReadWithNextLinkAsync<TBody>(
+        Func<Task<TBody?>> readFirstPage,
+        Func<TBody, string?> nextLink,
+        Func<Task<HttpRequestMessage>> getRequest,
+        JsonSerializerOptions jsonOptions,
+        IEventPublisher publisher,
+        IRuntimeHttpPipeline httpPipeline)
     {
+        publisher.Token.ThrowIfCancellationRequested();
+        TBody? body = await readFirstPage();
         HttpRequestMessage request = await getRequest();
         int page = 1;
-        List<TItem> batchedItems = new List<TItem>();
         try
         {
-            while ( body is not null && pageItems(body) is {} items)
+            while (body is not null)
             {
-                batchedItems.AddRange(items);
-                if (nextLink(body) is not {} next || string.IsNullOrWhiteSpace(next))
+                publisher.Token.ThrowIfCancellationRequested();
+                yield return body;
+                publisher.Token.ThrowIfCancellationRequested();
+                if (nextLink(body) is not { } next || string.IsNullOrWhiteSpace(next))
                 {
-                    break;
+                    yield break;
                 }
-                body = default;
+
                 request = request.CloneAndDispose(new Uri(next), HttpMethod.Get);
                 await publisher.Publish(Events.PaginationNextPage, new EventData { Message = $"Fetching page {++page} ..." });
                 using HttpResponseMessage response = await httpPipeline.SendAsync(request, publisher);
                 await publisher.Publish(Events.TracingHttpResponseMessage, response);
-                try
-                {
-                    await response.EnsureSuccessAsync(publisher);
-                }
-                catch
-                {
-                    throw;
-                }
+                await response.EnsureSuccessAsync(publisher);
+                body = default;
                 string rawBody;
                 bool sensitive = request.HasSensitiveDiagnostics() || response.RequestMessage.HasSensitiveDiagnostics();
                 if (response.Content is null)
@@ -71,7 +72,6 @@ public static class Pagination
                     }
                 }
             }
-            return batchedItems;
         }
         finally
         {
@@ -80,75 +80,112 @@ public static class Pagination
     }
 
     /// <summary>
-    /// Follows every <c>nextLink</c> and writes the accumulated items as a single batch.
+    /// Reads typed pages lazily by setting the response token on the request parameter and
+    /// rebuilding each request. Request signing and the supplied deserializer apply to every page.
+    /// Cancellation uses the execution publisher's token.
     /// </summary>
-    public static async Task WriteOutputWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
+    public static async IAsyncEnumerable<TBody> ReadWithTokenAsync<TBody>(
+        Func<Task<TBody?>> readFirstPage,
+        Func<TBody, string?> continuationToken,
+        Action<string> setContinuationToken,
+        Func<Task<HttpRequestMessage>> getRequest,
+        Func<string, Task<TBody?>> deserialize,
+        IEventPublisher publisher,
+        IRuntimeHttpPipeline httpPipeline)
     {
-        List<TItem> batchedItems = await body.CollectWithNextLinkAsync(pageItems, nextLink, getRequest, publisher, httpPipeline, jsonOptions);
-        await writeOutput(batchedItems);
+        publisher.Token.ThrowIfCancellationRequested();
+        TBody? body = await readFirstPage();
+        int page = 1;
+        while (body is not null)
+        {
+            publisher.Token.ThrowIfCancellationRequested();
+            yield return body;
+            publisher.Token.ThrowIfCancellationRequested();
+            if (continuationToken(body) is not { } token || string.IsNullOrWhiteSpace(token))
+            {
+                yield break;
+            }
+
+            setContinuationToken(token);
+            await publisher.Publish(Events.PaginationNextPage, new EventData { Message = $"Fetching page {++page} ..." });
+            using HttpResponseMessage response = await HttpRuntime.SendAsync(getRequest, publisher, httpPipeline);
+            body = await ReadTokenResponseAsync(response, deserialize, publisher);
+        }
     }
 
-    /// <summary>
-    /// Follows every continuation token and returns the accumulated items without writing them.
-    /// Each page is the original request rebuilt with the token set, so request signing and the
-    /// processor's own deserialization (e.g. XML) apply to every page, not only the first.
-    /// </summary>
-    /// <param name="continuationToken">Reads the next page's token from a page; empty ends paging.</param>
-    /// <param name="setContinuationToken">Sets the token on the request parameter that sends it back.</param>
-    /// <param name="getRequest">Builds the request from the processor's current parameters.</param>
-    /// <param name="deserialize">The processor's response deserialization.</param>
-    public static async Task<List<TItem>> CollectWithTokenAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> continuationToken, Action<string> setContinuationToken, Func<Task<HttpRequestMessage>> getRequest, Func<string, Task<TBody?>> deserialize, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline)
+    private static async Task<TBody?> ReadTokenResponseAsync<TBody>(HttpResponseMessage response, Func<string, Task<TBody?>> deserialize, IEventPublisher publisher)
     {
-        int page = 1;
-        List<TItem> batchedItems = new List<TItem>();
-        while (body is not null && pageItems(body) is {} items)
+        bool sensitive = response.RequestMessage.HasSensitiveDiagnostics();
+        if (response.Content is null)
         {
-            batchedItems.AddRange(items);
-            if (continuationToken(body) is not {} token || string.IsNullOrWhiteSpace(token))
+            await publisher.Publish(Events.ResponseNoContent, sensitive
+                ? "Response has no content. Sensitive details omitted."
+                : $"response has no content for {response.RequestMessage?.RequestUri}");
+            return default;
+        }
+
+        string rawBody = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(rawBody))
+        {
+            await publisher.Publish(Events.ResponseEmptyBody, sensitive
+                ? "Response has empty body. Sensitive details omitted."
+                : $"response has empty body for {response.RequestMessage?.RequestUri}");
+            return default;
+        }
+
+        try
+        {
+            return await deserialize(rawBody);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            if (sensitive)
+            {
+                await publisher.Publish(Events.ResponseInvalidJson, "Response could not be deserialized. Sensitive details omitted.");
+                throw new InvalidOperationException("Failed to deserialize the response. Sensitive details omitted.");
+            }
+            await publisher.Publish(Events.ResponseInvalidJson, $"response could not be deserialized for {response.RequestMessage?.RequestUri}");
+            throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TBody).Name}. Raw body: {rawBody}", ex);
+        }
+    }
+
+    /// <summary>Collects page items without writing output. Stops when a page has no items property.</summary>
+    public static async Task<List<TItem>> CollectItemsAsync<TBody, TItem>(
+        this IAsyncEnumerable<TBody> pages, Func<TBody, IEnumerable<TItem>?> pageItems)
+    {
+        List<TItem> items = [];
+        await foreach (TBody body in pages)
+        {
+            if (pageItems(body) is not { } page)
             {
                 break;
             }
-            setContinuationToken(token);
-            body = default;
-            await publisher.Publish(Events.PaginationNextPage, new EventData { Message = $"Fetching page {++page} ..." });
-            using HttpResponseMessage response = await HttpRuntime.SendAsync(getRequest, publisher, httpPipeline);
-            string rawBody;
-            bool sensitive = response.RequestMessage.HasSensitiveDiagnostics();
-            if (response.Content is null)
-                await publisher.Publish(Events.ResponseNoContent, sensitive
-                    ? "Response has no content. Sensitive details omitted."
-                    : $"response has no content for {response.RequestMessage?.RequestUri}");
-            else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync()))
-                await publisher.Publish(Events.ResponseEmptyBody, sensitive
-                    ? "Response has empty body. Sensitive details omitted."
-                    : $"response has empty body for {response.RequestMessage?.RequestUri}");
-            else
-            {
-                try
-                {
-                    body = await deserialize(rawBody);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    if (sensitive)
-                    {
-                        await publisher.Publish(Events.ResponseInvalidJson, "Response could not be deserialized. Sensitive details omitted.");
-                        throw new InvalidOperationException("Failed to deserialize the response. Sensitive details omitted.");
-                    }
-                    await publisher.Publish(Events.ResponseInvalidJson, $"response could not be deserialized for {response.RequestMessage?.RequestUri}");
-                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TBody).Name}. Raw body: {rawBody}", ex);
-                }
-            }
+            items.AddRange(page);
         }
-        return batchedItems;
+        return items;
     }
 
-    /// <summary>
-    /// Follows every continuation token and writes the accumulated items as a single batch.
-    /// </summary>
+    /// <summary>Collects an already fetched first page and all its next-link pages without writing output.</summary>
+    public static Task<List<TItem>> CollectWithNextLinkAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions) =>
+        ReadWithNextLinkAsync(() => Task.FromResult(body), nextLink, getRequest, jsonOptions, publisher, httpPipeline)
+            .CollectItemsAsync(pageItems);
+
+    /// <summary>Collects all next-link pages and writes the accumulated items as a single batch.</summary>
+    public static async Task WriteOutputWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> nextLink, Func<Task<HttpRequestMessage>> getRequest, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline, JsonSerializerOptions jsonOptions)
+    {
+        List<TItem> items = await body.CollectWithNextLinkAsync(pageItems, nextLink, getRequest, publisher, httpPipeline, jsonOptions);
+        await writeOutput(items);
+    }
+
+    /// <summary>Collects an already fetched first page and all its token pages without writing output.</summary>
+    public static Task<List<TItem>> CollectWithTokenAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> continuationToken, Action<string> setContinuationToken, Func<Task<HttpRequestMessage>> getRequest, Func<string, Task<TBody?>> deserialize, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline) =>
+        ReadWithTokenAsync(() => Task.FromResult(body), continuationToken, setContinuationToken, getRequest, deserialize, publisher, httpPipeline)
+            .CollectItemsAsync(pageItems);
+
+    /// <summary>Collects all token pages and writes the accumulated items as a single batch.</summary>
     public static async Task WriteOutputWithPaginationAsync<TBody, TItem>(this TBody? body, Func<TBody, IEnumerable<TItem>?> pageItems, Func<TBody, string?> continuationToken, Action<string> setContinuationToken, Func<Task<HttpRequestMessage>> getRequest, Func<string, Task<TBody?>> deserialize, OutputStreamDelegate writeOutput, IEventPublisher publisher, IRuntimeHttpPipeline httpPipeline)
     {
-        List<TItem> batchedItems = await body.CollectWithTokenAsync(pageItems, continuationToken, setContinuationToken, getRequest, deserialize, publisher, httpPipeline);
-        await writeOutput(batchedItems);
+        List<TItem> items = await body.CollectWithTokenAsync(pageItems, continuationToken, setContinuationToken, getRequest, deserialize, publisher, httpPipeline);
+        await writeOutput(items);
     }
 }

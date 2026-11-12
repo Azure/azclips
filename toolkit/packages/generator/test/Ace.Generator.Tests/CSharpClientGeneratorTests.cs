@@ -1,10 +1,19 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Moq;
 using Xunit;
+using DiagnosticSeverity = Ace.Generator.Model.DiagnosticSeverity;
+using Match = System.Text.RegularExpressions.Match;
 
 namespace Ace.Generator.Tests;
 
@@ -634,11 +643,18 @@ public sealed class CSharpClientGeneratorTests
         Assert.Empty(result.Diagnostics);
         string source = writer.Files.Source(result, "ListProcessor");
         Assert.Contains(selector, source);
-        Assert.Contains("WriteOutputWithPaginationAsync", source);
+        Assert.Contains("Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)", source);
+        Assert.Contains("ExecuteAsync() => ExecutePagesAsync<string>(pageItems)", source);
+        Assert.DoesNotContain("BeforeWriteOutputAsyncAndReturn", source);
+        CompilePaging(result, writer, "Envelope", "Page");
     }
 
-    [Fact]
-    public async Task Generate_Paging_WithAContinuationToken_SetsItsParameterAndRebuildsTheRequest()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Generate_Paging_WithAContinuationToken_SetsItsParameterAndRebuildsTheRequest(bool headerToken, bool failLaterPage)
     {
         IRId pageId = new() { Module = "Test", Name = "Page" };
         IRId valueId = new() { Module = "Test", Name = "Page.value" };
@@ -676,7 +692,15 @@ public sealed class CSharpClientGeneratorTests
                 "List",
                 ServerId(),
                 OperationId("list"),
-                parameters: [Commands.Parameter("Marker", Commands.FromQuery(OperationId("p.marker")), required: false)],
+                query: headerToken
+                    ? [Commands.Pinned("api-version", "v1")]
+                    : [Commands.Pinned("api-version", "v1"), Commands.Supplied("marker", "Marker")],
+                headers: headerToken
+                    ? [Commands.Pinned("x-test", "retained"), Commands.Supplied("x-marker", "Marker")]
+                    : [Commands.Pinned("x-test", "retained")],
+                parameters: [Commands.Parameter("Marker", headerToken
+                    ? Commands.FromHeader(OperationId("p.marker"))
+                    : Commands.FromQuery(OperationId("p.marker")), required: false)],
                 pagination: new IRCommandPagination
                 {
                     ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
@@ -690,15 +714,25 @@ public sealed class CSharpClientGeneratorTests
                 surface: Commands.Surface(response: new IRTypeRefModel { Id = pageId }, paginated: true)),
         ];
 
-        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
+            scenario: $"{nameof(Generate_Paging_WithAContinuationToken_SetsItsParameterAndRebuildsTheRequest)}_{headerToken}_{failLaterPage}");
 
         Assert.Empty(result.Diagnostics);
         string source = writer.Files.Source(result, "ListProcessor");
         Assert.Contains("continuationToken(Page body) => body.NextMarker;", source);
         Assert.Contains(
-            "body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline)",
+            "Pagination.ReadWithTokenAsync(ReadResponseAsync, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)",
             source);
+        Assert.Contains("IAsyncEnumerable<Page> ReadPagesAsync()", source);
+        Assert.Contains("ExecuteAsync() => ExecutePagesAsync<string>(pageItems)", source);
+        Assert.DoesNotContain("BeforeWriteOutputAsyncAndReturn", source);
         Assert.DoesNotContain("nextLink", source);
+        byte[] assembly = CompilePaging(result, writer, "Page");
+        await RunGeneratedTokenPagingAsync(assembly, headerToken, failLaterPage);
+        if (!failLaterPage)
+        {
+            await RunGeneratedTokenPagingAsync(assembly, headerToken, failLaterPage: false, malformedFirstPage: true);
+        }
     }
 
     [Fact]
@@ -731,6 +765,8 @@ public sealed class CSharpClientGeneratorTests
         string source = writer.Files.Source(result, "ListProcessor");
         Assert.DoesNotContain("Ghost", source);
         Assert.DoesNotContain("WriteOutputWithPaginationAsync", source);
+        Assert.DoesNotContain("ReadPagesAsync", source);
+        Assert.DoesNotContain("ExecutePagesAsync", source);
     }
 
     [Fact]
@@ -984,6 +1020,123 @@ public sealed class CSharpClientGeneratorTests
         Assert.Contains("CommonTypesErrorResponse? Error", holder);
         // The id's name must not leak through as a type reference.
         Assert.DoesNotContain("ErrorResponse? Error", holder.Replace("CommonTypesErrorResponse? Error", ""));
+    }
+
+    private static byte[] CompilePaging(GenerationResult result, ArtifactWriter writer, params string[] models)
+    {
+        string platformAssemblies = Assert.IsType<string>(AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"));
+        string[] dependencies =
+        [
+            .. platformAssemblies.Split(Path.PathSeparator),
+            typeof(Microsoft.Azure.Azclips.ExtensionRuntime.Pagination).Assembly.Location,
+            typeof(Core.Abstractions.IProcessor).Assembly.Location,
+        ];
+        string[] classes = ["ProcessorBase", "ListProcessor", .. models];
+        var compilation = CSharpCompilation.Create(
+            "GeneratedPaging",
+            classes.Select(name => CSharpSyntaxTree.ParseText(writer.Files.Source(result, name))),
+            dependencies.Distinct(StringComparer.OrdinalIgnoreCase).Select(path => MetadataReference.CreateFromFile(path)),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+
+        Assert.True(emitted.Success, string.Join(Environment.NewLine,
+            emitted.Diagnostics.Where(diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error)));
+        return output.ToArray();
+    }
+
+    private static async Task RunGeneratedTokenPagingAsync(byte[] assemblyBytes, bool headerToken, bool failLaterPage, bool malformedFirstPage = false)
+    {
+        var loadContext = new AssemblyLoadContext("GeneratedPagingExecution", isCollectible: true);
+        try
+        {
+            using var stream = new MemoryStream(assemblyBytes);
+            var assembly = loadContext.LoadFromStream(stream);
+            var processorType = Assert.Single(assembly.GetTypes(), type => type.Name == "ListProcessor");
+            var processor = Assert.IsAssignableFrom<IProcessor>(Activator.CreateInstance(processorType));
+            string?[] markers = [null, "second +/&=", "third?="];
+            string[] names = ["first", "second", "third"];
+            var requests = new List<string>();
+            var written = new List<object>();
+            var publisher = new Mock<IEventPublisher>();
+            publisher.SetReturnsDefault(Task.CompletedTask);
+            var pipeline = new Mock<IRuntimeHttpPipeline>();
+            pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), publisher.Object))
+                .Returns((HttpRequestMessage request, IEventPublisher _) =>
+                {
+                    int index = requests.Count;
+                    Assert.InRange(index, 0, 2);
+                    Assert.Empty(written);
+                    Assert.Equal(HttpMethod.Get, request.Method);
+                    string expectedUri = "https://example.com/widgets?api-version=v1";
+                    if (!headerToken && markers[index] is { } marker)
+                    {
+                        expectedUri += $"&marker={Uri.EscapeDataString(marker)}";
+                    }
+                    Assert.Equal(expectedUri, request.RequestUri!.AbsoluteUri);
+                    Assert.Equal("retained", Assert.Single(request.Headers.GetValues("x-test")));
+                    string? sentToken = request.Headers.TryGetValues("x-marker", out var values)
+                        ? Assert.Single(values)
+                        : null;
+                    Assert.Equal(headerToken ? markers[index] : null, sentToken);
+                    requests.Add(request.RequestUri.AbsoluteUri);
+                    bool failed = failLaterPage && index == 1;
+                    string rawBody = failed
+                        ? """{"error":{"code":"Denied","message":"Access denied."}}"""
+                        : JsonSerializer.Serialize(new
+                        {
+                            value = new[] { names[index] },
+                            nextMarker = index + 1 < markers.Length ? markers[index + 1] : null,
+                        });
+                    if (malformedFirstPage) rawBody = "{invalid-json";
+                    return Task.FromResult(new HttpResponseMessage(failed ? HttpStatusCode.Forbidden : HttpStatusCode.OK)
+                    {
+                        RequestMessage = request,
+                        Content = new StringContent(rawBody),
+                    });
+                });
+            var output = new Mock<IOutputHandler>();
+            output.SetupProperty(value => value.WriteOutput, (value, _) =>
+            {
+                written.Add(value);
+                return Task.CompletedTask;
+            });
+            processor.Init(new ProcessorContext(pipeline.Object, publisher.Object, Mock.Of<IAuthHandler>(), output.Object));
+
+            Assert.Empty(requests);
+            Assert.Empty(written);
+            if (malformedFirstPage)
+            {
+                var error = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+                Assert.Equal("Failed to deserialize response body into Page. Raw body: {invalid-json", error.Message);
+                Assert.IsType<JsonException>(error.InnerException);
+                publisher.Verify(value => value.Publish(Events.ResponseInvalidJson,
+                    "response could not be deserialized for https://example.com/widgets?api-version=v1"), Times.Once);
+                Assert.Empty(written);
+            }
+            else if (failLaterPage)
+            {
+                var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+                Assert.Equal(HttpStatusCode.Forbidden, error.StatusCode);
+                Assert.Empty(written);
+            }
+            else
+            {
+                await processor.ProcessAsync();
+                Assert.Equal(names, Assert.IsType<List<string>>(Assert.Single(written)));
+            }
+
+            int count = malformedFirstPage ? 1 : failLaterPage ? 2 : 3;
+            Assert.Equal(count, requests.Count);
+            publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Exactly(count));
+            publisher.Verify(value => value.Publish(Events.ProcessorAfterHttpRequestCreate), Times.Exactly(count));
+            publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncStart), Times.Once);
+            publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncEnd), Times.Once);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
     }
 
     [Fact]

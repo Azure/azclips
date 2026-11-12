@@ -102,4 +102,90 @@ public class ResourceGroupReadTests
         Assert.Equal(2, sent.Count);
         Assert.Empty(output.WrittenValues);
     }
+
+    [Fact]
+    public async Task List_PageIteratorIsLazyAndCanStopAfterOnePage()
+    {
+        var (pipeline, output, sent) = Fake(_ => Status(HttpStatusCode.OK,
+            """{"value":[{"name":"first-rg"}],"nextLink":"https://management.azure.com/next-page"}"""));
+        var processor = Configure(new InspectableListProcessor(), pipeline, output,
+            processor => processor.SubscriptionId = SubscriptionId);
+        IAsyncEnumerable<ResourceGroupListResult> pages = processor.Pages();
+
+        Assert.Empty(sent);
+        await foreach (ResourceGroupListResult page in pages)
+        {
+            Assert.Equal("first-rg", Assert.Single(page.Value!).Name);
+            break;
+        }
+
+        Assert.Single(sent);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task List_ExecutionCanChooseOnePageWithoutUsingTheOutputHook()
+    {
+        var (pipeline, output, sent) = Fake(_ => Status(HttpStatusCode.OK,
+            """{"value":[{"name":"first-rg"}],"nextLink":"https://management.azure.com/next-page"}"""));
+        var processor = Configure(new SinglePageListProcessor(), pipeline, output,
+            processor => processor.SubscriptionId = SubscriptionId);
+
+        await processor.ProcessAsync();
+
+        Assert.Single(sent);
+        Assert.Equal("first-rg", Assert.Single(
+            Assert.IsType<ResourceGroup[]>(Assert.Single(output.WrittenValues))).Name);
+        Assert.False(processor.OutputHookCalled);
+    }
+
+    [Fact]
+    public async Task Get_PreservesSingleResponseOutputCustomization()
+    {
+        var (pipeline, output, sent) = Fake(_ => Status(HttpStatusCode.OK, """{"name":"test-rg"}"""));
+        var processor = Configure(new OutputOverrideGetProcessor(), pipeline, output, processor =>
+        {
+            processor.SubscriptionId = SubscriptionId;
+            processor.Name = "test-rg";
+        });
+
+        await processor.ProcessAsync();
+
+        Assert.Single(sent);
+        Assert.Equal("test-rg", Assert.Single(output.WrittenValues));
+    }
+
+    private sealed class OutputOverrideGetProcessor : GetResourceGroupProcessor
+    {
+        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ResourceGroup? body)
+        {
+            await WriteOutput(Assert.IsType<string>(Assert.IsType<ResourceGroup>(body).Name));
+            return true;
+        }
+    }
+
+    private sealed class InspectableListProcessor : ListResourceGroupProcessor
+    {
+        public IAsyncEnumerable<ResourceGroupListResult> Pages() => ReadPagesAsync();
+    }
+
+    private sealed class SinglePageListProcessor : ListResourceGroupProcessor
+    {
+        public bool OutputHookCalled { get; private set; }
+
+        protected override async Task ExecuteAsync()
+        {
+            await foreach (ResourceGroupListResult page in ReadPagesAsync())
+            {
+                await WriteOutput(Assert.IsType<ResourceGroup[]>(page.Value));
+                break;
+            }
+        }
+
+        protected override Task<bool> BeforeWriteOutputAsyncAndReturn(ResourceGroupListResult? body)
+        {
+            OutputHookCalled = true;
+            return Task.FromResult(false);
+        }
+    }
 }

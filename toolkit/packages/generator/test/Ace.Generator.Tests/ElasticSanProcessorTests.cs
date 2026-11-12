@@ -134,7 +134,9 @@ public sealed class ElasticSanProcessorTests
         // Selectors from IR response-body bindings (PascalCased) + the runtime helper override.
         Assert.Contains("IEnumerable<ElasticSan>? pageItems(ElasticSanList body) => body.Value;", list);
         Assert.Contains("string? nextLink(ElasticSanList body) => body.NextLink;", list);
-        Assert.Contains("BeforeWriteOutputAsyncAndReturn(ElasticSanList? body)", list);
-        Assert.Contains("body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions)", list);
+        Assert.Contains("IAsyncEnumerable<ElasticSanList> ReadPagesAsync()", list);
+        Assert.Contains("Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)", list);
+        Assert.Contains("ExecuteAsync() => ExecutePagesAsync<ElasticSan>(pageItems)", list);
+        Assert.DoesNotContain("BeforeWriteOutputAsyncAndReturn", list);
     }
 }

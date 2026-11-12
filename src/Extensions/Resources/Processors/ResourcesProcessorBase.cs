@@ -150,9 +150,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
     }
 
     /// <summary>
-    /// Generic resources processor base. The default <see cref="ProcessAsync"/> pipeline:
-    /// 1) Publishes start, 2) calls <see cref="SendAsync"/>,
-    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishes end.
+    /// Generic resources processor base. ProcessAsync owns lifecycle events; ExecuteAsync
+    /// handles a single response by default. Pageable processors override execution and page reading.
     /// </summary>
     public abstract partial class ResourcesProcessorBase<TRequest, TResponse> : ResourcesProcessorBase
         where TRequest : class
@@ -176,35 +175,70 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         protected virtual Task<bool> BeforeWriteOutputAsyncAndReturn(TResponse? body) => Task.FromResult(false);
 
+        protected virtual Task<TResponse?> DeserializeResponseAsync(string rawBody) =>
+            Task.FromResult(JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions));
+
+        protected async Task<TResponse?> ReadResponseAsync()
+        {
+            Publisher.Token.ThrowIfCancellationRequested();
+            using HttpResponseMessage response = await SendAsync();
+            return await ReadResponseAsync(response);
+        }
+
+        private async Task<TResponse?> ReadResponseAsync(HttpResponseMessage response)
+        {
+            string? rawBody = null;
+            TResponse? body = default;
+            if (response.Content is null) await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+            else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync())) await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+            else
+            {
+                try
+                {
+                    body = await DeserializeResponseAsync(rawBody);
+                }
+                catch (JsonException ex)
+                {
+                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
+                }
+            }
+            return body;
+        }
+
+        /// <summary>Reads pages on demand using the execution publisher's cancellation token.</summary>
+        protected virtual async IAsyncEnumerable<TResponse> ReadPagesAsync()
+        {
+            if (await ReadResponseAsync() is { } body)
+            {
+                yield return body;
+            }
+        }
+
+        /// <summary>Collects all page items before one write. Override ExecuteAsync for other consumption policies.</summary>
+        protected async Task ExecutePagesAsync<TItem>(Func<TResponse, IEnumerable<TItem>?> pageItems)
+        {
+            List<TItem> items = await ReadPagesAsync().CollectItemsAsync(pageItems);
+            await WriteOutput(items);
+        }
+
+        protected virtual async Task ExecuteAsync()
+        {
+            using HttpResponseMessage response = await SendAsync();
+            TResponse? body = await ReadResponseAsync(response);
+            if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
+            {
+                await WriteOutput(body);
+            }
+        }
+
         public override async Task ProcessAsync()
         {
             try
             {
                 await BeforeProcessAsync();
                 await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-                using HttpResponseMessage response = await SendAsync();
-                string? rawBody = null;
-                TResponse? body = default;
-
-                if (response.Content is null) await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
-                else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync())) await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
-                else
-                {
-                    try
-                    {
-                        body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
-                    }
-                    catch (JsonException ex)
-                    {
-                        await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                        throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
-                    }
-                }
-
-                if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
-                {
-                    await WriteOutput(body);
-                }
+                await ExecuteAsync();
             }
             finally
             {

@@ -317,6 +317,31 @@ rebuilt). The token is resolved only when there is no next link, and only for a 
 response token and a string query or header parameter; otherwise `create-command` warns
 `paging-continuation-unresolved` and keeps items-only pagination (first page).
 
+Generated pageable processors override `ReadPagesAsync` to select the runtime's lazy
+next-link or token iterator, and `ExecuteAsync` to consume it through `ExecutePagesAsync`.
+`ProcessAsync` still owns lifecycle events for both CLI and PowerShell. The default
+execution collects all items and writes once, preserving existing output; custom
+execution can collect and transform before output.
+Page enumeration uses the execution publisher's cancellation token. Each response is
+disposed after deserialization, and stopping enumeration releases any request template
+without fetching another page. Next-link continuation pages retain JSON deserialization
+with the processor's serializer options; token pages retain the processor's custom
+deserializer. Initial responses retain their processor-specific diagnostics.
+Pagination is no longer generated into `BeforeWriteOutputAsyncAndReturn`; that hook
+remains available for single-response output customizations. Existing collection and
+write helpers remain compatible and now consume the same lazy iterators.
+
+For example, the VM list orchestrator overrides `ExecuteAsync` to collect `ReadPagesAsync`,
+then filter by name, enrich only the matching VMs, and write once. It shares the atomic
+VM list processor's next-link strategy without fetching any pages in its output hook.
+Collection finishes before enrichment, so a failed later page produces no partial output
+or per-VM detail calls.
+
+This is an internal refactor only: commands still follow all pages, preserve item order,
+and collect before a single write. It adds no CLI/PowerShell paging flags, result limits,
+streaming defaults, or resumable cursors. The next-link request template is still built
+once, including for a single-page result, preserving request-creation hooks.
+
 ## Dialects
 
 Per-client presentation — how one command is *spoken* by one client.
