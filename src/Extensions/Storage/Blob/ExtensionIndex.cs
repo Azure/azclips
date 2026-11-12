@@ -32,7 +32,10 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["start-from"] = new("StartFrom", "start-from", typeof(string), "Specifies the relative path to list paths from.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["c"] = "container-name",
+            }
         );
 
         private static readonly CommandMetadata cliStorageBlobShow = new(
@@ -64,7 +67,11 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["if-tags"] = new("IfTags", "if-tags", typeof(string), "Specifies a SQL-like where clause on blob tags to operate only on a blob with matching tags.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["c"] = "container-name",
+                ["n"] = "name",
+            }
         );
 
         private static readonly CommandMetadata cliStorageBlobCopyStart = new(
@@ -101,7 +108,12 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["c"] = "destination-container",
+                ["b"] = "destination-blob",
+                ["u"] = "source-uri",
+            }
         );
 
         private static readonly CommandMetadata cliStorageBlobUpload = new(
@@ -132,7 +144,12 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["c"] = "container-name",
+                ["n"] = "name",
+                ["f"] = "file",
+            }
         );
 
         private static readonly CommandMetadata cliStorageBlobUploadFromUrl = new(
@@ -164,7 +181,12 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["c"] = "container-name",
+                ["n"] = "name",
+                ["u"] = "source-uri",
+            }
         );
 
         private static readonly CommandMetadata cliStorageBlobDownload = new(
@@ -197,7 +219,12 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["c"] = "container-name",
+                ["n"] = "name",
+                ["f"] = "file",
+            }
         );
 
         private static readonly CommandMetadata cliStorageBlobDelete = new(
@@ -228,7 +255,11 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["c"] = "container-name",
+                ["n"] = "name",
+            }
         );
 
         private static readonly CommandMetadata cliStorageContainerCreate = new(
@@ -252,7 +283,12 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+                ["d"] = "default-encryption-scope",
+                ["p"] = "prevent-encryption-scope-override",
+            }
         );
 
         private static readonly CommandMetadata cliStorageContainerDelete = new(
@@ -275,7 +311,10 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
                 ["timeout"] = new("Timeout", "timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["client-request-id"] = new("ClientRequestId", "client-request-id", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+            }
         );
         #endregion
 

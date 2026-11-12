@@ -16,7 +16,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Management
             Name: "NewStorageAccountProcessor_Orchestrator",
             InvocationName: "New-AzStorageAccount",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors.NewStorageAccountProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
             ProcessorType: typeof(Processors.NewStorageAccountProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
@@ -99,7 +99,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Management
             Name: "ShowStorageAccountProcessor",
             InvocationName: "Get-AzStorageAccount_AccountName",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ShowStorageAccountProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors.ShowStorageAccountProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
             ProcessorType: typeof(Processors.ShowStorageAccountProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
@@ -116,7 +116,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Management
             Name: "ListStorageAccountProcessor_Orchestrator",
             InvocationName: "Get-AzStorageAccount_ResourceGroup",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageAccountProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors.ListStorageAccountProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
             ProcessorType: typeof(Processors.ListStorageAccountProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
@@ -131,7 +131,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Management
             Name: "DeleteStorageAccountProcessor",
             InvocationName: "Remove-AzStorageAccount",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.DeleteStorageAccountProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors.DeleteStorageAccountProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
             ProcessorType: typeof(Processors.DeleteStorageAccountProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
@@ -148,7 +148,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Management
             Name: "NewStorageAccountProcessor_Orchestrator",
             InvocationName: "storage account create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.NewStorageAccountProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors.NewStorageAccountProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
             ProcessorType: typeof(Processors.NewStorageAccountProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
@@ -314,7 +314,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Management
             Name: "ShowStorageAccountProcessor",
             InvocationName: "storage account show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ShowStorageAccountProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors.ShowStorageAccountProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
             ProcessorType: typeof(Processors.ShowStorageAccountProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
@@ -345,7 +345,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Management
             Name: "ListStorageAccountProcessor_Orchestrator",
             InvocationName: "storage account list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.ListStorageAccountProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors.ListStorageAccountProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
             ProcessorType: typeof(Processors.ListStorageAccountProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
@@ -376,7 +376,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Storage.Management
             Name: "DeleteStorageAccountProcessor",
             InvocationName: "storage account delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Processors.DeleteStorageAccountProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors.DeleteStorageAccountProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Storage",
             ProcessorType: typeof(Processors.DeleteStorageAccountProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
