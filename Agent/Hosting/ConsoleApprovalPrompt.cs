@@ -28,16 +28,21 @@ public sealed class ConsoleApprovalPrompt
 {
     private readonly SpinnerService? _spinner;
     private readonly IAgentRenderer? _renderer;
-    private readonly AbortKeyWatcher? _abortWatcher;
+    private readonly Func<CancellationToken, Task<string?>> _readLine;
 
     public ConsoleApprovalPrompt(
         SpinnerService? spinner = null,
-        IAgentRenderer? renderer = null,
-        AbortKeyWatcher? abortWatcher = null)
+        IAgentRenderer? renderer = null)
+        : this(spinner, renderer, ConsoleLineInput.ReadLineAsync)
+    {
+    }
+
+    internal ConsoleApprovalPrompt(
+        SpinnerService? spinner, IAgentRenderer? renderer, Func<CancellationToken, Task<string?>> readLine)
     {
         _spinner = spinner;
         _renderer = renderer;
-        _abortWatcher = abortWatcher;
+        _readLine = readLine;
     }
 
     private readonly Channel<PendingApproval> _queue =
@@ -47,7 +52,7 @@ public sealed class ConsoleApprovalPrompt
             SingleWriter = false,
         });
 
-    private record PendingApproval(
+    internal sealed record PendingApproval(
         string ToolName,
         string ArgsPreview,
         PlanContent? Plan,
@@ -124,7 +129,6 @@ public sealed class ConsoleApprovalPrompt
     public void ShowPlan(PlanContent plan)
     {
         _spinner?.Pause();
-        _abortWatcher?.Pause();
         try
         {
             Action body = () =>
@@ -137,7 +141,6 @@ public sealed class ConsoleApprovalPrompt
         }
         finally
         {
-            _abortWatcher?.Resume();
             _spinner?.Resume();
         }
     }
@@ -158,7 +161,6 @@ public sealed class ConsoleApprovalPrompt
         bool isOneShot)
     {
         _spinner?.Pause();
-        _abortWatcher?.Pause();
         try
         {
             Action body = () =>
@@ -172,7 +174,6 @@ public sealed class ConsoleApprovalPrompt
         }
         finally
         {
-            _abortWatcher?.Resume();
             _spinner?.Resume();
         }
     }
@@ -372,19 +373,47 @@ public sealed class ConsoleApprovalPrompt
     /// </returns>
     public async Task<ApprovalOutcome> PumpOneAsync(CancellationToken ct)
     {
-        PendingApproval pending;
+        var pending = await DequeueAsync(ct).ConfigureAwait(false);
+        return pending is null ? ApprovalOutcome.NotHandled : await AnswerAsync(pending, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Waits for the next request; null when <paramref name="ct"/> is cancelled first.</summary>
+    internal async Task<PendingApproval?> DequeueAsync(CancellationToken ct)
+    {
         try
         {
-            pending = await _queue.Reader.ReadAsync(ct).ConfigureAwait(false);
+            return await _queue.Reader.ReadAsync(ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            return ApprovalOutcome.NotHandled;
+            return null;
         }
+    }
 
+    /// <summary>Settles a dequeued request without a prompt: rejected, or cancelled when the session ended.</summary>
+    internal static void Skip(PendingApproval pending, bool cancelled)
+    {
+        if (cancelled) pending.Result.TrySetCanceled();
+        else pending.Result.TrySetResult(false);
+        pending.Reg.Dispose();
+    }
+
+    /// <summary>Settles every request still queued (Gemini scheduler cancelAll at turn end).</summary>
+    internal void SkipQueued(bool cancelled)
+    {
+        while (_queue.Reader.TryRead(out var pending))
+            Skip(pending, cancelled);
+    }
+
+    /// <summary>
+    /// Renders the prompt under the renderer lock, then reads the answer outside it.
+    /// Only <paramref name="sessionCt"/> abandons a started read.
+    /// </summary>
+    /// <exception cref="OperationCanceledException">The session ended during the read; the request is cancelled.</exception>
+    internal async Task<ApprovalOutcome> AnswerAsync(PendingApproval pending, CancellationToken sessionCt)
+    {
         _spinner?.Pause();
-        _abortWatcher?.Pause();
-        string? line = null;
+        string? line;
         try
         {
             Action body = () =>
@@ -401,14 +430,18 @@ public sealed class ConsoleApprovalPrompt
                     WriteArgs(pending.ArgsPreview);
                     Console.Write("   [y]es / [n]o, tell me what to do differently: ");
                 }
-                line = Console.ReadLine();
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
             else                       body();
+            line = await _readLine(sessionCt).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            pending.Result.TrySetCanceled(sessionCt);
+            throw;
         }
         finally
         {
-            _abortWatcher?.Resume();
             _spinner?.Resume();
             pending.Reg.Dispose();
         }

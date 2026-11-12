@@ -16,6 +16,8 @@ public sealed class SpinnerService : IAsyncDisposable
     private Task? _loop;
     private string _verb = "thinking";
     private bool _paused;
+    private bool _quiesced;
+    private readonly object _frameLock = new();
 
     public SpinnerService(IAgentRenderer renderer, TimeSpan? interval = null)
     {
@@ -30,6 +32,7 @@ public sealed class SpinnerService : IAsyncDisposable
 
     public void Start(string initialVerb = "thinking")
     {
+        lock (_frameLock) { if (_quiesced) return; }
         Stop();
         _verb = initialVerb;
         _cts = new CancellationTokenSource();
@@ -64,8 +67,28 @@ public sealed class SpinnerService : IAsyncDisposable
     /// <summary>Resume frame emission with the current verb.</summary>
     public void Resume()
     {
-        try { Console.CursorVisible = false; } catch { }
-        _paused = false;
+        lock (_frameLock)
+        {
+            if (_quiesced) return;
+            try { Console.CursorVisible = false; } catch { }
+            _paused = false;
+        }
+    }
+
+    /// <summary>
+    /// Stops frames for good: after this no frame is drawn and <see cref="Start"/> and
+    /// <see cref="Resume"/> do nothing. Does not wait for the loop, so it is safe while
+    /// another thread is stuck. Used on process exit before the cursor is restored.
+    /// </summary>
+    public void Quiesce()
+    {
+        lock (_frameLock)
+        {
+            _quiesced = true;
+            _paused = true;
+            _cts?.Cancel();
+        }
+        _renderer.OnSpinnerStop();
     }
 
     private async Task RunAsync(CancellationToken ct)
@@ -73,10 +96,13 @@ public sealed class SpinnerService : IAsyncDisposable
         var i = 0;
         while (!ct.IsCancellationRequested)
         {
-            if (!_paused)
+            lock (_frameLock)
             {
-                _renderer.OnSpinnerFrame(Frames[i % Frames.Length], _verb);
-                i++;
+                if (!_paused)
+                {
+                    _renderer.OnSpinnerFrame(Frames[i % Frames.Length], _verb);
+                    i++;
+                }
             }
             try { await Task.Delay(_interval, ct).ConfigureAwait(false); }
             catch (OperationCanceledException) { return; }
