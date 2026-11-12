@@ -34,7 +34,8 @@ internal static class Commands
         bool required = true,
         bool nullable = false,
         IRCommandParameterAccess? access = null,
-        bool? allowReserved = null) =>
+        bool? allowReserved = null,
+        IRCommandParameterCollectionFormat? collectionFormat = null) =>
         new()
         {
             Name = name,
@@ -44,6 +45,7 @@ internal static class Commands
             Nullable = nullable,
             Access = access,
             AllowReserved = allowReserved,
+            CollectionFormat = collectionFormat,
         };
 
     public static IRCommandParameterSource FromPath(IRId id) => new IRCommandParameterSourcePath { Parameter = id };

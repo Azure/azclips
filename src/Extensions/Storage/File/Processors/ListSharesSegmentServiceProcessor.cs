@@ -31,7 +31,7 @@ public partial class ListSharesSegmentServiceProcessor : ProcessorBase<object, L
     internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/?comp=list".WithQuery("prefix", Prefix).WithQuery("marker", Marker).WithQuery("maxresults", Maxresults).WithQuery("timeout", Timeout).WithQuery("include", Include);
+    protected override string CreateRequestUri() => $"{Endpoint}/?comp=list".WithQuery("prefix", Prefix).WithQuery("marker", Marker).WithQuery("maxresults", Maxresults).WithQuery("timeout", Timeout).WithQuery("include", Include, ",");
     protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
         request.Headers.TryAddWithoutValidation("x-ms-version", "2027-03-07");

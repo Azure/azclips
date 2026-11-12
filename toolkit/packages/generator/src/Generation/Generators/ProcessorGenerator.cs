@@ -713,7 +713,22 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                     appended.Append($".WithQuery(\"{Escape(entry.WireName)}\", \"{Escape(literal.Text)}\")");
                     break;
                 case IRCommandValueParameter reference:
-                    appended.Append($".WithQuery(\"{Escape(entry.WireName)}\", {reference.Parameter})");
+                    appended.Append($".WithQuery(\"{Escape(entry.WireName)}\", {reference.Parameter}");
+                    if (byName.TryGetValue(reference.Parameter, out IRCommandParameter? parameter) &&
+                        parameter is { Type: IRTypeRefArray, CollectionFormat: { } format })
+                    {
+                        string? delimiter = format switch
+                        {
+                            IRCommandParameterCollectionFormat.Csv => ",",
+                            IRCommandParameterCollectionFormat.Multi => null,
+                            IRCommandParameterCollectionFormat.Tsv => "\t",
+                            IRCommandParameterCollectionFormat.Ssv => " ",
+                            IRCommandParameterCollectionFormat.Pipes => "|",
+                            _ => throw new InvalidOperationException($"Unsupported query collection format '{format}'."),
+                        };
+                        appended.Append(", ").Append(delimiter is null ? "null" : Literal(delimiter).Text);
+                    }
+                    appended.Append(')');
                     break;
             }
         }

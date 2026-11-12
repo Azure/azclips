@@ -37,7 +37,7 @@ public partial class ListFilesAndDirectoriesSegmentDirectoryProcessor : Processo
     internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}?restype=directory&comp=list".WithQuery("prefix", Prefix).WithQuery("sharesnapshot", Sharesnapshot).WithQuery("marker", Marker).WithQuery("maxresults", Maxresults).WithQuery("include", Include).WithQuery("timeout", Timeout);
+    protected override string CreateRequestUri() => $"{Endpoint}?restype=directory&comp=list".WithQuery("prefix", Prefix).WithQuery("sharesnapshot", Sharesnapshot).WithQuery("marker", Marker).WithQuery("maxresults", Maxresults).WithQuery("include", Include, ",").WithQuery("timeout", Timeout);
     protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
         request.Headers.TryAddWithoutValidation("x-ms-version", "2027-03-07");

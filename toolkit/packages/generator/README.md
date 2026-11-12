@@ -298,14 +298,19 @@ culture (`0,5` on a German machine) and capitalizes booleans (`True`):
 - Query entries after the leading literal ones are appended with `.WithQuery(name,
   value)`, which escapes the value and leaves an unset optional off the request instead
   of sending `name=`. Entries keep their IR order.
+- Array query parameters with a declared `collectionFormat` use the collection overload:
+  `csv`, `tsv`, `ssv`, and `pipes` join invariantly formatted items with the corresponding
+  delimiter before escaping; `multi` emits one escaped query entry per item. Null and
+  empty collections are omitted. For example, Storage `include` values `metadata` and
+  `snapshots` become `include=metadata%2Csnapshots`.
 - A header value that is not a string goes through `WireFormat.Format`.
 - Literal path text has its braces doubled, so an unbound `{placeholder}` that
   `create-command` kept as text renders as text.
 
 `WireFormat.Format` writes `null` as empty, a string as itself, a boolean in lowercase,
 bytes as base64, and anything formattable with the invariant culture (a float in its
-shortest round-trip form). Not handled yet: array `collectionFormat` (an array still
-renders as its type name), `base64url`, and date/time formats.
+shortest round-trip form). Not handled yet: array query parameters without a declared
+`collectionFormat`, header array `collectionFormat`, `base64url`, and date/time formats.
 
 ### Shared servers (IR 0.8.0)
 

@@ -316,6 +316,52 @@ public sealed class CSharpClientGeneratorTests
             source);
     }
 
+    [Theory]
+    [InlineData(IRCommandParameterCollectionFormat.Csv, "\",\"")]
+    [InlineData(IRCommandParameterCollectionFormat.Multi, "null")]
+    [InlineData(IRCommandParameterCollectionFormat.Tsv, "\"\\t\"")]
+    [InlineData(IRCommandParameterCollectionFormat.Ssv, "\" \"")]
+    [InlineData(IRCommandParameterCollectionFormat.Pipes, "\"|\"")]
+    public async Task Generate_UsesDeclaredQueryCollectionFormats(IRCommandParameterCollectionFormat format, string delimiter)
+    {
+        TransformedIR ir = Ir(operations: ["list"]);
+        ir.Enums = [DeclaredEnum("Include", IREnumValueType.String, "metadata", "snapshots")];
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "List",
+                ServerId(),
+                OperationId("list"),
+                query:
+                [
+                    Commands.Supplied("include", "Include"),
+                    Commands.Supplied("values", "Values"),
+                    Commands.Supplied("blockid", "BlockId"),
+                ],
+                parameters:
+                [
+                    Commands.Parameter("Include", Commands.FromQuery(OperationId("include")),
+                        new IRTypeRefArray { Element = new IRTypeRefEnum { Id = EnumId("Include") } },
+                        required: false, collectionFormat: format),
+                    Commands.Parameter("Values", Commands.FromQuery(OperationId("values")),
+                        new IRTypeRefArray { Element = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Float64 } },
+                        collectionFormat: format),
+                    Commands.Parameter("BlockId", Commands.FromQuery(OperationId("blockid")),
+                        new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.Bytes }),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir, scenario: $"{nameof(Generate_UsesDeclaredQueryCollectionFormats)}_{format}");
+
+        Assert.True(result.Success);
+        string source = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains("public IList<string>? Include", source);
+        Assert.Contains("public IList<double> Values", source);
+        Assert.Contains($".WithQuery(\"include\", Include, {delimiter})", source);
+        Assert.Contains($".WithQuery(\"values\", Values, {delimiter})", source);
+        Assert.Contains(".WithQuery(\"blockid\", BlockId)", source);
+    }
+
     [Fact]
     public async Task Generate_RendersEnumsAsTheirValueType()
     {

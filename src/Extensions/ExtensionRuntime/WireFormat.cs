@@ -45,4 +45,29 @@ public static class WireFormat
         char separator = uri.Contains('?') ? '&' : '?';
         return $"{uri}{separator}{name}={Uri.EscapeDataString(Format(value))}";
     }
+
+    /// <summary>
+    /// Appends a collection using its declared delimiter, or repeated query entries when
+    /// <paramref name="delimiter"/> is null. Null and empty collections append nothing.
+    /// Each item uses <see cref="Format"/> before the query value is escaped.
+    /// </summary>
+    public static string WithQuery<T>(this string uri, string name, IEnumerable<T>? values, string? delimiter)
+    {
+        if (values is null)
+        {
+            return uri;
+        }
+
+        if (delimiter is null)
+        {
+            foreach (T value in values)
+            {
+                uri = uri.WithQuery(name, Format(value));
+            }
+            return uri;
+        }
+
+        string[] formatted = values.Select(value => Format(value)).ToArray();
+        return formatted.Length == 0 ? uri : uri.WithQuery(name, string.Join(delimiter, formatted));
+    }
 }
