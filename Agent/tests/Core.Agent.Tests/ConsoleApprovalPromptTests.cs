@@ -1,4 +1,7 @@
+using Core.Agent.AgentMode;
 using Core.Agent.Hosting;
+using Microsoft.Extensions.Time.Testing;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -80,5 +83,193 @@ public class ConsoleApprovalPromptTests
         Assert.False(outcome.Approved);
         Assert.Equal(expectedFeedback, outcome.FeedbackPrompt);
         Assert.False(approved);
+    }
+
+    // #1295 test 1: a watcher past KeyAvailable must not block Ctrl+C once the approval read is abandoned.
+    [Fact]
+    public async Task Watcher_PastGate_DoesNotBlockCtrlC_WhenApprovalReadIsAbandoned()
+    {
+        var keys = new ScriptedConsoleKeys();
+        keys.Push(ScriptedConsoleKeys.Char('x'));
+        using var hookEntered = new ManualResetEventSlim();
+        using var hookRelease = new ManualResetEventSlim();
+        var first = 0;
+        keys.AfterKeyAvailable = _ =>
+        {
+            if (Interlocked.Exchange(ref first, 1) == 0) { hookEntered.Set(); hookRelease.Wait(); }
+        };
+        var reader = new LockingBlockingReader(keys.StdinLock);
+        var time = new SignalingFakeTimeProvider();
+        using var session = new CancellationTokenSource();
+        var ctrlC = new CtrlCController(session, time);
+        var agent = new FakeTurnAgent();
+        var approval = new ConsoleApprovalPrompt();
+        using var console = new ConsoleSwap(reader);
+        try
+        {
+            var watcher = TurnPump.Watcher(agent, keys, time, ctrlC.OnCtrlC);
+            var pump = TurnPump.RunAsync(agent, approval, watcher, interactive: true, () => ctrlC.SessionCancelled, session.Token);
+            Assert.True(hookEntered.Wait(TimeSpan.FromSeconds(60)));
+            var tool = approval.RequestRewriteAsync("powershell", "az group delete", session.Token);
+            // The pump must stop the watcher before it reads; it waits for the hook, so release it from here.
+            var released = Task.Run(() => { hookRelease.Set(); });
+            Assert.True(reader.Entered.Wait(TimeSpan.FromSeconds(60)));
+
+            ctrlC.OnCtrlC();
+            await time.WaitForTimerAsync(CtrlCController.ForcedExitDelay, TimeSpan.FromSeconds(60));
+            time.Advance(CtrlCController.ForcedExitDelay);
+
+            Assert.Equal(130, await ctrlC.ForcedExit.WaitAsync(TimeSpan.FromSeconds(60)));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pump.WaitAsync(TimeSpan.FromSeconds(60)));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => tool.WaitAsync(TimeSpan.FromSeconds(60)));
+            await released.WaitAsync(TimeSpan.FromSeconds(60));
+        }
+        finally
+        {
+            hookRelease.Set();
+            reader.Release.Set();
+        }
+    }
+
+    // #1295 test 2: Esc read before an approval opens rejects that approval without a prompt.
+    [Fact]
+    public async Task EscBeforeApprovalOpens_RejectsApproval_AndSkipsPrompt()
+    {
+        var keys = new ScriptedConsoleKeys();
+        keys.Push(ScriptedConsoleKeys.Esc);
+        var reader = new LockingBlockingReader();
+        using var session = new CancellationTokenSource();
+        var agent = new FakeTurnAgent { HoldAbort = true };
+        var approval = new ConsoleApprovalPrompt();
+        using var console = new ConsoleSwap(reader);
+        try
+        {
+            var watcher = TurnPump.Watcher(agent, keys, new FakeTimeProvider());
+            var pump = TurnPump.RunAsync(agent, approval, watcher, interactive: true, () => session.IsCancellationRequested, session.Token);
+            await agent.AbortEntered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            var tool = approval.RequestRewriteAsync("powershell", "az group delete", CancellationToken.None);
+            agent.AbortRelease.SetResult();
+
+            var result = await pump.WaitAsync(TimeSpan.FromSeconds(60));
+            Assert.True(result.UserAborted);
+            Assert.False(await tool.WaitAsync(TimeSpan.FromSeconds(60)));
+            Assert.False(reader.Entered.IsSet);
+        }
+        finally
+        {
+            agent.AbortRelease.TrySetResult();
+            reader.Release.Set();
+        }
+    }
+
+    // #1295 test 4a: a key seen by KeyAvailable after the watcher was cancelled is not read.
+    [Fact]
+    public async Task TurnEnd_KeyTypedAfterStop_IsNotConsumedByWatcher()
+    {
+        var keys = new ScriptedConsoleKeys();
+        keys.Push(ScriptedConsoleKeys.Esc);
+        using var stop = new CancellationTokenSource();
+        keys.AfterKeyAvailable = available => { if (available) stop.Cancel(); };
+        var aborts = 0;
+        var watcher = new AbortKeyWatcher(_ => { aborts++; return Task.CompletedTask; }, null, TurnPump.Poll, keys, new FakeTimeProvider());
+
+        var aborted = await watcher.RunAsync(stop.Token, () => true).WaitAsync(TimeSpan.FromSeconds(60));
+
+        Assert.False(aborted);
+        Assert.Equal(0, aborts);
+    }
+
+    // #1295 test 4c: approvals still queued when the turn ends are resolved.
+    [Fact]
+    public async Task TurnEnd_ResolvesEveryQueuedApproval()
+    {
+        var agent = new FakeTurnAgent();
+        var approval = new ConsoleApprovalPrompt();
+        var first = approval.RequestRewriteAsync("powershell", "a", CancellationToken.None);
+        var second = approval.RequestRewriteAsync("powershell", "b", CancellationToken.None);
+        agent.Send.SetResult();
+        var reader = new LockingBlockingReader();
+        using var console = new ConsoleSwap(reader);
+        using var session = new CancellationTokenSource();
+        try
+        {
+            var watcher = TurnPump.Watcher(agent, new ScriptedConsoleKeys(), new FakeTimeProvider());
+
+            await TurnPump.RunAsync(agent, approval, watcher, interactive: true, () => false, session.Token)
+                .WaitAsync(TimeSpan.FromSeconds(60));
+
+            Assert.False(await first.WaitAsync(TimeSpan.FromSeconds(60)));
+            Assert.False(await second.WaitAsync(TimeSpan.FromSeconds(60)));
+        }
+        finally
+        {
+            reader.Release.Set();
+        }
+    }
+
+    private static ReadConsoleChunk Chunks(params Func<(string Text, int Error)>[] chunks)
+    {
+        var index = 0;
+        return (char[] buffer, out int read, out int error) =>
+        {
+            var (text, err) = chunks[index++]();
+            text.CopyTo(0, buffer, 0, text.Length);
+            read = text.Length;
+            error = err;
+            return true;
+        };
+    }
+
+    // #1295 test 5: 995 without a cancelled session re-reads instead of returning an empty line.
+    [Fact]
+    public async Task WindowsRead_995WithoutCancel_ContinuesReading()
+    {
+        var time = new SignalingFakeTimeProvider();
+        var read = Chunks(() => ("", 995), () => ("y\r\n", 0));
+        var line = Task.Run(() => ConsoleLineInput.ReadWindowsConsoleLine(read, CancellationToken.None, time));
+
+        await time.WaitForTimerAsync(ConsoleLineInput.InterruptWait, TimeSpan.FromSeconds(60));
+        time.Advance(ConsoleLineInput.InterruptWait);
+
+        Assert.Equal("y", await line.WaitAsync(TimeSpan.FromSeconds(60)));
+    }
+
+    // #1295 test 5b: the approval prompt reads through the injected console-aware reader.
+    [Fact]
+    public async Task ApprovalPrompt_UsesConsoleAwareReader_OnWindows()
+    {
+        var time = new SignalingFakeTimeProvider();
+        var read = Chunks(() => ("", 995), () => ("y\r\n", 0));
+        var approval = new ConsoleApprovalPrompt(null, null,
+            ct => Task.Run(() => ConsoleLineInput.ReadWindowsConsoleLine(read, ct, time)));
+        var reader = new LockingBlockingReader();
+        using var console = new ConsoleSwap(reader);
+        try
+        {
+            var tool = approval.RequestRewriteAsync("powershell", "az group delete", CancellationToken.None);
+            var pump = Task.Run(() => approval.PumpOneAsync(CancellationToken.None));
+
+            await time.WaitForTimerAsync(ConsoleLineInput.InterruptWait, TimeSpan.FromSeconds(60));
+            time.Advance(ConsoleLineInput.InterruptWait);
+
+            Assert.True((await pump.WaitAsync(TimeSpan.FromSeconds(60))).Approved);
+            Assert.True(await tool.WaitAsync(TimeSpan.FromSeconds(60)));
+        }
+        finally
+        {
+            reader.Release.Set();
+        }
+    }
+
+    // #1295 test 6: 995 after partial input is still an interrupt.
+    [Fact]
+    public async Task WindowsRead_995AfterPartialInput_IsInterrupted()
+    {
+        using var session = new CancellationTokenSource();
+        var read = Chunks(() => ("ab", 0), () => { session.Cancel(); return ("", 995); });
+
+        var line = Task.Run(() => ConsoleLineInput.ReadWindowsConsoleLine(read, session.Token, new FakeTimeProvider()));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => line.WaitAsync(TimeSpan.FromSeconds(60)));
     }
 }

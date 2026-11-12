@@ -4,6 +4,7 @@
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
+using Core.Agent.AgentMode;
 using Core.Agent.Hosting;
 using Core.Agent.Telemetry;
 using Core.Agent.Tools;
@@ -12,6 +13,7 @@ using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Resource.Sku;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
+using Microsoft.Extensions.Time.Testing;
 using Tests.Common.Stubs;
 using Xunit;
 using Tests.Common.Utilities;
@@ -86,6 +88,83 @@ public class RecoverySessionPolicyTests
         {
             Console.SetIn(previousInput);
             Console.SetOut(previousOutput);
+        }
+    }
+
+    // #1295 test 4b: an Esc that arrives after the turn completed is not an abort.
+    [Fact]
+    public async Task LateEsc_AfterTurnCompleted_DoesNotReportAbort()
+    {
+        var keys = new ScriptedConsoleKeys();
+        keys.Push(ScriptedConsoleKeys.Esc);
+        var agent = new FakeTurnAgent();
+        agent.Send.SetResult();
+        var reader = new LockingBlockingReader();
+        using var console = new ConsoleSwap(reader);
+        using var session = new CancellationTokenSource();
+        try
+        {
+            var watcher = TurnPump.Watcher(agent, keys, new FakeTimeProvider());
+
+            var result = await TurnPump.RunAsync(agent, new ConsoleApprovalPrompt(), watcher, interactive: false,
+                () => session.IsCancellationRequested, session.Token).WaitAsync(TimeSpan.FromSeconds(60));
+
+            Assert.False(result.UserAborted);
+            Assert.Equal(0, agent.AbortCalls);
+        }
+        finally
+        {
+            reader.Release.Set();
+        }
+    }
+
+    // #1295 test 7: Ctrl+C read by the watcher runs the same handler as CancelKeyPress.
+    [Fact]
+    public async Task WatcherCtrlC_RunsSameHandler_FlagThenForcedExit()
+    {
+        var keys = new ScriptedConsoleKeys();
+        keys.Push(ScriptedConsoleKeys.CtrlC);
+        var time = new SignalingFakeTimeProvider();
+        using var session = new CancellationTokenSource();
+        var ctrlC = new CtrlCController(session, time);
+        var agent = new FakeTurnAgent();
+        var watcher = TurnPump.Watcher(agent, keys, time, ctrlC.OnCtrlC);
+
+        Assert.True(await watcher.RunAsync(CancellationToken.None, () => true).WaitAsync(TimeSpan.FromSeconds(60)));
+        Assert.True(ctrlC.SessionCancelled);
+        await time.WaitForTimerAsync(CtrlCController.ForcedExitDelay, TimeSpan.FromSeconds(60));
+        time.Advance(CtrlCController.ForcedExitDelay);
+
+        Assert.Equal(130, await ctrlC.ForcedExit.WaitAsync(TimeSpan.FromSeconds(60)));
+        agent.Send.SetResult();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => AgentModeEntry.AwaitTurnAsync(
+            agent.Send.Task, () => null, redirected: false, userAborted: false, interactive: true,
+            () => ctrlC.SessionCancelled).WaitAsync(TimeSpan.FromSeconds(60)));
+    }
+
+    // #1295 test 8a: Ctrl+C whose cancel has not landed yet still keeps the next '> ' prompt closed.
+    [Fact]
+    public async Task CtrlC_AfterLoopCheck_BeforeNextPrompt_DoesNotOpenPrompt()
+    {
+        using var session = new CancellationTokenSource();
+        var cancelHeld = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ctrlC = new CtrlCController(session, new FakeTimeProvider(), () => cancelHeld.Task);
+        var reader = new LockingBlockingReader();
+        using var console = new ConsoleSwap(reader);
+        try
+        {
+            ctrlC.OnCtrlC();
+            Assert.False(session.IsCancellationRequested);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                AgentModeEntry.ReadPromptLineAsync(() => ctrlC.SessionCancelled, session.Token)
+                    .WaitAsync(TimeSpan.FromSeconds(60)));
+            Assert.False(reader.Entered.IsSet);
+        }
+        finally
+        {
+            cancelHeld.TrySetResult();
+            reader.Release.Set();
         }
     }
 

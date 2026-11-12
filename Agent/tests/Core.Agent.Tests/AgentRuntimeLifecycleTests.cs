@@ -372,6 +372,135 @@ public sealed class AgentRuntimeLifecycleTests
             Task.FromResult(OfflineToken());
     }
 
+    private static string? Outcome(AgentLayerTestHarness harness) =>
+        AgentLayerTestHarness.Tags(Assert.Single(harness.ReadEntries(),
+            entry => entry.GetProperty("operationName").GetString() == "Agent.Session"))[TelemetryTags.RecoveryOutcome].GetString();
+
+    // #1295 test 8b: Ctrl+C during startup exits cancelled even when startup then returns normally.
+    [Fact]
+    public async Task CtrlC_DuringStartup_ExitsCancelled()
+    {
+        var clock = new FakeTimeProvider();
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(timeProvider: clock), async harness =>
+        {
+            var scope = harness.CreateScope();
+            using var cts = new CancellationTokenSource();
+            var ctrlC = new CtrlCController(cts, clock);
+            var code = await AgentModeEntry.RunSessionAsync(() => scope, (_, _) =>
+            {
+                ctrlC.OnCtrlC();
+                return Task.CompletedTask;
+            }, () => { }, clock, ctrlC, restoreConsole: null).WaitAsync(AgentTestTimeouts.HangGuard);
+
+            Assert.Equal(130, code);
+            Assert.Equal("cancelled", Outcome(harness));
+        });
+    }
+
+    // #1295 test 9: the flag set before the token is cancelled still wins over a send that completed.
+    [Fact]
+    public async Task CtrlC_FlagSetBeforeCancel_SdkReturnsOk_Exits130()
+    {
+        var clock = new FakeTimeProvider();
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(timeProvider: clock), async harness =>
+        {
+            var scope = harness.CreateScope();
+            using var cts = new CancellationTokenSource();
+            var cancelHeld = Signal();
+            var ctrlC = new CtrlCController(cts, clock, () => cancelHeld.Task);
+            try
+            {
+                var code = await AgentModeEntry.RunSessionAsync(() => scope, async (_, _) =>
+                {
+                    var send = Signal();
+                    ctrlC.OnCtrlC();
+                    send.SetResult();
+                    await send.Task;
+                }, () => { }, clock, ctrlC, restoreConsole: null).WaitAsync(AgentTestTimeouts.HangGuard);
+
+                Assert.False(cts.IsCancellationRequested);
+                Assert.Equal(130, code);
+            }
+            finally
+            {
+                cancelHeld.TrySetResult();
+            }
+        });
+    }
+
+    // #1295 tests 10 and 11: the forced exit returns 130 while cleanup is blocked, after restoring the console.
+    [Fact]
+    public async Task ForcedExit_WhileFinallyDrainsTelemetry_Returns130_AndRestoresConsole()
+    {
+        var clock = new SignalingFakeTimeProvider();
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(timeProvider: clock), async harness =>
+        {
+            var scope = harness.CreateScope();
+            using var cts = new CancellationTokenSource();
+            var ctrlC = new CtrlCController(cts, clock);
+            var cleanupEntered = Signal();
+            var releaseCleanup = Signal();
+            var restored = 0;
+            var abandonedFinished = Signal();
+            var running = AgentModeEntry.RunSessionAsync(() => scope, (_, lifetime) =>
+            {
+                lifetime.RegisterCleanup(async () =>
+                {
+                    cleanupEntered.TrySetResult();
+                    await releaseCleanup.Task;
+                });
+                ctrlC.OnCtrlC();
+                throw new OperationCanceledException();
+            }, () => abandonedFinished.TrySetResult(), clock, ctrlC, () => Interlocked.Increment(ref restored));
+            try
+            {
+                await cleanupEntered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+                await clock.WaitForTimerAsync(CtrlCController.ForcedExitDelay, AgentTestTimeouts.HangGuard);
+                clock.Advance(CtrlCController.ForcedExitDelay);
+
+                Assert.Equal(130, await running.WaitAsync(AgentTestTimeouts.HangGuard));
+                Assert.False(releaseCleanup.Task.IsCompleted);
+                Assert.Equal(1, Volatile.Read(ref restored));
+            }
+            finally
+            {
+                releaseCleanup.TrySetResult();
+                await abandonedFinished.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            }
+        });
+    }
+
+    // #1295 test 11: the console restore quiesces the spinner before showing the cursor.
+    [Fact]
+    public void RestoreConsole_QuiescesSpinner_ThenShowsCursor()
+    {
+        var order = new List<string>();
+        var renderer = new RecordingSpinnerRenderer(order);
+        var spinner = new SpinnerService(renderer, TimeSpan.FromDays(1));
+        var prevOut = Console.Out;
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            AgentModeEntry.RestoreConsole(spinner, () => order.Add("cursor"));
+            spinner.Resume();
+            spinner.Start();
+
+            Assert.Equal(["stop", "cursor"], order);
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+    }
+
+    private sealed class RecordingSpinnerRenderer(List<string> order) : IAgentRenderer
+    {
+        public void OnText(string chunk) { }
+        public void OnEvent(AgentEvent ev) { }
+        public void OnSpinnerFrame(string frame, string verb) { lock (order) order.Add("frame"); }
+        public void OnSpinnerStop() { lock (order) order.Add("stop"); }
+    }
+
     private sealed class NoAuthService(string message = "Unexpected authentication in an offline test.") : OfflineAuthService
     {
         protected override Task<AuthResult> AcquireTokenAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken) =>

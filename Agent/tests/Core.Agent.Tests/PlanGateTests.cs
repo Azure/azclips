@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Core.Agent;
 using Core.Agent.Hooks;
+using Core.Agent.AgentMode;
 using Core.Agent.Hosting;
+using Microsoft.Extensions.Time.Testing;
 using GitHub.Copilot;
 using Xunit;
 
@@ -473,6 +475,86 @@ public class PlanGateTests
         finally
         {
             Console.SetOut(prevOut);
+        }
+    }
+
+    private static ConsoleApprovalPrompt.PlanContent OnePlan() => new(
+        ["x"], [new ConsoleApprovalPrompt.PlanStep(1, "Create RG", "az group create -n foo -l eastus")], null, null);
+
+    // #1295 test 3: a plan rendered from another thread during the approval read does not restart the watcher.
+    [Fact]
+    public async Task HookResumeDuringApprovalRead_DoesNotRestartWatcher()
+    {
+        var keys = new ScriptedConsoleKeys();
+        var reader = new LockingBlockingReader { Line = "n" };
+        using var session = new CancellationTokenSource();
+        var agent = new FakeTurnAgent();
+        var approval = new ConsoleApprovalPrompt();
+        using var console = new ConsoleSwap(reader);
+        try
+        {
+            var watcher = TurnPump.Watcher(agent, keys, new FakeTimeProvider());
+            var plan = approval.RequestPlanAsync(["x"], null, null, null, session.Token);
+            var pump = TurnPump.RunAsync(agent, approval, watcher, interactive: true, () => false, session.Token);
+            Assert.True(reader.Entered.Wait(TimeSpan.FromSeconds(60)));
+            var polls = keys.KeyAvailableCalls;
+
+            await Task.Run(() => approval.ShowPlan(OnePlan())).WaitAsync(TimeSpan.FromSeconds(60));
+            keys.Push(ScriptedConsoleKeys.Char('x'));
+
+            Assert.Equal(polls, keys.KeyAvailableCalls);
+            Assert.Equal(0, keys.ReadKeyCalls);
+            reader.Release.Set();
+            Assert.False(await plan.WaitAsync(TimeSpan.FromSeconds(60)));
+            agent.Send.SetResult();
+            await pump.WaitAsync(TimeSpan.FromSeconds(60));
+        }
+        finally
+        {
+            agent.Send.TrySetResult();
+            reader.Release.Set();
+        }
+    }
+
+    // #1295 test 12: Ctrl+C read by the watcher before a plan approval arrives rejects it without a prompt.
+    [Fact]
+    public async Task WatcherQuit_BeforeApprovalRead_RejectsAndBreaks()
+    {
+        var keys = new ScriptedConsoleKeys();
+        keys.Push(ScriptedConsoleKeys.CtrlC);
+        var reader = new LockingBlockingReader();
+        using var session = new CancellationTokenSource();
+        var quit = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ctrlC = new CtrlCController(session, new FakeTimeProvider(), async () => { await release.Task; await session.CancelAsync(); });
+        var agent = new FakeTurnAgent();
+        var approval = new ConsoleApprovalPrompt();
+        using var console = new ConsoleSwap(reader);
+        try
+        {
+            Task<bool>? plan = null;
+            var watcher = TurnPump.Watcher(agent, keys, new FakeTimeProvider(), () =>
+            {
+                ctrlC.OnCtrlC();
+                plan = approval.RequestPlanAsync(["x"], null, null, null, CancellationToken.None);
+                quit.TrySetResult();
+            });
+            var pump = TurnPump.RunAsync(agent, approval, watcher, interactive: true, () => ctrlC.SessionCancelled, session.Token);
+            await quit.Task.WaitAsync(TimeSpan.FromSeconds(60));
+
+            // Rejected (false) or cancelled; never approved.
+            var approved = await plan!.ContinueWith(t => t.IsCompletedSuccessfully && t.Result, TaskScheduler.Default)
+                .WaitAsync(TimeSpan.FromSeconds(60));
+            Assert.False(approved);
+            Assert.True(ctrlC.SessionCancelled);
+            Assert.False(reader.Entered.IsSet);
+            release.TrySetResult();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pump.WaitAsync(TimeSpan.FromSeconds(60)));
+        }
+        finally
+        {
+            release.TrySetResult();
+            reader.Release.Set();
         }
     }
 }
