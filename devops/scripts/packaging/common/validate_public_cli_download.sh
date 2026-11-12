@@ -4,6 +4,7 @@ set -euo pipefail
 # Exercise the public download path with the native pipeline archive, not a live release.
 repo_root="$1"
 archive_path="$2"
+extensions_dir="$3"
 archive_name="$(basename "$archive_path")"
 fixture_root="$(mktemp -d)"
 trap 'rm -rf "$fixture_root"' EXIT
@@ -42,7 +43,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 case "$url" in
-  "https://api.github.com/repos/${AZCLI_REPO:-Azure/azclips}/releases/latest")
+  "https://api.github.com/repos/${AZCLI_REPO:-Azure/azclips}/releases/latest"|"https://api.github.com/repos/Azure/azclips/releases/tags/v-fixture.timestamp")
+    printf '%s\n' "$url" > "$FIXTURE_ROOT/metadata-url"
     case "${FIXTURE_CASE:-valid}" in
       metadata-failure) echo "HTTP 403: fixture rate limit" >&2; exit 22 ;;
       missing) printf '{"assets":[]}' > "$destination" ;;
@@ -63,9 +65,11 @@ case "$url" in
     ;;
   "$FIXTURE_URL")
     if [[ "${FIXTURE_CASE:-valid}" == download-failure ]]; then
+      printf 'partial download' > "$destination"
       echo "HTTP 503: fixture download failed" >&2
       exit 22
     fi
+    if [[ "${FIXTURE_CASE:-valid}" == missing-download ]]; then exit 0; fi
     cp "$FIXTURE_ARCHIVE" "$destination"
     touch "$FIXTURE_ROOT/downloaded"
     ;;
@@ -118,3 +122,65 @@ done
 [[ -f "$fixture_root/downloaded" ]] ||
   { echo "FAIL: Public installation did not use only the fixture download." >&2; exit 1; }
 echo "PASS: Public download selection, failure handling, piped help, and installation using the pipeline archive without jq, gh, or Python."
+
+export FIXTURE_ARCHIVE="$fixture_root/azcli-extensions-0.0.0.tar.gz"
+export FIXTURE_URL="https://github.com/Azure/azclips/releases/download/v-fixture.timestamp/azcli-extensions-0.0.0.tar.gz"
+tar -czf "$FIXTURE_ARCHIVE" -C "$extensions_dir" .
+printf '{"assets":[{"browser_download_url" :\n "%s"}, {"other_url":"%s"}]}' \
+  "$FIXTURE_URL" "$FIXTURE_URL" > "$fixture_root/release.json"
+mkdir "$fixture_root/extensions-download"
+cd "$fixture_root/extensions-download"
+printf 'existing bundle sentinel\n' > azcli-extensions.tar.gz
+before="$(cksum azcli-extensions.tar.gz)"
+for scenario in missing duplicate malformed query extra-path http wrong-repo missing-quote other-field escaped-body unsafe-filename metadata-failure download-failure missing-download; do
+  export FIXTURE_CASE="$scenario"
+  case "$scenario" in
+    metadata-failure) expected='anonymous API rate limit' ;;
+    download-failure) expected='Could not download' ;;
+    missing-download) expected='Download did not produce' ;;
+    *) expected='Expected exactly one' ;;
+  esac
+  if output="$(bash < "$repo_root/install/azcli-extensions-download.sh" 2>&1)"; then
+    echo "FAIL: Extensions download $scenario unexpectedly succeeded." >&2; exit 1
+  fi
+  grep -Fq "$expected" <<<"$output" ||
+    { printf 'FAIL: Extensions download %s: %s\n' "$scenario" "$output" >&2; exit 1; }
+  [[ "$(cksum azcli-extensions.tar.gz)" == "$before" ]] ||
+    { echo "FAIL: Extensions download $scenario changed the existing bundle." >&2; exit 1; }
+  if compgen -G '.azcli-extensions-download.*' >/dev/null; then
+    echo "FAIL: Extensions download $scenario left staging files." >&2; exit 1
+  fi
+done
+for scenario in valid compact; do
+  export FIXTURE_CASE="$scenario"
+  bash < "$repo_root/install/azcli-extensions-download.sh"
+  [[ "$(cksum < azcli-extensions.tar.gz)" == "$(cksum < "$FIXTURE_ARCHIVE")" ]] ||
+    { echo "FAIL: Downloaded extensions bundle differs from the pipeline packages." >&2; exit 1; }
+done
+bash -s -- --release v-fixture.timestamp < "$repo_root/install/azcli-extensions-download.sh"
+grep -q '/tags/v-fixture.timestamp$' "$FIXTURE_ROOT/metadata-url" ||
+  { echo "FAIL: Extensions download ignored the pinned release." >&2; exit 1; }
+original_url="$FIXTURE_URL"
+export FIXTURE_URL="${FIXTURE_URL/v-fixture.timestamp/v-other}"
+if output="$(bash -s -- --release v-fixture.timestamp < "$repo_root/install/azcli-extensions-download.sh" 2>&1)"; then
+  echo "FAIL: Extensions download accepted a different release." >&2; exit 1
+fi
+grep -q 'Expected exactly one' <<<"$output"
+export FIXTURE_URL="$original_url"
+if bash -s -- --release '../invalid' < "$repo_root/install/azcli-extensions-download.sh" > "$fixture_root/invalid-tag.log" 2>&1; then
+  echo "FAIL: Invalid release tag was accepted." >&2; exit 1
+fi
+grep -q 'Invalid release tag' "$fixture_root/invalid-tag.log"
+bash -s -- --help < "$repo_root/install/azcli-extensions-download.sh" | grep -q 'Usage:'
+sed '$d' "$repo_root/install/azcli-extensions-download.sh" | bash
+shopt -s dotglob nullglob
+downloaded_files=(*)
+[[ -f azcli-extensions.tar.gz && "${#downloaded_files[@]}" -eq 1 ]] ||
+  { echo "FAIL: Download helper extracted files or left staging files." >&2; exit 1; }
+mv azcli-extensions.tar.gz "$fixture_root/downloaded-bundle.tar.gz"
+mkdir azcli-extensions.tar.gz
+if output="$(bash < "$repo_root/install/azcli-extensions-download.sh" 2>&1)"; then
+  echo "FAIL: Download helper accepted a directory as its output file." >&2; exit 1
+fi
+grep -q 'non-file destination' <<<"$output"
+echo "PASS: Download-only extensions helper, pinned release, failure preservation, and cleanup without jq, gh, or Python."

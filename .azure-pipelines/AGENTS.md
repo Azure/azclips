@@ -92,6 +92,7 @@ adding exact filenames from `devops/scripts/compliance/binskim-runtime-exclusion
 
 - Existing native installer lifecycle jobs also exercise public metadata/download and piped-invocation paths using local HTTP-command fixtures backed by the selected pipeline archive, never GitHub's latest release. Linux/macOS share `packaging/common/validate_public_cli_download.sh`, which rejects `jq`/`gh` use; no JSON parser installation is needed on glibc, musl, or macOS. Windows uses scoped HTTP fixtures, and signed PowerShell validation runs the new public bootstrap as well as the bundled helper in isolated processes. No additional test matrix, Pester dependency, or GitHub Actions wiring is required.
 - `PackagingScriptsRoot = devops/scripts/packaging`
+- Extension download-only helper checks run inside the same native CLI lifecycle jobs: Bash through the shared CLI fixture, and PowerShell through `common/test_public_extensions_download.ps1`. Both build fixture bundles from the downloaded pipeline extension packages and check pinned releases, failure preservation, and cleanup without live release downloads.
 - `PackagingOutRoot = devops/out` (with `common/`, `linux/`, `windows/`, `macos/` subfolders)
 - Default RIDs: `linux-x64`, `win-x64`, `osx-arm64`.
 - Pipeline jobs shell out to `devops/scripts/` (`ci/`, `compliance/`, `packaging/`, `publishing/`). When changing a build step, update the script there rather than embedding logic in YAML.

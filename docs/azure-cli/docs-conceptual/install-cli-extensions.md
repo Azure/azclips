@@ -29,7 +29,7 @@ Each release includes a single `azcli-extensions-<version>.tar.gz` containing ev
 
 Download `azcli-extensions-<version>.tar.gz` from the public [GitHub Releases](https://github.com/Azure/azclips/releases) page, choosing the same release you installed azcli from. No GitHub account or token is required.
 
-For the latest release, use the commands for your shell below. For an older release, use its download page instead.
+The download-only helpers below fetch the latest bundle and save it as `azcli-extensions.tar.gz` in the current directory. They do not extract or install extensions. If your CLI is from an older release, use the release-pinned examples below or download its bundle manually.
 
 The bundle unpacks as loose `.nupkg` files, so extract it into a folder and install from there. Extension package versions are independent of the release version, so the commands below don't hardcode a version — follow the set for your shell.
 
@@ -40,18 +40,7 @@ Requires Bash, `curl`, `tar`, and standard system text utilities:
 ```bash
 (
 set -euo pipefail
-release=$(curl -fsSL https://api.github.com/repos/Azure/azclips/releases/latest)
-if ! bundle_url=$(printf '%s' "$release" | tr -d '\r\n' |
-  grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"https://github[.]com/Azure/azclips/releases/download/[A-Za-z0-9._-]+/azcli-extensions-[0-9][A-Za-z0-9._-]*[.]tar[.]gz"' |
-  sed 's/^[^:]*:[[:space:]]*"//; s/"$//'); then
-  echo "Could not locate the extensions bundle download URL." >&2
-  exit 1
-fi
-if [[ "$bundle_url" == *$'\n'* ]]; then
-  echo "Expected exactly one extensions bundle download URL." >&2
-  exit 1
-fi
-curl -fL "$bundle_url" -o azcli-extensions.tar.gz
+curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.sh | bash
 mkdir -p azcli-extensions
 tar -xzf ./azcli-extensions.tar.gz -C azcli-extensions
 
@@ -67,15 +56,18 @@ az extension list
 )
 ```
 
+For a specific release, replace the download command with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.sh | bash -s -- --release '<release-tag>'
+```
+
 ### Windows (PowerShell)
 
 PowerShell doesn't expand `*` for external commands, so resolve the paths explicitly with `Get-ChildItem`:
 
 ```powershell
-$release = Invoke-RestMethod https://api.github.com/repos/Azure/azclips/releases/latest -ErrorAction Stop
-$assets = @($release.assets | Where-Object name -Like 'azcli-extensions-*.tar.gz')
-if ($assets.Count -ne 1) { throw 'Expected exactly one extensions bundle.' }
-Invoke-WebRequest $assets[0].browser_download_url -OutFile ./azcli-extensions.tar.gz -ErrorAction Stop
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.ps1 -ErrorAction Stop | iex
 New-Item -ItemType Directory -Force -Path azcli-extensions | Out-Null
 tar -xzf ./azcli-extensions.tar.gz -C azcli-extensions
 if ($LASTEXITCODE -ne 0) { throw 'Extensions bundle extraction failed.' }
@@ -88,6 +80,13 @@ az extension add --path $compute.FullName
 Get-ChildItem azcli-extensions/azcli.extensions.*.nupkg | ForEach-Object { az extension add --path $_.FullName }
 
 az extension list
+```
+
+For a specific release, download the helper and pass the tag explicitly:
+
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.ps1 -OutFile ./azcli-extensions-download.ps1 -ErrorAction Stop
+./azcli-extensions-download.ps1 -Release '<release-tag>'
 ```
 
 ## Verify

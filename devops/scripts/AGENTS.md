@@ -38,6 +38,7 @@ output/staging path, update this guide in the same PR so it stays accurate.
 - Windows zip validation substitutes HTTP cmdlets in a child scope and installs the selected pipeline archive through `Invoke-Expression`; its existing offline and native lifecycle checks remain.
 - `packaging/powershell/test_signed_azps_cmdlets.ps1` validates both the bundled helper and the public `install/azps-install.ps1` bootstrap in isolated PowerShell processes. Bootstrap HTTP fixtures copy the selected signed archive, exercise default and parameterized installation/import, and check error cleanup and existing-repository preservation.
 - These checks run in the existing ADO validation jobs without Pester, GitHub authentication, or a live latest-release lookup. Keep shared Bash fixtures compatible with macOS Bash 3.2 and Alpine.
+- The Bash fixture also validates `install/azcli-extensions-download.sh` against a bundle made from the pipeline's extension packages. Windows calls `packaging/common/test_public_extensions_download.ps1` for the PowerShell equivalent. These download-only helpers support a pinned release, save `azcli-extensions.tar.gz` in the working directory, preserve an existing bundle on failure, and never extract or install it.
 
 ## Credential Scanner Suppressions
 

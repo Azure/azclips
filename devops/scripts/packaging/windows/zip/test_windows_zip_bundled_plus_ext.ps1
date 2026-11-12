@@ -89,21 +89,7 @@ function Assert-UninstallFailure {
     }
 }
 
-function Get-ArtifactConfigValue {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
-
-        [Parameter(Mandatory = $true)]
-        [string]$DefaultValue
-    )
-
-    $configPath = $env:ARTIFACT_NAMING_CONFIG
-    if ([string]::IsNullOrWhiteSpace($configPath)) {
-        $configPath = Join-Path $packagingRoot 'config/artifact_naming.config'
-    }
-
-    function Assert-PublicInstallerDownload {
+function Assert-PublicInstallerDownload {
         $fixture = @{ Scenario = 'valid'; DownloadRoot = $null; Downloaded = $false }
         & {
             function gh { throw 'Public installation must not invoke gh.' }
@@ -172,6 +158,20 @@ function Get-ArtifactConfigValue {
             }
         }
         Write-Host 'PASS: Public download selection, failure handling, and piped installation using the pipeline archive.'
+}
+
+function Get-ArtifactConfigValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DefaultValue
+    )
+
+    $configPath = $env:ARTIFACT_NAMING_CONFIG
+    if ([string]::IsNullOrWhiteSpace($configPath)) {
+        $configPath = Join-Path $packagingRoot 'config/artifact_naming.config'
     }
 
     if (Test-Path -Path $configPath -PathType Leaf) {
@@ -459,6 +459,7 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
     $classicAz = Join-Path $classicBinRoot 'az.cmd'
     Set-Content -Path $classicAz -Value '@echo classic az sentinel'
 
+    & (Join-Path $packagingRoot 'common/test_public_extensions_download.ps1') -ExtensionsDirectory $ExtPackDir
     Assert-PublicInstallerDownload
     if ($LASTEXITCODE -ne 0) {
         throw "FAIL: installer exited with code $LASTEXITCODE."

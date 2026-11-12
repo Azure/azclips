@@ -69,23 +69,14 @@ az extension show --name compute
 If `compute` is not listed, download the extensions bundle from the release you installed, unpack it and add the extension:
 
 ```bash
-release=$(curl -fsSL https://api.github.com/repos/Azure/azclips/releases/latest)
-if ! bundle_url=$(printf '%s' "$release" | tr -d '\r\n' |
-  grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"https://github[.]com/Azure/azclips/releases/download/[A-Za-z0-9._-]+/azcli-extensions-[0-9][A-Za-z0-9._-]*[.]tar[.]gz"' |
-  sed 's/^[^:]*:[[:space:]]*"//; s/"$//'); then
-  echo "Could not locate the extensions bundle download URL." >&2
-  exit 1
-fi
-if [[ "$bundle_url" == *$'\n'* ]]; then
-  echo "Expected exactly one extensions bundle download URL." >&2
-  exit 1
-fi
-curl -fL "$bundle_url" -o azcli-extensions.tar.gz
+curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.sh | bash
 mkdir -p azcli-extensions
 tar -xzf ./azcli-extensions.tar.gz -C azcli-extensions
 az extension add --path ./azcli-extensions/azcli.extensions.compute.*.nupkg
 az extension list
 ```
+
+The helper defaults to the latest release. For an older CLI, use `bash -s -- --release '<release-tag>'` instead of `bash` in the download command, or download the matching bundle manually.
 
 **4. Switch between classic and preview**
 
@@ -197,10 +188,7 @@ az extension show --name compute
 If `compute` is not listed, download the extensions bundle from the release you installed, unpack it and add the extension:
 
 ```powershell
-$release = Invoke-RestMethod https://api.github.com/repos/Azure/azclips/releases/latest -ErrorAction Stop
-$assets = @($release.assets | Where-Object name -Like 'azcli-extensions-*.tar.gz')
-if ($assets.Count -ne 1) { throw 'Expected exactly one extensions bundle.' }
-Invoke-WebRequest $assets[0].browser_download_url -OutFile ./azcli-extensions.tar.gz -ErrorAction Stop
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-extensions-download.ps1 -ErrorAction Stop | iex
 New-Item -ItemType Directory -Force -Path azcli-extensions | Out-Null
 tar -xzf ./azcli-extensions.tar.gz -C azcli-extensions
 if ($LASTEXITCODE -ne 0) { throw 'Extensions bundle extraction failed.' }
