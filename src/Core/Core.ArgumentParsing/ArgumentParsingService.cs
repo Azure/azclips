@@ -25,10 +25,6 @@ namespace Core.ArgumentParsing
             if (!provider.ValidateArguments(parsedArgs, canonicalParameters, out IList<string>? argumentValidationErrors) && argumentValidationErrors is not null && argumentValidationErrors.Count > 0)
             {
                 var message = $"Invalid arguments: {string.Join(Environment.NewLine, argumentValidationErrors)}";
-                if (canonicalParameters.Values.Any(parameter => parameter.IsRequired && !parsedArgs.ContainsKey(parameter.Name)))
-                {
-                    throw AzclipsErrorException.MissingRequiredParameters(message);
-                }
                 throw AzclipsErrorException.UsageError(message);
             }
 
@@ -52,19 +48,23 @@ namespace Core.ArgumentParsing
             IDictionary<string, ParameterMetadata> canonicalParameters,
             Profile? profile)
         {
-            foreach (var key in profileService.GetProfileKeysForDefault())
+            var defaultKeys = profileService.GetProfileKeysForDefault();
+
+            defaultKeys.ForEach(key =>
             {
                 object? value = parsedArgs.TryGetValue(key, out var parsedArg) ? parsedArg.Item2 : null;
+                // Apply default property when not in args and in processor
                 if (value is null && canonicalParameters.ContainsKey(key))
                 {
                     string invocationName = canonicalParameters[key].InvocationName;
-                    if (profileService.GetProfileValueByKey(profile, key) is not {} profileValue)
+                    if (profileService.GetProfileValueByKey(profile, key) is not { } profileValue)
                     {
                         throw AzclipsErrorException.UsageError($"{invocationName} is not provided from input and not present in profile either");
                     }
+
                     parsedArgs[key] = (invocationName, profileValue);
                 }
-            }
+            });
         }
 
         private (string?, IList<string>?) ValidateParameterSets(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets)

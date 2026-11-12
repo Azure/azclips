@@ -76,13 +76,13 @@ public class CliArgumentBindingTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ProfileDefault_SatisfiesCliValidationWithoutChangingSetResolution(bool withParameterSet)
+    public void ProfileDefault_BindsOptionalSubscriptionWithoutChangingSetResolution(bool withParameterSet)
     {
         var processor = new TestProcessor();
 
         var result = CreateBinder().BindArgumentsToProcessor(processor,
             Arguments("--name", "example", "--resource-group", "group"),
-            Metadata(withParameterSet, requiredSubscription: !withParameterSet),
+            Metadata(withParameterSet),
             new Profile { SubscriptionId = "profile-subscription" });
 
         Assert.Same(processor, result);
@@ -94,14 +94,53 @@ public class CliArgumentBindingTests
     [Fact]
     public void ProfileDefault_DoesNotChangeExistingExplicitInputSetRequirements()
     {
+        var metadata = Metadata(withParameterSet: true);
+        metadata.ParameterSets!["Default"].Parameters!["SubscriptionId"] = new("SubscriptionId", IsRequired: true);
         var error = Assert.Throws<UsageErrorException>(() =>
             CreateBinder().BindArgumentsToProcessor(new TestProcessor(),
                 Arguments("--name", "example", "--resource-group", "group"),
-                Metadata(withParameterSet: true, requiredSubscription: true),
+                metadata,
                 new Profile { SubscriptionId = "profile-subscription" }));
 
         Assert.Contains("Invalid parameter set", error.Message);
         Assert.False(error.HasMissingRequiredParameters);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ProfileDefault_DoesNotSatisfyGloballyRequiredExplicitInput(bool withParameterSet)
+    {
+        var error = Assert.Throws<MissingRequiredArgumentException>(() =>
+            CreateBinder().BindArgumentsToProcessor(new TestProcessor(),
+                Arguments("--name", "example", "--resource-group", "group"),
+                Metadata(withParameterSet, requiredSubscription: true),
+                new Profile { SubscriptionId = "profile-subscription" }));
+
+        Assert.Contains("Required parameter '--subscription-id' is missing.", error.Message);
+    }
+
+    [Theory]
+    [InlineData("storage account create", "name", "resource-group")]
+    [InlineData("msgraph group member check", "group", "member-id")]
+    public void MissingRequiredSetArguments_UseCliDiagnosticsForRealCommands(
+        string command, string firstRequiredFlag, string secondRequiredFlag)
+    {
+        IExtensionIndex index = command.StartsWith("storage", StringComparison.Ordinal)
+            ? new Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex()
+            : new Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex();
+        var metadata = index.GetCommandMetadata(command, ClientType.CLI);
+
+        var error = Assert.Throws<MissingRequiredArgumentException>(() =>
+            CreateBinder().BindArgumentsToProcessor(metadata.GetInstance(),
+                new Dictionary<string, object>(), metadata, new Profile { SubscriptionId = SubscriptionId }));
+
+        Assert.Contains($"Required parameter '--{firstRequiredFlag}' is missing.", error.Message);
+        Assert.Contains($"Required parameter '--{secondRequiredFlag}' is missing.", error.Message);
+        Assert.DoesNotContain("candidate:", error.Message);
+        var invocation = new CommandInvocation("Test", command, new Dictionary<string, object>());
+        Assert.True(ErrorHelpPolicy.ShouldShowCommandHelp(error, invocation, errorStreamIsHumanReadable: true));
+        Assert.False(error.AgentFallbackEligible);
     }
 
     [Theory]
@@ -121,14 +160,15 @@ public class CliArgumentBindingTests
     }
 
     [Fact]
-    public void MissingProfileDefault_IsAMissingInputError()
+    public void MissingProfileDefault_RemainsAnOrdinaryUsageError()
     {
-        var error = Assert.Throws<MissingRequiredArgumentException>(() =>
+        var error = Assert.Throws<UsageErrorException>(() =>
             CreateBinder().BindArgumentsToProcessor(new TestProcessor(),
                 Arguments("--name", "example", "--resource-group", "group"),
                 Metadata(withParameterSet: false), profile: null));
 
         Assert.Contains("subscription-id is not provided from input and not present in profile either", error.Message);
+        Assert.False(error.HasMissingRequiredParameters);
         Assert.False(error.AgentFallbackEligible);
     }
 
