@@ -366,28 +366,26 @@ public sealed class ChatAgent : IAsyncDisposable
         }
 
         // Customize the SDK's default system message. Our oneshot/inline prompt
-        // REPLACES the identity section so it leads the message (the agent knows
-        // it's the azclips error-recovery agent up front, not after the SDK's
-        // generic preamble). All modes strip: tone (we don't want the generic
-        // code-assistant voice), code_change_rules (azclips doesn't edit code),
-        // and custom_instructions (repo CLAUDE.md / commit / notify rules leak
-        // in here). oneshot additionally strips tool_instructions and
-        // runtime_instructions — a single-shot plan needs neither the per-tool
-        // usage guides nor the multi-turn runtime scaffolding; interactive
-        // (inline/tui) keeps them because it actually runs tools across turns.
-        // Kept in all modes: tool_efficiency, environment_context, guidelines,
-        // safety.
+        // replaces the identity group (preamble, tone, tool_efficiency) so it leads
+        // the message. All modes remove: tone, code_change_rules,
+        // custom_instructions, runtime_instructions, last_instructions. oneshot
+        // also removes tool_instructions, guidelines, environment_context.
+        // Kept in all modes: safety; inline/tui also keeps tool_instructions,
+        // guidelines, environment_context.
         var sections = new Dictionary<SystemMessageSection, SectionOverride>
         {
             [SystemMessageSection.Identity] = new() { Action = SectionOverrideAction.Replace, Content = systemPrompt },
             [SystemMessageSection.Tone] = new() { Action = SectionOverrideAction.Remove },
             [SystemMessageSection.CodeChangeRules] = new() { Action = SectionOverrideAction.Remove },
             [SystemMessageSection.CustomInstructions] = new() { Action = SectionOverrideAction.Remove },
+            [SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove },
+            [SystemMessageSection.LastInstructions] = new() { Action = SectionOverrideAction.Remove },
         };
         if (string.Equals(entrypoint, "oneshot", StringComparison.OrdinalIgnoreCase))
         {
             sections[SystemMessageSection.ToolInstructions] = new() { Action = SectionOverrideAction.Remove };
-            sections[SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove };
+            sections[SystemMessageSection.Guidelines] = new() { Action = SectionOverrideAction.Remove };
+            sections[SystemMessageSection.EnvironmentContext] = new() { Action = SectionOverrideAction.Remove };
         }
 
         var sessionConfig = new SessionConfig
@@ -403,9 +401,14 @@ public sealed class ChatAgent : IAsyncDisposable
             },
             Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
                 .Concat(submitTool.All).Concat(planTool.All).Cast<AIFunctionDeclaration>().ToList(),
-            // All built-in tools available (bash, view, edit, grep, glob,
-            // web_fetch, web_search, todo, ...) plus our custom cache + help tools.
-            AvailableTools = null,
+            // Our custom tools plus the shell, file-view, search and web_fetch built-ins.
+            AvailableTools =
+            [
+                "custom:*",
+                "powershell", "read_powershell", "write_powershell", "stop_powershell", "list_powershell",
+                "bash", "read_bash", "write_bash", "stop_bash", "list_bash",
+                "view", "rg", "web_fetch",
+            ],
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, _) => PreToolUseHook.HandleAsync(

@@ -50,6 +50,8 @@ Rules for filling in `placeholders` and `defaults`:
 
 <execute>
 After approval, run each step with `bash`/`powershell` — each command is confirmed once more before it runs. Watch the result and adapt: fix and retry, or propose a follow-up plan if something fails.
+* A task is not complete until the original command's goal is verified (e.g. re-run a read command to confirm the fix took effect).
+* If an approved step fails, diagnose it and propose a revised plan; do not switch to a different approach without the user's approval.
 </execute>
 
 <submit>
