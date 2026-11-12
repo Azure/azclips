@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
@@ -15,6 +16,73 @@ namespace Cli.Tests.ArgumentParsing;
 
 public class CliArgumentBindingTests
 {
+    [Theory]
+    [InlineData("deployment group create", "resource-group", "test-rg", false)]
+    [InlineData("deployment group what-if", "resource-group", "test-rg", false)]
+    [InlineData("deployment sub create", "location", "westus", false)]
+    [InlineData("deployment sub what-if", "location", "westus", false)]
+    [InlineData("deployment sub validate", "location", "westus", false)]
+    [InlineData("deployment sub create", "location", "westus", true)]
+    [InlineData("deployment sub validate", "location", "westus", true)]
+    public async Task DeploymentDefaults_BindAndReachArmWithExpectedNameAndMode(
+        string command, string scopeFlag, string scopeValue, bool explicitOverrides)
+    {
+        var metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata(command, ClientType.CLI);
+        var (pipeline, output, sent) = Fake(_ => Status(System.Net.HttpStatusCode.OK,
+            """{"name":"azuredeploy","status":"Succeeded","properties":{"provisioningState":"Succeeded","changes":[]}}"""));
+        var processor = Configure(metadata.GetInstance(), pipeline, output, _ => { });
+        var args = new List<string>
+        {
+            $"--{scopeFlag}", scopeValue, "--template-uri", "https://example.com/templates/azuredeploy.json"
+        };
+        if (explicitOverrides)
+        {
+            args.AddRange(["--name", "custom-deployment", "--mode", "Complete"]);
+        }
+
+        CreateBinder().BindArgumentsToProcessor(processor, Arguments(args.ToArray()),
+            metadata, new Profile { SubscriptionId = SubscriptionId });
+        await processor.ProcessAsync();
+
+        Assert.NotEmpty(sent);
+        Assert.All(sent, request =>
+        {
+            Assert.Contains($"/subscriptions/{SubscriptionId}/", request.Uri);
+            Assert.Contains($"/deployments/{(explicitOverrides ? "custom-deployment" : "azuredeploy")}", request.Uri);
+        });
+        var bodies = sent.Where(request => request.Body is not null).ToList();
+        Assert.NotEmpty(bodies);
+        Assert.All(bodies, request =>
+        {
+            using var body = JsonDocument.Parse(request.Body!);
+            var properties = body.RootElement.GetProperty("properties");
+            Assert.Equal(explicitOverrides ? "Complete" : "Incremental", properties.GetProperty("mode").GetString());
+            Assert.Equal("https://example.com/templates/azuredeploy.json",
+                properties.GetProperty("templateLink").GetProperty("uri").GetString());
+        });
+    }
+
+    [Theory]
+    [InlineData("deployment group create", "resource-group")]
+    [InlineData("deployment group what-if", "resource-group")]
+    [InlineData("deployment sub create", "location")]
+    [InlineData("deployment sub what-if", "location")]
+    public void DeploymentDefaults_DoNotRelaxRequiredScopeArguments(string command, string requiredFlag)
+    {
+        var metadata = new Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex()
+            .GetCommandMetadata(command, ClientType.CLI);
+
+        var error = Assert.Throws<MissingRequiredArgumentException>(() =>
+            CreateBinder().BindArgumentsToProcessor(metadata.GetInstance(),
+                Arguments("--template-uri", "https://example.com/templates/azuredeploy.json"),
+                metadata, new Profile { SubscriptionId = SubscriptionId }));
+
+        Assert.Contains($"Required parameter '--{requiredFlag}' is missing.", error.Message);
+        Assert.DoesNotContain("Required parameter '--name' is missing.", error.Message);
+        Assert.DoesNotContain("Required parameter '--mode' is missing.", error.Message);
+    }
+
     [Theory]
     [InlineData("group create", "location", false)]
     [InlineData("group create", "location", true)]

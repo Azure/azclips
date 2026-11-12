@@ -40,6 +40,7 @@ public class TestSubscriptionDeploymentProcessor_Orchestrator : ValidateAtSubscr
         builder.ValidateCommonInputs();
 
         DeploymentName = builder.Name;
+        Mode = DeploymentRequestBuilder.ParseMode(Mode);
         Template = builder.BuildTemplate(out TemplateLink? templateLink);
         // The flattened link setters create an empty link object even for null, and the service
         // rejects a body with both a template and a templateLink, so set them only for a real link.
