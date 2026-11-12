@@ -277,9 +277,9 @@ public sealed class AgentTelemetryProviderTests
     public async Task RunSessionAsync_StillHandlesTelemetryStartupFailure()
     {
         var disposed = false;
-        var code = await AgentModeEntry.RunSessionAsync(
+        var code = await AgentLayerTestHarness.WithCapturedConsoleAsync(() => AgentModeEntry.RunSessionAsync(
             () => throw new InvalidOperationException("offline registration failure"),
-            (_, _) => throw new InvalidOperationException("must not run"), () => disposed = true);
+            (_, _) => throw new InvalidOperationException("must not run"), () => disposed = true));
         Assert.Equal(1, code);
         Assert.True(disposed);
     }
