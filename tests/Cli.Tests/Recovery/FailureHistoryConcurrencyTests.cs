@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using Core.Abstractions.Recovery;
 using static Cli.Tests.Recovery.FailureHistoryTestScope;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests.Recovery;
 
@@ -16,7 +17,7 @@ public sealed class FailureHistoryConcurrencyTests
     public async Task FourRealProcesses_SamePidAllocateUniqueIdsAndSequences()
     {
         using var scope = new FailureHistoryTestScope();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var deadline = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         var release = Path.Combine(scope.Root, "release");
         var workers = Enumerable.Range(0, 4).Select(index => StartWorker(scope, "save", $"ready-{index}", release)).ToArray();
         try
@@ -43,7 +44,7 @@ public sealed class FailureHistoryConcurrencyTests
         var store = scope.CreateStore();
         var originalEntry = await store.SaveAsync(CreateRecord(), 10);
         var original = await File.ReadAllBytesAsync(scope.Files.HistoryPath);
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var deadline = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         await using (var writer = StartWorker(scope, "crash-before-replace", "staged", Path.Combine(scope.Root, "never-release")))
         {
             await WaitForReadyAsync(writer, deadline.Token);

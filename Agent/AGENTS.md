@@ -23,7 +23,8 @@ the same PR.
   (`WaitForTimerAsync`) before calling `Advance` when the timer may not be armed yet.
   Test infrastructure defaults to a fake clock that never advances.
 - A wait for something that must happen on a real thread, process or I/O uses the shared
-  60-second hang guard (`DefaultTimeout()` in `tests/Common/Utilities/TaskTimeoutExtensions.cs`).
+  60-second hang guard: `.WithAgentHangGuard()`, or `AgentTestTimeouts.HangGuard` where a
+  `TimeSpan` is needed (`tests/Common/Utilities/AgentTestTimeouts.cs`).
 - A short window of 50-100 ms is allowed only to show that something did not happen.
 - A budget the test owns must not end the operation under test. Give the operation its own
   untimed token and assert which token cancelled it.

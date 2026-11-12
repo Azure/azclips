@@ -4,13 +4,14 @@
 using System.Collections.Concurrent;
 using Core.Abstractions.Recovery;
 using Core.Runtime.Recovery;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests.Recovery;
 
 internal sealed class FailureHistoryTestScope : IDisposable
 {
-    // Default lock wait for tests; a test that checks the limit passes its own.
-    internal static readonly TimeSpan DefaultLockTimeout = TimeSpan.FromSeconds(60);
+    // Lock wait that never expires in tests; a test that checks the limit passes its own.
+    internal static readonly TimeSpan DefaultLockTimeout = AgentTestTimeouts.HangGuard;
 
     internal FailureHistoryTestScope(
         TimeSpan? lockTimeout = null, Action<string, string>? replace = null, Action<string>? delete = null,

@@ -15,6 +15,7 @@ using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Time.Testing;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -123,13 +124,13 @@ public sealed class AgentRuntimeLifecycleTests
                 "permission" => config.OnPermissionRequest!(null!, null!),
                 _ => Task.Run(() => config.OnEvent!(new SessionIdleEvent { Data = new SessionIdleData() })),
             };
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.True(enteredWithoutActivity);
 
             using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
             var root = rootScope?.Activity;
             var completion = lifetime.CompleteAsync(root, terminalStatus: ActivityStatusCode.Ok);
-            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            await cancelled.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Equal(TelemetryLayerState.Running, scope.State);
             Assert.False(completion.IsCompleted);
             Assert.False(exited);
@@ -217,17 +218,17 @@ public sealed class AgentRuntimeLifecycleTests
                 lifetime.RegisterCleanup(resource.DisposeAsync);
                 throw new InvalidOperationException("original offline create failure");
             }, () => { }, timeProvider: clock);
-            await cleanupEntered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            await cleanupEntered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.False(running.IsCompleted);
 
             clock.Advance(TimeSpan.FromSeconds(10));
-            Assert.Equal(1, await running.WaitAsync(TimeSpan.FromSeconds(60)));
+            Assert.Equal(1, await running.WaitAsync(AgentTestTimeouts.HangGuard));
             Assert.False(actualCleanupFinished);
             Assert.Null(scope.FileSession.PublishedPath);
 
             Assert.Null(scope.Telemetry.StartActivity("Agent.Send"));
             releaseClient.SetResult();
-            await resource!.DisposeAsync().WaitAsync(TimeSpan.FromSeconds(60));
+            await resource!.DisposeAsync().WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.True(actualCleanupFinished);
             Assert.Throws<ObjectDisposedException>(() => context!.StartOperation("Agent.Send"));
             Assert.Null(scope.FileSession.PublishedPath);
@@ -340,21 +341,21 @@ public sealed class AgentRuntimeLifecycleTests
                 release.Wait();
             });
             var cancelling = lifetime.CancelAsync(userCancellation);
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             var completion = lifetime.CompleteAsync(root,
                 new Dictionary<string, object?> { [TelemetryTags.RecoveryOutcome] = "cancelled" }, ActivityStatusCode.Unset);
             try
             {
                 clock.Advance(TimeSpan.FromSeconds(10));
                 Assert.Equal(TelemetryLayerCompletion.NotPublished,
-                    await completion.WaitAsync(TimeSpan.FromSeconds(60)));
+                    await completion.WaitAsync(AgentTestTimeouts.HangGuard));
                 Assert.False(cancelling.IsCompleted);
                 Assert.Null(scope.FileSession.PublishedPath);
             }
             finally
             {
                 release.Set();
-                await cancelling.WaitAsync(TimeSpan.FromSeconds(60));
+                await cancelling.WaitAsync(AgentTestTimeouts.HangGuard);
             }
         });
     }

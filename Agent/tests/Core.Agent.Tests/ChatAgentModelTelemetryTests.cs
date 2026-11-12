@@ -19,7 +19,6 @@ namespace Core.Agent.Tests;
 [Collection("AgentTelemetry")]
 public class ChatAgentModelTelemetryTests
 {
-    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan ModelQueryBudget = TimeSpan.FromSeconds(5);
 
     [Theory]
@@ -34,7 +33,7 @@ public class ChatAgentModelTelemetryTests
         {
             using var parent = new Activity("test-parent").Start();
 
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             var stopped = Assert.Single(capture.Stopped);
             Assert.Equal("github-model", stopped.Model);
@@ -53,7 +52,7 @@ public class ChatAgentModelTelemetryTests
         await using var runtime = Server([[Usage("wire-model"), Idle()]], queries);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("custom-builtin-deployment", Assert.Single(capture.Stopped).Model);
             Assert.Equal("custom-builtin-deployment", runtime.CreateOptions.GetProperty("model").GetString());
@@ -74,8 +73,8 @@ public class ChatAgentModelTelemetryTests
             // Stands in for the request handler, which records each model response during the turn.
             using var onUsage = rig.Session.On<AssistantUsageEvent>(_ => servedModel.Record(served));
 
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
-            await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
+            await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal(("gpt-5.4-mini-2026-03-17", AgentModelSource.Response.Wire()),
                 (capture.Stopped[0].Model, capture.Stopped[0].Source));
@@ -97,7 +96,7 @@ public class ChatAgentModelTelemetryTests
         await using var runtime = Server([[Usage("wire-model"), Idle()]]);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             using var session = new Activity("Agent.Session").Start();
             rig.Agent.RecordModel(session);
@@ -130,7 +129,7 @@ public class ChatAgentModelTelemetryTests
                     new AgentOptions { Provider = "builtin", Builtin = new BuiltinProviderOptions { ModelId = "configured-model" } },
                     "oneshot", lifetime, preAcquiredAuth: OfflineToken(), dataBoundary: "Global",
                     clientFactory: () => new CopilotClient(new CopilotClientOptions { Connection = RuntimeConnection.ForUri(runtime.Url) }))
-                    .WaitAsync(TestTimeout);
+                    .WaitAsync(AgentTestTimeouts.HangGuard);
                 var telemetry = (AgentModelTelemetry)typeof(ChatAgent)
                     .GetField("_modelTelemetry", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(agent)!;
                 var servedModel = telemetry.ServedModel!;
@@ -140,8 +139,8 @@ public class ChatAgentModelTelemetryTests
                     return Task.CompletedTask;
                 };
 
-                await agent.SendAsync("first prompt", CancellationToken.None).WaitAsync(TestTimeout);
-                await agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
+                await agent.SendAsync("first prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
+                await agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
             }, () => { });
 
             Assert.Equal(0, code);
@@ -162,7 +161,7 @@ public class ChatAgentModelTelemetryTests
             [Usage("main-model"), Usage("auxiliary-model", agentId, initiator), Idle()]]);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("main-model", Assert.Single(capture.Stopped).Model);
         });
@@ -176,7 +175,7 @@ public class ChatAgentModelTelemetryTests
             [Usage("first-model"), Usage("fallback-model"), Idle()]]);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("fallback-model", Assert.Single(capture.Stopped).Model);
         });
@@ -199,7 +198,7 @@ public class ChatAgentModelTelemetryTests
             [Usage("main-model"), Usage(model), Idle()]]);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("main-model", Assert.Single(capture.Stopped).Model);
         });
@@ -216,7 +215,7 @@ public class ChatAgentModelTelemetryTests
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
             for (var i = 0; i < 3; i++)
-                await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+                await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal(new string?[] { "first-model", null, "next-model" },
                 capture.Stopped.Select(send => send.Model));
@@ -230,7 +229,7 @@ public class ChatAgentModelTelemetryTests
         await using var runtime = Server([[Idle()]]);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Null(Assert.Single(capture.Stopped).Model);
         });
@@ -242,7 +241,7 @@ public class ChatAgentModelTelemetryTests
         await using var runtime = Server([[Idle()]]);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             rig.Agent.OnSessionErrored(new SessionErrored("rate_limit", "late", ErrorCode: null, StatusCode: 429,
                 ProviderCallId: null, At: DateTimeOffset.UtcNow));
@@ -269,17 +268,17 @@ public class ChatAgentModelTelemetryTests
             using var cancelOnMessage = rig.Session.On<AssistantMessageEvent>(_ => cts.Cancel());
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
-                () => rig.Agent.SendAsync("test prompt", cts.Token).WaitAsync(TestTimeout));
+                () => rig.Agent.SendAsync("test prompt", cts.Token).WaitAsync(AgentTestTimeouts.HangGuard));
 
             var stopped = Assert.Single(capture.Stopped);
             Assert.Equal(reportUsage ? "observed-model" : null, stopped.Model);
             var lateUsageProcessed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             using var lateUsage = rig.Session.On<AssistantUsageEvent>(_ => lateUsageProcessed.TrySetResult());
             await runtime.EmitAsync(Usage("late-model"));
-            await lateUsageProcessed.Task.WaitAsync(TestTimeout);
+            await lateUsageProcessed.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Equal(stopped.Model, stopped.Span.GetTagItem(TelemetryTags.AgentModel));
 
-            await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Null(capture.Stopped[1].Model);
         });
     }
@@ -296,7 +295,7 @@ public class ChatAgentModelTelemetryTests
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
             var error = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout));
+                () => rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard));
 
             Assert.Contains("test failure", error.Message);
             Assert.Equal("observed-model", Assert.Single(capture.Stopped).Model);
@@ -310,7 +309,7 @@ public class ChatAgentModelTelemetryTests
         await using var runtime = Server([[Usage("github-model"), Idle()]]);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Empty(capture.Stopped);
         }, telemetryEnabled: false);
@@ -341,8 +340,8 @@ public class ChatAgentModelTelemetryTests
         await using var runtime = Server([[Usage("actual-model"), Idle()], [Idle()]], ModelQueries.Selected("sdk-default"));
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("first prompt", CancellationToken.None).WaitAsync(TestTimeout);
-            await rig.Agent.SendAsync("second prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("first prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
+            await rig.Agent.SendAsync("second prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal(new[] { "actual-model", "sdk-default" }, capture.Stopped.Select(span => span.Model));
             Assert.Equal(new[] { "usage", "sdk" }, capture.Stopped.Select(span => span.Source));
@@ -364,7 +363,7 @@ public class ChatAgentModelTelemetryTests
             using var cancelOnMessage = rig.Session.On<AssistantMessageEvent>(_ => cts.Cancel());
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
-                () => rig.Agent.SendAsync("test prompt", cts.Token).WaitAsync(TestTimeout));
+                () => rig.Agent.SendAsync("test prompt", cts.Token).WaitAsync(AgentTestTimeouts.HangGuard));
 
             var stopped = Assert.Single(capture.Stopped);
             Assert.Equal("sdk-default", stopped.Model);
@@ -389,8 +388,8 @@ public class ChatAgentModelTelemetryTests
                 AgentId = agentId,
                 Data = new SessionModelChangeData { NewModel = "changed-model" },
             });
-            await processed.Task.WaitAsync(TestTimeout);
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await processed.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal(expectedModel, rig.Agent.Model);
             Assert.Equal(expectedModel, Assert.Single(capture.Stopped).Model);
@@ -414,7 +413,7 @@ public class ChatAgentModelTelemetryTests
                     StartTime = DateTimeOffset.UtcNow, Version = 1, SelectedModel = "startup-model",
                 },
             });
-            await processed.Task.WaitAsync(TestTimeout);
+            await processed.Task.WaitAsync(AgentTestTimeouts.HangGuard);
 
             await rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None);
 
@@ -436,7 +435,7 @@ public class ChatAgentModelTelemetryTests
             {
                 Data = new SessionModelChangeData { NewModel = "new-model" },
             });
-            await processed.Task.WaitAsync(TestTimeout);
+            await processed.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             await query.ReplyAsync(new { modelId = "stale-model" });
         });
         await using var runtime = Server(queries: queries);
@@ -465,7 +464,7 @@ public class ChatAgentModelTelemetryTests
             using var onStart = rig.Session.On<SessionStartEvent>(_ => processed.TrySetResult());
 
             await runtime.EmitAsync(Started("old-startup-model"));
-            await processed.Task.WaitAsync(TestTimeout);
+            await processed.Task.WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("queried-model", rig.Agent.Model);
         });
@@ -486,7 +485,7 @@ public class ChatAgentModelTelemetryTests
         await using var runtime = Server(queries: new ModelQueries(async query =>
         {
             await query.Server.EmitAsync(Started("old-startup-model"));
-            await processed.Task.WaitAsync(TestTimeout);
+            await processed.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             await query.ReplyAsync(new { modelId = "queried-model" });
         }));
         await OfflineChatAgent.RunAsync(runtime, async rig =>
@@ -523,7 +522,7 @@ public class ChatAgentModelTelemetryTests
             var warning = Assert.Single(rig.Warnings);
             Assert.Contains("model metadata is unavailable", warning);
             Assert.Contains(reason, warning);
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Equal("actual-model", Assert.Single(capture.Stopped).Model);
         });
     }
@@ -538,8 +537,8 @@ public class ChatAgentModelTelemetryTests
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
             var initialization = rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None);
-            await queries.Started.WaitAsync(TestTimeout);
-            await clock.WaitForTimerAsync(ModelQueryBudget, TestTimeout);
+            await queries.Started.WaitAsync(AgentTestTimeouts.HangGuard);
+            await clock.WaitForTimerAsync(ModelQueryBudget, AgentTestTimeouts.HangGuard);
 
             // Without the clock advancing, the query stays pending.
             await Task.Delay(TimeSpan.FromMilliseconds(500));
@@ -547,9 +546,9 @@ public class ChatAgentModelTelemetryTests
             Assert.Empty(rig.Warnings);
 
             clock.Advance(ModelQueryBudget);
-            await initialization.WaitAsync(TestTimeout);
+            await initialization.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Contains("timed out", Assert.Single(rig.Warnings));
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Equal("actual-model", Assert.Single(capture.Stopped).Model);
         }, initializeModel: false, timeProvider: clock);
     }
@@ -565,11 +564,11 @@ public class ChatAgentModelTelemetryTests
         {
             using var cts = new CancellationTokenSource();
             var initialization = rig.Metadata.InitializeAsync(rig.Session, cts.Token);
-            await queries.Started.WaitAsync(TestTimeout);
+            await queries.Started.WaitAsync(AgentTestTimeouts.HangGuard);
 
             await cts.CancelAsync();
 
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => initialization.WaitAsync(TestTimeout));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => initialization.WaitAsync(AgentTestTimeouts.HangGuard));
             Assert.Empty(rig.Warnings);
         }, initializeModel: false, timeProvider: clock);
     }
@@ -602,7 +601,7 @@ public class ChatAgentModelTelemetryTests
             try
             {
                 await Assert.ThrowsAnyAsync<OperationCanceledException>(
-                    () => rig.Metadata.InitializeAsync(rig.Session, cts.Token).WaitAsync(TestTimeout));
+                    () => rig.Metadata.InitializeAsync(rig.Session, cts.Token).WaitAsync(AgentTestTimeouts.HangGuard));
 
                 Assert.True(rig.Warnings.Count == 0,
                     "A cancelled caller is not a failed model lookup, so nothing is reported to the user. " +
@@ -611,7 +610,7 @@ public class ChatAgentModelTelemetryTests
                 // The connection is gone, so a second query fails without reaching the server.
 #pragma warning disable GHCP001 // The SDK marks this read-only metadata API experimental.
                 var second = await Record.ExceptionAsync(() => rig.Session.Rpc.Model.GetCurrentAsync(CancellationToken.None)
-                    .WaitAsync(TimeSpan.FromSeconds(60)));
+                    .WaitAsync(AgentTestTimeouts.HangGuard));
 #pragma warning restore GHCP001
                 Assert.NotNull(second);
                 Assert.Equal(1, queries.Count);
@@ -619,7 +618,7 @@ public class ChatAgentModelTelemetryTests
             finally
             {
                 // A torn transport cannot acknowledge the SDK's graceful session detach.
-                await rig.Client.ForceStopAsync().WaitAsync(TestTimeout);
+                await rig.Client.ForceStopAsync().WaitAsync(AgentTestTimeouts.HangGuard);
             }
         }, initializeModel: false);
     }
@@ -640,7 +639,7 @@ public class ChatAgentModelTelemetryTests
             await rig.Session.DisposeAsync();
 
             var failure = await Record.ExceptionAsync(
-                () => rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None).WaitAsync(TestTimeout));
+                () => rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard));
 
             Assert.True(failure is null,
                 "A read-only metadata query must not be able to end the recovery session: whatever the " +
@@ -667,7 +666,7 @@ public class ChatAgentModelTelemetryTests
         await using var runtime = Server([[Idle()]], ModelQueries.Selected(model));
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             var exported = Assert.Single(capture.Stopped);
             Assert.True(exported.Model == (exportable ? model : null),
@@ -701,7 +700,7 @@ public class ChatAgentModelTelemetryTests
             [SessionEvent.FromJson("""{"type":"assistant.usage","data":null}"""), Idle()]], ModelQueries.Selected("selected-model"));
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("selected-model", Assert.Single(capture.Stopped).Model);
             Assert.Empty(rig.SdkErrors);
@@ -724,7 +723,7 @@ public class ChatAgentModelTelemetryTests
                     EventCount = 1, ResumeTime = DateTimeOffset.UtcNow, SelectedModel = "resumed-model",
                 },
             });
-            await processed.Task.WaitAsync(TestTimeout);
+            await processed.Task.WaitAsync(AgentTestTimeouts.HangGuard);
 
             await rig.Metadata.InitializeAsync(rig.Session, CancellationToken.None);
 
@@ -749,7 +748,7 @@ public class ChatAgentModelTelemetryTests
             using var cts = new CancellationTokenSource();
             using var cancel = rig.Session.On<AssistantMessageEvent>(_ => cts.Cancel());
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
-                () => rig.Agent.SendAsync("first prompt", cts.Token).WaitAsync(TestTimeout));
+                () => rig.Agent.SendAsync("first prompt", cts.Token).WaitAsync(AgentTestTimeouts.HangGuard));
             var lateUsage = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             using var onUsage = rig.Session.On<AssistantUsageEvent>(usage =>
             {
@@ -758,9 +757,9 @@ public class ChatAgentModelTelemetryTests
             });
             runtime.BeforeTurn = () => runtime.EmitAsync(Usage("previous-send-model", initiator: "user"));
 
-            await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("next prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
-            await lateUsage.Task.WaitAsync(TestTimeout);
+            await lateUsage.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Equal("selected-model", capture.Stopped[1].Model);
             Assert.Equal("sdk", capture.Stopped[1].Source);
         });
@@ -783,7 +782,7 @@ public class ChatAgentModelTelemetryTests
             }, Usage("late-model"), Idle()]]);
         await OfflineChatAgent.RunAsync(runtime, async rig =>
         {
-            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(TestTimeout);
+            await rig.Agent.SendAsync("test prompt", CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("second-model", Assert.Single(capture.Stopped).Model);
         });

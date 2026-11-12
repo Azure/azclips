@@ -48,14 +48,13 @@ public sealed class RetiredAgentKeysTests
     {
         var config = new RecordingConfiguration(new() { ["agent.enabled"] = true }) { HangOnDelete = true };
         var clock = new SignalingFakeTimeProvider();
-        var testTimeout = TimeSpan.FromSeconds(60);
 
         var cleanup = RetiredAgentKeys.TryRemoveAsync(config, CancellationToken.None, clock);
-        await clock.WaitForTimerAsync(RetiredAgentKeys.CleanupBudget, testTimeout);
+        await clock.WaitForTimerAsync(RetiredAgentKeys.CleanupBudget, AgentTestTimeouts.HangGuard);
         Assert.False(cleanup.IsCompleted);
         clock.Advance(RetiredAgentKeys.CleanupBudget);
 
-        await cleanup.WaitAsync(testTimeout);
+        await cleanup.WaitAsync(AgentTestTimeouts.HangGuard);
         Assert.Empty(config.Deleted);
     }
 

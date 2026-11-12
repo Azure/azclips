@@ -8,6 +8,7 @@ using GitHub.Copilot;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -15,7 +16,6 @@ namespace Core.Agent.Tests;
 internal sealed class OfflineChatAgent : IAsyncDisposable
 {
     internal const string SessionId = "offline-chat-agent-session";
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
     private OfflineChatAgent(ChatAgent agent, CopilotClient client, CopilotSession session,
         AgentModelTelemetry metadata, List<string> warnings, ConcurrentQueue<string> sdkErrors, AgentTraceCapture trace)
@@ -87,9 +87,9 @@ internal sealed class OfflineChatAgent : IAsyncDisposable
                 OnEvent = metadata.Observe,
             };
             context.Bind(config);
-            var session = await client.CreateSessionAsync(config).WaitAsync(Timeout);
+            var session = await client.CreateSessionAsync(config).WaitAsync(AgentTestTimeouts.HangGuard);
             if (initializeModel)
-                await metadata.InitializeAsync(session, CancellationToken.None).WaitAsync(Timeout);
+                await metadata.InitializeAsync(session, CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
             return new OfflineChatAgent(new ChatAgent(client, session, metadata, state: null, context),
                 client, session, metadata, warnings, sdkErrors, trace);
         }
@@ -104,7 +104,7 @@ internal sealed class OfflineChatAgent : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        try { await Agent.DisposeAsync().AsTask().WaitAsync(Timeout); }
+        try { await Agent.DisposeAsync().AsTask().WaitAsync(AgentTestTimeouts.HangGuard); }
         finally { Trace.Dispose(); }
     }
 

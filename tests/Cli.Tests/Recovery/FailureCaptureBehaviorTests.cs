@@ -20,7 +20,6 @@ namespace Cli.Tests.Recovery;
 [Collection("Azclips Service Provider Tests")]
 public class FailureCaptureBehaviorTests
 {
-    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(60);
 
     // Mirrors Program.Main: parsed positionals, or the raw arguments when global parsing fails.
     private static string[] Positional(string[] args)
@@ -135,10 +134,10 @@ public class FailureCaptureBehaviorTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct);
                 throw new Xunit.Sdk.XunitException("The timed-out writer must not return an entry.");
             }, getParentProcessId: () => 321, timeProvider: clock);
-        await clock.WaitForTimerAsync(FailureCapture.CaptureBudget, TestTimeout);
+        await clock.WaitForTimerAsync(FailureCapture.CaptureBudget, AgentTestTimeouts.HangGuard);
         Assert.False(save.IsCompleted);
         clock.Advance(FailureCapture.CaptureBudget);
-        var result = await save.WaitAsync(TestTimeout);
+        var result = await save.WaitAsync(AgentTestTimeouts.HangGuard);
 
         Assert.Equal(TimeSpan.FromSeconds(2), FailureCapture.CaptureBudget);
         Assert.Null(result.Entry);
@@ -470,7 +469,7 @@ public class FailureCaptureBehaviorTests
     public async Task Worker_LargeStderrIsDrainedButKeptBounded()
     {
         var debug = new List<string>();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var deadline = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
 
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() => FailureHistoryWorker.SaveAsync(
             FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-flood")));
@@ -490,14 +489,14 @@ public class FailureCaptureBehaviorTests
             FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-hang", written));
         try
         {
-            await WaitForFileAsync(written, saving).DefaultTimeout();
+            await WaitForFileAsync(written, saving).WithAgentHangGuard();
         }
         finally
         {
             deadline.Cancel();
             File.Delete(written);
         }
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => saving.DefaultTimeout());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => saving.WithAgentHangGuard());
 
         Assert.Equal("history worker stderr: partial-diagnostic-before-hang", Assert.Single(debug));
     }
@@ -513,14 +512,14 @@ public class FailureCaptureBehaviorTests
             FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-utf8-hang", written));
         try
         {
-            await WaitForFileAsync(written, saving).DefaultTimeout();
+            await WaitForFileAsync(written, saving).WithAgentHangGuard();
         }
         finally
         {
             deadline.Cancel();
             File.Delete(written);
         }
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => saving.DefaultTimeout());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => saving.WithAgentHangGuard());
 
         Assert.Equal("history worker stderr: " + new string('é', 2048), Assert.Single(debug));
     }

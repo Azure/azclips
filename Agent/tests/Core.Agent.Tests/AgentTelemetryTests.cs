@@ -8,6 +8,7 @@ using Core.Agent.Telemetry;
 using Core.Telemetry;
 using GitHub.Copilot;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -120,7 +121,7 @@ public sealed class AgentTelemetryProviderTests
             Assert.False(pending.IsCompleted);
             Assert.Throws<InvalidOperationException>(() => host.Scope);
             profile.SetResult(new Profile { Name = "injected", TenantId = "injected-tenant" });
-            await using var scope = await pending.WaitAsync(TimeSpan.FromSeconds(60));
+            await using var scope = await pending.WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Same(scope, host.Scope);
             Assert.Same(scope, await host.GetScopeAsync());

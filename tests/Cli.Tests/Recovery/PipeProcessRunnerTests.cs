@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Core.Abstractions.Recovery;
 using Core.Cli.Recovery;
 using Xunit;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests.Recovery;
 
@@ -16,7 +17,7 @@ public class PipeProcessRunnerTests
     {
         var processId = 0;
         using var cancel = new CancellationTokenSource();
-        using var guard = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var guard = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancel.Token, guard.Token);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => PipeProcessRunner.RunAsync(
             _ => CreateChild(block: true), new string('x', 4_000_000), linked.Token,
@@ -34,7 +35,7 @@ public class PipeProcessRunnerTests
     [Fact]
     public async Task EarlyExit_StopsAnOutstandingLargeWrite()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         var error = await Record.ExceptionAsync(() => PipeProcessRunner.RunAsync(
             _ => CreateChild(block: false), new string('x', 4_000_000), timeout.Token));
 
@@ -46,7 +47,7 @@ public class PipeProcessRunnerTests
     public async Task SynchronousReceiverFailure_StillStopsTheChild()
     {
         var processId = 0;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         var expected = new InvalidOperationException("synthetic receiver failure");
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => PipeProcessRunner.RunAsync(
             _ => CreateChild(block: true), new string('x', 4_000_000), timeout.Token,
@@ -107,7 +108,7 @@ public class PipeProcessRunnerTests
         try
         {
             using var process = Process.GetProcessById(processId);
-            Assert.True(process.WaitForExit(TimeSpan.FromSeconds(60)), $"Owned child {processId} is still running.");
+            Assert.True(process.WaitForExit(AgentTestTimeouts.HangGuard), $"Owned child {processId} is still running.");
         }
         catch (ArgumentException)
         {

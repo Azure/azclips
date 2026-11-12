@@ -9,6 +9,7 @@ using Core.Agent.Tools.Resource.Cache;
 using Core.Telemetry;
 using Microsoft.Extensions.Time.Testing;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -46,11 +47,11 @@ public sealed class AgentCacheLifetimeTests
             refresher.AttachHostLifetime(lifetime);
             lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
             refresher.KickAsync();
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.True(refresher.ActiveTaskCount > 0);
 
             var completion = lifetime.CompleteAsync(root, new Dictionary<string, object?>(), ActivityStatusCode.Ok);
-            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            await cancelled.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.False(completion.IsCompleted);
             Assert.False(exited);
             refresher.KickAsync();
@@ -105,16 +106,16 @@ public sealed class AgentCacheLifetimeTests
             using var caller = new CancellationTokenSource();
 
             var first = refresher.RefreshOnceAsync(caller.Token);
-            await authEntered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            await authEntered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             var second = refresher.RefreshOnceAsync();
-            Assert.True(SpinWait.SpinUntil(() => refresher.WaitingCallerCount("offline-tenant") == 2, TimeSpan.FromSeconds(60)));
+            Assert.True(SpinWait.SpinUntil(() => refresher.WaitingCallerCount("offline-tenant") == 2, AgentTestTimeouts.HangGuard));
             caller.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
             Assert.False(sharedToken.IsCancellationRequested);
             Assert.False(second.IsCompleted);
             Assert.Equal(1, auth.AcquireCount);
             releaseAuth.SetResult();
-            await second.WaitAsync(TimeSpan.FromSeconds(60));
+            await second.WaitAsync(AgentTestTimeouts.HangGuard);
             // One acquisition for the tenant list, one for the tenant's ARG sweep.
             Assert.Equal(2, auth.AcquireCount);
             Assert.Equal(TelemetryLayerCompletion.Published,
@@ -144,7 +145,7 @@ public sealed class AgentCacheLifetimeTests
         var refresher = new ArmCacheRefresher(new NoAuthService(), profiles, http,
             Path.Combine(AppContext.BaseDirectory, "TestArtifacts", "CliCache", Guid.NewGuid().ToString("N")));
         refresher.KickAsync();
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+        await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
 
         await refresher.StopAndDrainAsync();
 
@@ -152,7 +153,7 @@ public sealed class AgentCacheLifetimeTests
         Assert.False(tokenSeen.CanBeCanceled);
         Assert.False(exited.Task.IsCompleted);
         release.SetResult();
-        await exited.Task.WaitAsync(TimeSpan.FromSeconds(60));
+        await exited.Task.WaitAsync(AgentTestTimeouts.HangGuard);
     }
 
     [Fact]
@@ -212,17 +213,17 @@ public sealed class AgentCacheLifetimeTests
             refresher.AttachHostLifetime(lifetime);
             lifetime.RegisterCleanup(refresher.StopAndDrainAsync);
             refresher.KickAsync();
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
 
             var completion = lifetime.CompleteAsync(root,
                 new Dictionary<string, object?> { [TelemetryTags.RecoveryOutcome] = "ok" }, ActivityStatusCode.Ok);
             clock.Advance(TimeSpan.FromSeconds(10));
             Assert.Equal(TelemetryLayerCompletion.NotPublished,
-                await completion.WaitAsync(TimeSpan.FromSeconds(60)));
+                await completion.WaitAsync(AgentTestTimeouts.HangGuard));
             Assert.Null(scope.FileSession.PublishedPath);
 
             release.SetResult();
-            await refresher.StopAndDrainAsync().WaitAsync(TimeSpan.FromSeconds(60));
+            await refresher.StopAndDrainAsync().WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.True(lateActivityWasRejected);
             Assert.Null(scope.FileSession.PublishedPath);
         });

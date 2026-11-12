@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Authentication.Recovery;
 using Moq;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests.Recovery;
 
@@ -409,7 +410,7 @@ public sealed class MacOsFailureHistoryKeyStorageTests
             BeforeMatching = () =>
             {
                 firstEntered.Set();
-                Assert.True(releaseFirst.Wait(TimeSpan.FromSeconds(60)));
+                Assert.True(releaseFirst.Wait(AgentTestTimeouts.HangGuard));
             },
         };
         var secondNative = new FakeNative { BeforePolicyRead = secondEntered.Set };
@@ -417,21 +418,21 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         Task<byte[]>? second = null;
         try
         {
-            Assert.True(firstEntered.Wait(TimeSpan.FromSeconds(60)));
+            Assert.True(firstEntered.Wait(AgentTestTimeouts.HangGuard));
             second = Task.Run(() =>
             {
                 secondStarted.Set();
                 return Create(secondNative).ReadData();
             });
-            Assert.True(secondStarted.Wait(TimeSpan.FromSeconds(60)));
+            Assert.True(secondStarted.Wait(AgentTestTimeouts.HangGuard));
             Assert.False(secondEntered.Wait(TimeSpan.FromMilliseconds(100)));
         }
         finally
         {
             releaseFirst.Set();
-            await first.WaitAsync(TimeSpan.FromSeconds(60));
+            await first.WaitAsync(AgentTestTimeouts.HangGuard);
             if (second is not null)
-                await second.WaitAsync(TimeSpan.FromSeconds(60));
+                await second.WaitAsync(AgentTestTimeouts.HangGuard);
         }
 
         Assert.True(secondEntered.IsSet);

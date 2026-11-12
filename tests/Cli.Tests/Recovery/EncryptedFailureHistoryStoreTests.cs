@@ -615,11 +615,11 @@ public sealed class EncryptedFailureHistoryStoreTests
         var retryDelay = TimeSpan.FromMilliseconds(50);
         for (var elapsed = TimeSpan.Zero; elapsed < lockTimeout; elapsed += retryDelay)
         {
-            await clock.WaitForTimerAsync(retryDelay, TimeSpan.FromSeconds(60));
+            await clock.WaitForTimerAsync(retryDelay, AgentTestTimeouts.HangGuard);
             Assert.False(save.IsCompleted);
             clock.Advance(retryDelay);
         }
-        var nextRetry = clock.WaitForTimerAsync(retryDelay, TimeSpan.FromSeconds(60));
+        var nextRetry = clock.WaitForTimerAsync(retryDelay, AgentTestTimeouts.HangGuard);
         Assert.Same(save, await Task.WhenAny(save, nextRetry));
         Assert.Equal("failure_history_locked",
             (await Assert.ThrowsAsync<FailureHistoryException>(() => save)).Code);

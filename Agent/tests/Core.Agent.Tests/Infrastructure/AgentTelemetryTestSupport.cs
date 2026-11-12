@@ -10,6 +10,7 @@ using Core.Telemetry;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Time.Testing;
 using OpenTelemetry.Trace;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -132,7 +133,6 @@ internal sealed class AgentLayerTestHarness
     internal TelemetryLayerScopeFactory Factory { get; }
     internal TelemetryInvocationContext Context { get; }
     internal LayerTelemetryScope? Scope { get; private set; }
-    private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(60);
     private readonly List<LayerTelemetryScope> _owned = [];
 
     /// <summary>Creates the harness scope. Use <see cref="Own"/> for any further scope.</summary>
@@ -153,7 +153,7 @@ internal sealed class AgentLayerTestHarness
     internal static async Task ReleaseAsync(LayerTelemetryScope scope)
     {
         await scope.DisposeAsync();
-        if (!await scope.ProviderDisposalCompletion.WaitAsync(ReleaseTimeout))
+        if (!await scope.ProviderDisposalCompletion.WaitAsync(AgentTestTimeouts.HangGuard))
             throw new InvalidOperationException("The Agent layer scope did not release its telemetry provider.");
     }
 

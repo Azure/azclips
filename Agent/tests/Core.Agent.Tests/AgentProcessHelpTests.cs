@@ -60,9 +60,9 @@ public class AgentProcessHelpTests
                     FailedCommand = "config set --key core.output --value json",
                     ErrorText = "test error",
                     SessionStyle = "oneshot",
-                }).DefaultTimeout();
+                }).WithAgentHangGuard();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync().TimeoutAfter(TimeSpan.FromSeconds(120));
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(120));
             }
             finally
             {

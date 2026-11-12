@@ -130,9 +130,9 @@ public class RecoveryInputTests
             try
             {
                 await JsonSerializer.SerializeAsync(input, CreateRequest(),
-                    cancellationToken: CancellationToken.None).DefaultTimeout();
+                    cancellationToken: CancellationToken.None).WithAgentHangGuard();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync().DefaultTimeout();
+                await process.WaitForExitAsync().WithAgentHangGuard();
             }
             finally
             {
@@ -202,9 +202,9 @@ public class RecoveryInputTests
             {
                 await JsonSerializer.SerializeAsync(input,
                     CreateRequest() with { Trigger = RecoveryTrigger.Manual, SessionStyle = "oneshot" },
-                    cancellationToken: CancellationToken.None).DefaultTimeout();
+                    cancellationToken: CancellationToken.None).WithAgentHangGuard();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync().DefaultTimeout();
+                await process.WaitForExitAsync().WithAgentHangGuard();
             }
             finally
             {
@@ -254,7 +254,7 @@ public class RecoveryInputTests
             var state = new SessionState { IsOneShot = !settings.IsInteractive };
             var result = await PreToolUseHook.HandleAsync(
                 new PreToolUseHookInput { ToolName = tool, ToolArgs = JsonSerializer.SerializeToElement(new { command = "az vm show" }) },
-                "az", new ConsoleApprovalPrompt(), state, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(60));
+                "az", new ConsoleApprovalPrompt(), state, CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("deny", result?.PermissionDecision);
         }
