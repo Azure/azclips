@@ -82,6 +82,7 @@ stages:
 - template: build-ps-modules.yml
   parameters:
     ubuntu_pool: ${{ parameters.ubuntu_pool }}
+    windows_pool: ${{ parameters.windows_pool }}
     final_artifact_name: ${{ parameters.ps_modules_artifact_name }}
     generate_help_artifacts: true
     depends_on: Init
@@ -173,6 +174,7 @@ stages:
   - template: ../jobs/test-suite.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      windows_pool: ${{ parameters.windows_pool }}
 
 - stage: Benchmark
   displayName: Benchmark
@@ -271,6 +273,7 @@ stages:
   - Test
   - Benchmark
   - BuildPSModules
+  - ValidatePSModules
   - ValidateLinux
   - ValidateWindows
   - ValidateMacOS
@@ -288,9 +291,10 @@ stages:
       ValidateDockerResult: Succeeded
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
-    TestResult: $[ stageDependencies.Test.UnitTests.result ]
+    TestResult: $[ iif(eq(stageDependencies.Test.UnitTests.result, 'Succeeded'), iif(eq(stageDependencies.Test.UnitTestsWindows.result, 'Succeeded'), stageDependencies.Test.ScenarioTests.result, stageDependencies.Test.UnitTestsWindows.result), stageDependencies.Test.UnitTests.result) ]
     BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
+    PSBinaryAnalysisResult: $[ stageDependencies.ValidatePSModules.PSBinaryAnalysis.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]

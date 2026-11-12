@@ -46,7 +46,7 @@ public class VirtualNetworkParameterTests
         Json($$"""{ "name": "{{VNetName}}", "location": "eastus", "properties": { "provisioningState": "Succeeded" } }""");
 
     /// <summary>Runs a create and returns the JSON body of the initial PUT.</summary>
-    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<NewVirtualNetworkProcessor_Customization> configure)
+    private static async Task<JsonElement> CaptureCreateBodyAsync(Action<CreateOrUpdateVirtualNetworksProcessor_Customization> configure)
     {
         string? body = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -55,13 +55,13 @@ public class VirtualNetworkParameterTests
             return CreatedVNet();
         });
 
-        var processor = new NewVirtualNetworkProcessor_Customization
+        var processor = new CreateOrUpdateVirtualNetworksProcessor_Customization
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = VNetName,
+            VirtualNetworkName = VNetName,
             Location = "eastus",
-            AddressPrefixes = ["10.0.0.0/16"]
+            AddressSpaceAddressPrefixes = ["10.0.0.0/16"]
         };
         configure(processor);
         Init(processor, pipeline, new FakeOutputHandler());
@@ -91,7 +91,7 @@ public class VirtualNetworkParameterTests
     [Fact]
     public async Task Create_WithoutAddressPrefixes_FallsBackToTheLegacyDefault()
     {
-        var body = await CaptureCreateBodyAsync(processor => processor.AddressPrefixes = []);
+        var body = await CaptureCreateBodyAsync(processor => processor.AddressSpaceAddressPrefixes = []);
 
         var addressPrefixes = body.GetProperty("properties").GetProperty("addressSpace").GetProperty("addressPrefixes");
         Assert.Equal(1, addressPrefixes.GetArrayLength());
@@ -103,8 +103,8 @@ public class VirtualNetworkParameterTests
     {
         var body = await CaptureCreateBodyAsync(processor =>
         {
-            processor.AddressPrefixes = [];
-            processor.IpamPoolPrefixAllocations = ["/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/networkManagers/nm/ipamPools/pool"];
+            processor.AddressSpaceAddressPrefixes = [];
+            processor.IpamPoolIds = ["/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/networkManagers/nm/ipamPools/pool"];
         });
 
         var addressSpace = body.GetProperty("properties").GetProperty("addressSpace");
@@ -171,7 +171,7 @@ public class VirtualNetworkParameterTests
 
     /// <summary>
     /// These subnet properties exist in the ARM model but on neither migrated surface
-    /// (<c>az network vnet create</c> / <c>New-AzVirtualNetworkSubnetConfig</c>), so they stay unexposed.
+    /// (<c>az network vnet create</c> / <c>New-AzVirtualNetwork -Subnet</c>), so they stay unexposed.
     /// </summary>
     [Theory]
     [InlineData("service-gateway")]
@@ -230,12 +230,58 @@ public class VirtualNetworkParameterTests
     }
 
     [Fact]
-    public async Task Create_Tags_RejectTokensWithoutSeparator()
+    public async Task Create_Tags_AcceptBareKeys_AsEmptyValues()
+    {
+        var body = await CaptureCreateBodyAsync(processor => processor.TagSpecs = ["owner", "env=dev"]);
+
+        var tags = body.GetProperty("tags");
+        Assert.Equal("", tags.GetProperty("owner").GetString());
+        Assert.Equal("dev", tags.GetProperty("env").GetString());
+    }
+
+    [Fact]
+    public async Task Create_Tags_RepeatedKey_KeepsTheLastValue()
+    {
+        var body = await CaptureCreateBodyAsync(processor => processor.TagSpecs = ["env=dev", "env=prod"]);
+
+        Assert.Equal("prod", body.GetProperty("tags").GetProperty("env").GetString());
+    }
+
+    [Fact]
+    public async Task Create_Tags_RejectTokensWithoutKey()
     {
         var error = await Assert.ThrowsAsync<InvalidInputException>(
-            () => CaptureCreateBodyAsync(processor => processor.TagSpecs = ["owner"]));
+            () => CaptureCreateBodyAsync(processor => processor.TagSpecs = ["=dev"]));
 
         Assert.Contains("--tags", error.Message);
+    }
+
+    /// <summary>PowerShell can hand the processor objects that are neither subnets nor KEY=VALUE tokens.</summary>
+    [Fact]
+    public async Task Create_SubnetInputs_RejectUnsupportedObjects()
+    {
+        await Assert.ThrowsAsync<InvalidInputException>(
+            () => CaptureCreateBodyAsync(processor => processor.SubnetInputs = [42]));
+    }
+
+    /// <summary>
+    /// Both network policies are optional in the spec; sending them unasked would override the
+    /// RP default, so they stay out of the body unless a flag sets them.
+    /// </summary>
+    [Fact]
+    public async Task Create_Subnets_OmitNetworkPoliciesUnlessRequested()
+    {
+        var body = await CaptureCreateBodyAsync(processor => processor.SubnetSpecs =
+        [
+            ["name=web", "address-prefix=10.0.1.0/24"],
+            ["name=pe", "address-prefix=10.0.2.0/24", "disable-private-endpoint-network-policies=true"]
+        ]);
+
+        var subnets = body.GetProperty("properties").GetProperty("subnets");
+        var web = subnets[0].GetProperty("properties");
+        Assert.False(web.TryGetProperty("privateEndpointNetworkPolicies", out _));
+        Assert.False(web.TryGetProperty("privateLinkServiceNetworkPolicies", out _));
+        Assert.Equal("Disabled", subnets[1].GetProperty("properties").GetProperty("privateEndpointNetworkPolicies").GetString());
     }
 
     [Fact]
@@ -243,7 +289,7 @@ public class VirtualNetworkParameterTests
     {
         var body = await CaptureCreateBodyAsync(processor =>
         {
-            processor.DnsServers = ["10.0.0.4", "10.0.0.5"];
+            processor.DhcpOptionsDnsServers = ["10.0.0.4", "10.0.0.5"];
             processor.FlowTimeoutInMinutes = 10;
         });
 
@@ -255,9 +301,9 @@ public class VirtualNetworkParameterTests
     }
 
     [Theory]
-    [InlineData("", false)]
+    [InlineData(null, false)]
     [InlineData("subnets/ipConfigurations", true)]
-    public async Task Show_AppendsExpand_OnlyWhenRequested(string expand, bool expectExpand)
+    public async Task Show_AppendsExpand_OnlyWhenRequested(string? expand, bool expectExpand)
     {
         Uri? requested = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -266,11 +312,11 @@ public class VirtualNetworkParameterTests
             return Json($$"""{ "name": "{{VNetName}}" }""");
         });
 
-        var processor = new GetVirtualNetworkProcessor
+        var processor = new GetVirtualNetworksProcessor
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = VNetName,
+            VirtualNetworkName = VNetName,
             Expand = expand
         };
         Init(processor, pipeline, new FakeOutputHandler());
@@ -289,13 +335,16 @@ public class VirtualNetworkParameterTests
     }
 
     /// <summary>
-    /// A null final URI makes the runtime fall back to the original DELETE target, which no longer
-    /// exists once the operation completes. The final poll must follow the Location header instead.
+    /// Network RP deletes answer 202 + Azure-AsyncOperation + Location: poll the status, then
+    /// finish on the Location result, an empty 204, so the delete writes no output. A null final
+    /// URI would skip that GET and print the operation-status JSON; the deleted resource itself
+    /// must never be re-read.
     /// </summary>
     [Fact]
-    public async Task Delete_PollsOperationLocation_AndNeverRereadsDeletedResource()
+    public async Task Delete_FinishesOnTheLocationResult_AndWritesNothing()
     {
-        const string operationUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Network/locations/eastus/operations/op1?api-version=2025-07-01";
+        const string statusUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Network/locations/eastus/operations/op1?api-version=2025-07-01";
+        const string resultUri = "https://management.azure.com/subscriptions/s/providers/Microsoft.Network/locations/eastus/operationResults/op1?api-version=2025-07-01";
         var gets = new List<string>();
 
         var pipeline = new FakeHttpPipeline((request, _) =>
@@ -303,25 +352,39 @@ public class VirtualNetworkParameterTests
             if (request.Method == HttpMethod.Delete)
             {
                 var accepted = new HttpResponseMessage(HttpStatusCode.Accepted);
-                accepted.Headers.Add("Location", operationUri);
+                accepted.Headers.Add("Azure-AsyncOperation", statusUri);
+                accepted.Headers.Add("Location", resultUri);
                 return accepted;
             }
             gets.Add(request.RequestUri!.ToString());
-            return Json("""{ "status": "Succeeded" }""");
+            return gets[^1] == statusUri
+                ? Json("""{ "status": "Succeeded" }""")
+                : new HttpResponseMessage(HttpStatusCode.NoContent);
         });
 
-        var processor = new DeleteVirtualNetworkProcessor
+        var processor = new DeleteVirtualNetworksProcessor
         {
             SubscriptionId = TestSubscriptionId,
             ResourceGroupName = ResourceGroupName,
-            Name = VNetName
+            VirtualNetworkName = VNetName
         };
-        Init(processor, pipeline, new FakeOutputHandler());
+        var output = new FakeOutputHandler();
+        Init(processor, pipeline, output);
 
         await processor.ProcessAsync();
 
-        Assert.NotEmpty(gets);
-        Assert.All(gets, uri => Assert.Equal(operationUri, uri));
+        Assert.Equal([statusUri, resultUri], gets);
         Assert.DoesNotContain(gets, uri => uri.StartsWith(ResourceUri, StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Theory]
+    [InlineData("New-AzVirtualNetwork", typeof(CreateOrUpdateVirtualNetworksProcessor_Customization))]
+    [InlineData("Get-AzVirtualNetwork_Get", typeof(GetVirtualNetworksProcessor))]
+    [InlineData("Get-AzVirtualNetwork_List", typeof(ListAllVirtualNetworksProcessor_Orchestrator))]
+    [InlineData("Remove-AzVirtualNetwork", typeof(DeleteVirtualNetworksProcessor))]
+    public void PowerShellCommands_RouteToTheirProcessors(string command, Type processorType)
+    {
+        Assert.Equal(processorType, new NetworkIndex().GetCommandMetadata(command, ClientType.PowerShell).ProcessorType);
     }
 }

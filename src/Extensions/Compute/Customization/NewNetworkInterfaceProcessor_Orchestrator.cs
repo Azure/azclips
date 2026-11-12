@@ -36,6 +36,9 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     /// <summary>The public IP created when <see cref="PublicIpAddress"/> is null. Empty means none.</summary>
     public string DefaultPublicIpAddressName { get; set; } = string.Empty;
 
+    /// <summary>Tags for the NIC, and for the VNet, NSG and public IP when this orchestrator creates them. Null sends none.</summary>
+    public Dictionary<string, string>? Tags { get; set; }
+
     internal override async Task<HttpResponseMessage> SendAsync()
     {
         if (SubnetName is not null && SubnetNames.Count > 0)
@@ -75,6 +78,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.NetworkSecurityGroupId = networkSecurityGroupId ?? string.Empty;
             p.AcceleratedNetworking = AcceleratedNetworking;
             p.PublicIpAddressId = publicIpAddressId ?? string.Empty;
+            p.Tags = Tags;
         });
         return await nicProcessor.SendAsync();
     }
@@ -131,6 +135,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.SubnetNames = subnetNames;
             p.SubnetAddressPrefixes = SubnetAddressPrefixes;
             p.AddressPrefixes = AddressPrefixes;
+            p.Tags = Tags;
         });
         using HttpResponseMessage vnetResponse = await vnetProcessor.SendAsync();
         VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
@@ -224,6 +229,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.RuleDestinationPortRanges = [defaultRule.Properties.DestinationPortRange];
             p.RuleDestinationAddressPrefixes = [defaultRule.Properties.DestinationAddressPrefix];
             p.RuleAccesses = [defaultRule.Properties.Access];
+            p.Tags = Tags;
         }).SendAsync();
 
         NetworkSecurityGroup networkSecurityGroup = (await response.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
@@ -238,6 +244,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             p.Name = name;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
+            p.Tags = Tags;
         }).SendAsync();
 
         PublicIPAddress publicIp = (await response.Content.ReadFromJsonAsync<PublicIPAddress>(JsonOptions))!;

@@ -73,6 +73,37 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_getVMStatus_PS = new(
+            Name: "GetVMInstanceViewProcessor_Orchestrator",
+            InvocationName: "Get-AzVM_GetStatus",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMInstanceViewProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.GetVMInstanceViewProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["UserData"]          = new("IncludeUserData", "UserData", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_getVMByIdStatus_PS = new(
+            Name: "GetVMInstanceViewProcessor_Orchestrator",
+            InvocationName: "Get-AzVM_IdStatus",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMInstanceViewProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.GetVMInstanceViewProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Id"]             = new("Ids", "Id", typeof(string[]), "The resource ID of the virtual machine. Provide either -Id or -Name and -ResourceGroupName.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["UserData"]       = new("IncludeUserData", "UserData", typeof(bool), "Include the user data properties in the query result.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_listVM_PS = new(
             Name: "ListVMProcessor_Orchestrator",
             InvocationName: "Get-AzVM_List",
@@ -188,12 +219,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["Location"]                       = new("Location", "Location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"]              = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["VmSize"]                         = new("VmSize", "VmSize", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Zone"]                           = new("Zone", "Zone", typeof(string), "Availability zone for the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageSku"]                     = new("StorageSku", "StorageSku", typeof(string), "The storage SKU for the virtual machine's managed OS disk, such as Premium_LRS or StandardSSD_LRS.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["OSDiskDeleteOption"]             = new("OsDiskDeleteOption", "OSDiskDeleteOption", typeof(string), "Whether the OS disk is deleted or detached when the virtual machine is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Image"]                          = new("Image", "Image", typeof(string), "The marketplace image URN to use.", IsRequired: false, Aliases: ["ImageName"], AllowedValues: []),
                 ["SecurityType"]                   = new("SecurityType", "SecurityType", typeof(string), "Security type for the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: ["TrustedLaunch", "ConfidentialVM", "Standard"]),
                 ["OSDiskSecurityEncryptionType"]   = new("OsDiskSecurityEncryptionType", "OSDiskSecurityEncryptionType", typeof(string), "Security encryption type for the OS managed disk. Required for ConfidentialVM.", IsRequired: false, Aliases: [], AllowedValues: ["VMGuestStateOnly", "DiskWithVMGuestState", "NonPersistedTPM"]),
                 ["OSDiskSecureVMDiskEncryptionSet"]= new("OsDiskSecureVMDiskEncryptionSet", "OSDiskSecureVMDiskEncryptionSet", typeof(string), "Disk Encryption Set name or resource ID for customer-managed ConfidentialVM OS disk encryption.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EnableSecureBoot"]               = new("EnableSecureBoot", "EnableSecureBoot", typeof(bool), "Enable or disable secure boot in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EnableVtpm"]                     = new("EnableVtpm", "EnableVtpm", typeof(bool), "Enable or disable vTPM in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AdminUsername"]                  = new("AdminUsername", "AdminUsername", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["AdminPassword"]                  = new("AdminPassword", "AdminPassword", typeof(string), "The administrator password.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["AdminPassword"]                  = new("AdminPassword", "AdminPassword", typeof(string), "The administrator password.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SshKeyValues"]                   = new("SshKeyValues", "SshKeyValues", typeof(List<string>), "SSH public key values or public key file paths.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["NetworkInterfaceName"]           = new("NetworkInterfaceName", "NetworkInterfaceName", typeof(string), "The network interface name to create. Do not specify when attaching existing network interfaces.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["VirtualNetworkName"]             = new("VirtualNetworkName", "VirtualNetworkName", typeof(string), "The virtual network name to create or use for a named subnet.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["SubnetName"]                     = new("SubnetName", "SubnetName", typeof(string), "Name or resource ID of the subnet for the new network interface.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -205,6 +242,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["AddressPrefixes"]                = new("AddressPrefixes", "AddressPrefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["AcceleratedNetworking"]          = new("AcceleratedNetworking", "AcceleratedNetworking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["PublicIpAddressName"]            = new("PublicIpAddress", "PublicIpAddressName", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tags"]                           = new("TagsInput", "Tags", typeof(string[]), "Tags to apply to the virtual machine and to every resource the command creates.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>
             {
@@ -324,6 +362,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             {
                 ["u"] = "include-user-data",
                 ["d"] = "show-details",
+            }
+        );
+        private static readonly CommandMetadata s_getVMInstanceView_CLI = new(
+            Name: "GetVMInstanceViewProcessor_Orchestrator",
+            InvocationName: "vm get-instance-view",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Compute.Processors.GetVMInstanceViewProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Compute",
+            ProcessorType: typeof(Processors.GetVMInstanceViewProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the virtual machine. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: ["n"], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["ids"]             = new("Ids", "ids", typeof(string[]), "One or more virtual machine resource IDs. Provide either --ids or --name and --resource-group.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["n"] = "name",
+                ["g"] = "resource-group",
             }
         );
         private static readonly CommandMetadata s_listVM_CLI = new(
@@ -458,10 +516,15 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["location"]                         = new("Location", "location", typeof(string), "Location for all resources.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["resource-group"]                   = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["size"]                             = new("VmSize", "size", typeof(string), "The size of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["zone"]                             = new("Zone", "zone", typeof(string), "Availability zone for the virtual machine.", IsRequired: false, Aliases: ["z"], AllowedValues: []),
+                ["storage-sku"]                      = new("StorageSku", "storage-sku", typeof(string), "The storage SKU for the virtual machine's managed OS disk, such as Premium_LRS or StandardSSD_LRS.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["os-disk-delete-option"]            = new("OsDiskDeleteOption", "os-disk-delete-option", typeof(string), "Whether the OS disk is deleted or detached when the virtual machine is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["image"]                            = new("Image", "image", typeof(string), "The marketplace image URN to use.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["security-type"]                    = new("SecurityType", "security-type", typeof(string), "Security type for the virtual machine.", IsRequired: false, Aliases: [], AllowedValues: ["TrustedLaunch", "ConfidentialVM", "Standard"]),
                 ["os-disk-security-encryption-type"] = new("OsDiskSecurityEncryptionType", "os-disk-security-encryption-type", typeof(string), "Security encryption type for the OS managed disk. Required for ConfidentialVM.", IsRequired: false, Aliases: [], AllowedValues: ["VMGuestStateOnly", "DiskWithVMGuestState", "NonPersistedTPM"]),
                 ["os-disk-secure-vm-disk-encryption-set"] = new("OsDiskSecureVMDiskEncryptionSet", "os-disk-secure-vm-disk-encryption-set", typeof(string), "Disk Encryption Set name or resource ID for customer-managed ConfidentialVM OS disk encryption.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["enable-secure-boot"]              = new("EnableSecureBoot", "enable-secure-boot", typeof(bool), "Enable or disable secure boot in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["enable-vtpm"]                     = new("EnableVtpm", "enable-vtpm", typeof(bool), "Enable or disable vTPM in the VM UEFI settings.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["admin-username"]                   = new("AdminUsername", "admin-username", typeof(string), "The administrator username.", IsRequired: true, Aliases: [], AllowedValues: []),
                 ["admin-password"]                   = new("AdminPassword", "admin-password", typeof(string), "The administrator password.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ssh-key-values"]                   = new("SshKeyValues", "ssh-key-values", typeof(List<string>), "Space-separated SSH public key values or public key file paths.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -476,8 +539,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
                 ["address-prefixes"]                 = new("AddressPrefixes", "address-prefixes", typeof(List<string>), "Address prefixes for the virtual network.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["accelerated-networking"]           = new("AcceleratedNetworking", "accelerated-networking", typeof(bool), "Whether the network interface enables accelerated networking. Off unless set.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["public-ip-address"]                = new("PublicIpAddress", "public-ip-address", typeof(string), "Name of the public IP address to create (default: '{vm}PublicIP') or of an existing one to attach. Can also reference an existing public IP by resource ID, or specify \"\" for none.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["tags"]                             = new("TagsInput", "tags", typeof(string[]), "Space-separated tags in KEY=VALUE format, or a JSON object. Applied to the virtual machine and to every resource the command creates.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["z"] = "zone",
+            }
         );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
@@ -486,6 +553,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
             ["New-AzVM"]                   = s_newVMOrchestrator_PS,
             ["Get-AzVM_Get"]                   = s_getVM_PS,
             ["Get-AzVM_Id"]                = s_getVMById_PS,
+            ["Get-AzVM_GetStatus"]         = s_getVMStatus_PS,
+            ["Get-AzVM_IdStatus"]          = s_getVMByIdStatus_PS,
             ["Get-AzVM_List"]              = s_listVM_PS,
             ["Get-AzVM_ListByName"]        = s_listVMByName_PS,
             ["Get-AzVM_ListLocation"]      = s_listVMByLocation_PS,
@@ -500,6 +569,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute
         {
             ["vm create"]   = s_newVMOrchestrator_CLI,
             ["vm show"]     = s_getVM_CLI,
+            ["vm get-instance-view"] = s_getVMInstanceView_CLI,
             ["vm list"]     = s_listVM_CLI,
             ["vm delete"]   = s_deleteVM_CLI,
             ["vm start"]    = s_startVM_CLI,

@@ -26,8 +26,7 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
 
         while (!string.IsNullOrEmpty(uri))
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var request = ConstructRequest(HttpMethod.Get, accessToken, uri);
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
@@ -58,7 +57,7 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
         return results;
     }
 
-    public async Task<string?> ResolveSubscriptionTenantAsync(string accessToken, string subscriptionId, CancellationToken cancellationToken = default)
+    public async Task<string?> ResolveSubscriptionTenantAsync(string accessToken, string? subscriptionId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(subscriptionId))
         {
@@ -66,8 +65,7 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
         }
 
         var uri = $"{ArmBaseUrl}/subscriptions/{subscriptionId}?api-version={ApiVersion}";
-        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var request = ConstructRequest(HttpMethod.Get, accessToken, uri);
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
 
@@ -126,6 +124,47 @@ public class SubscriptionService(HttpClient httpClient, ILoggingService logger) 
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Gets the subscription information for the specified subscription ID using the provided access token.
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="HttpRequestException">When the HTTP request to the Azure Management API fails, e.g. 404.</exception>
+    /// <exception cref="ArgumentException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
+    public async Task<SubscriptionInfo> GetSubscriptionByIdAsync(string accessToken, string subscriptionId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(subscriptionId))
+        {
+            throw new ArgumentException("Subscription ID cannot be null or empty.", nameof(subscriptionId));
+        }
+
+        var uri = $"https://management.azure.com/subscriptions/{subscriptionId}?api-version={ApiVersion}";
+        using var request = ConstructRequest(HttpMethod.Get, accessToken, uri);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var subscription = JsonSerializer.Deserialize<SubscriptionEntry>(body, s_jsonOptions);
+        if (subscription == null)
+        {
+            throw new InvalidOperationException("Failed to deserialize subscription.");
+        }
+
+        return new SubscriptionInfo(
+            subscription.SubscriptionId ?? throw new InvalidOperationException("Subscription ID is missing."),
+            subscription.DisplayName ?? "",
+            subscription.State ?? "");
+    }
+
+    private static HttpRequestMessage ConstructRequest(HttpMethod method, string accessToken, string uri)
+    {
+        var request = new HttpRequestMessage(method, uri);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        RequestCorrelation.EnsureClientRequestId(request);
+        return request;
     }
 
     private sealed class SubscriptionListResult

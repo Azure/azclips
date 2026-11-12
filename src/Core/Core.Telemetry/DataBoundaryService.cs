@@ -3,6 +3,7 @@
 
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Core.Telemetry;
 
@@ -22,8 +23,8 @@ internal static class DataBoundaryService
     };
 
     /// <summary>
-    /// Queries the ARM dataBoundaries API and returns the boundary value (e.g. "EU", "Global"),
-    /// or <see langword="null"/> when the API is unavailable or returns no value.
+    /// Returns the raw ARM boundary, or null for failed requests and invalid responses.
+    /// Cancellation propagates so the resolver can distinguish timeout from caller cancellation.
     /// </summary>
     internal static async Task<string?> GetDataBoundaryAsync(string accessToken, CancellationToken cancellationToken = default)
     {
@@ -31,6 +32,7 @@ internal static class DataBoundaryService
         using var httpClient = new HttpClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        RequestCorrelation.EnsureClientRequestId(request);
 
         try
         {
@@ -42,8 +44,13 @@ internal static class DataBoundaryService
 
             return result?.Properties?.DataBoundary;
         }
-        catch
+        catch (OperationCanceledException)
         {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
+        {
+            Console.Error.WriteLine($"[{nameof(DataBoundaryService)}] Boundary lookup failed: {ex.GetType().Name}.");
             return null;
         }
     }

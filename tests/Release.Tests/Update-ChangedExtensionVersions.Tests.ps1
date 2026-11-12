@@ -1,6 +1,7 @@
 BeforeAll {
     $scriptPath = Join-Path $PSScriptRoot '../../devops/scripts/publishing/Update-ChangedExtensionVersions.ps1'
     $releaseChangelogScriptPath = Join-Path $PSScriptRoot '../../devops/scripts/publishing/Update-ReleaseChangelog.ps1'
+    $pwshPath = (Get-Process -Id $PID).Path
 
     function Write-TestFile {
         param(
@@ -72,6 +73,30 @@ Describe 'Update-ChangedExtensionVersions' {
         Get-Content -Raw (Join-Path $root 'src/Extensions/Compute/Extensions.Compute.csproj') | Should -Match '<Version>0\.1\.1</Version>'
         Get-Content -Raw (Join-Path $root 'src/PS/Compute/Compute.psd1') | Should -Match "ModuleName = 'Accounts'; ModuleVersion = '0\.1\.1'"
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Compute/Compute\.psd1'; ModuleVersion = '0\.1\.1'"
+    }
+
+    It 'updates inline RequiredModules while preserving layout and commented dependencies' {
+        $root = New-TestRepository
+        $manifest = @'
+@{
+ModuleVersion = '0.1.0'
+# RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '9.9.9' })
+RequiredModules = @(@{ ModuleName = 'Accounts'; ModuleVersion = '0.1.0' }) # Keep inline
+}
+'@
+        Write-TestFile -Root $root -RelativePath 'src/PS/Compute/Compute.psd1' -Content $manifest
+        git -C $root add .
+        git -C $root commit --quiet -m 'use inline module dependency'
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add .
+        git -C $root commit --quiet -m 'change Accounts extension code'
+
+        & $scriptPath -RepoRoot $root -BaseRef 'HEAD^'
+
+        [System.IO.File]::ReadAllText((Join-Path $root 'src/PS/Compute/Compute.psd1')) |
+            Should -BeExactly ($manifest.Replace("ModuleVersion = '0.1.0'", "ModuleVersion = '0.1.1'"))
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') |
+            Should -Match "Compute/Compute\.psd1'; ModuleVersion = '0\.1\.1'"
     }
 
     It 'does not double-bump an extension already set to the expected patch version' {
@@ -266,7 +291,20 @@ Describe 'Update-ChangedExtensionVersions' {
         { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } | Should -Not -Throw
     }
 
-    It 'preserves the initial version of a new rollup extension' {
+    It 'fails on a missing historical Git object instead of treating the extension as new' {
+        $root = New-TestRepository
+        Add-Content -Path (Join-Path $root 'src/Extensions/Accounts/Processor.cs') -Value "`nclass Changed { }"
+        git -C $root add .
+        git -C $root commit --quiet -m 'change Accounts extension code'
+        $objectId = git -C $root rev-parse 'HEAD^:src/Extensions/Accounts/Extensions.Accounts.csproj'
+        $objectPath = Join-Path $root ".git/objects/$($objectId.Substring(0, 2))/$($objectId.Substring(2))"
+        Remove-Item -LiteralPath $objectPath -Force
+
+        { & $scriptPath -RepoRoot $root -BaseRef 'HEAD^' } |
+            Should -Throw '*git show failed while reading src/Extensions/Accounts/Extensions.Accounts.csproj*'
+    }
+
+    It 'preserves a new extension version and succeeds under the pipeline exit-code wrapper' {
         $root = New-TestRepository
         $baseRef = git -C $root rev-parse HEAD
         $identityProjectPath = 'src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj'
@@ -290,7 +328,16 @@ Describe 'Update-ChangedExtensionVersions' {
         git -C $root add .
         git -C $root commit --quiet -m 'add ManagedServiceIdentity extension'
 
-        & $scriptPath -RepoRoot $root -BaseRef $baseRef
+        Write-TestFile -Root $root -RelativePath 'invoke-release-update.ps1' -Content @'
+param([string] $ScriptPath, [string] $RepoRoot, [string] $BaseRef)
+$ErrorActionPreference = 'Stop'
+. $ScriptPath -RepoRoot $RepoRoot -BaseRef $BaseRef
+if (Test-Path -LiteralPath variable:\LASTEXITCODE) {
+    exit $LASTEXITCODE
+}
+'@
+        $output = & $pwshPath -NoLogo -NoProfile -File (Join-Path $root 'invoke-release-update.ps1') $scriptPath $root $baseRef 2>&1
+        $LASTEXITCODE | Should -Be 0 -Because ($output -join "`n")
 
         Get-Content -Raw (Join-Path $root 'src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj') | Should -Match '<Version>0\.1\.0</Version>'
         Get-Content -Raw (Join-Path $root 'src/PS/ManagedServiceIdentity/ManagedServiceIdentity.psd1') | Should -Match "ModuleVersion = '0\.1\.0'"
@@ -332,5 +379,6 @@ RequiredModules = @(
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "ModuleVersion = '0\.1\.3'"
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.1'"
         Get-Content -Raw (Join-Path $root 'CHANGELOG.md') | Should -Match '#### Az\.Accounts 0\.1\.1'
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match 'Az\.Accounts 0\.1\.1'
     }
 }

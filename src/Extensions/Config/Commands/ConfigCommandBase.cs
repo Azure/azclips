@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Abstractions.Recovery;
+using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Config.Models;
 
@@ -55,6 +57,40 @@ public abstract class ConfigCommandBase : IProcessor
     protected static ITelemetryService GetTelemetryService() => AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
 
     protected static IConfigurationSchema GetConfigurationSchema() => GetConfigurationService().GetSchema();
+
+    /// <summary>
+    /// Calls the change handler registered for the key and, on delete, for every known key under it.
+    /// A handler failure is reported as a warning; the configuration change itself has succeeded.
+    /// </summary>
+    protected async Task NotifyChangeHandlersAsync(string key, object? value, bool deleted)
+    {
+        var schema = GetConfigurationSchema();
+        var normalizedKey = NormalizeKey(key);
+        var canonicalKey = schema.GetKeyMetadata(normalizedKey)?.Key ?? normalizedKey;
+        var keys = new List<string> { canonicalKey };
+        if (deleted)
+        {
+            keys.AddRange(schema.GetAllKeys()
+                .Select(metadata => metadata.Key)
+                .Where(candidate => candidate.StartsWith(canonicalKey + ".", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        foreach (var changedKey in keys)
+        {
+            if (AzclipsServiceProvider.GetKeyedService<IConfigurationChangeHandler>(changedKey) is not { } handler)
+                continue;
+            try
+            {
+                await handler.OnChangedAsync(changedKey, deleted ? null : value, CancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+                logger.Warn(ex.Message);
+                FailureHistoryDiagnostics.EmitCauseChain(ex, logger);
+            }
+        }
+    }
 
     protected async Task<Dictionary<string, ConfigEntry>> GetResolvedEntriesAsync(bool includeDefaults)
     {

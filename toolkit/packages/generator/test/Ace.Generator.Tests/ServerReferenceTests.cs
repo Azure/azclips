@@ -58,9 +58,9 @@ public sealed class ServerReferenceTests
     }
 
     private static void AssertUri(
-        GenerationResult result, GeneratedFileCollector files, string className, string uri)
+        GenerationResult result, GeneratedFileCollector files, string className, string uri, string appended = "")
     {
-        Assert.Contains($"CreateRequestUri() => $\"{uri}\";", files.Files.Source(result, className));
+        Assert.Contains($"CreateRequestUri() => $\"{uri}\"{appended};", files.Files.Source(result, className));
     }
 
     /// <summary>
@@ -204,14 +204,35 @@ public sealed class ServerReferenceTests
         // base fills from a public input rather than a value the generator invents.
         string @base = files.Files.Source(result, "ProcessorBase");
         Assert.Contains("protected virtual string Endpoint => $\"https://{AccountName}.example.com/api\";", @base);
-        Assert.Contains("public string AccountName { get; set; } = string.Empty;", @base);
+        Assert.Contains("public virtual string AccountName { get; set; } = string.Empty;", @base);
 
         // The URI interpolates the seam, and the processor does not redeclare the inherited input.
         AssertUri(result, files, "GetProcessor",
-            "{Endpoint}/accounts/{AccountName}/widgets/{WidgetName}?api-version=2026-01-01&$top={PageSize}");
+            "{Endpoint}/accounts/{Uri.EscapeDataString(AccountName)}/widgets/{Uri.EscapeDataString(WidgetName)}?api-version=2026-01-01",
+            ".WithQuery(\"$top\", PageSize)");
         string processor = files.Files.Source(result, "GetProcessor");
         Assert.DoesNotContain("public string AccountName", processor);
         Assert.Contains("public string WidgetName", processor);
+    }
+
+    [Fact]
+    public async Task A_Root_Only_Path_Adds_Nothing_To_The_Endpoint()
+    {
+        TransformedIR ir = Document();
+        ir.Commands =
+        [
+            Commands.Atomic(
+                "Get",
+                ServerId(),
+                OperationId("get"),
+                path: [Commands.Literal("/")],
+                query: [Commands.Pinned("comp", "tags")]),
+        ];
+
+        (GenerationResult result, GeneratedFileCollector files) = await RunAsync(ir);
+
+        Assert.True(result.Success);
+        AssertUri(result, files, "GetProcessor", "{Endpoint}?comp=tags");
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System.ComponentModel;
+using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
-using Core.Agent.Tools.Shell;
+using Core.Cli.Help;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Tools.Help;
@@ -10,19 +11,23 @@ namespace Core.Agent.Tools.Help;
 ///   • list_commands — flat catalog of every Azure CLI command (cliName + psName + summary)
 ///   • get_command   — full HelpCommand for one command (parameters + examples + description)
 ///
-/// Both shell out to <c>az agent tool help [--name &lt;x&gt;]</c>; the CLI processor
-/// (<c>HelpProcessor</c>) is the single source of truth. Adding an extension via
-/// <c>az extension add</c> shows up on the next call — no cached catalog to invalidate.
-/// The tool contract stays "always return a JSON string", so this class simply
-/// forwards stdout to the model.
+/// Both read the same versioned catalog as <c>az agent tool docs list/show</c>. The CLI
+/// generates missing/stale artifacts; warm reads do not start a subprocess.
 /// </summary>
 public sealed class HelpTools
 {
-    private readonly string _azExePath;
+    private readonly HelpCatalogProvider _catalog;
+    private readonly Func<string, IDisposable?>? _activityCreator;
 
-    public HelpTools(string azExePath)
+    public HelpTools(string azExePath, IConfigurationService configuration, Func<string, IDisposable?>? activityCreator = null)
+        : this(new HelpCatalogProvider(azExePath, configuration), activityCreator)
     {
-        _azExePath = azExePath ?? throw new ArgumentNullException(nameof(azExePath));
+    }
+
+    public HelpTools(HelpCatalogProvider catalog, Func<string, IDisposable?>? activityCreator = null)
+    {
+        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+        _activityCreator = activityCreator;
 
         ListCommands = AIFunctionFactory.Create(ListCommandsAsync, new AIFunctionFactoryOptions
         {
@@ -32,9 +37,7 @@ public sealed class HelpTools
                 "psName (e.g. 'New-AzVM', empty string when no PS cmdlet), verb, summary. " +
                 "Use FIRST when you don't already know whether a command exists or what its exact name is. " +
                 "After picking a candidate, call get_command for its parameters and examples. " +
-                "Shells out to `az agent tool help` which enumerates every installed extension's command " +
-                "manifests at runtime — expect ~100 ms and a few dozen KB depending on how many extensions " +
-                "you have installed. No network call.",
+                "Reads the local help catalog, regenerating it when installed extensions change. No network call.",
         });
 
         GetCommand = AIFunctionFactory.Create(GetCommandAsync, new AIFunctionFactoryOptions
@@ -59,18 +62,27 @@ public sealed class HelpTools
     // pre-fetch a failed command's help and inject it into context, so the agent
     // doesn't spend a turn looking up the command it was triggered by. Returns the
     // exact same JSON (help or not_found) the tool would return — both funnel
-    // through the same shell-out call so they can't drift.
+    // through the same provider so they can't drift.
     public Task<string> LookupCommandAsync(string name, CancellationToken ct = default) =>
         GetCommandAsync(name, ct);
+
+    // Host-side entry to the same catalog the LLM's list_commands returns. The plan
+    // hook reads it to recognize azclips commands (PlanCommandNormalizer), so a new
+    // command group or extension counts without a code change.
+    public Task<string> ReadCatalogAsync(CancellationToken ct = default) =>
+        ListCommandsAsync(ct);
 
     [Description("Return the full HelpIndex catalog.")]
     private async Task<string> ListCommandsAsync(CancellationToken ct = default)
     {
         // Async + await so ToolInvocationLog's scope stays alive for the entire
-        // subprocess call — returning the Task without awaiting would dispose
+        // catalog read — returning the Task without awaiting would dispose
         // the scope immediately, recording a near-zero duration.
-        using var scope = ToolInvocationLog.Start("list_commands", "full catalog");
-        return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help" }, ct).ConfigureAwait(false);
+        using var scope = ToolInvocationLog.Start("list_commands", "full catalog", _activityCreator);
+        scope.RecordRequest("full catalog");
+        var result = await _catalog.ListAsync(ct).ConfigureAwait(false);
+        scope.RecordResponse(result.Kind == HelpLookupKind.Error ? "error" : "ok");
+        return result.Json;
     }
 
     [Description("Return one command's full HelpCommand (parameters + examples + description).")]
@@ -79,13 +91,33 @@ public sealed class HelpTools
         string name,
         CancellationToken ct = default)
     {
-        // See ListCommandsAsync — async so the scope covers the shell-out.
-        using var scope = ToolInvocationLog.Start("get_command", $"name={name}");
+        // See ListCommandsAsync — async so the scope covers the catalog read.
+        using var scope = ToolInvocationLog.Start("get_command", $"name={name}", _activityCreator);
+        // Records the catalog name only on a hit; never the requested text.
+        scope.RecordRequest("(not found)");
         if (string.IsNullOrWhiteSpace(name))
         {
             scope.SetResult("error=missing_name");
+            scope.RecordResponse("error");
             return "{\"error\":\"missing_name\",\"hint\":\"Pass cliName or psName.\"}";
         }
-        return await ShellOutHelper.InvokeAzAsync(_azExePath, new[] { "agent", "tool", "help", "--name", name }, ct).ConfigureAwait(false);
+        var result = await _catalog.GetAsync(name, ct).ConfigureAwait(false);
+        var catalogName = result.Command is null ? null : CatalogName(result.Command, name);
+        if (catalogName is not null)
+            scope.RecordRequest(catalogName);
+        scope.RecordResponse(catalogName is not null ? "found" : result.Kind == HelpLookupKind.Error ? "error" : "not_found");
+        return result.Json;
+    }
+
+    // The catalog's own name in the form that was requested; never the requested text.
+    private static string? CatalogName(HelpCommand command, string requested)
+    {
+        var matched = string.Equals(command.PsName, requested.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? command.PsName
+            : command.CliName;
+        matched = string.IsNullOrEmpty(matched)
+            ? (string.IsNullOrEmpty(command.CliName) ? command.PsName : command.CliName)
+            : matched;
+        return string.IsNullOrEmpty(matched) ? null : matched;
     }
 }

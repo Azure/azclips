@@ -265,95 +265,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-
-        // ── CLI User Command Metadata ──
-        private static readonly CommandMetadata s_getUser_CLI = new(
-            Name: "GetUserProcessor_Orchestrator",
-            InvocationName: "msgraph user show",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetUserProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.GetUserProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["id"] = new("Id", "id", typeof(string), UserIdDescription, IsRequired: true, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
-        private static readonly CommandMetadata s_listUsers_CLI = new(
-            Name: "ListUserProcessor_Orchestrator",
-            InvocationName: "msgraph user list",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListUserProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["display-name"] = new("DisplayNamePrefix", "display-name", typeof(string), UserStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["filter"]       = new("Filter", "filter", typeof(string), UserFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["upn"]          = new("UserPrincipalName", "upn", typeof(string), UserPrincipalNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
-
-        // ── CLI Group Command Metadata ──
-        private static readonly CommandMetadata s_getGroup_CLI = new(
-            Name: "GetGroupProcessor_Orchestrator",
-            InvocationName: "msgraph group show",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetGroupProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.GetGroupProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["group"] = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
-        );
-        private static readonly CommandMetadata s_listGroups_CLI = new(
-            Name: "ListGroupProcessor_Orchestrator",
-            InvocationName: "msgraph group list",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["display-name"] = new("DisplayNamePrefix", "display-name", typeof(string), GroupStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["filter"]       = new("Filter", "filter", typeof(string), GroupFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string>()
-        );
-
-        // ── CLI Group Member Command Metadata ──
-        private static readonly CommandMetadata s_listGroupMembers_CLI = new(
-            Name: "ListGroupMemberProcessor_Orchestrator",
-            InvocationName: "msgraph group member list",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.ListGroupMemberProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["group"] = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
-        );
-        private static readonly CommandMetadata s_checkGroupMember_CLI = new(
-            Name: "CheckGroupMemberProcessor_Orchestrator",
-            InvocationName: "msgraph group member check",
-            Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.CheckGroupMemberProcessor_Orchestrator",
-            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
-            ProcessorType: typeof(Processors.CheckGroupMemberProcessor_Orchestrator),
-            Parameters: new Dictionary<string, ParameterMetadata>
-            {
-                ["group"]     = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
-                ["member-id"] = new("MemberId", "member-id", typeof(string), MemberIdDescription, IsRequired: true, Aliases: [], AllowedValues: []),
-            },
-            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
-        );
-
+        
         // ── Application: PS Command Metadata ──
         private static readonly CommandMetadata s_newApplication_PS = new(
             Name: "NewApplicationProcessor",
@@ -421,10 +333,160 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ProcessorType: typeof(Processors.ListApplicationProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["DisplayName"] = new("DisplayName", "DisplayName", typeof(string), AppDisplayNameExactDescription, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["DisplayName"] = new("DisplayName", "DisplayName", typeof(string), AppDisplayNameDescription, IsRequired: true, Aliases: [], AllowedValues: []),
                 ["Select"]      = new("Select", "Select", typeof(string[]), AppSelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
+        );
+
+        // ── CLI User Command Metadata ──
+        private static readonly CommandMetadata s_getUser_CLI = new(
+            Name: "GetUserProcessor_Orchestrator",
+            InvocationName: "msgraph user show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetUserProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
+            ProcessorType: typeof(Processors.GetUserProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["id"]              = new("Id", "id", typeof(string), UserIdDescription, IsRequired: true, Aliases: [], AllowedValues: []),
+                ["select"]          = new("Select", "select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string[]), UserExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["append-selected"] = new("AppendSelected", "append-selected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listUsers_CLI = new(
+            Name: "ListUserProcessor_Orchestrator",
+            InvocationName: "msgraph user list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListUserProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
+            ProcessorType: typeof(Processors.ListUserProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["display-name"]      = new("DisplayNamePrefix", "display-name", typeof(string), UserStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["filter"]            = new("Filter", "filter", typeof(string), UserFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["upn"]               = new("UserPrincipalName", "upn", typeof(string), UserPrincipalNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["select"]            = new("Select", "select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]            = new("Expand", "expand", typeof(string[]), UserExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["orderby"]           = new("Orderby", "orderby", typeof(string[]), UserOrderbyDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["search"]            = new("Search", "search", typeof(string), UserSearchDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["append-selected"]   = new("AppendSelected", "append-selected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        // ── CLI Group Command Metadata ──
+        private static readonly CommandMetadata s_getGroup_CLI = new(
+            Name: "GetGroupProcessor_Orchestrator",
+            InvocationName: "msgraph group show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.GetGroupProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
+            ProcessorType: typeof(Processors.GetGroupProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["group"]           = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["select"]          = new("Select", "select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]          = new("Expand", "expand", typeof(string[]), GroupExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["append-selected"] = new("AppendSelected", "append-selected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
+        );
+        private static readonly CommandMetadata s_listGroups_CLI = new(
+            Name: "ListGroupProcessor_Orchestrator",
+            InvocationName: "msgraph group list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
+            ProcessorType: typeof(Processors.ListGroupProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["display-name"]      = new("DisplayNamePrefix", "display-name", typeof(string), GroupStartsWithDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["filter"]            = new("Filter", "filter", typeof(string), GroupFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["select"]            = new("Select", "select", typeof(string[]), SelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]            = new("Expand", "expand", typeof(string[]), GroupExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["orderby"]           = new("Orderby", "orderby", typeof(string[]), GroupOrderbyDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["search"]            = new("Search", "search", typeof(string), GroupSearchDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["append-selected"]   = new("AppendSelected", "append-selected", typeof(bool), AppendSelectedDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        // ── CLI Group Member Command Metadata ──
+        private static readonly CommandMetadata s_listGroupMembers_CLI = new(
+            Name: "ListGroupMemberProcessor_Orchestrator",
+            InvocationName: "msgraph group member list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.ListGroupMemberProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
+            ProcessorType: typeof(Processors.ListGroupMemberProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["group"]             = new("Group", "group", typeof(string), GroupDescription, IsRequired: false, Aliases: ["g"], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["ByGroup"] = new("ByGroup", IsRequired: true) }),
+                ["display-name"]      = new("GroupDisplayName", "display-name", typeof(string), GroupDisplayNameDescription, IsRequired: false, Aliases: [], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["ByDisplayName"] = new("ByDisplayName", IsRequired: true) }),
+                ["filter"]            = new("Filter", "filter", typeof(string), GroupMemberFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["select"]            = new("Select", "select", typeof(string[]), GroupMemberSelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["expand"]            = new("Expand", "expand", typeof(string[]), GroupMemberExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["orderby"]           = new("Orderby", "orderby", typeof(string[]), GroupMemberOrderbyDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["search"]            = new("Search", "search", typeof(string), GroupMemberSearchDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" },
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["ByGroup"] = new("ByGroup",
+                                    IsDefault: true,
+                                    Parameters: new Dictionary<string, ParameterReference>
+                                    {
+                                        ["Group"] = new("Group", IsRequired: true),
+                                        ["Filter"] = new("Filter", IsRequired: false),
+                                        ["Select"] = new("Select", IsRequired: false),
+                                        ["Expand"] = new("Expand", IsRequired: false),
+                                        ["Orderby"] = new("Orderby", IsRequired: false),
+                                        ["Search"] = new("Search", IsRequired: false),
+                                        ["ConsistencyLevel"] = new("ConsistencyLevel", IsRequired: false),
+                                    }),
+                ["ByDisplayName"] = new("ByDisplayName",
+                                    IsDefault: false,
+                                    Parameters: new Dictionary<string, ParameterReference>
+                                    {
+                                        ["GroupDisplayName"] = new("GroupDisplayName", IsRequired: true),
+                                        ["Filter"] = new("Filter", IsRequired: false),
+                                        ["Select"] = new("Select", IsRequired: false),
+                                        ["Expand"] = new("Expand", IsRequired: false),
+                                        ["Orderby"] = new("Orderby", IsRequired: false),
+                                        ["Search"] = new("Search", IsRequired: false),
+                                        ["ConsistencyLevel"] = new("ConsistencyLevel", IsRequired: false),
+                                    }),
+            }
+        );
+        private static readonly CommandMetadata s_checkGroupMember_CLI = new(
+            Name: "CheckGroupMemberProcessor_Orchestrator",
+            InvocationName: "msgraph group member check",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.MsGraph.Processors.CheckGroupMemberProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.MsGraph",
+            ProcessorType: typeof(Processors.CheckGroupMemberProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["group"]     = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["Default"] = new("Default", IsRequired: true) }),
+                ["member-id"] = new("MemberId", "member-id", typeof(string), MemberIdDescription, IsRequired: true, Aliases: [], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["Default"] = new("Default", IsRequired: true) }),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" },
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["Default"] = new("Default", 
+                                    IsDefault: true, 
+                                    Parameters: new Dictionary<string, ParameterReference>
+                                    {
+                                        ["Group"] = new("Group", IsRequired: true),
+                                        ["MemberId"] = new("MemberId", IsRequired: true),
+                                    })
+            }
         );
 
         // ── Application: CLI Command Metadata ──

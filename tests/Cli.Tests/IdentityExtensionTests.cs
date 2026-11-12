@@ -10,11 +10,13 @@ using Core.Abstractions.Runtime.Handler;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors;
 using Moq;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 
@@ -28,7 +30,8 @@ public class IdentityExtensionTests
         var index = new ExtensionIndex();
 
         Assert.Equal(
-            ["identity create", "identity list", "identity show", "identity update", "identity delete"],
+            ["identity create", "identity list", "identity show", "identity update", "identity delete",
+             "identity federated-credential create", "identity federated-credential list", "identity federated-credential show", "identity federated-credential update", "identity federated-credential delete"],
             [.. index.GetCommandKeys(ClientType.CLI)]);
     }
 
@@ -38,7 +41,8 @@ public class IdentityExtensionTests
         var index = new ExtensionIndex();
 
         Assert.Equal(
-            ["New-AzUserAssignedIdentity", "Get-AzUserAssignedIdentity_List", "Get-AzUserAssignedIdentity_Get", "Update-AzUserAssignedIdentity", "Remove-AzUserAssignedIdentity"],
+            ["New-AzUserAssignedIdentity", "Get-AzUserAssignedIdentity_List", "Get-AzUserAssignedIdentity_Get", "Update-AzUserAssignedIdentity", "Remove-AzUserAssignedIdentity",
+             "New-AzFederatedIdentityCredential", "Get-AzFederatedIdentityCredential_List", "Get-AzFederatedIdentityCredential_Get", "Update-AzFederatedIdentityCredential", "Remove-AzFederatedIdentityCredential"],
             [.. index.GetCommandKeys(ClientType.PowerShell)]);
     }
 
@@ -77,7 +81,7 @@ public class IdentityExtensionTests
         var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
         var processor = (CreateIdentityProcessor_Orchestrator)metadata.GetInstance();
         var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService()));
+        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
 
         binder.BindArgumentsToProcessor(
             processor,
@@ -89,8 +93,7 @@ public class IdentityExtensionTests
                 ["tags"] = new List<List<string>> { new() { "env=test" } },
                 ["resource-restriction"] = new List<List<string>> { new() { """{"providers":["Microsoft.Compute"]}""" } },
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile(){SubscriptionId = "sub-1"});
 
         Assert.Equal("rg1", processor.ResourceGroup);
@@ -192,6 +195,29 @@ public class IdentityExtensionTests
 
         var identities = Assert.IsType<List<UserAssignedIdentity>>(Assert.Single(writtenValues));
         Assert.Equal(["id1", "id2"], identities.Select(identity => identity.Name!).ToArray());
+    }
+
+    [Fact]
+    public async Task ListProcessAsync_WithoutResourceGroup_UsesSubscriptionScopeUri()
+    {
+        Uri? sentUri = null;
+        var pipeline = CreatePipeline((request, _) =>
+        {
+            sentUri = request.RequestUri;
+            return Json("""{ "value": [] }""");
+        });
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<ListIdentityProcessor>(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroup = null;
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version=2025-05-31-preview",
+            sentUri!.ToString());
+        _ = Assert.IsType<List<UserAssignedIdentity>>(Assert.Single(writtenValues));
     }
 
     [Fact]
@@ -359,7 +385,7 @@ public class IdentityExtensionTests
     }
 
     [Fact]
-    public async Task UpdateOrchestrator_AppliesGenericUpdateOperations_ToCurrentIdentity()
+    public async Task UpdateOrchestrator_GenericUpdate_RemovesReadOnlyFieldsFromPatchBody()
     {
         var sentRequests = new List<HttpRequestMessage>();
         var pipeline = CreatePipeline((request, _) =>
@@ -409,12 +435,62 @@ public class IdentityExtensionTests
         Assert.False(doc.RootElement.TryGetProperty("name", out _));
         Assert.False(doc.RootElement.TryGetProperty("type", out _));
         Assert.False(doc.RootElement.TryGetProperty("systemData", out _));
-        Assert.False(doc.RootElement.GetProperty("tags").TryGetProperty("old", out _));
-        Assert.Equal("prod", doc.RootElement.GetProperty("tags").GetProperty("env").GetString());
         JsonElement properties = doc.RootElement.GetProperty("properties");
         Assert.False(properties.TryGetProperty("tenantId", out _));
         Assert.False(properties.TryGetProperty("principalId", out _));
         Assert.False(properties.TryGetProperty("clientId", out _));
+    }
+
+    [Fact]
+    public async Task UpdateOrchestrator_GenericUpdate_AppliesTagAndPropertyMutations()
+    {
+        var sentRequests = new List<HttpRequestMessage>();
+        var pipeline = CreatePipeline((request, _) =>
+        {
+            sentRequests.Add(CloneRequest(request).GetAwaiter().GetResult());
+            if (request.Method == HttpMethod.Get)
+            {
+                return Json("""
+                    {
+                      "id": "/subscriptions/s/resourceGroups/rg1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id1",
+                      "name": "id1",
+                      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+                      "location": "eastus",
+                      "tags": { "old": "remove-me", "env": "dev" },
+                      "properties": {
+                        "assignmentRestrictions": { "providers": ["Microsoft.Compute"] },
+                        "isolationScope": "None",
+                        "tenantId": "tenant-1",
+                        "principalId": "principal-1",
+                        "clientId": "client-1"
+                      },
+                      "systemData": {}
+                    }
+                    """);
+            }
+
+            return Json("""{ "name": "id1", "location": "eastus" }""");
+        });
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroup = "rg1";
+        processor.ResourceName = "id1";
+        processor.TagsInput = ["env=prod"];
+        processor.ResourceRestriction = ["""{"providers":["Microsoft.Storage"]}"""];
+        processor.Set = ["properties.isolationScope=Regional"];
+        processor.Add = ["properties.assignmentRestrictions.providers", "Microsoft.KeyVault"];
+        processor.Remove = ["tags.old"];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal([HttpMethod.Get, HttpMethod.Patch], sentRequests.Select(request => request.Method).ToArray());
+        string body = await sentRequests[1].Content!.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(body);
+        Assert.False(doc.RootElement.GetProperty("tags").TryGetProperty("old", out _));
+        Assert.Equal("prod", doc.RootElement.GetProperty("tags").GetProperty("env").GetString());
+        JsonElement properties = doc.RootElement.GetProperty("properties");
         Assert.Equal("Regional", properties.GetProperty("isolationScope").GetString());
         Assert.Equal(
             ["Microsoft.Storage", "Microsoft.KeyVault"],
@@ -600,6 +676,150 @@ public class IdentityExtensionTests
         Assert.Equal(2, sentUris.Count);
         Assert.Contains("/resourceGroups/rg1/", sentUris[0], StringComparison.Ordinal);
         Assert.Contains("/resourceGroups/rg2/", sentUris[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BenchmarkStub_IdentityDelete_ReturnsEmptyBody_OtherRequestsUnchanged()
+    {
+        var handler = new StubHttpTerminateHandler();
+        var identityUri = $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/bench-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/bench-identity?api-version=2025-05-31-preview";
+
+        // Matches the live recording: identity DELETE answers 200 with no body.
+        using var delete = new HttpRequestMessage(HttpMethod.Delete, identityUri);
+        using var deleteResponse = await handler.SendAsync(delete, CreateEventPublisher(), null!);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        Assert.Equal(string.Empty, await deleteResponse.Content.ReadAsStringAsync());
+
+        // Only identity DELETE is special-cased; reads of the same path and other resource deletes keep the default body.
+        using var get = new HttpRequestMessage(HttpMethod.Get, identityUri);
+        using var getResponse = await handler.SendAsync(get, CreateEventPublisher(), null!);
+        Assert.Equal("{}", await getResponse.Content.ReadAsStringAsync());
+
+        using var otherDelete = new HttpRequestMessage(HttpMethod.Delete, $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/bench-rg?api-version=2021-04-01");
+        using var otherDeleteResponse = await handler.SendAsync(otherDelete, CreateEventPublisher(), null!);
+        Assert.Equal("{}", await otherDeleteResponse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Delete_AgainstBenchmarkStub_WritesNoOutput_ForCliAndPowerShellProcessors()
+    {
+        var pipeline = CreatePipeline((request, publisher) =>
+            new StubHttpTerminateHandler().SendAsync(request, publisher, null!).GetAwaiter().GetResult());
+
+        // CLI `identity delete` is registered to the orchestrator; PowerShell Remove- to the base processor.
+        var cliOutput = new List<object>();
+        var cli = CreateProcessor<DeleteIdentityProcessor_Orchestrator>(pipeline, CreateOutputHandler(cliOutput));
+        cli.SubscriptionId = TestSubscriptionId;
+        cli.ResourceGroup = "bench-rg";
+        cli.ResourceName = "bench-identity";
+        await cli.ProcessAsync();
+
+        var psOutput = new List<object>();
+        var ps = CreateProcessor<DeleteIdentityProcessor>(pipeline, CreateOutputHandler(psOutput));
+        ps.SubscriptionId = TestSubscriptionId;
+        ps.ResourceGroup = "bench-rg";
+        ps.ResourceName = "bench-identity";
+        await ps.ProcessAsync();
+
+        Assert.Empty(cliOutput);
+        Assert.Empty(psOutput);
+    }
+
+    [Fact]
+    public async Task Delete_WithJsonObjectBody_WritesOutput()
+    {
+        // Guards the test above: the old "{}" stub body is deserialized and written, which is the
+        // path the delete benchmarks must not measure.
+        var pipeline = CreatePipeline((_, _) => Json("{}"));
+        var writtenValues = new List<object>();
+        var processor = CreateProcessor<DeleteIdentityProcessor>(pipeline, CreateOutputHandler(writtenValues));
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroup = "bench-rg";
+        processor.ResourceName = "bench-identity";
+
+        await processor.ProcessAsync();
+
+        Assert.Single(writtenValues);
+    }
+
+    [Fact]
+    public async Task ShowProcessAsync_InvalidResourceId_ThrowsInvalidInput()
+    {
+        var pipeline = CreatePipeline((_, _) => Json("""{ "name": "id1" }"""));
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<ShowIdentityProcessor_Orchestrator>(pipeline, output, profile: null);
+        processor.Ids = ["not-a-resource-id"];
+
+        await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+    }
+
+    [Fact]
+    public async Task DeleteProcessAsync_InvalidResourceId_ThrowsInvalidInput()
+    {
+        var pipeline = CreatePipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<DeleteIdentityProcessor_Orchestrator>(pipeline, output, profile: null);
+        processor.Ids = ["invalid-id"];
+
+        await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+    }
+
+    [Fact]
+    public async Task CreateOrchestrator_InvalidTagFormat_ThrowsInvalidInput()
+    {
+        var pipeline = CreatePipeline((_, _) => Json("""{ "name": "id1", "location": "eastus" }"""));
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<CreateIdentityProcessor_Orchestrator>(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroup = "rg1";
+        processor.ResourceName = "id1";
+        processor.Location = "eastus";
+        processor.TagsInput = ["badtag-without-equals"];
+
+        await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+    }
+
+    [Fact]
+    public async Task CreateOrchestrator_InvalidResourceRestrictionJson_ThrowsJsonException()
+    {
+        var pipeline = CreatePipeline((_, _) => Json("""{ "name": "id1", "location": "eastus" }"""));
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<CreateIdentityProcessor_Orchestrator>(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroup = "rg1";
+        processor.ResourceName = "id1";
+        processor.Location = "eastus";
+        processor.ResourceRestriction = ["{bad-json"];
+
+        await Assert.ThrowsAnyAsync<JsonException>(() => processor.ProcessAsync());
+    }
+
+    [Fact]
+    public async Task UpdateOrchestrator_InvalidForceString_ThrowsInvalidInput()
+    {
+        var pipeline = CreatePipeline((request, _) =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                return Json("""{ "name": "id1", "location": "eastus", "tags": { "env": "dev" }, "properties": { "isolationScope": "None" } }""");
+            }
+
+            return Json("""{ "name": "id1", "location": "eastus", "properties": { "isolationScope": "Regional" } }""");
+        });
+        var writtenValues = new List<object>();
+        var output = CreateOutputHandler(writtenValues);
+        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroup = "rg1";
+        processor.ResourceName = "id1";
+        processor.Set = ["properties.isolationScope=Regional"];
+        processor.ForceString = "maybe";
+
+        await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
     }
 
     private static T CreateProcessor<T>(IRuntimeHttpPipeline pipeline, IOutputHandler output, Profile? profile = null)

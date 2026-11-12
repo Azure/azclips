@@ -11,18 +11,29 @@ using Core.Abstractions;
 
 public class PSArgumentParsingProvider() : IArgumentParsingProvider
 {
-    public IList<string>? ValidateArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters) => null;
-
-    public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+    public bool ValidateArguments(IDictionary<string, (string, object)> args, IDictionary<string, ParameterMetadata> parameters, out IList<string>? errors)
     {
-        var parsedArguments = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        errors = null;
+        return true;
+    }
 
-        foreach (var (key, rawValue) in args)
+    public string? ResolveParameterSet(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets, Func<IDictionary<string, (string, object)>, IDictionary<string, ParameterMetadata>, IDictionary<string, ParameterSetMetadata>?, (string?, IList<string>?)> defaultResolve, out IList<string>? errors)
+    {
+        var (resolved, errorList) = defaultResolve(parsedArgs, parameters, parameterSets);
+        errors = errorList;
+        return resolved;
+    }
+
+    public IDictionary<string, (string, object)> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+    {
+        var parsedArguments = new Dictionary<string, (string,object)>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (invocationName, rawValue) in args)
         {
             // If we have no metadata for this parameter, passthrough.
-            if (!parameters.TryGetValue(key, out var metadata))
+            if (!parameters.TryGetValue(invocationName, out var metadata))
             {
-                parsedArguments[key] = rawValue;
+                parsedArguments[invocationName] = (invocationName, rawValue);
                 continue;
             }
             var targetName = metadata.Name;
@@ -30,12 +41,12 @@ public class PSArgumentParsingProvider() : IArgumentParsingProvider
             // 1. Arg is array/sequence AND parameter expects a collection -> convert.
             if (IsArrayLike(rawValue) && TryGetCollectionElementType(metadata.ParameterType, out var elementType))
             {
-                parsedArguments[targetName] = ConvertToCollection(rawValue, metadata.ParameterType, elementType!);
+                parsedArguments[targetName] = (invocationName, ConvertToCollection(rawValue, metadata.ParameterType, elementType!));
                 continue;
             }
 
             // 2. Otherwise passthrough.
-            parsedArguments[targetName] = rawValue;
+            parsedArguments[targetName] = (invocationName, rawValue);
         }
 
         return parsedArguments;

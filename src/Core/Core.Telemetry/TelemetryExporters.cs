@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Azure.Monitor.OpenTelemetry.Exporter;
+using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -18,38 +19,24 @@ internal static class TelemetryExporters
     internal static void AddTraceExporters(
         TracerProviderBuilder builder,
         IReadOnlyList<TelemetryTarget> targets,
-        string? dataBoundary = null)
+        UploadRegion? uploadRegion = null)
     {
         foreach (var target in targets)
         {
             AddTraceExporter(builder, target);
         }
 
-        // Route Aria telemetry to the EU or ROW (Rest of World) regional collector based on
-        // the active profile's ARM data boundary. Fail-closed: only a CONFIRMED "Global" answer
-        // routes to ROW; EU, missing/unresolved, and unrecognized values all route to the
-        // EU-compliant endpoint, so a failed boundary lookup can never be read as permission to
-        // send an EU tenant's data outside the EU (see DataBoundaryRouting.IsConfirmedGlobal).
-        // Both destinations are pinned explicitly rather than leaving either to OneCollector's
-        // default/global endpoint, which can route traffic to any regional Collector/AEF
-        // instance — including the EU one — causing Geneva Delivery Service (GDS) to misroute
-        // ROW data into the EU Kusto cluster.
         if (targets.Contains(TelemetryTarget.Remote))
         {
-            // dataBoundary supplied: the caller already knows the destination for this
-            // exporter's whole lifetime (buffered replay of an already-partitioned group) —
-            // build a fixed-destination exporter. Otherwise build a dynamic-destination
-            // exporter, since this exporter may live across many command invocations with
-            // different tenants/boundaries (e.g. PowerShell's singleton TracerProvider) — it
-            // resolves the boundary per exported Activity from that Activity's own tag.
+            // Replay groups have fixed routing metadata; live providers route each Activity.
             AriaActivityExporter exporter;
-            if (dataBoundary is null)
+            if (uploadRegion is null)
             {
                 exporter = new AriaActivityExporter();
             }
             else
             {
-                var (connectionString, endpoint) = ResolveAriaExporter(dataBoundary);
+                var (connectionString, endpoint) = ResolveAriaExporter(uploadRegion.Value);
                 exporter = new AriaActivityExporter(connectionString, endpoint);
             }
 
@@ -61,6 +48,7 @@ internal static class TelemetryExporters
 
     internal static void AddTraceExporter(TracerProviderBuilder builder, TelemetryTarget target)
     {
+        TelemetryNetworkGuard.EnsureAllowed();
         if (target == TelemetryTarget.Local)
         {
             builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());
@@ -78,15 +66,14 @@ internal static class TelemetryExporters
         }
     }
 
-    internal static (string ConnectionString, Uri? Endpoint) ResolveAriaExporter(string? dataBoundary = null)
+    internal static (string ConnectionString, Uri? Endpoint) ResolveAriaExporter(
+        UploadRegion uploadRegion)
     {
-        var isConfirmedGlobal = dataBoundary is null
-            ? DataBoundaryResolver.IsConfirmedGlobalDataBoundary()
-            : DataBoundaryRouting.IsConfirmedGlobal(dataBoundary);
-
-        return isConfirmedGlobal
-            ? (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint)
-            : (WellKnownEndpoints.AriaEuConnectionString, WellKnownEndpoints.AriaEuEndpoint);
+        return uploadRegion switch
+        {
+            UploadRegion.ROW => (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaRowEndpoint),
+            UploadRegion.EU => (WellKnownEndpoints.AriaConnectionString, WellKnownEndpoints.AriaEuEndpoint),
+            _ => throw new ArgumentOutOfRangeException(nameof(uploadRegion)),
+        };
     }
 }
-

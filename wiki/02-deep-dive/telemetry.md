@@ -61,7 +61,12 @@ graph: singletons are constructed lazily on first `GetRequiredService`.
 `--upload-telemetry`, `--print-probe`, `--completions`, and `--completion-candidates` all
 return before the root activity starts and emit nothing.
 
-The root span is enriched with per-process invariants — a machine-derived `Id`, Microsoft-internal flag, product name/version, schema/telemetry version, and `ClientType` — resolved once by `TelemetryPropertyResolver` (`src/Core/Core.Telemetry/TelemetryService.cs:28-40`; `src/Core/Core.Telemetry/TelemetryPropertyResolver.cs:14-33`).
+Root initialization uses cached process properties including `InstallationId`, product and
+schema versions, OS/version, Linux distribution when available, shell, locale, .NET version,
+and provider-specific tags. The installation ID is derived from a hash of the primary MAC
+address and machine name; it is not an anonymous per-command random value
+(`src/Core/Core.Telemetry/TelemetryService.cs:45`,
+`src/Core/Core.Telemetry/TelemetryPropertyResolver.cs:15`).
 
 ### PowerShell module import
 
@@ -104,7 +109,7 @@ emits nothing — such a session runs no cmdlets, so it produces no telemetry ei
 | `TUITelemetryProvider` | `ClientType.TUI` | `FileTelemetrySender` (file buffer) | `TUI/Telemetry/TUITelemetryProvider.cs:14-45` |
 | `DirectTelemetrySender` (PowerShell) | — | Resolved targets inline, no buffering | `src/Core/Core.Telemetry/DirectTelemetrySender.cs` |
 
-The `telemetry.enabled` opt-out is enforced in `TelemetryService.StartActivity` / `StartRootActivity` at call time — the service reads `TelemetryOptions.Enabled` via `IConfigurationService` on every span and returns `null` when disabled, so `Set-AzConfig` / `az config set` take effect on the very next cmdlet without a module reload (`src/Core/Core.Telemetry/TelemetryService.cs`, `src/Core/Core.Abstractions/TelemetryOptions.cs:6-8`). Providers always build the full pipeline regardless of the config value, so the opt-out is symmetric in both directions. All providers register the same filter processors, HTTP-client instrumentation, and resource service name via `ProcessUtils.GetRunningProcess()` (`src/CLI/Telemetry/CLITelemetryProvider.cs:25-44`).
+The `telemetry.enabled` opt-out is enforced in `TelemetryService.StartActivity` / `StartRootActivity` at call time — the service reads `TelemetryOptions.Enabled` via `IConfigurationService` on every span and returns `null` when disabled, so `Set-AzConfig` / `az config set` take effect on the very next cmdlet without a module reload (`src/Core/Core.Telemetry/TelemetryService.cs`, `src/Core/Core.Abstractions/Config/TelemetryOptions.cs:6-8`). Providers always build the full pipeline regardless of the config value, so the opt-out is symmetric in both directions. All providers register the same filter processors, HTTP-client instrumentation, and resource service name via `ProcessUtils.GetRunningProcess()` (`src/CLI/Telemetry/CLITelemetryProvider.cs:25-44`).
 
 ## Export targets
 
@@ -147,15 +152,38 @@ Two `BaseProcessor<Activity>` implementations run on `OnEnd` of every activity a
 | `DefaultActivityNameFilterProcessor` | `DefaultTelemetryActivityNameFilter` | Clears the `Recorded` flag on disallowed activity *names*, so the exporter skips them entirely (`src/Core/Core.Telemetry/DefaultActivityNameFilterProcessor.cs:31-41`) |
 | `DefaultTelemetryPropertyFilterProcessor` | `DefaultTelemetryPropertyFilter` | Deletes every tag whose *key* isn't allow-listed via `SetTag(key, null)` (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilterProcessor.cs:30-54`) |
 
-The name filter permits only known roots (`CLI.Activity.Root`, `TUI.Activity.Root`, …), `AzureCLI.ProcessCommand`, specific engine events, and a handful of service/processor prefixes (`src/Core/Core.Telemetry/DefaultTelemetryActivityNameFilter.cs:13-58`). The property filter's allow-list is telling: it keeps `http.method`, `http.status_code`, and `http.host`, but **URL/path attributes are deliberately excluded**, and `exception.type`/`exception.stacktrace` are kept while the exception *message* is not (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs:33-46`).
+The name filter permits known roots, `AzureCLI.ProcessCommand`, engine events, and selected
+service/processor prefixes (`src/Core/Core.Telemetry/DefaultTelemetryActivityNameFilter.cs:13`).
+The current property allowlist keeps `http.request.method`, `http.response.status_code`,
+`server.port`, and `network.protocol.version`; URL/path attributes, exception messages, and
+formatted stack traces are not allowlisted. It also explicitly allows subscription, tenant,
+Entra object ID, auth type/success/status/duration, environment metadata, and the reserved
+`TelemetryTags.PropertyTagPrefix` channel. Do not describe this as collecting only parameter
+names or as excluding every identifier
+(`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs:14`,
+`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilter.cs:69`).
+
+These are activity-tag filters, not a blanket guarantee about arbitrary event payloads.
+Authentication cleanup deliberately avoids unbounded exception text in logged activity events
+(`src/Core/Core.Authentication/MsalAuthService.cs:152`).
 
 Even parameter **values** are masked at the source: `TelemetryService.FormatParameters` renders every parameter as `-name ***`, so a command's shape is captured without any argument content (`src/Core/Core.Telemetry/TelemetryService.cs:81-94`). Dropped counts are tracked internally but never logged — surfacing a dropped key could itself leak the existence of a sensitive tag (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilterProcessor.cs:23-28`).
 
 ## Async export path
 
-For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs:96-106`). Note that `ConfigureExporter` no longer takes a directory argument — the sender is handed an `ITraceDirectoryProvider` and resolves it per export, so a host can redirect buffering without replacing the sender or the exporter. In production that resolves to `HomePaths.GetDefaultTraceDirectory()`; CLI benchmarks override it to keep their traces out of the shared directory (`src/Core/Core.Telemetry/ITraceDirectoryProvider.cs`). `FileExporter` serializes each batch to `traces-{traceId}.log` — the name comes from `TraceFileStore.FileNameFor`, which owns the trace file naming for writers and readers alike — under `%LocalAppData%/Azclips/traces`, appending a timestamped JSON batch per write (`src/Core/Core.Telemetry/FileExporter.cs:27-89`).
+For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs`). The sender receives an `ITraceDirectoryProvider`, so a host can redirect buffering without replacing the exporter. The default provider resolves `traces` through the injected `IPersistenceStore.GetFilePath`; CLI benchmarks override it to isolate their traces (`src/Core/Core.Telemetry/ITraceDirectoryProvider.cs`). `FileExporter` writes timestamped JSON batches to `traces-{traceId}.log`, using `TraceFileStore.FileNameFor`, under the store's `traces` directory (`~/.azclips/traces` by default).
 
-After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs`). That child's very first branch calls `TelemetryUpload.RunPending()` and returns (`src/Core/Core.Telemetry/TelemetryUpload.cs`).
+The confirmed tenant-boundary cache uses `IPersistenceStore.ReadAsync` and `WriteAsync` with
+the relative name `data-boundary-cache.json`. Its memory cache is scoped to the injected
+resolver, and a lock path resolved through the store protects read-modify-write updates.
+Standalone Agent startup asynchronously reads the injected `IProfileService` and cached
+boundary without authenticating. `AZCLIPS_HOME` overrides the default filesystem store's root;
+an injected store can choose another root without changing the environment.
+Files in the previous `{LocalApplicationData}/.azclips` root are not read
+or migrated automatically, so old queued traces remain untouched and the boundary cache is
+rebuilt on demand.
+
+After the command finishes and DI is disposed, `Main`'s `finally` fires `SpawnTelemetryUploader`, which starts a **detached** child process re-invoking the same executable with `--upload-telemetry` — fire-and-forget, so the CLI exits immediately (`src/CLI/Program.cs`). The child's `AZCLIPS_HOME` is set to the foreground store's root. Its first branch creates the filesystem store and constructs `TelemetryUpload`, whose parameterless `RunPending` scans that store's trace directory (`src/Core/Core.Telemetry/TelemetryUpload.cs`). The injected `TelemetryUploadReservation` also resolves its queue once at construction; `Begin` and `MarkReady` accept no directory arguments. The CLI retains this instance through exporter disposal so it can mark the reservation ready after the final flush. Writer-only `ITraceDirectoryProvider` overrides, such as benchmark destinations, do not redirect reservations or uploads.
 
 Because that child outlives `az`, it must not inherit the CLI's stdio. A pipe reader (`az ... | jq`) only sees EOF once *every* writer has closed its end, so an inherited stdout would make the shell wait for the upload instead of for the command. Two things prevent that: the child's three streams are redirected (on Unix, exec replaces descriptors 0–2 outright), and on Windows `DetachedStdio.SuppressStandardHandleInheritance` first clears `HANDLE_FLAG_INHERIT` on our standard handles — `Process.Start` always calls `CreateProcess` with `bInheritHandles: true`, which would otherwise duplicate them into the child regardless of redirection (`src/CLI/Telemetry/DetachedStdio.cs`).
 
@@ -164,7 +192,7 @@ sequenceDiagram
     autonumber
     participant Cmd as az (foreground)
     participant Exp as FileExporter
-    participant Disk as ~/AppData/.../Azclips/traces
+    participant Disk as ~/.azclips/traces
     participant Up as az --upload-telemetry (detached)
     participant AM as Azure Monitor
     Cmd->>Exp: activity OnEnd (filtered)
@@ -178,12 +206,6 @@ sequenceDiagram
     Up->>AM: replay + ForceFlush(10s) (TracerProviderExportSink)
     AM-->>Up: flush ok
     Up->>Disk: delete uploaded files
-
-    style Cmd fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Exp fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Disk fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style Up fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AM fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
 ### The uploader (`TraceUploader`)

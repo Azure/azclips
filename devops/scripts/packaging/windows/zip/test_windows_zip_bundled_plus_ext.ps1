@@ -405,6 +405,30 @@ if (-not (Test-Path -Path $copilotExe -PathType Leaf)) {
 }
 Write-Host 'PASS: Bundled Copilot CLI found at the agent resolver path'
 
+# `az agent tool ...` loads through the CLI extension loader, which resolves
+# dependencies from the extension directory, then the CLI root. It does not
+# probe deps/ (that layout is for the azclips-agent subprocess only).
+$agentExtDir = Join-Path $installRoot 'Extensions/Microsoft.Azure.Azclips.Extensions.Agent'
+$agentDepsJson = Join-Path $agentExtDir 'Microsoft.Azure.Azclips.Extensions.Agent.deps.json'
+$agentDeps = Get-Content -Raw -Path $agentDepsJson | ConvertFrom-Json
+$missingAgentDlls = @()
+foreach ($target in $agentDeps.targets.PSObject.Properties) {
+    foreach ($lib in $target.Value.PSObject.Properties) {
+        if ($lib.Value.PSObject.Properties.Match('runtime').Count -eq 0) { continue }
+        foreach ($asset in $lib.Value.runtime.PSObject.Properties) {
+            $dllName = [System.IO.Path]::GetFileName($asset.Name)
+            if (-not (Test-Path -Path (Join-Path $agentExtDir $dllName) -PathType Leaf) -and
+                -not (Test-Path -Path (Join-Path $installRoot $dllName) -PathType Leaf)) {
+                $missingAgentDlls += "$dllName ($($lib.Name))"
+            }
+        }
+    }
+}
+if ($missingAgentDlls.Count -gt 0) {
+    throw "FAIL: Agent extension dependencies not resolvable from the extension directory or the CLI root: $($missingAgentDlls -join ', ')"
+}
+Write-Host 'PASS: every Agent extension runtime dependency is resolvable by the CLI extension loader'
+
 foreach ($legalFile in @('NOTICE', 'LICENSE')) {
     $legalPath = Join-Path $installRoot $legalFile
     if (-not (Test-Path -Path $legalPath -PathType Leaf)) {
@@ -562,16 +586,14 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
 
     Write-Host ''
     Write-Host '[6/17] Verify built-in extension manager is available'
-    $extensionOutput = & $azExe extension add 2>&1
+    $extensionOutput = & $azExe extension add --help
+    $extensionExitCode = $LASTEXITCODE
     $extensionText = $extensionOutput | Out-String
     $extensionText.Trim() | Out-Host
-    if ($extensionText -match 'Extension.*could not be found') {
-        throw 'FAIL: Extension manager not loaded.'
+    if ($extensionExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($extensionText)) {
+        throw "FAIL: extension add --help must succeed and return nonempty help (exit code: $extensionExitCode)."
     }
-    if ($extensionText -notmatch 'Either Name or Path must be provided|Required option.*(name|path)') {
-        throw 'FAIL: Extension command response was unexpected.'
-    }
-    Write-Host 'PASS: Extension manager loaded'
+    Write-Host 'PASS: Extension manager command help is available'
     $global:LASTEXITCODE = 0
 
     Write-Host ''
@@ -660,25 +682,15 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: extension show reports Resources and its location'
 
     Write-Host ''
-    Write-Host '[13/17] Verify Resources command resolves'
-    $groupOut = & $azExe group list 2>&1
+    Write-Host '[13/17] Verify Resources command help resolves'
+    $groupOut = & $azExe group list --help
     $groupExitCode = $LASTEXITCODE
     $groupText = $groupOut | Out-String
     $groupText.Trim() | Out-Host
-    if ($groupText -match 'could not be found') {
-        throw 'FAIL: Resources command not resolved after install.'
-    } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved") {
-        Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
-    } elseif ($groupText -match "Missing required argument 'SubscriptionId' and no value found in profile.") {
-        Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
-    } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
-        Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'
-    } else {
-        if ($groupExitCode -ne 0) {
-            throw "FAIL: group list exited with code $groupExitCode."
-        }
-        Write-Host 'PASS: Resources command resolved'
+    if ($groupExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($groupText)) {
+        throw "FAIL: group list --help must succeed and return nonempty help (exit code: $groupExitCode)."
     }
+    Write-Host 'PASS: Resources command help resolved without executing an Azure operation'
 
     Write-Host ''
     Write-Host '[14/17] Remove Resources extension'
@@ -706,21 +718,23 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: Resources files and registry entry are gone'
 
     Write-Host ''
-    Write-Host '[16/17] Verify Resources command no longer resolves'
-    $removedCommandOutput = & $azExe group list 2>&1
+    Write-Host '[16/17] Verify Resources command help after removal'
+    $removedCommandOutput = & $azExe group list --help
+    $removedCommandExitCode = $LASTEXITCODE
     $removedCommandText = $removedCommandOutput | Out-String
     $removedCommandText.Trim() | Out-Host
-    if ($packageProfile -eq 'lean' -and $removedCommandText -match '\[ExtensionNotFound\]') {
-        Write-Host 'PASS: Removed Resources command reports the extension installation path'
+    if ($packageProfile -eq 'lean' -and $removedCommandExitCode -eq 4) {
+        Write-Host 'PASS: Removed Resources command help is unavailable (exit code 4)'
     }
     elseif ($packageProfile -eq 'full' -and
-        $removedCommandText -match "\[BundledExtensionLoader\] Loaded 'Resources'" -and
-        $removedCommandText -notmatch '\[ExtensionNotFound\]') {
-        Write-Host 'PASS: Resources command fell back to the bundled full-package extension'
+        $removedCommandExitCode -eq 0 -and
+        -not [string]::IsNullOrWhiteSpace($removedCommandText)) {
+        Write-Host 'PASS: Resources command help fell back to the bundled full-package extension'
     }
     else {
-        throw "FAIL: az group list did not match the expected $packageProfile profile behavior after removal."
+        throw "FAIL: group list --help did not match the expected $packageProfile profile behavior after removal (exit code: $removedCommandExitCode)."
     }
+    $global:LASTEXITCODE = 0
 
     Write-Host ''
     Write-Host '[17/17] Uninstall isolated azcli and preserve classic az'

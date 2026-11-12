@@ -23,6 +23,37 @@ internal static class EmitterExtensions
     }
 
     /// <summary>
+    /// Undo <c>NormalizeWhitespace()</c>'s spacing quirks. It renders <c>null!</c> as <c>null !</c>,
+    /// and drops the space between <c>)</c> and a following <c>is</c> or <c>when</c>
+    /// (<c>Get()is { }</c>, <c>catch (Exception ex)when (…)</c>). Valid C#, but not how anyone
+    /// writes it. Apply after normalizing.
+    /// </summary>
+    internal static T FixNormalizerSpacing<T>(this T node)
+        where T : SyntaxNode =>
+        (T)new NormalizerSpacingFixer().Visit(node);
+
+    private sealed class NormalizerSpacingFixer : CSharpSyntaxRewriter
+    {
+        public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+        {
+            var visited = (PostfixUnaryExpressionSyntax)base.VisitPostfixUnaryExpression(node)!;
+            return visited.IsKind(SyntaxKind.SuppressNullableWarningExpression)
+                ? visited
+                    .WithOperand(visited.Operand.WithoutTrailingTrivia())
+                    .WithOperatorToken(visited.OperatorToken.WithLeadingTrivia())
+                : visited;
+        }
+
+        public override SyntaxToken VisitToken(SyntaxToken token) =>
+            (token.IsKind(SyntaxKind.IsKeyword) || token.IsKind(SyntaxKind.WhenKeyword))
+            && !token.HasLeadingTrivia
+            && token.GetPreviousToken() is { HasTrailingTrivia: false } previous
+            && previous.IsKind(SyntaxKind.CloseParenToken)
+                ? token.WithLeadingTrivia(Space)
+                : base.VisitToken(token);
+    }
+
+    /// <summary>
     /// Append verbatim comment trivia (parsed from <paramref name="commentText"/> — line <c>//</c>,
     /// block <c>/* */</c>, or doc <c>///</c>) after the node's existing leading trivia, so it lands
     /// directly above the declaration (below any XML doc already attached). Used to carry
@@ -33,32 +64,86 @@ internal static class EmitterExtensions
         node.WithLeadingTrivia(node.GetLeadingTrivia().AddRange(ParseLeadingTrivia(commentText)));
 
     /// <summary>
-    /// Attach a single-line XML <c>&lt;summary&gt;</c> doc comment as leading trivia,
-    /// if <paramref name="doc"/> is non-empty. Applied last in each builder so it lands
-    /// on the declaration's first token (above any attribute list).
+    /// Attach an XML doc comment as leading trivia: a single-line <c>&lt;summary&gt;</c> when
+    /// <paramref name="doc"/> is non-empty, then <paramref name="remarks"/> when given. Applied
+    /// last in each builder so it lands on the declaration's first token (above any attribute list).
     /// </summary>
-    internal static T WithLeadingXmlDoc<T>(this T node, string? doc)
+    internal static T WithLeadingXmlDoc<T>(this T node, string? doc, XmlDocRemarks? remarks = null)
         where T : SyntaxNode
     {
-        if (string.IsNullOrWhiteSpace(doc))
+        var elements = new List<XmlNodeSyntax>();
+        if (!string.IsNullOrWhiteSpace(doc))
+        {
+            elements.Add(XmlSummaryElement(XmlText(OneLine(doc))));
+        }
+
+        if (remarks is not null)
+        {
+            elements.Add(XmlRemarksElement(List(RemarksContent(remarks))));
+        }
+
+        if (elements.Count == 0)
         {
             return node;
         }
 
-        string oneLine = doc.Replace("\r", " ").Replace("\n", " ").Trim();
-
-        // DocumentationComment/XmlSummaryElement build the structured `///` trivia
-        // (exterior markers, `<summary>` element) so it survives NormalizeWhitespace;
-        // XmlText escapes `<`, `>`, `&` for us. A leading space yields the conventional
-        // `/// <summary>` (the exterior alone renders `///<summary>`); the trailing
+        // DocumentationComment and the Xml* factories build the structured `///` trivia
+        // (exterior markers, elements) so it survives NormalizeWhitespace; XmlText escapes
+        // `<`, `>`, `&` for us. The first line's exterior comes with the comment; every element
+        // after it opens a line of its own. Each line starts with a space, which yields the
+        // conventional `/// <summary>` (the exterior alone renders `///<summary>`); the trailing
         // newline terminates the comment.
         DocumentationCommentTriviaSyntax comment = DocumentationComment(
+        [
             XmlText(" "),
-            XmlSummaryElement(XmlText(oneLine)),
-            XmlText(XmlTextNewLine("\n", continueXmlDocumentationComment: false)));
+            elements[0],
+            .. elements.Skip(1).SelectMany(element => DocLine(element)),
+            XmlText(XmlTextNewLine("\n", continueXmlDocumentationComment: false)),
+        ]);
 
         return node.WithLeadingTrivia(TriviaList(Trivia(comment)));
     }
+
+    /// <summary>
+    /// What goes inside <c>&lt;remarks&gt;</c>: the text alone stays on the tag's line; with
+    /// bullets, the text, a <c>&lt;list type="bullet"&gt;</c>, and the tail each take a line.
+    /// </summary>
+    private static IEnumerable<XmlNodeSyntax> RemarksContent(XmlDocRemarks remarks)
+    {
+        if (remarks.Bullets is not { Count: > 0 } bullets)
+        {
+            return [XmlText(OneLine(remarks.Text))];
+        }
+
+        XmlElementSyntax list = XmlElement(
+            XmlElementStartTag(XmlName("list"), SingletonList<XmlAttributeSyntax>(XmlTextAttribute("type", "bullet"))),
+            List<XmlNodeSyntax>(
+            [
+                .. bullets.SelectMany(bullet => DocLine(
+                    XmlElement("item", SingletonList<XmlNodeSyntax>(
+                        XmlElement("description", SingletonList<XmlNodeSyntax>(XmlText(OneLine(bullet)))))))),
+                .. DocLine(),
+            ]),
+            XmlElementEndTag(XmlName("list")));
+
+        return
+        [
+            .. DocLine(XmlText(OneLine(remarks.Text))),
+            .. DocLine(list),
+            .. remarks.Tail is { } tail ? DocLine(XmlText(OneLine(tail))) : [],
+            .. DocLine(),
+        ];
+    }
+
+    /// <summary>
+    /// A new <c>///</c> line holding <paramref name="content"/>; with none, it only indents what
+    /// follows, such as a closing tag.
+    /// </summary>
+    private static XmlNodeSyntax[] DocLine(XmlNodeSyntax? content = null) =>
+        content is null ? [XmlNewLine("\n"), XmlText(" ")] : [XmlNewLine("\n"), XmlText(" "), content];
+
+    /// <summary>Doc text on one line: XML doc collapses line breaks anyway, and a summary reads as one sentence.</summary>
+    private static string OneLine(string text) => text.Replace("\r", " ").Replace("\n", " ").Trim();
 
     /// <summary>
     /// Normalize <paramref name="path"/> to a clean, <c>/</c>-separated relative

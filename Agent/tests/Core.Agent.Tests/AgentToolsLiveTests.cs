@@ -15,15 +15,14 @@ namespace Core.Agent.Tests;
 /// every tool loads and runs (the class of failure — an agent dll left
 /// unloadable by a packaging-layout change — that unit tests can't see).
 ///
-/// Coverage: the seven distinct tools (env, help, resource
-/// find/show/sku/tree/refresh); <c>ToolInvocations</c> has eight entries because
-/// <c>help</c> is exercised both with and without <c>--name</c>.
+/// Coverage: environment show, docs list/show, and resource
+/// find/show/sku/tree/refresh. Catalog generation is covered by offline command tests.
 ///
 /// Binary resolution: env var <c>AZCLIPS_LIVE_AZ</c> first, else the first <c>az</c>
 /// on PATH.
 ///
 /// Side effects: the tool invocations are read-only, but the one-shot subprocess
-/// test flips <c>agent.enabled</c>/<c>agent.sessionStyle</c> to spawn the agent —
+/// test flips <c>agent.recovery.trigger</c>/<c>agent.recovery.style</c> to spawn the agent —
 /// it snapshots and restores those config values in a finally block so a run
 /// leaves the installed azclips config unchanged. It never logs out or touches
 /// profiles.
@@ -34,9 +33,9 @@ public class AgentToolsLiveTests
     // in lockstep with the actual tool surface.
     private static readonly string[][] ToolInvocations =
     [
-        ["agent", "tool", "env"],
-        ["agent", "tool", "help"],
-        ["agent", "tool", "help", "--name", "profile show"],
+        ["agent", "tool", "env", "show"],
+        ["agent", "tool", "docs", "list"],
+        ["agent", "tool", "docs", "show", "--name", "profile show"],
         ["agent", "tool", "resource", "refresh"],
         ["agent", "tool", "resource", "find", "--name", "zzz-nonexistent"],
         ["agent", "tool", "resource", "show", "--name", "zzz-nonexistent", "--kind", "resource"],
@@ -52,11 +51,11 @@ public class AgentToolsLiveTests
             "No azclips binary found. Set AZCLIPS_LIVE_AZ to an installed az(.exe), or put one on PATH, then re-run this live test.");
 
         // Preflight: this test needs an active login (the resource/cache tools
-        // hit ARM). Check once up front via `agent tool env` and give a clear
+        // hit ARM). Check once up front via `agent tool env show` and give a clear
         // instruction instead of letting each tool fail opaquely.
-        var (envExit, envOut, envErr) = await RunAsync(az!, "agent", "tool", "env");
-        AssertNoAssemblyLoadError("agent tool env", envOut, envErr);
-        Assert.True(envExit == 0, $"`agent tool env` failed (exit {envExit}). Is the package intact?\n{envOut}\n{envErr}");
+        var (envExit, envOut, envErr) = await RunAsync(az!, "agent", "tool", "env", "show");
+        AssertNoAssemblyLoadError("agent tool env show", envOut, envErr);
+        Assert.True(envExit == 0, $"`agent tool env show` failed (exit {envExit}). Is the package intact?\n{envOut}\n{envErr}");
 
         var signedIn = TryReadSignedIn(envOut);
         Assert.True(signedIn == true,
@@ -92,19 +91,19 @@ public class AgentToolsLiveTests
         Assert.True(az is not null,
             "No azclips binary found. Set AZCLIPS_LIVE_AZ to an installed az(.exe), or put one on PATH, then re-run this live test.");
 
-        // Snapshot the two config keys we must flip, so we can restore the user's
+        // Snapshot the config keys we must flip, so we can restore the user's
         // installed config exactly — a post-install smoke test must not leave the
         // machine mutated. Restore happens in finally regardless of outcome.
-        var savedEnabled = await SnapshotConfigAsync(az!, "agent.enabled");
-        var savedStyle = await SnapshotConfigAsync(az!, "agent.sessionStyle");
+        var savedTrigger = await SnapshotConfigAsync(az!, "agent.recovery.trigger");
+        var savedStyle = await SnapshotConfigAsync(az!, "agent.recovery.style");
         try
         {
-            // The agent subprocess only spawns when agent.enabled=true and the
+            // The agent subprocess only spawns when agent.recovery.trigger=auto and the
             // session style is oneshot (interactive needs a TTY we don't have here).
-            await RunAsync(az!, "config", "set", "--key", "agent.enabled", "--value", "true");
-            await RunAsync(az!, "config", "set", "--key", "agent.sessionStyle", "--value", "oneshot");
+            await RunAsync(az!, "config", "set", "--key", "agent.recovery.trigger", "--value", "auto");
+            await RunAsync(az!, "config", "set", "--key", "agent.recovery.style", "--value", "oneshot");
 
-            var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env")).stdout);
+            var signedIn = TryReadSignedIn((await RunAsync(az!, "agent", "tool", "env", "show")).stdout);
             Assert.True(signedIn == true,
                 "Not signed in. Run `az login --subscription-id <sub>` against this binary, then re-run this live test.");
 
@@ -125,8 +124,8 @@ public class AgentToolsLiveTests
         }
         finally
         {
-            await RestoreConfigAsync(az!, "agent.enabled", savedEnabled);
-            await RestoreConfigAsync(az!, "agent.sessionStyle", savedStyle);
+            await RestoreConfigAsync(az!, "agent.recovery.trigger", savedTrigger);
+            await RestoreConfigAsync(az!, "agent.recovery.style", savedStyle);
         }
     }
 
@@ -134,19 +133,17 @@ public class AgentToolsLiveTests
     // set it explicitly, so restoring means DELETE rather than set-back.
     private static async Task<(string? value, bool wasDefault)> SnapshotConfigAsync(string az, string key)
     {
-        var (_, stdout, _) = await RunAsync(az, "config", "get", "--key", key, "--json");
-        try
-        {
-            using var doc = JsonDocument.Parse(stdout);
-            var root = doc.RootElement;
-            var value = root.TryGetProperty("Value", out var v) ? v.ToString() : null;
-            var source = root.TryGetProperty("Source", out var s) ? s.GetString() : null;
-            // "global config" / "local config" = explicitly set; anything else
-            // (e.g. "default") means the user never set it.
-            var wasDefault = source is null || !source.Contains("config", StringComparison.OrdinalIgnoreCase);
-            return (value, wasDefault);
-        }
-        catch { return (null, true); }
+        var (_, stdout, _) = await RunAsync(az, "config", "get", "--key", key, "--output", "json");
+        using var doc = JsonDocument.Parse(stdout);
+        var root = doc.RootElement;
+        var source = root.TryGetProperty("source", out var s) ? s.GetString() : null;
+        Assert.True(source is not null,
+            $"Could not read the current value of {key}; refusing to change configuration. Output:\n{stdout}");
+        var value = root.TryGetProperty("value", out var v) ? v.ToString() : null;
+        // "global config" / "local config" = explicitly set; anything else
+        // (e.g. "default") means the user never set it.
+        var wasDefault = !source!.Contains("config", StringComparison.OrdinalIgnoreCase);
+        return (value, wasDefault);
     }
 
     private static async Task RestoreConfigAsync(string az, string key, (string? value, bool wasDefault) saved)

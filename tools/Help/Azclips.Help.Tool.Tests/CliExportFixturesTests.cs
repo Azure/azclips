@@ -70,6 +70,23 @@ public class CliExportFixturesTests : IClassFixture<CliExportFixture>
 
     public CliExportFixturesTests(CliExportFixture fixture) => _fixture = fixture;
 
+    [Fact]
+    public void AgentExport_ContainsUniqueGroupsAndAllDocsActions()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(_fixture.OutputLatest, "agent.json")));
+        var entries = document.RootElement.EnumerateArray().ToArray();
+        var names = entries.Select(entry => entry.GetProperty("command").GetString()).ToArray();
+        Assert.Equal(names.Length, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        foreach (var group in new[] { "agent tool", "agent tool docs", "agent tool env", "agent tool resource" })
+            Assert.Equal("group", Assert.Single(entries, entry => entry.GetProperty("command").GetString() == group).GetProperty("type").GetString());
+        foreach (var command in new[] { "agent tool docs list", "agent tool docs show", "agent tool docs generate", "agent tool env show" })
+            Assert.Equal("command", Assert.Single(entries, entry => entry.GetProperty("command").GetString() == command).GetProperty("type").GetString());
+        Assert.DoesNotContain(names, name => name == "agent tool help" || name?.StartsWith("agent tool help ", StringComparison.Ordinal) == true);
+        var show = Assert.Single(entries, entry => entry.GetProperty("command").GetString() == "agent tool docs show");
+        var nameParameter = Assert.Single(show.GetProperty("parameters").EnumerateArray(), parameter => parameter.GetProperty("name").GetString() == "--name");
+        Assert.True(nameParameter.GetProperty("required").GetBoolean());
+    }
+
     [Theory]
     [InlineData("_root_")]
     [InlineData("login")]

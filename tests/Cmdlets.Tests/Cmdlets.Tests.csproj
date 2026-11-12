@@ -8,17 +8,22 @@
 
   <ItemGroup>
     <!--
-      Common/CmdletOutputStreamsFactory.cs compiles into both Cmdlets.Config and Cmdlets.Accounts,
-      so its internal types reach this project twice (CS0433). The alias hides Config's copy;
-      a test needing a Config type must add `extern alias CmdletsConfig;`.
+      Common/CmdletOutputStreamsFactory.cs compiles into Cmdlets.Config, Cmdlets.Accounts and Cmdlets.Compute,
+      so its internal types reach this project more than once (CS0433). The aliases hide the Config and
+      Compute copies; a test needing one of their types must add `extern alias CmdletsConfig;` or
+      `extern alias CmdletsCompute;`.
     -->
     <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj">
       <Aliases>CmdletsConfig</Aliases>
     </ProjectReference>
+    <ProjectReference Include="../../src/PS/Compute/Cmdlets.Compute.csproj">
+      <Aliases>CmdletsCompute</Aliases>
+    </ProjectReference>
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <ProjectReference Include="../../src/PS/ManagedServiceIdentity/Cmdlets.ManagedServiceIdentity.csproj" />
     <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
-    <ProjectReference Include="../../src/PS/Compute/Cmdlets.Compute.csproj" />
     <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
+    <ProjectReference Include="../../src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
     <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
@@ -28,7 +33,7 @@
 
   <ItemGroup>
     <PackageReference Include="Moq" Version="4.20.72" />
-    <PackageReference Include="System.Management.Automation" Version="7.6.1" />
+    <PackageReference Include="System.Management.Automation" />
   </ItemGroup>
 
 </Project>

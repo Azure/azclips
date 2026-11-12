@@ -7,8 +7,8 @@ param(
 
     [string]$PwshPath = 'pwsh',
 
-    [ValidateSet('Accounts', 'Config', 'Resources', 'Compute', 'MsGraph')]
-    [string[]]$Module = @('Accounts', 'Config', 'Resources', 'Compute', 'MsGraph')
+    [ValidateSet('Accounts', 'Config', 'Resources', 'Compute', 'MsGraph', 'Storage')]
+    [string[]]$Module = @('Accounts', 'Config', 'Resources', 'Compute', 'MsGraph', 'Storage')
 )
 
 $ErrorActionPreference = 'Stop'

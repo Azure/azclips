@@ -1,0 +1,18 @@
+schema-version: 1
+
+output-dir: .
+tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/90e63e5fe2c596e8bd807aad7dd9d62cee1746dd/specification/network/resource-manager/Microsoft.Network/Network
+entrypoints:
+  - path: ./Network
+    api-version: 2025-07-01
+
+service-name: Network
+root-namespace: Microsoft.Azure.Azclips.Extensions.Network
+project-name: Microsoft.Azure.Azclips.Extensions.Network
+description: Network extension for AzClips
+
+stages:
+  flatten-model:
+    options:
+      noInline:
+        - IPConfiguration

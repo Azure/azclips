@@ -60,6 +60,8 @@ jobs:
       chmod +x "${{ parameters.PackagingScriptsRoot }}/macos/tarball/build_macos_tarball.sh"
       ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/build_macos_tarball.sh"
     displayName: Build CLI macOS Tarball
+    env:
+      AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI macOS

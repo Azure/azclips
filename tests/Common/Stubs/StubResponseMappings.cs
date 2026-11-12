@@ -1,6 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
+using System.Web;
+
 namespace Tests.Common.Stubs;
 
 /// <summary>
@@ -15,6 +18,14 @@ internal static class StubResponseMappings
     /// <summary>Body returned for any request that matches no mapping.</summary>
     public const string DefaultBody = "{}";
 
+    // Resource types whose DELETE answers 200 with an empty body (confirmed against recordings).
+    // A "{}" body would be deserialized and written as output, so a benchmark would measure
+    // JSON handling and output delivery instead of the real empty-response removal path.
+    private static readonly string[] s_emptyBodyDeleteSegments =
+    [
+        "/providers/Microsoft.ManagedIdentity/userAssignedIdentities/",
+    ];
+
     // Resource-type path segment -> fixture file name. The request path carries a
     // varying resource name, so the stable type segment is matched as a substring.
     private static readonly IReadOnlyList<(string Segment, string File)> s_fixtureFiles = new[]
@@ -26,13 +37,29 @@ internal static class StubResponseMappings
     };
 
     private static readonly IReadOnlyList<(string Segment, string Body)> s_bodies = LoadFixtures();
+    private static readonly IReadOnlyDictionary<string, string> s_keyVaultBodies = LoadKeyVaultFixtures();
 
     /// <summary>
     /// Returns the minimal JSON body for the request path, or <see cref="DefaultBody"/>
-    /// when the path matches no mapped resource type.
+    /// when the path matches no mapped resource type. Returns an empty string for DELETEs of
+    /// resource types whose real API answers with no body.
     /// </summary>
-    public static string ResolveBody(string path)
+    public static string ResolveBody(string path, string? query = null, HttpMethod? method = null)
     {
+        if (method == HttpMethod.Delete &&
+            s_emptyBodyDeleteSegments.Any(segment => path.Contains(segment, StringComparison.OrdinalIgnoreCase)))
+        {
+            return string.Empty;
+        }
+
+        string key = path.TrimEnd('/');
+        if (s_keyVaultBodies.TryGetValue(key, out var keyVaultBody))
+        {
+            if (HttpUtility.ParseQueryString(query ?? string.Empty)["skiptoken"] == "benchmark-next" &&
+                s_keyVaultBodies.TryGetValue(key + "?skiptoken=benchmark-next", out var nextPage)) return nextPage;
+            return keyVaultBody;
+        }
+
         foreach (var (segment, body) in s_bodies)
         {
             if (path.Contains(segment, StringComparison.OrdinalIgnoreCase))
@@ -41,6 +68,14 @@ internal static class StubResponseMappings
             }
         }
         return DefaultBody;
+    }
+
+    private static IReadOnlyDictionary<string, string> LoadKeyVaultFixtures()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "Stubs", "Fixtures", "keyVault.json")));
+        return document.RootElement.EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value.GetRawText(), StringComparer.Ordinal);
     }
 
     private static List<(string, string)> LoadFixtures()

@@ -57,6 +57,7 @@ export default withMermaid({
           { text: 'HTTP Pipeline & Runtime', link: '/02-deep-dive/http-pipeline' },
           { text: 'Authentication (MSAL)', link: '/02-deep-dive/authentication' },
           { text: 'Extension System', link: '/02-deep-dive/extension-system' },
+          { text: 'TypeSpec Code Generation', link: '/02-deep-dive/typespec-code-generation' },
           { text: 'Configuration & Profile Management', link: '/02-deep-dive/configuration-profiles' },
           { text: 'AI Agent', link: '/02-deep-dive/ai-agent' },
           { text: 'Terminal UI (TUI)', link: '/02-deep-dive/terminal-ui' },

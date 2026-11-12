@@ -11,25 +11,27 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Fixtures/ManagedIdentityCli/ManagedIdentity.TestWorker.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+    <ProjectReference Include="../Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+    <ProjectReference Include="../Fixtures/WindowsConsoleWorker/WindowsConsole.TestWorker.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+    <ProjectReference Include="../Fixtures/FakeAgent/FakeAgent.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/CLI/Core.Cli.csproj" />
     <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
     <ProjectReference Include="../../src/Core/Core.Configuration/Core.Configuration.csproj" />
-    <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
-    <ProjectReference Include="../../src/Extensions/Compute/Extensions.Compute.csproj" />
-    <ProjectReference Include="../../src/Extensions/Network/Extensions.Network.csproj" />
     <ProjectReference Include="../../src/Core/Core.Authentication/Core.Authentication.csproj" />
-    <ProjectReference Include="../../src/Extensions/Config/Extensions.Config.csproj" />
-    <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
-    <ProjectReference Include="../../src/Extensions/KeyVault/Extensions.KeyVault.csproj"
-                      ReferenceOutputAssembly="false"
-                      Private="false" />
-    <ProjectReference Include="../../src/Extensions/MsGraph/Extensions.MsGraph.csproj"
-                      ReferenceOutputAssembly="false"
-                      Private="false" />
-    <ProjectReference Include="../../src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
-    <ProjectReference Include="../../src/Extensions/Extension/Extensions.Extension.csproj" />
-    <ProjectReference Include="../../src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
+    <ProjectReference Include="..\..\src\Extensions\*\*.csproj" />
     <ProjectReference Include="../../Agent/Commands/Agent.Commands.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
 

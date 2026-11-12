@@ -20,13 +20,7 @@ namespace Cmdlets.Tests;
 /// <c>--kebab-case</c> on CLI and <c>-PascalCase</c> on PowerShell — hardcoding either form
 /// mis-instructs the other surface.
 /// <para>
-/// Two logical sections:
-/// <list type="number">
-///   <item>ValidateArguments — the pre-authentication rule checks.</item>
-///   <item>Post-validation error paths — EnsureCrossTenantAccessible, ResolveSubscriptionTenantAsync,
-///         and ResolveDefaultSubscriptionAsync, which run after sign-in and reference parameters
-///         in their exception messages and warnings.</item>
-/// </list>
+/// Exercises parameter validation and the refactored tenant/subscription resolution flow.
 /// </para>
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
@@ -69,6 +63,11 @@ public class LoginProcessorValidationTests
     /// </summary>
     private static object? InvokePrivate(LoginProcessor processor, string name, object?[] args)
     {
+        if (name == "ValidateArguments")
+        {
+            return LoginProcessorTestHelpers.ResolveParameterSet(processor);
+        }
+
         var method = typeof(LoginProcessor).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!;
         try
         {
@@ -87,15 +86,6 @@ public class LoginProcessorValidationTests
             throw; // unreachable
         }
     }
-
-    private static Profile ProfileForTenant(string tenantId) => new()
-    {
-        Name = "temp",
-        TenantId = tenantId,
-        SubscriptionId = ValidSubscriptionId,
-        CloudName = "AzureCloud",
-        AuthMethod = AuthMethod.Browser,
-    };
 
     private static AuthResult FakeAuthResult(string tenantId = "00000000-0000-0000-0000-000000000000") => new()
     {
@@ -142,6 +132,36 @@ public class LoginProcessorValidationTests
 
         Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, null)]
+    [InlineData(ClientType.PowerShell, null)]
+    [InlineData(ClientType.CLI, nameof(LoginProcessor.ClientId))]
+    [InlineData(ClientType.PowerShell, nameof(LoginProcessor.ClientId))]
+    [InlineData(ClientType.CLI, nameof(LoginProcessor.ObjectId))]
+    [InlineData(ClientType.PowerShell, nameof(LoginProcessor.ObjectId))]
+    [InlineData(ClientType.CLI, nameof(LoginProcessor.ResourceId))]
+    [InlineData(ClientType.PowerShell, nameof(LoginProcessor.ResourceId))]
+    public void ValidateArguments_ManagedIdentityWithoutSubscription_NamesSurfaceCorrectSubscriptionFlag(
+        ClientType surface, string? selector)
+    {
+        InitDi(surface);
+        var processor = new LoginProcessor { Identity = true };
+        if (selector is not null)
+        {
+            typeof(LoginProcessor).GetProperty(selector)!.SetValue(processor,
+                selector == nameof(LoginProcessor.ResourceId)
+                    ? "/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi"
+                    : "33333333-3333-3333-3333-333333333333");
+        }
+
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
+            processor, "ValidateArguments", Array.Empty<object?>()));
+
+        Assert.Contains("missing mandatory", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(FlagFor(surface, nameof(LoginProcessor.SubscriptionId)), ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId)), ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -194,59 +214,40 @@ public class LoginProcessorValidationTests
 
     // ── Section 2: post-validation error paths ─────────────────────────────────────────────
 
-    // EnsureCrossTenantAccessible: probe threw (LoginProcessor.cs ~L307)
-
     [Theory]
-    [InlineData(ClientType.CLI, "az login", "Connect-AzAccount")]
-    [InlineData(ClientType.PowerShell, "Connect-AzAccount", "az login")]
-    public void EnsureCrossTenantAccessible_ProbeThrew_UsesSurfaceCorrectCommandAndFlag(
-        ClientType surface, string expectedCommand, string forbiddenCommand)
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public void ResolveTenantAndSubAsync_CannotAcquire_NamesSurfaceCorrectTenantFlag(ClientType surface)
     {
+        const string owningTenant = "22222222-2222-2222-2222-222222222222";
+        using var cancellation = new CancellationTokenSource();
         var auth = new Mock<IAuthService>();
-        auth.Setup(a => a.CanAcquireTokenSilentlyAsync(
-                It.IsAny<string?>(), It.IsAny<Profile>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new HttpRequestException("tenant probe failed"));
-        InitDi(surface, auth: auth.Object);
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), owningTenant, false, cancellation.Token, It.IsAny<Profile>()))
+            .ThrowsAsync(new InvalidOperationException("MFA required"));
+        var subs = new Mock<ISubscriptionService>();
+        subs.Setup(s => s.ResolveSubscriptionTenantAsync(
+                It.IsAny<string>(), ValidSubscriptionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(owningTenant);
+        InitDi(surface, auth: auth.Object, subs: subs.Object);
         var expectedFlag = FlagFor(surface, nameof(LoginProcessor.TenantId));
         var forbiddenFlag = FlagFor(OtherSurface(surface), nameof(LoginProcessor.TenantId));
+        var processor = new LoginProcessor { SubscriptionId = ValidSubscriptionId };
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetupGet(p => p.Token).Returns(cancellation.Token);
+        SetBaseField(processor, "Publisher", publisher.Object);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => InvokePrivate(
-            new LoginProcessor(),
-            "EnsureCrossTenantAccessible",
-            new object?[] { ProfileForTenant("11111111-1111-1111-1111-111111111111"), "sub-1" }));
+        var ex = Assert.Throws<InvalidInputException>(() => InvokePrivate(
+            processor,
+            "ResolveTenantAndSubAsync",
+            [AuthRequestFactory.CreateInteractive(), FakeAuthResult()]));
 
-        Assert.Contains(expectedCommand, ex.Message, StringComparison.Ordinal);
         Assert.Contains(expectedFlag, ex.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(forbiddenCommand, ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(forbiddenFlag, ex.Message, StringComparison.Ordinal);
-    }
-
-    // EnsureCrossTenantAccessible: probe returned false (LoginProcessor.cs ~L316)
-
-    [Theory]
-    [InlineData(ClientType.CLI, "az login", "Connect-AzAccount")]
-    [InlineData(ClientType.PowerShell, "Connect-AzAccount", "az login")]
-    public void EnsureCrossTenantAccessible_CannotAcquire_UsesSurfaceCorrectCommandAndFlag(
-        ClientType surface, string expectedCommand, string forbiddenCommand)
-    {
-        var auth = new Mock<IAuthService>();
-        auth.Setup(a => a.CanAcquireTokenSilentlyAsync(
-                It.IsAny<string?>(), It.IsAny<Profile>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-        InitDi(surface, auth: auth.Object);
-        var expectedFlag = FlagFor(surface, nameof(LoginProcessor.TenantId));
-        var forbiddenFlag = FlagFor(OtherSurface(surface), nameof(LoginProcessor.TenantId));
-
-        var ex = Assert.Throws<AzclipsErrorException>(() => InvokePrivate(
-            new LoginProcessor(),
-            "EnsureCrossTenantAccessible",
-            new object?[] { ProfileForTenant("11111111-1111-1111-1111-111111111111"), "sub-1" }));
-
-        Assert.Equal("NotSignedIn", ex.Code);
-        Assert.Contains(expectedCommand, ex.Message, StringComparison.Ordinal);
-        Assert.Contains(expectedFlag, ex.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(forbiddenCommand, ex.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(forbiddenFlag, ex.Message, StringComparison.Ordinal);
+        Assert.Contains("MFA required", ex.Message, StringComparison.Ordinal);
+        auth.VerifyAll();
+        subs.Verify(s => s.GetSubscriptionByIdAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ResolveSubscriptionTenantAsync: ARM lookup threw (LoginProcessor.cs ~L373)
@@ -271,56 +272,6 @@ public class LoginProcessorValidationTests
 
         Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
-    }
-
-    // ResolveDefaultSubscriptionAsync: no subs found (LoginProcessor.cs ~L395, Warn)
-
-    [Theory]
-    [InlineData(ClientType.CLI)]
-    [InlineData(ClientType.PowerShell)]
-    public void ResolveDefaultSubscriptionAsync_NoSubscriptions_WarnsWithSurfaceCorrectFlag(ClientType surface)
-    {
-        var subs = new Mock<ISubscriptionService>();
-        subs.Setup(s => s.ListSubscriptionsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<SubscriptionInfo>());
-        var warns = InitDi(surface, subs: subs.Object);
-        var expected = FlagFor(surface, nameof(LoginProcessor.SubscriptionId));
-        var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId));
-
-        var result = (string?)InvokePrivate(
-            new LoginProcessor(),
-            "ResolveDefaultSubscriptionAsync",
-            new object?[] { "token" });
-
-        Assert.Equal(string.Empty, result);
-        var warn = Assert.Single(warns);
-        Assert.Contains(expected, warn, StringComparison.Ordinal);
-        Assert.DoesNotContain(forbidden, warn, StringComparison.Ordinal);
-    }
-
-    // ResolveDefaultSubscriptionAsync: ARM listing threw (LoginProcessor.cs ~L404, Warn)
-
-    [Theory]
-    [InlineData(ClientType.CLI)]
-    [InlineData(ClientType.PowerShell)]
-    public void ResolveDefaultSubscriptionAsync_ListFailed_WarnsWithSurfaceCorrectFlag(ClientType surface)
-    {
-        var subs = new Mock<ISubscriptionService>();
-        subs.Setup(s => s.ListSubscriptionsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new HttpRequestException("ARM down"));
-        var warns = InitDi(surface, subs: subs.Object);
-        var expected = FlagFor(surface, nameof(LoginProcessor.SubscriptionId));
-        var forbidden = FlagFor(OtherSurface(surface), nameof(LoginProcessor.SubscriptionId));
-
-        var result = (string?)InvokePrivate(
-            new LoginProcessor(),
-            "ResolveDefaultSubscriptionAsync",
-            new object?[] { "token" });
-
-        Assert.Equal(string.Empty, result);
-        var warn = Assert.Single(warns);
-        Assert.Contains(expected, warn, StringComparison.Ordinal);
-        Assert.DoesNotContain(forbidden, warn, StringComparison.Ordinal);
     }
 
     // ── Section 3: remaining ValidateArguments branches ────────────────────────────────────
@@ -443,8 +394,9 @@ public class LoginProcessorValidationTests
         var processor = new LoginProcessor
         {
             Identity = true,
-            ClientId = "c",
-            ObjectId = "o",
+            SubscriptionId = ValidSubscriptionId,
+            ClientId = "22222222-2222-2222-2222-222222222222",
+            ObjectId = "33333333-3333-3333-3333-333333333333",
         };
         var expectedClient = FlagFor(surface, nameof(LoginProcessor.ClientId));
         var expectedObject = FlagFor(surface, nameof(LoginProcessor.ObjectId));
@@ -498,7 +450,7 @@ public class LoginProcessorValidationTests
         var processor = new LoginProcessor
         {
             SubscriptionId = ValidSubscriptionId,
-            ClientId = "c",
+            ClientId = "22222222-2222-2222-2222-222222222222",
         };
         var expectedSelector = FlagFor(surface, nameof(LoginProcessor.ClientId));
         var expectedIdentity = FlagFor(surface, nameof(LoginProcessor.Identity));
@@ -538,14 +490,14 @@ public class LoginProcessorValidationTests
             new LoginProcessor { SubscriptionId = ValidSubscriptionId } };
         yield return new object[] { "device-code",
             new LoginProcessor { SubscriptionId = ValidSubscriptionId, UseDeviceCode = true } };
-        yield return new object[] { "managed-identity-system-assigned",
-            new LoginProcessor { Identity = true } };
-        yield return new object[] { "managed-identity-with-client-id",
-            new LoginProcessor { Identity = true, ClientId = "33333333-3333-3333-3333-333333333333" } };
+        yield return new object[] { "managed-identity-system-assigned-with-subscription",
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId } };
+        yield return new object[] { "managed-identity-with-client-id-and-subscription",
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ClientId = "33333333-3333-3333-3333-333333333333" } };
         yield return new object[] { "managed-identity-with-object-id",
-            new LoginProcessor { Identity = true, ObjectId = "44444444-4444-4444-4444-444444444444" } };
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ObjectId = "44444444-4444-4444-4444-444444444444" } };
         yield return new object[] { "managed-identity-with-resource-id",
-            new LoginProcessor { Identity = true, ResourceId = "r" } };
+            new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ResourceId = "r" } };
         yield return new object[] { "re-auth-existing-profile",
             new LoginProcessor { Profile = "existing" } };
     }
@@ -573,25 +525,118 @@ public class LoginProcessorValidationTests
             processor, "ValidateArguments", Array.Empty<object?>()));
     }
 
-    // ── Section 6: EnsureCrossTenantAccessible happy path ──────────────────────────────────
-
     [Fact]
-    public void EnsureCrossTenantAccessible_ProbeReturnsTrue_DoesNotThrow()
+    public void ResolveTenantAndSubAsync_CrossTenant_ValidatesWithOwningTenantToken()
     {
+        const string owningTenant = "22222222-2222-2222-2222-222222222222";
+        using var cancellation = new CancellationTokenSource();
         var auth = new Mock<IAuthService>();
-        auth.Setup(a => a.CanAcquireTokenSilentlyAsync(
-                It.IsAny<string?>(), It.IsAny<Profile>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        InitDi(ClientType.CLI, auth: auth.Object);
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), owningTenant, false, cancellation.Token,
+                It.Is<Profile>(p => p.TenantId == owningTenant && p.AuthMethod == AuthMethod.Browser)))
+            .ReturnsAsync(FakeAuthResult(owningTenant) with { AccessToken = "owning-tenant-token" });
+        var subs = new Mock<ISubscriptionService>(MockBehavior.Strict);
+        subs.Setup(s => s.ResolveSubscriptionTenantAsync("token", ValidSubscriptionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(owningTenant);
+        subs.Setup(s => s.GetSubscriptionByIdAsync("owning-tenant-token", ValidSubscriptionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SubscriptionInfo(ValidSubscriptionId, "Test", "Enabled"));
+        InitDi(ClientType.CLI, auth: auth.Object, subs: subs.Object);
+        var processor = new LoginProcessor { SubscriptionId = ValidSubscriptionId };
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetupGet(p => p.Token).Returns(cancellation.Token);
+        SetBaseField(processor, "Publisher", publisher.Object);
 
-        InvokePrivate(
-            new LoginProcessor(),
-            "EnsureCrossTenantAccessible",
-            new object?[] { ProfileForTenant("11111111-1111-1111-1111-111111111111"), "sub-1" });
+        var result = InvokePrivate(
+            processor,
+            "ResolveTenantAndSubAsync",
+            [AuthRequestFactory.CreateInteractive(), FakeAuthResult()]);
+
+        Assert.NotNull(result);
+        Assert.Equal(owningTenant, result.GetType().GetProperty("TenantID")!.GetValue(result));
+        Assert.Equal(ValidSubscriptionId, result.GetType().GetProperty("SubscriptionID")!.GetValue(result));
+        auth.VerifyAll();
+        subs.VerifyAll();
     }
 
-    [Fact]
-    public async Task ProcessAsync_PublishesEnrichedRuntimeProfile_AfterLoginTokenAcquisition()
+    public static IEnumerable<object[]> WhitespaceArguments()
+    {
+        string[] properties =
+        [
+            nameof(LoginProcessor.SubscriptionId),
+            nameof(LoginProcessor.TenantId),
+            nameof(LoginProcessor.ClientId),
+            nameof(LoginProcessor.ObjectId),
+            nameof(LoginProcessor.ResourceId),
+            nameof(LoginProcessor.FederatedToken),
+            nameof(LoginProcessor.ClientSecret),
+        ];
+        foreach (var surface in new[] { ClientType.CLI, ClientType.PowerShell })
+        foreach (var property in properties)
+        foreach (var value in new[] { " ", "\t", "\r\n" })
+        {
+            yield return [surface, property, value];
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(WhitespaceArguments))]
+    public async Task ProcessAsync_WhitespaceArgument_IsRejectedBeforeResolution(
+        ClientType surface, string property, string value)
+    {
+        var auth = new Mock<IAuthService>(MockBehavior.Strict);
+        InitDi(surface, auth: auth.Object);
+        var processor = new LoginProcessor
+        {
+            SubscriptionId = ValidSubscriptionId,
+            Identity = property == nameof(LoginProcessor.TenantId),
+        };
+        typeof(LoginProcessor).GetProperty(property)!.SetValue(processor, value);
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        SetBaseField(processor, "Publisher", publisher.Object);
+        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Contains(FlagFor(surface, property), ex.Message, StringComparison.Ordinal);
+        Assert.Contains("must not be whitespace", ex.Message, StringComparison.Ordinal);
+        auth.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
+    public async Task ProcessAsync_WhitespaceTokenWithCompleteFederatedArguments_IsRejected(ClientType surface)
+    {
+        var auth = new Mock<IAuthService>(MockBehavior.Strict);
+        InitDi(surface, auth: auth.Object);
+        var processor = new LoginProcessor
+        {
+            ServicePrincipal = true,
+            ClientId = "22222222-2222-2222-2222-222222222222",
+            TenantId = "33333333-3333-3333-3333-333333333333",
+            SubscriptionId = ValidSubscriptionId,
+            FederatedToken = " ",
+        };
+        var publisher = new Mock<IEventPublisher>();
+        publisher.SetReturnsDefault(Task.CompletedTask);
+        SetBaseField(processor, "Publisher", publisher.Object);
+        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
+        Assert.Contains("must not be whitespace", ex.Message, StringComparison.Ordinal);
+        auth.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(null, null, ProfileNameValidator.ReservedDefaultName)]
+    [InlineData(" ", "\t\r\n", ProfileNameValidator.ReservedDefaultName)]
+    [InlineData("", "", ProfileNameValidator.ReservedDefaultName)]
+    [InlineData(" ", " result ", "result")]
+    public async Task ProcessAsync_PublishesEnrichedRuntimeProfile_AfterLoginTokenAcquisition(
+        string? profile, string? outProfile, string expectedName)
     {
         const string objectId = "99999999-9999-9999-9999-999999999999";
         var authResult = FakeAuthResult("22222222-2222-2222-2222-222222222222") with
@@ -609,6 +654,10 @@ public class LoginProcessorValidationTests
         profiles.Setup(p => p.SaveAndActivateProfileAsync(It.IsAny<Profile>(), It.IsAny<CancellationToken>()))
             .Callback<Profile, CancellationToken>((profile, _) => savedProfile = profile)
             .Returns(Task.CompletedTask);
+        var subscriptions = new Mock<ISubscriptionService>();
+        subscriptions.Setup(s => s.GetSubscriptionByIdAsync(
+                authResult.AccessToken, ValidSubscriptionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SubscriptionInfo(ValidSubscriptionId, "Test", "Enabled"));
 
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services =>
@@ -616,6 +665,7 @@ public class LoginProcessorValidationTests
             services.AddSingleton(new Mock<ILoggingService>().Object);
             services.AddSingleton(auth.Object);
             services.AddSingleton(profiles.Object);
+            services.AddSingleton(subscriptions.Object);
         });
         AzclipsServiceProvider.Initialize(
             new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
@@ -632,13 +682,22 @@ public class LoginProcessorValidationTests
         {
             TenantId = "22222222-2222-2222-2222-222222222222",
             SubscriptionId = ValidSubscriptionId,
+            Profile = profile,
+            OutProfile = outProfile,
         };
         SetBaseField(processor, "Publisher", publisher.Object);
         SetBaseField(processor, "WriteOutput", (OutputStreamDelegate)((_, _) => Task.CompletedTask));
 
+        // Init() wires up the parameter-set resolver; this test drives ProcessAsync directly, so run
+        // the same step that Init performs before resolution is needed.
+        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+
         await processor.ProcessAsync();
 
         Assert.NotNull(savedProfile);
+        Assert.Equal(expectedName, savedProfile.Name);
+        Assert.Null(processor.Profile);
+        Assert.Equal(outProfile?.Trim() is { Length: > 0 } name ? name : null, processor.OutProfile);
         Assert.Equal(objectId, savedProfile!.Metadata.EntraObjectId);
         Assert.NotNull(publishedProfile);
         Assert.Equal(objectId, publishedProfile!.Metadata.EntraObjectId);
@@ -682,67 +741,15 @@ public class LoginProcessorValidationTests
         Assert.Equal(string.Empty, result);
     }
 
-    // ── Section 8: ResolveDefaultSubscriptionAsync selection branches ──────────────────────
-
-    [Fact]
-    public void ResolveDefaultSubscriptionAsync_ReturnsFirstEnabledSubscription()
-    {
-        var subs = new Mock<ISubscriptionService>();
-        subs.Setup(s => s.ListSubscriptionsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[]
-            {
-                new SubscriptionInfo("disabled-sub", "Disabled", "Disabled"),
-                new SubscriptionInfo("enabled-sub-1", "Enabled 1", "Enabled"),
-                new SubscriptionInfo("enabled-sub-2", "Enabled 2", "Enabled"),
-            });
-        InitDi(ClientType.CLI, subs: subs.Object);
-
-        var result = (string?)InvokePrivate(
-            new LoginProcessor(),
-            "ResolveDefaultSubscriptionAsync",
-            new object?[] { "token" });
-
-        Assert.Equal("enabled-sub-1", result);
-    }
-
-    [Fact]
-    public void ResolveDefaultSubscriptionAsync_NoEnabled_FallsBackToFirstAny()
-    {
-        var subs = new Mock<ISubscriptionService>();
-        subs.Setup(s => s.ListSubscriptionsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[]
-            {
-                new SubscriptionInfo("disabled-sub-1", "Disabled 1", "Disabled"),
-                new SubscriptionInfo("disabled-sub-2", "Disabled 2", "Warned"),
-            });
-        InitDi(ClientType.CLI, subs: subs.Object);
-
-        var result = (string?)InvokePrivate(
-            new LoginProcessor(),
-            "ResolveDefaultSubscriptionAsync",
-            new object?[] { "token" });
-
-        Assert.Equal("disabled-sub-1", result);
-    }
-
-    // ── Section 9: ShouldResolveTenantFromSubscription (pure) ──────────────────────────────
-
     [Theory]
-    [InlineData(null,        AuthMethod.Browser,          "",         "sub-1", true)]
-    [InlineData(null,        AuthMethod.DeviceCode,       "",         "sub-1", true)]
-    [InlineData("existing",  AuthMethod.Browser,          "",         "sub-1", false)]
-    [InlineData(null,        AuthMethod.ManagedIdentity,  "",         "sub-1", false)]
-    [InlineData(null,        AuthMethod.Browser,          "tenant-1", "sub-1", false)]
-    [InlineData(null,        AuthMethod.Browser,          "",         "",      false)]
-    public void ShouldResolveTenantFromSubscription_ReturnsExpected(
-        string? reAuthName, AuthMethod authMode, string tenantId, string subscriptionId, bool expected)
+    [InlineData(null)]
+    [InlineData("")]
+    public void AuthRequestFactory_EmptyTenant_IsNormalizedToNull(string? value)
     {
-        var method = typeof(LoginProcessor).GetMethod(
-            "ShouldResolveTenantFromSubscription",
-            BindingFlags.NonPublic | BindingFlags.Static)!;
+        string[] scopes = ["https://graph.microsoft.com/.default"];
+        var request = AuthRequestFactory.CreateInteractive(value, scopes);
 
-        var result = (bool)method.Invoke(null, new object?[] { reAuthName, authMode, tenantId, subscriptionId })!;
-
-        Assert.Equal(expected, result);
+        Assert.Null(request.TenantId);
+        Assert.Equal(scopes, request.Scopes);
     }
 }

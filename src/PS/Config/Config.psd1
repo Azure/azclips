@@ -12,7 +12,7 @@
 RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Config.dll'
 
 # Version number of this module.
-ModuleVersion = '0.1.3'
+ModuleVersion = '0.1.5'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')
@@ -33,7 +33,7 @@ Copyright = '(c) Microsoft. All rights reserved.'
 Description = 'Configuration management cmdlets for Azure PowerShell'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '7.5'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -52,7 +52,7 @@ PowerShellVersion = '7.5'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.2' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.4' }
 )
 
 # Assemblies that must be loaded prior to importing this module

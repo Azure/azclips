@@ -145,8 +145,10 @@ clients.cli.output.simpleFormat
 ```
 
 Root option classes use `ConfigurationSection` to declare their existing section name. A section
-can opt out of the user-facing schema when it is internal-only, as `BenchmarkOptions` does with
-`IncludeInSchema = false`.
+can opt out of the user-facing schema when it is internal-only. Both `BenchmarkOptions` and
+the nested `AgentOptions.Builtin` section use `IncludeInSchema = false`. The builtin model ID
+and API version still exist in internal provider options but are not customer-facing config
+keys (`src/Core/Core.Abstractions/Config/AgentOptions.cs:14`).
 
 To add a setting:
 
@@ -251,11 +253,13 @@ The `Profile` record is a superset of the old context (`src/Core/Core.Abstractio
 | `TenantId`             | Azure tenant (directory) ID                                                        |
 | `SubscriptionId`       | Azure subscription ID                                                              |
 | `CloudName`            | Cloud environment; **stored only**, no behavioral impact yet                       |
-| `AuthMethod`           | `Browser` (default), `Broker`, `DeviceCode`, `ServicePrincipal`, `ManagedIdentity` |
+| `AuthMethod`           | `Browser` (default), `Broker`, `DeviceCode`, `Federated`, `ManagedIdentity`, `ServicePrincipalSecret`; enum membership alone does not imply a login surface (`src/Core/Core.Abstractions/Models/AuthMethod.cs:6`) |
 | `DefaultLocation`      | Optional default region for commands that accept one                               |
 | `DefaultResourceGroup` | Optional default resource group                                                    |
 | `UserPrincipalName`    | Signed-in account (maps to MSAL `IAccount.Username`)                               |
 | `ClientId`             | Optional client ID                                                                 |
+| `ManagedIdentityId`    | Persisted managed-identity selector used for later token acquisition                |
+| `Metadata`             | Runtime-only authentication metadata, excluded from profile JSON by `[JsonIgnore]` (`src/Core/Core.Abstractions/Models/Profile.cs:47`) |
 
 ### Storage layout and atomicity
 
@@ -277,6 +281,12 @@ Two properties make this safe under concurrency:
 - **Atomic cross-process writes.** `WriteFileAtomicAsync` writes to a
   `{path}.{guid}.tmp` file and then `File.Move(..., overwrite: true)` renames it over the
   destination — a reader never observes a half-written file (`ProfileService.cs:240`).
+
+The shared [filesystem persistence store](../../src/Core/Core.Runtime/Persistence/FilePersistenceStore.cs)
+retries Windows access/sharing errors during replacement for up to two seconds,
+with 25 ms pauses and cancellation support. This lets short-lived readers finish
+without changing the atomic rename operation. Persistent failures still surface,
+and temporary files are cleaned up. Non-Windows replacement behavior is unchanged.
 
 `SaveAndActivateProfileAsync` persists the profile **and** flips the active pointer under a
 single `_gate` acquisition (`ProfileService.cs:86`), matching Decision 8's requirement that
@@ -339,29 +349,39 @@ of `login` (design Non-Goals). User-facing creation would go through
 
 ### Login semantics
 
-`LoginProcessor` was repurposed to build and return a `Profile` (Decision 7). It reconciles
-two mutually-exclusive flags before any authentication runs
-(`src/Extensions/Accounts/Processors/LoginProcessor.cs:36`):
+`LoginProcessor` resolves a credential-specific parameter set before authenticating, persists
+the resulting profile, and returns a `ProfileResult` projection
+(`src/Extensions/Accounts/Processors/LoginProcessor.cs:119`,
+`src/Extensions/Accounts/Processors/LoginProcessor.cs:190`):
 
-- **Bare `az login`** → saves the connection to the reserved profile named `"default"`,
+- **Login without a profile-naming option** → saves the connection to the reserved profile named `"default"`,
   overwriting any previous default (`ReservedDefaultName`, `ProfileNameValidator.cs:14`).
 - **`az login --out-profile <name>`** → validates the name for creation (rejecting `"default"`)
   and writes a new named profile.
 - **`az login --profile <name>`** → **re-authenticates** an existing profile, sourcing tenant
   / subscription / cloud from that stored profile.
-- **`--profile` + `--out-profile` together** → rejected with a fail-fast `ArgumentException`
-  (`LoginProcessor.cs:46`) — one re-authenticates, the other creates; they can't be combined.
+- **`--profile` + `--out-profile` together** → rejected as typed invalid input during parameter-set
+  resolution — one re-authenticates, the other creates; they cannot be combined
+  (`src/Extensions/Accounts/Processors/LoginProcessor.cs:166`).
+
+Browser and device-code logins require a subscription ID. Managed identity can omit it.
+Federated profile re-authentication requires a new `--federated-token`; client-secret profiles
+can reconstruct their credential from the separate secret store
+(`src/Extensions/Accounts/Processors/LoginProcessor.cs:335`).
 
 In all cases the result is persisted and activated in a single call:
 
 ```csharp
-await profileService.SaveAndActivateProfileAsync(resultProfile);
-await WriteOutput(resultProfile);
+await ProfileService.SaveAndActivateProfileAsync(resultProfile);
+// The command writes the public projection, not the persisted record.
+await WriteOutput(ProfileResult.From(resultProfile, isActive: true));
 ```
 
-`az logout` signs out the active profile: it removes the matching MSAL account (identified by
-`UserPrincipalName`) and clears the active pointer, but **retains** the profile definition
-(Decision 6, `design.md`).
+`az logout` retains the profile definition and clears the active pointer. Credential cleanup
+depends on the method: user logins remove matching UPN accounts; service-principal logins clear
+the shared app token cache and remove their stored credential; managed identity has no local
+token cache to evict (`src/Core/Core.Authentication/MsalAuthService.cs:90`). See
+[Authentication](./authentication.md) for cross-profile cache effects.
 
 ### The global `--profile` override
 
@@ -443,7 +463,7 @@ active pointer — even though `prod` happens to be active after the login.
 | Command home      | `Config` extension                          | `Accounts` extension                                    |
 | Schema/validation | Typed options + `IConfigurationSchema`      | `ProfileNameValidator` (name rules, reserved `default`) |
 
-The one place they touch: `agent.enabled` / `agent.provider` (configuration) gate the AI agent,
+The one place they touch: `agent.recovery.trigger` / `agent.provider` (configuration) gate the AI agent,
 and the agent's environment prober reads the **active profile** to tell the model whether the
 user is signed in — see the [AI Agent](./ai-agent.md) page.
 

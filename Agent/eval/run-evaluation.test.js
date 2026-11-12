@@ -7,7 +7,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const initialConfig = {
-  'agent.enabled': false,
+  'agent.recovery.trigger': 'off',
   'agent.sessionStyle': 'interactive',
   'agent.trace.path': 'original-traces',
   unrelated: { enabled: true, retries: 3, value: null },
@@ -21,7 +21,20 @@ $ErrorActionPreference = 'Stop'
 $root = $env:AZCLIPS_EVAL_TEST_ROOT
 $scenario = Get-Content (Join-Path $root 'scenario.json') -Raw | ConvertFrom-Json
 Add-Content (Join-Path $root 'agent-mode-guard.txt') "$($args -join ' ')|$env:AZCLIPS_IN_AGENT_MODE"
-if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env') {
+# Like the product, read telemetry.enabled from the nested key when the process starts.
+$telemetryState = 'on'
+$startConfigurationPath = Join-Path $env:AZCLIPS_HOME 'config.json'
+if (Test-Path -LiteralPath $startConfigurationPath -PathType Leaf) {
+    $startConfiguration = Get-Content -LiteralPath $startConfigurationPath -Raw
+    if (-not [string]::IsNullOrWhiteSpace($startConfiguration)) {
+        $startTelemetry = ($startConfiguration | ConvertFrom-Json -AsHashtable)['telemetry']
+        if ($startTelemetry -is [System.Collections.IDictionary] -and $startTelemetry['enabled'] -is [bool] -and -not $startTelemetry['enabled']) {
+            $telemetryState = 'off'
+        }
+    }
+}
+Add-Content (Join-Path $root 'telemetry-states.txt') "$($args -join ' ')|$telemetryState"
+if ($args.Count -eq 4 -and $args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'env' -and $args[3] -eq 'show') {
     if ($scenario.environmentWarning) { Write-Error 'Environment diagnostic on stderr' -ErrorAction Continue }
     $signedIn = $scenario.signedOut -ne $true
     $subscription = if ($scenario.missingSubscription) { '' } else { '11111111-1111-4111-8111-111111111111' }
@@ -43,7 +56,7 @@ if ($args[0] -eq 'agent' -and $args[1] -eq 'tool' -and $args[2] -eq 'resource') 
         '→ resources (ARG, paged)'
         $status = if ($scenario.refreshStatus) { $scenario.refreshStatus } else { 'ok' }
         @{ status = $status; tenantId = 'tenant'; elapsedSeconds = 1.5 } | ConvertTo-Json -Compress
-        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery.trigger is invalid."' + [Environment]::NewLine + '}'
         $global:LASTEXITCODE = 0
         return
     }
@@ -75,11 +88,11 @@ if ($operation -eq 'info') {
         return
     }
     $listed = if ($scenario.listedKeys) { @($scenario.listedKeys) } else {
-        @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.recovery', 'agent.recovery.style', 'agent.trace.enabled', 'agent.trace.path')
+        @('agent.provider', 'agent.builtin.scope', 'agent.builtin.modelId', 'agent.recovery.trigger', 'agent.recovery.style', 'agent.trace.enabled', 'agent.trace.path')
     }
     ConvertTo-Json -InputObject $listed
     if ($scenario.keyListingWarning) {
-        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+        '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery.trigger is invalid."' + [Environment]::NewLine + '}'
     }
     $global:LASTEXITCODE = 0
     return
@@ -91,13 +104,23 @@ if ($operation -eq 'get') {
         $global:LASTEXITCODE = 1
         return
     }
+    if (@($scenario.notFoundSettings) -contains $key) {
+        "Configuration key '$key' not found."
+        $global:LASTEXITCODE = 2
+        return
+    }
+    # Settings this fake sets are flat keys; the wrapper writes telemetry.enabled in the product's nested form.
     $value, $source = if ($scenario.settingValues -and $null -ne $scenario.settingValues.$key) { $scenario.settingValues.$key, 'global config' }
     elseif (@($scenario.nullSettings) -contains $key) { $null, 'global config' }
-    elseif ($state.ContainsKey($key)) { $state[$key], 'global config' } else { "default-$key", 'default' }
+    elseif ($state.ContainsKey($key)) { $state[$key], 'global config' }
+    elseif ($key -eq 'telemetry.enabled' -and $state['telemetry'] -is [System.Collections.IDictionary] -and $state['telemetry'].Contains('enabled')) {
+        $state['telemetry']['enabled'], 'global config'
+    }
+    else { "default-$key", 'default' }
     if ($scenario.jsonConfigOutput) {
         ConvertTo-Json -InputObject ([ordered]@{ key = $key; value = $value; source = $source })
         if ($scenario.keyListingWarning) {
-            '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.enabled is obsolete."' + [Environment]::NewLine + '}'
+            '{' + [Environment]::NewLine + '  "recoveryWarning": "Configuration agent.recovery.trigger is invalid."' + [Environment]::NewLine + '}'
         }
     }
     else {
@@ -184,7 +207,7 @@ function global:npx {
     @{
         target = $env:AZCLIPS_EVALUATION_TARGET
         resourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
-        agentSettings = $env:AZCLIPS_EVALUATION_AGENT_SETTINGS
+        settings = $env:AZCLIPS_EVALUATION_SETTINGS
         warmupObservations = $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS
         agentModeGuard = $env:AZCLIPS_IN_AGENT_MODE
         tracesBeforeEvaluation = @(Get-ChildItem -LiteralPath $configuration['agent.trace.path'] -Filter '*.jsonl' -File -ErrorAction SilentlyContinue).Count
@@ -192,16 +215,21 @@ function global:npx {
     $expectedMode = if ($scenario.recoveryMode) { $scenario.recoveryMode } else { 'automatic' }
     if ($env:AZCLIPS_EVALUATION_RECOVERY_MODE -ne $expectedMode) { throw 'Wrong provider recovery mode' }
     if ($expectedMode -eq 'manual') {
-        if ($configuration['agent.recovery'] -ne 'manual') { throw 'Manual recovery must be enabled' }
+        if ($configuration['agent.recovery.trigger'] -ne 'manual') { throw 'Manual recovery must be enabled' }
     }
-    elseif ($configuration['agent.enabled'] -isnot [bool] -or $configuration['agent.enabled'] -ne $true -or
-        $configuration['agent.sessionStyle'] -ne 'oneshot') {
-        throw 'Automatic recovery must use the legacy configuration contract'
+    elseif ($configuration['agent.recovery.trigger'] -ne 'auto' -or $configuration['agent.recovery.style'] -ne 'oneshot') {
+        throw 'Automatic recovery must set agent.recovery.trigger=auto and agent.recovery.style=oneshot'
     }
     if ($configuration['agent.trace.enabled'] -isnot [bool] -or $configuration['agent.trace.enabled'] -ne $true -or
         $configuration['agent.trace.path'] -ne [IO.Path]::GetFullPath((Join-Path $root 'traces'))) {
         throw "Expected temporary Agent configuration during evaluation: $($configuration | ConvertTo-Json -Depth 10 -Compress)"
     }
+    $productTelemetry = $configuration['telemetry']
+    if ($productTelemetry -isnot [System.Collections.IDictionary] -or $productTelemetry['enabled'] -isnot [bool] -or
+        $productTelemetry['enabled'] -ne $false) {
+        throw 'Product telemetry must be off during evaluation'
+    }
+    Copy-Item -LiteralPath $configPath -Destination (Join-Path $root 'configuration-during-evaluation.json')
     $backups = @(Get-ChildItem -LiteralPath $env:AZCLIPS_HOME -Filter 'config.json.evaluation-*.bak' -File)
     if ($backups.Count -eq 1) {
         Copy-Item -LiteralPath $backups[0].FullName -Destination (Join-Path $root 'backup-during-evaluation.bin')
@@ -288,7 +316,10 @@ function runWrapper(context, options = {}) {
   if (scenario.failBackup) {
     fs.mkdirSync(configurationPath);
   } else if (!scenario.missingConfiguration) {
-    fs.writeFileSync(configurationPath, scenario.emptyConfiguration ? Buffer.alloc(0) : initialConfigurationBytes);
+    const initialBytes = scenario.configurationText === undefined
+      ? initialConfigurationBytes
+      : Buffer.from(scenario.configurationText);
+    fs.writeFileSync(configurationPath, scenario.emptyConfiguration ? Buffer.alloc(0) : initialBytes);
   }
   fs.writeFileSync(path.join(directory, 'scenario.json'), JSON.stringify(scenario));
   fs.mkdirSync(path.join(directory, 'package'));
@@ -326,14 +357,20 @@ function runWrapper(context, options = {}) {
   const backupDuringEvaluationPath = path.join(directory, 'backup-during-evaluation.bin');
   const resourceCallsPath = path.join(directory, 'resource-calls.txt');
   const runFactsPath = path.join(directory, 'run-facts.json');
+  const configurationDuringEvaluationPath = path.join(directory, 'configuration-during-evaluation.json');
   const readLines = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split(/\r?\n/) : []);
   return {
     ...result,
     directory,
     configurationPath,
+    home,
     summary: JSON.parse(fs.readFileSync(summaryPath, 'utf8').replace(/^\uFEFF/, '')),
     configuration: configurationText ? JSON.parse(configurationText) : null,
     configurationBytes,
+    configurationDuringEvaluation: fs.existsSync(configurationDuringEvaluationPath)
+      ? JSON.parse(fs.readFileSync(configurationDuringEvaluationPath, 'utf8').replace(/^\uFEFF/, ''))
+      : null,
+    telemetryStates: readLines(path.join(directory, 'telemetry-states.txt')),
     warmupCalls: readLines(path.join(directory, 'warmup-calls.txt')),
     settingReads: readLines(path.join(directory, 'setting-reads.txt')),
     agentModeGuards: readLines(path.join(directory, 'agent-mode-guard.txt')),
@@ -378,7 +415,45 @@ test('wrapper restores original configuration bytes, JSON types, and environment
   assert.equal(result.summary.resourceCache, 'original-resource-cache');
 });
 
-test('wrapper refreshes the ARM cache and identifies the target package before changing configuration', (context) => {
+test('every azclips process the wrapper starts finds product telemetry already off', async (context) => {
+  for (const [name, options, expectedBytes = initialConfigurationBytes] of [
+    ['automatic recovery', {}],
+    ['manual recovery', { recoveryMode: 'manual' }],
+    ['existing resource cache', { resourceCache: 'existing' }],
+    ['signed-out profile', { signedOut: true }],
+    ['package mismatch', { expectedPackageSha256: 'f'.repeat(64) }],
+    ['cache refresh failure', { refreshFails: true }],
+    ['missing fixture group', { fixtureMissing: true }],
+    ['failed setup command', { failSetKey: 'agent.trace.enabled' }],
+    ['evaluation exception', { evaluationThrows: true }],
+    ['missing configuration file', { missingConfiguration: true }, null],
+    ['empty configuration file', { emptyConfiguration: true }, Buffer.alloc(0)],
+  ]) {
+    await context.test(name, (context) => {
+      const result = runWrapper(context, options);
+      assert.match(result.telemetryStates[0] ?? '', /^agent tool env show\|off$/, result.telemetryStates.join('\n'));
+      assert.deepEqual(result.telemetryStates.filter((state) => !state.endsWith('|off')), []);
+      assert.deepEqual(result.configurationBytes, expectedBytes);
+      assert.deepEqual(result.backups, []);
+    });
+  }
+});
+
+test('wrapper writes the telemetry switch in the product nested form and keeps other settings', (context) => {
+  const configurationText = '{"telemetry.enabled":true,"telemetry:enabled":true,'
+    + '"telemetry":{"enabled":true,"note":"kept"},"unrelated":{"retries":3,"value":null}}';
+  const result = runWrapper(context, { configurationText });
+  assert.equal(result.status, 0, result.summary.error);
+  const during = result.configurationDuringEvaluation;
+  assert.deepEqual(during.telemetry, { enabled: false, note: 'kept' });
+  assert.equal('telemetry.enabled' in during, false);
+  assert.equal('telemetry:enabled' in during, false);
+  assert.deepEqual(during.unrelated, { retries: 3, value: null });
+  assert.deepEqual(result.configurationBytes, Buffer.from(configurationText));
+  assert.deepEqual(result.backups, []);
+});
+
+test('wrapper refreshes the ARM cache and identifies the target package before applying Agent settings', (context) => {
   const result = runWrapper(context);
   assert.equal(result.status, 0, result.summary.error);
   assert.deepEqual(result.resourceCalls, [
@@ -412,7 +487,7 @@ test('wrapper accepts the expected package fingerprint in either letter case', (
   assert.equal(target.packageFiles, 1);
 });
 
-test('wrapper stops before cache refresh, configuration changes or model calls when the package differs', (context) => {
+test('wrapper stops before cache refresh, Agent settings or model calls when the package differs', (context) => {
   const result = runWrapper(context, { expectedPackageSha256: 'f'.repeat(64), upload: true });
   assert.equal(result.status, 1);
   assert.match(result.summary.error, new RegExp(`fingerprint ${fakePackageFingerprint()} does not match`));
@@ -420,9 +495,10 @@ test('wrapper stops before cache refresh, configuration changes or model calls w
   assert.deepEqual(result.configurationCalls, []);
   assert.deepEqual(result.calls, []);
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
 });
 
-test('wrapper stops before configuration changes or model calls when the cache cannot be refreshed', async (context) => {
+test('wrapper stops before Agent settings or model calls when the cache cannot be refreshed', async (context) => {
   for (const [name, options, message] of [
     ['refresh process fails', { refreshFails: true }, /azclips exited with 5 while running: agent tool resource refresh/],
     ['refresh status is not ok', { refreshStatus: 'partial' }, /did not report status ok/],
@@ -448,13 +524,15 @@ test('existing cache mode records the choice without refreshing or querying the 
   assert.deepEqual(JSON.parse(result.runFacts.resourceCache), { mode: 'existing' });
 });
 
-test('wrapper refuses an unidentified target before any side effect', (context) => {
+test('wrapper refuses an unidentified target before cache refresh, Agent settings or model calls', (context) => {
   const result = runWrapper(context, { missingVersion: true });
   assert.equal(result.status, 1);
   assert.match(result.summary.error, /did not report azclipsVersion/);
   assert.deepEqual(result.resourceCalls, []);
   assert.deepEqual(result.configurationCalls, []);
   assert.deepEqual(result.calls, []);
+  assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
+  assert.deepEqual(result.backups, []);
 });
 
 test('wrapper refuses a relative AZCLIPS_HOME before any side effect', (context) => {
@@ -515,101 +593,66 @@ test('wrapper refuses an existing warm-up artifact before any side effect', (con
   assert.deepEqual(result.calls, []);
 });
 
-test('wrapper records the effective model provider settings and skips keys the target does not define', (context) => {
-  const result = runWrapper(context, { recoveryMode: 'manual', unsupportedSettings: ['agent.recovery.style'] });
+test('wrapper records only non-Agent settings from config get', (context) => {
+  const result = runWrapper(context, {
+    recoveryMode: 'manual',
+    listedKeys: [
+      'agent.provider', 'agent.builtin.modelId', 'agent.recovery.trigger', 'agent.trace.enabled',
+      'core.http.maxRetries', 'telemetry.enabled',
+    ],
+  });
   assert.equal(result.status, 0, result.summary.error);
-  const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.builtin.modelId'], { value: 'default-agent.builtin.modelId', source: 'default' });
-  assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
-  assert.equal(settings['agent.recovery.style'], undefined);
-  assert.equal(settings['agent.trace.enabled'], undefined);
-  assert.ok(result.settingReads.includes('agent.builtin.endpoint'));
+  assert.deepEqual(Object.keys(JSON.parse(result.runFacts.settings)).sort(), ['core.http.maxRetries', 'telemetry.enabled']);
+  assert.ok(result.settingReads.every((key) => !key.startsWith('agent.')));
   assert.ok(result.configurationCalls.every((call) => call.startsWith('config set ')));
 });
 
 test('wrapper removes credentials, queries and fragments from recorded setting URLs', (context) => {
   const result = runWrapper(context, {
-    settingValues: {
-      'agent.builtin.endpoint': 'https://user:hidden@example.openai.azure.com/openai/?api-key=hidden#hidden',
-      'agent.provider': 'builtin',
-    },
+    listedKeys: ['core.http.proxy', 'telemetry.enabled'],
+    settingValues: { 'core.http.proxy': 'https://user:hidden@proxy.example.com/path/?token=hidden#hidden' },
   });
   assert.equal(result.status, 0, result.summary.error);
-  const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.builtin.endpoint'], {
-    value: 'https://example.openai.azure.com/openai/',
+  assert.deepEqual(JSON.parse(result.runFacts.settings)['core.http.proxy'], {
+    value: 'https://proxy.example.com/path/',
     source: 'global config',
     redacted: true,
   });
-  assert.deepEqual(settings['agent.provider'], { value: 'builtin', source: 'global config' });
-  assert.doesNotMatch(result.runFacts.agentSettings, /hidden/);
+  assert.doesNotMatch(result.runFacts.settings, /hidden/);
 });
 
 test('wrapper records the same settings when the target prints config get output as JSON', (context) => {
   const scenario = {
     keyListingWarning: true,
-    recoveryMode: 'manual',
-    listedKeys: [
-      'agent.provider', 'agent.recovery', 'agent.recovery.style', 'agent.builtin.modelId', 'agent.builtin.endpoint',
-      'agent.interactive.verbose', 'core.http.maxRetries',
-    ],
-    settingValues: {
-      'agent.builtin.endpoint': 'https://example.openai.azure.com/openai/?api-key=hidden',
-      'agent.builtin.modelId': 'deployment-{run}',
-      'agent.interactive.verbose': false,
-      'core.http.maxRetries': 9,
-    },
-    nullSettings: ['agent.recovery.style'],
+    listedKeys: ['core.http.maxRetries', 'core.http.retryDelay', 'telemetry.enabled'],
+    settingValues: { 'core.http.maxRetries': 9 },
+    nullSettings: ['core.http.retryDelay'],
   };
   const result = runWrapper(context, { ...scenario, jsonConfigOutput: true });
   assert.equal(result.status, 0, result.summary.error);
-  const settings = JSON.parse(result.runFacts.agentSettings);
-  assert.deepEqual(settings['agent.provider'], { value: 'default-agent.provider', source: 'default' });
-  assert.deepEqual(settings['agent.recovery'], { value: 'manual', source: 'global config' });
-  assert.deepEqual(settings['agent.recovery.style'], { value: 'null', source: 'global config' });
-  assert.deepEqual(settings['agent.builtin.modelId'], { value: 'deployment-{run}', source: 'global config' });
-  assert.deepEqual(settings['agent.interactive.verbose'], { value: 'false', source: 'global config' });
+  const settings = JSON.parse(result.runFacts.settings);
   assert.deepEqual(settings['core.http.maxRetries'], { value: '9', source: 'global config' });
-  assert.deepEqual(settings['agent.builtin.endpoint'], {
-    value: 'https://example.openai.azure.com/openai/',
-    source: 'global config',
-    redacted: true,
-  });
-  assert.doesNotMatch(result.runFacts.agentSettings, /hidden|recoveryWarning/);
+  assert.deepEqual(settings['core.http.retryDelay'], { value: 'null', source: 'global config' });
+  assert.deepEqual(settings['telemetry.enabled'], { value: 'false', source: 'global config' });
+  assert.doesNotMatch(result.runFacts.settings, /recoveryWarning/);
 
   const text = runWrapper(context, scenario);
   assert.equal(text.status, 0, text.summary.error);
-  assert.deepEqual(settings, JSON.parse(text.runFacts.agentSettings));
+  assert.deepEqual(settings, JSON.parse(text.runFacts.settings));
 });
 
-test('wrapper records every agent, HTTP-retry and telemetry setting the target lists', (context) => {
-  const result = runWrapper(context, {
-    keyListingWarning: true,
-    listedKeys: [
-      'agent.provider', 'agent.reasoningEffort', 'agent.trace.enabled', 'agent.builtin.apiKey',
-      'core.http.maxRetries', 'telemetry.enabled', 'clients.cli.output.format',
-    ],
-  });
-  assert.equal(result.status, 0, result.summary.error);
-  assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
-    'agent.provider', 'agent.reasoningEffort', 'core.http.maxRetries', 'telemetry.enabled',
-  ]);
-});
-
-test('wrapper falls back to the default setting list when the target cannot list its keys', (context) => {
+test('wrapper records no settings when the target cannot list its keys', (context) => {
   const result = runWrapper(context, { noKeyListing: true });
   assert.equal(result.status, 0, result.summary.error);
-  assert.deepEqual(Object.keys(JSON.parse(result.runFacts.agentSettings)).sort(), [
-    'agent.builtin.apiVersion', 'agent.builtin.endpoint', 'agent.builtin.modelId', 'agent.builtin.scope',
-    'agent.provider', 'agent.recovery', 'agent.recovery.style',
-  ]);
+  assert.deepEqual(JSON.parse(result.runFacts.settings), {});
+  assert.deepEqual(result.settingReads, ['config info --keys-only']);
 });
 
 test('wrapper setup commands cannot start AI recovery and leave the guard unset for Promptfoo', (context) => {
-  const result = runWrapper(context, { unsupportedSettings: ['agent.recovery.style'] });
+  const result = runWrapper(context, { listedKeys: ['agent.provider', 'telemetry.enabled'] });
   assert.equal(result.status, 0, result.summary.error);
   const commands = result.agentModeGuards.map((line) => line.slice(0, line.lastIndexOf('|')));
-  for (const expected of ['agent tool env', 'agent tool resource refresh', 'config set', 'config info --keys-only', 'config get']) {
+  for (const expected of ['agent tool env show', 'agent tool resource refresh', 'config set', 'config info --keys-only', 'config get']) {
     assert.ok(commands.some((command) => command.startsWith(expected)), `${expected} was not guarded`);
   }
   assert.ok(result.agentModeGuards.every((line) => line.endsWith('|1')), result.agentModeGuards.join('\n'));
@@ -632,6 +675,8 @@ test('wrapper uses a distinct default artifact path for each run', (context) => 
   const paths = result.calls.map((call) => call.slice('evaluate|'.length));
   assert.equal(new Set(paths).size, 2);
   assert.ok(paths.every((file) => fs.existsSync(file)));
+  const evaluationRoot = path.join(result.home, 'agent', 'evaluation');
+  assert.ok(paths.every((file) => path.dirname(path.dirname(file)) === evaluationRoot), paths.join(', '));
   assert.deepEqual(result.configurationBytes, initialConfigurationBytes);
   assert.deepEqual(result.backups, []);
 });
@@ -665,7 +710,7 @@ test('wrapper stops before configuration changes or model calls when the semanti
 test('manual wrapper uses the new recovery policy and restores configuration and mode', (context) => {
   const result = runWrapper(context, { recoveryMode: 'manual', environmentWarning: true });
   assert.equal(result.status, 0, result.summary.error);
-  assert.ok(result.configurationCalls.includes('config set --key agent.recovery --value manual'));
+  assert.ok(result.configurationCalls.includes('config set --key agent.recovery.trigger --value manual'));
   assert.ok(!result.configurationCalls.some((call) => /--key agent\.(enabled|sessionStyle)\b/.test(call)));
   assert.equal(result.configurationCalls.length, 3);
   assert.equal(result.summary.recoveryMode, 'original-recovery-mode');
@@ -777,6 +822,7 @@ test('wrapper stops before changing configuration or evaluating if backup fails'
   const result = runWrapper(context, { failBackup: true, upload: true });
   assert.equal(result.status, 1);
   assert.match(result.summary.error, /Failed to back up Agent configuration/);
+  assert.deepEqual(result.telemetryStates, []);
   assert.deepEqual(result.configurationCalls, []);
   assert.deepEqual(result.calls, []);
   assert.deepEqual(result.backups, []);
@@ -807,7 +853,7 @@ for (const evaluationThrows of [false, true]) {
 }
 
 for (const option of ['signedOut', 'missingSubscription']) {
-  test(`wrapper rejects ${option} before changing configuration or calling a model`, (context) => {
+  test(`wrapper rejects ${option} before applying Agent settings or calling a model`, (context) => {
     const result = runWrapper(context, { [option]: true });
     assert.equal(result.status, 1);
     assert.match(result.summary.error, /requires an Azure-signed-in active profile/);

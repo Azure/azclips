@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# Pre-merge secret scan for scenario-test recordings (SessionRecords/*.json).
+# Pre-merge secret scan for scenario-test recordings (the Records folder next to each
+# test module).
 #
 # The recorder sanitises recordings before they are written (subscription and
 # tenant ids become the all-zero placeholder, bearer tokens are redacted, the
@@ -29,7 +30,7 @@ GUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 # or unicode-escaped the way System.Text.Json writes it (backslash-u0022).
 Q = r'(?:\\u0022|\\"|")'
 
-RECORDING_PATH = re.compile(r"^tests/.+/SessionRecords/.+\.json$")
+RECORDING_PATH = re.compile(r"^tests/.+/Records/.+\.json$")
 
 # Rule name -> pattern that must not appear in a sanitised recording. Patterns
 # are matched per line; findings report the file, line and rule, never the
@@ -45,10 +46,9 @@ RULES = {
     "tenant or object id pair": re.compile(r"(tenantId|objectId)=(?!" + PLACEHOLDER_GUID + ")" + GUID, re.IGNORECASE),
     "storage account key": re.compile(r"AccountKey=", re.IGNORECASE),
     "shared access signature": re.compile(r"SharedAccessSignature|[?&]sig=", re.IGNORECASE),
-    "operation URL signature": re.compile(
-        r"/operation(?:results|statuses)/.*(?:\\u0026|[?&])[csh]="
-        r"(?!sanitized(?:\\u0026|&|\"|\\|$))[A-Za-z0-9_\-%.=]+",
-        re.IGNORECASE),
+    # Mirrors the arm-operation-signature sanitiser, which is path-agnostic: resource providers
+    # poll different paths (/operationresults/, /operationstatuses/, Storage's /asyncoperations/).
+    "operation URL signature": re.compile(r"(?:\\u0026|[?&])[csh]=[A-Za-z0-9_\-%.=]{40,}", re.IGNORECASE),
     "client secret": re.compile(Q + "client_secret" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),
     "password": re.compile(Q + "(adminPassword|password)" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),
     "access token field": re.compile(Q + "(access_token|accessToken)" + Q + r"\s*:\s*" + Q + r"(?!\[redacted\])[^\"\\]+", re.IGNORECASE),

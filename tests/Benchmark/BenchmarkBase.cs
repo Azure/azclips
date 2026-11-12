@@ -12,6 +12,7 @@ using Core.Abstractions.Runtime.Handler;
 using Core.Authentication;
 using Core.DependencyInjection;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
@@ -28,6 +29,7 @@ public abstract class BenchmarkBase
 
     protected string RepoRoot { get; set; } = null!;
     protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
+    protected virtual string[]? AuthenticationScopes => null;
 
     /// <summary>Scratch directory holding the seeded MSAL token cache for this run.</summary>
     protected string MsalCacheDirectory { get; private set; } = null!;
@@ -85,7 +87,7 @@ public abstract class BenchmarkBase
         RepoRoot = RepoLocator.GetRepoRoot();
 
         MsalCacheDirectory = Path.Combine(RepoRoot, "artifacts", "Benchmark", "home", "msal");
-        MsalCacheFixture.Seed(MsalCacheDirectory, clientMetadata.FirstPartyApplicationId);
+        MsalCacheFixture.Seed(MsalCacheDirectory, clientMetadata.FirstPartyApplicationId, AuthenticationScopes);
         ProfileStoreRoot = BenchmarkProfileStore.GetRoot(RepoRoot);
 
         // The profile store is seeded and verified once during global setup to confirm that
@@ -141,10 +143,12 @@ public abstract class BenchmarkBase
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
             services.AddSingleton<IProfileService>(sp =>
-                new ProfileService(sp.GetRequiredService<ILoggingService>(), ProfileStoreRoot));
-            services.AddSingleton(new MsalClientOptions
+                new ProfileService(sp.GetRequiredService<ILoggingService>(), new FilePersistenceStore(ProfileStoreRoot)));
+            var authPersistence = new FilePersistenceStore(MsalCacheDirectory);
+            services.AddSingleton<IServicePrincipalSecretStore>(sp =>
+                new ServicePrincipalSecretStore(authPersistence, sp.GetRequiredService<ILoggingService>()));
+            services.AddSingleton(new MsalClientOptions(authPersistence)
             {
-                CacheDirectory = MsalCacheDirectory,
                 HttpClientFactory = new ThrowingMsalHttpClientFactory(),
             });
         });
@@ -174,7 +178,7 @@ public abstract class BenchmarkBase
             }
 
             var result = authService
-                .AcquireTokenSilentlyAsync(scopes: null, tenantId: null)
+                .AcquireTokenSilentlyAsync(scopes: AuthenticationScopes, tenantId: null)
                 .GetAwaiter()
                 .GetResult();
 

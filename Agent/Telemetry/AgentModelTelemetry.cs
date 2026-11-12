@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Agent.Providers;
 using Core.Telemetry;
 using GitHub.Copilot;
 
@@ -14,18 +15,25 @@ internal sealed class AgentModelTelemetry
 {
     private static readonly TimeSpan ResolutionTimeout = TimeSpan.FromSeconds(5);
     private readonly Action<string> _reportWarning;
+    private readonly TimeProvider _timeProvider;
     private AgentModelObservation _selection;
 
-    internal AgentModelTelemetry(AgentOptions options, Action<string> reportWarning)
+    internal AgentModelTelemetry(AgentOptions options, Action<string> reportWarning, TimeProvider? timeProvider = null)
     {
         IsBuiltin = string.Equals(options.Provider, "builtin", StringComparison.OrdinalIgnoreCase);
         var configuredModel = RecoveryTelemetry.GetConfiguredModel(options);
         _selection = new(configuredModel,
             configuredModel is null ? AgentModelSource.Unavailable : AgentModelSource.Configuration);
         _reportWarning = reportWarning;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        if (IsBuiltin)
+            ServedModel = new ServedModel();
     }
 
     internal bool IsBuiltin { get; }
+
+    /// <summary>The builtin gateway's served model for this session; null for other providers.</summary>
+    internal ServedModel? ServedModel { get; }
     internal AgentModelObservation Current => Volatile.Read(ref _selection);
 
     internal void Observe(SessionEvent sessionEvent)
@@ -64,12 +72,12 @@ internal sealed class AgentModelTelemetry
         if (IsBuiltin || beforeQuery.Model is not null)
             return;
 
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        deadline.CancelAfter(ResolutionTimeout);
+        using var timeout = new CancellationTokenSource(ResolutionTimeout, _timeProvider);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
         string? unavailable = null;
         try
         {
-#pragma warning disable GHCP001 // SDK 1.0.0 marks this read-only metadata API experimental.
+#pragma warning disable GHCP001 // The SDK marks this read-only metadata API experimental.
             var selected = await session.Rpc.Model.GetCurrentAsync(deadline.Token).ConfigureAwait(false);
             var model = selected?.ModelId;
 #pragma warning restore GHCP001
@@ -125,6 +133,18 @@ internal sealed class AgentModelTelemetry
         RecoveryTelemetry.RecordModel(activity, model.Model, model.Source);
     }
 
+    /// <summary>
+    /// Records the last served model of the session with source <c>response</c>, or the
+    /// current selection when no served model was seen.
+    /// </summary>
+    internal void RecordServedTo(Activity? activity)
+    {
+        if (ServedModel?.Latest is { } served)
+            RecoveryTelemetry.RecordModel(activity, served, AgentModelSource.Response);
+        else
+            RecordTo(activity);
+    }
+
     private void ReportUnavailable(string reason)
     {
         if (Current.Model is not null)
@@ -142,4 +162,3 @@ internal sealed class AgentModelTelemetry
         }
     }
 }
-

@@ -25,7 +25,9 @@ An extension is anything that provides three things (`eng-docs/spec/extension-fr
 
 This page traces the four moving parts end to end: **(1)** anatomy of an extension, **(2)**
 discovery & loading, **(3)** the extension-management commands, and **(4)** the `ExtensionRuntime`
-serialization framework.
+serialization framework. For generation-time concerns, see
+[TypeSpec Code Generation](./typespec-code-generation.md); the ACE compiler is not part
+of runtime extension dispatch.
 
 ```mermaid
 graph TD
@@ -109,10 +111,14 @@ that compose multiple processors (see `src/Extensions/Resources/` and `src/Exten
 Routing is `{(verb, path) → packageId}` with O(1) lookup; a top-level verb is a _shared namespace_
 and each full `(verb, path)` leaf is owned by exactly one extension
 (`eng-docs/spec/extension-management.md`). The runtime keeps no static verb seed — every leaf
-comes from discovery. `CliExtensionServiceRegistration.BuildLeafIndexWithDiscovery` opens an engine
-discovery session that enumerates both loaders (`BundledExtensionLoader` and
-`InstalledExtensionLoader`, `src/CLI/Program.cs:58-59`), reads each extension's
-`IExtensionIndex.GetCommandTable(CLI)`, and projects the results into an `ExtensionRegistry`. The
+comes from discovery. `CliExtensionServiceRegistration.BuildLeafIndexWithDiscovery` uses
+`ExtensionRoutingDiscovery` to enumerate both loaders without loading their assemblies, reads
+each adjacent `<PackageId>.commands.json`, and projects its verbs and leaf keys into an
+`ExtensionRegistry`. Missing, unreadable, invalid, or version-incompatible sidecars trigger
+DLL-based index discovery only for the affected extension. Empty contracts remain valid.
+The selected extension is loaded for execution after dispatch; detailed help and completions
+retain full engine discovery. With `--debug`, discovery reports major stages, fallback reasons,
+and a timing table separating sidecar reads from DLL fallbacks. The
 on-disk `registry.json` under `~/.azclips/extensions/` (`src/Core/Core.Abstractions/HomePaths.cs:14`)
 layers preferences (pin state, source, installedAt) on top; leaves themselves come from discovery.
 When the same package id appears in both tiers, `ExtensionCandidateSelector` picks the winner (pin
@@ -239,12 +245,13 @@ out the package (`src/Extensions/Extension/ExtensionInstaller.cs:47`). Supportin
 `LocalArtifactProbe` (inspecting a local `.nupkg`, `src/Extensions/Extension/LocalArtifactProbe.cs`)
 and `Compatibility` (host↔extension version checks, `src/Extensions/Extension/Compatibility.cs`).
 
-To populate `list`/`show` without executing extension code, `DiscoveryBackedExtensionRegistry`
-runs a discovery session over installed packages and merges the results with the file registry —
-skipping any package id that belongs to the built-in seed
-(`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:8`, `:14`). Its per-extension entry
-records the verb, resolved version, pin state and contributed namespaces
-(`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:28`).
+To populate `list`/`show`, `DiscoveryBackedExtensionRegistry` runs a discovery session,
+groups all discovered candidates by package ID, and applies `ExtensionCandidateSelector`.
+Bundled entries are included; there is no static built-in seed to exclude. Persisted pin,
+source, and installation-time preferences are merged onto the selected discovered entries.
+The method also retains the full candidate selections for callers that need every copy
+(`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:10`,
+`src/Extensions/Extension/DiscoveryBackedExtensionRegistry.cs:33`).
 
 ## 4. ExtensionRuntime — the (de)serialization framework
 

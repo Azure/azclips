@@ -14,7 +14,7 @@ public static class HomePaths
     /// <summary>
     /// Points every azclips home path (config, extensions, profiles, auth context, traces, survey) at one
     /// directory instead of the per-user defaults. Scenario tests use it to isolate a run from the
-    /// developer's real state; unset means the normal split defaults below.
+    /// developer's real state; unset means the user-profile Azclips home.
     /// </summary>
     public const string HomeOverrideVariable = "AZCLIPS_HOME";
 
@@ -24,7 +24,15 @@ public static class HomePaths
     public const string RegistryFileName = "registry.json";
     public const string ConfigFileName = "config.json";
     public const string TraceDirectoryName = "traces";
-    public const string ArmCacheDirectoryName = "arm-cache";
+    public const string AgentDirectoryName = "agent";
+    public const string AgentArmDirectoryName = "arm";
+    public const string AgentCopilotDirectoryName = "copilot";
+    public const string AgentEvaluationDirectoryName = "evaluation";
+    public const string AgentFailureHistoryDirectoryName = "failure-history";
+    public const string AgentHelpDirectoryName = "help";
+    // Agent JSONL traces; not the telemetry upload queue (TraceDirectoryName, "traces").
+    public const string AgentTraceDirectoryName = "trace";
+    public const string AgentStateFileName = "state.json";
     public const string ProfilesFileName = "profiles.json";
     public const string ActiveProfileFileName = "active-profile";
     public const string DataBoundaryCacheFileName = "data-boundary-cache.json";
@@ -56,12 +64,6 @@ public static class HomePaths
     public static string GetDefaultConfigFilePath(string? userProfilePath = null)
         => Path.Combine(GetDefaultHomeRoot(userProfilePath), ConfigFileName);
 
-    public static string GetDefaultTraceConfigValue()
-        => $"~/{DefaultHomeDirectoryName}/{TraceDirectoryName}";
-
-    public static string GetDefaultArmCacheDirectory(string? userProfilePath = null)
-        => Path.Combine(GetDefaultHomeRoot(userProfilePath), ArmCacheDirectoryName);
-
     public static string GetDefaultLocalAppDataRoot(string? localApplicationDataPath = null)
     {
         if (OverrideRoot is { } overridden)
@@ -76,6 +78,37 @@ public static class HomePaths
         return Path.Combine(local, DefaultHomeDirectoryName);
     }
 
-    public static string GetDefaultTraceDirectory(string? localApplicationDataPath = null)
-        => Path.Combine(GetDefaultLocalAppDataRoot(localApplicationDataPath), TraceDirectoryName);
+    public static string GetDefaultTraceDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultHomeRoot(userProfilePath), TraceDirectoryName);
+
+    public static string GetDefaultDataBoundaryCachePath(string? userProfilePath = null)
+        => Path.Combine(GetDefaultHomeRoot(userProfilePath), DataBoundaryCacheFileName);
+
+    /// <summary>
+    /// Root for program data owned by the Agent, under <see cref="GetDefaultHomeRoot"/>.
+    /// Everything here is rebuilt or expired by the Agent itself.
+    /// </summary>
+    public static string GetDefaultAgentRoot(string? userProfilePath = null)
+        => Path.Combine(GetDefaultHomeRoot(userProfilePath), AgentDirectoryName);
+
+    public static string GetDefaultArmCacheDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultAgentRoot(userProfilePath), AgentArmDirectoryName);
+
+    public static string GetDefaultAgentCopilotDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultAgentRoot(userProfilePath), AgentCopilotDirectoryName);
+
+    public static string GetDefaultAgentEvaluationDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultAgentRoot(userProfilePath), AgentEvaluationDirectoryName);
+
+    public static string GetDefaultFailureHistoryDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultAgentRoot(userProfilePath), AgentFailureHistoryDirectoryName);
+
+    public static string GetDefaultAgentHelpDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultAgentRoot(userProfilePath), AgentHelpDirectoryName);
+
+    public static string GetDefaultAgentTraceDirectory(string? userProfilePath = null)
+        => Path.Combine(GetDefaultAgentRoot(userProfilePath), AgentTraceDirectoryName);
+
+    public static string GetDefaultAgentStatePath(string? userProfilePath = null)
+        => Path.Combine(GetDefaultAgentRoot(userProfilePath), AgentStateFileName);
 }

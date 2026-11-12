@@ -12,13 +12,16 @@ namespace Ace.Generator.Generators;
 /// Emits C# model types from <see cref="TransformedIR.Models"/>. Faithful
 /// ("garbage in, garbage out") for now: one class per model with every property
 /// the IR carries, mapped literally to C# — plus a <c>[JsonIgnore]</c> accessor for each
-/// flattened member the transform resolved. No inheritance, polymorphism, or enum
-/// emission yet.
+/// flattened member the transform resolved. No inheritance or polymorphism yet. Enums
+/// are not emitted as types: an enum-typed property renders as its value type (see
+/// <see cref="IrTypeMapper"/>), and its doc lists the enum's values (see <see cref="EnumValueDocs"/>).
+/// Nor is a pure record (<c>is Record&lt;T&gt;</c> with no properties), which renders as
+/// <c>IDictionary&lt;string, T&gt;</c>; a record with properties gets a
+/// <c>[JsonExtensionData]</c> member for its open map.
 /// </summary>
 /// <remarks>
-/// TODO — richer emission: enums (<see cref="TransformedIR.Enums"/>), inheritance +
-/// overrides (deduplicate inherited properties), polymorphism (<c>[JsonPolymorphic]</c>),
-/// and visibility/access shaping.
+/// TODO — richer emission: inheritance + overrides (deduplicate inherited properties),
+/// polymorphism (<c>[JsonPolymorphic]</c>), and visibility/access shaping.
 /// </remarks>
 internal sealed class ModelGenerator : IArtifactGenerator
 {
@@ -50,6 +53,13 @@ internal sealed class ModelGenerator : IArtifactGenerator
                     Model.DiagnosticSeverity.Warning,
                     "ace-generator/empty-model-name",
                     "Skipped a model with an empty name.");
+                continue;
+            }
+
+            // A pure record renders as IDictionary<string, T> at every reference (IrTypeMapper),
+            // so there is no class to emit.
+            if (IrTypeMapper.RecordValue(model) is not null)
+            {
                 continue;
             }
 
@@ -108,7 +118,12 @@ internal sealed class ModelGenerator : IArtifactGenerator
         // <summary> doc attached last so it lands on the declaration's first token.
         ClassDeclarationSyntax cls = ClassDeclaration(className)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
-            .AddMembers([.. model.Properties.Select(p => EmitProperty(p, context.Index)), .. EmitFlattened(context, model)])
+            .AddMembers(
+            [
+                .. model.Properties.Select(p => EmitProperty(p, context.Index)),
+                .. EmitAdditionalProperties(context, model),
+                .. EmitFlattened(context, model),
+            ])
             .WithLeadingXmlDoc(model.Docs ?? model.Summary);
 
         // Wrap it in usings + a file-scoped namespace, then let Roslyn format it.
@@ -119,7 +134,8 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 UsingDirective(ParseName("System.Collections.Generic")),
                 UsingDirective(ParseName("System.Text.Json.Serialization")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls))
-            .NormalizeWhitespace();
+            .NormalizeWhitespace()
+            .FixNormalizerSpacing();
 
         // The banner comment and `#nullable enable` directive are file-level headers;
         // like AceIrModelGen, we prepend them as text rather than wrestle
@@ -136,7 +152,8 @@ internal sealed class ModelGenerator : IArtifactGenerator
 
     /// <summary>
     /// Emit one property: <c>[JsonPropertyName("wire")] public T? Name { get; set; }</c>,
-    /// preceded by its XML <c>&lt;summary&gt;</c> doc.
+    /// preceded by its XML doc: the <c>&lt;summary&gt;</c>, and the enum's values when it is
+    /// enum-typed (<see cref="EnumValueDocs"/>).
     /// </summary>
     /// <remarks>
     /// A property the transform hoisted (<c>flatten.into == "self"</c>) leaves the public surface:
@@ -170,13 +187,64 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonInclude")))));
         }
 
+        if (!property.Optional && !property.Nullable && !IrTypeMapper.IsValueType(property, index))
+        {
+            declaration = declaration
+                .WithInitializer(EqualsValueClause(ParseExpression("null!")))
+                .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+        }
+
         return declaration
             .WithAccessorList(AccessorList(List(
             [
                 AccessorDeclaration(SyntaxKind.GetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
                 AccessorDeclaration(SyntaxKind.SetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
             ])))
-            .WithLeadingXmlDoc(property.Docs ?? property.Summary);
+            .WithLeadingXmlDoc(property.Docs ?? property.Summary, EnumValueDocs.For(property, index));
+    }
+
+    /// <summary>
+    /// Emit the open map of a model that has declared properties <em>and</em> additional ones
+    /// (TypeSpec <c>is Record&lt;T&gt;</c> plus properties):
+    /// <c>[JsonExtensionData] public IDictionary&lt;string, object&gt; AdditionalProperties</c>.
+    /// </summary>
+    /// <remarks>
+    /// Extension data serializes its keys beside the declared properties rather than nested
+    /// under a member, which is the wire shape a record has. System.Text.Json only accepts an
+    /// <c>object</c> or <c>JsonElement</c> value type here, so the record's own value type is
+    /// carried in the doc rather than the signature.
+    /// </remarks>
+    private static IEnumerable<PropertyDeclarationSyntax> EmitAdditionalProperties(GenerationContext context, IRModel model)
+    {
+        const string name = "AdditionalProperties";
+        if (model.AdditionalProperties is not { } value)
+        {
+            yield break;
+        }
+
+        if (model.Properties.Any(p => p.Name.Identifier() == name))
+        {
+            context.Report(
+                Model.DiagnosticSeverity.Warning,
+                "ace-generator/additional-properties-collision",
+                $"Model '{model.Name}' declares a property named '{name}', so its additional properties " +
+                "have no member to land in and are dropped on deserialization.");
+            yield break;
+        }
+
+        yield return PropertyDeclaration(ParseTypeName("IDictionary<string, object>"), Identifier(name))
+            .AddModifiers(Token(SyntaxKind.PublicKeyword))
+            .AddAttributeLists(AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonExtensionData")))))
+            .WithAccessorList(AccessorList(List(
+            [
+                AccessorDeclaration(SyntaxKind.GetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+                AccessorDeclaration(SyntaxKind.SetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)),
+            ])))
+            .WithInitializer(EqualsValueClause(ParseExpression("new Dictionary<string, object>()")))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
+            .WithLeadingXmlDoc(
+                $"Additional properties beyond the declared ones, each a " +
+                $"{IrTypeMapper.ToCSharp(value, context.Index)} on the wire. They serialize beside the declared properties.");
     }
 
     /// <summary>
@@ -233,7 +301,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
                     .WithBody(Block(List<StatementSyntax>(
                     [
                         .. FlattenSupport
-                            .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional), context.Index)
+                            .SetterStatements(hops, FlattenSupport.AssignedValue(leaf, member.Optional, context.Index), context.Index)
                             .Select(statement => ParseStatement(statement)),
                     ]))));
             }
@@ -242,7 +310,7 @@ internal sealed class ModelGenerator : IArtifactGenerator
                 .AddModifiers(Token(SyntaxKind.PublicKeyword))
                 .AddAttributeLists(AttributeList(SingletonSeparatedList(Attribute(ParseName("JsonIgnore")))))
                 .WithAccessorList(AccessorList(List<AccessorDeclarationSyntax>(accessors)))
-                .WithLeadingXmlDoc(docs);
+                .WithLeadingXmlDoc(docs, EnumValueDocs.For(leaf, context.Index));
         }
     }
 }

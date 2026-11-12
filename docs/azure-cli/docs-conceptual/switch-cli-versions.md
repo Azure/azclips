@@ -62,8 +62,14 @@ Add the function to your PowerShell profile (`$PROFILE`), then reload it:
 ```powershell
 # Toggle az between the classic CLI and the azcli preview build (current session only)
 function Switch-Az {
-    $previewDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Programs\azcli'
-    $previewAz  = Join-Path -Path $previewDir -ChildPath 'az.exe'
+    if ($IsWindows) {
+        $previewDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Programs\azcli'
+        $previewAz = Join-Path -Path $previewDir -ChildPath 'az.exe'
+    }
+    else {
+        $previewDir = Join-Path -Path $HOME -ChildPath '.local/share/azcli'
+        $previewAz = Join-Path -Path $previewDir -ChildPath 'az'
+    }
     $sep        = [IO.Path]::PathSeparator
 
     $current = Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue |
@@ -105,7 +111,7 @@ which az        # -> ~/.local/share/azcli/az when the preview is active
 
 ```powershell
 Switch-Az               # PowerShell
-Get-Command -Name az          # -> ...\Programs\azcli\az.exe when the preview is active
+Get-Command -Name az     # Preview: ...\Programs\azcli\az.exe on Windows; ~/.local/share/azcli/az on Linux/macOS
 ```
 
 Each call switches to the other CLI for the **current shell only** — open a new shell (or call the

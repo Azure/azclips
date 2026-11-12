@@ -12,7 +12,7 @@
 RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
 
 # Version number of this module.
-ModuleVersion = '0.1.2'
+ModuleVersion = '0.1.4'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')
@@ -33,7 +33,7 @@ Copyright = '(c) Microsoft. All rights reserved.'
 Description = 'Azure authentication cmdlets for Azure PowerShell'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '7.5'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -117,7 +117,9 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        # ReleaseNotes = ''
+        ReleaseNotes = @'
+* Added service principal client-secret sign-in with '-ClientSecret <SecureString>' and backward-compatible '-ServicePrincipal -Credential <PSCredential>' syntax.
+'@
 
         # Prerelease string of this module
         # Prerelease = ''

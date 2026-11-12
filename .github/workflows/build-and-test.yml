@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
@@ -57,25 +57,15 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           ./tests/Scripts/PS/KeyVaultSecrets.Harness.Tests.ps1
+            ./tests/Scripts/PS/KeyVaultCertificates.Harness.Tests.ps1
 
-  recording-secret-scan:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Scan changed recordings for secrets
-        run: python3 devops/scripts/ci/scan_recordings.py --base "origin/${{ github.base_ref || 'main' }}"
-
-  help-validate:
-    runs-on: ubuntu-latest
+  agent-tests-macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
@@ -87,6 +77,47 @@ jobs:
 
       - name: Build
         run: dotnet build azclips.slnx --no-restore --configuration Debug
+
+      - name: Run Agent tests
+        run: dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj --no-build --configuration Debug --verbosity normal --blame-hang-timeout 10min --blame-hang-dump-type none --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agent-tests-macos-results
+          path: TestResults
+          retention-days: 14
+
+  recording-secret-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan changed recordings for secrets
+        run: python3 devops/scripts/ci/scan_recordings.py --base "origin/${{ github.base_ref || 'main' }}"
+
+  help-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore azclips.slnx
+
+      - name: Build
+        run: dotnet build azclips.slnx --no-restore --configuration Debug -p:CopilotSkipCliDownload=true
 
       - name: Validate help content
         run: |
@@ -111,7 +142,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
@@ -122,7 +153,7 @@ jobs:
         run: dotnet restore azclips.slnx
 
       - name: Build solution
-        run: dotnet build azclips.slnx --no-restore --configuration Debug
+        run: dotnet build azclips.slnx --no-restore --configuration Debug -p:CopilotSkipCliDownload=true
 
       - name: Run help tool tests
         run: dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal
@@ -132,11 +163,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install Pester 5+
         shell: pwsh
         run: Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Install PlatyPS
+        shell: pwsh
+        run: ./build/Install-BuildDependencies.ps1
 
       - name: Run PS docs sync Pester tests
         shell: pwsh
@@ -153,7 +188,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install Pester 5+
         shell: pwsh
@@ -182,13 +217,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
 
-      - name: Run PR file policy tests
+      - name: Run PR file policy and stable release tagging tests
         working-directory: devops/scripts/ci
-        run: python3 -m unittest test_check_pull_request_changes.py -v
+        run: python3 -m unittest test_check_pull_request_changes.py test_stable_release_tag.py -v
 
       - name: Install Pester 5+
         shell: pwsh
@@ -208,12 +243,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24.x'
 

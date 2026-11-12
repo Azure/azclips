@@ -5,12 +5,27 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Core.Abstractions;
+using SpanKey = (string? TraceId, string? SpanId, Core.Abstractions.UploadRegion UploadRegion);
 
 namespace Core.Telemetry;
 
+internal sealed class TraceReplayContext
+{
+    private readonly Dictionary<TelemetryTarget,
+        Dictionary<(string? TraceId, string? SpanId, UploadRegion UploadRegion), ActivitySpanId>> _spanIds = [];
+
+    internal Dictionary<(string? TraceId, string? SpanId, UploadRegion UploadRegion), ActivitySpanId> ForTarget(
+        TelemetryTarget target)
+    {
+        if (!_spanIds.TryGetValue(target, out var spanIds))
+            _spanIds[target] = spanIds = [];
+        return spanIds;
+    }
+}
+
 /// <summary>
 /// Replays trace entries through an <see cref="ActivitySource"/>, preserving the original
-/// TraceId and parent/child hierarchy.
+/// TraceId and native parent relationships within the replay batch.
 /// </summary>
 internal static class TraceReplayer
 {
@@ -18,7 +33,11 @@ internal static class TraceReplayer
     /// Replays entries parent-before-child, remapping each child's parent context to the
     /// SpanId its parent was assigned during replay.
     /// </summary>
-    internal static void ReplayEntries(ActivitySource source, IEnumerable<TraceEntry> entries)
+    internal static void ReplayEntries(
+        ActivitySource source,
+        IEnumerable<TraceEntry> entries,
+        TraceReplayProfile profile = TraceReplayProfile.Legacy,
+        Dictionary<SpanKey, ActivitySpanId>? sharedSpanIdMap = null)
     {
         var entriesList = entries.ToList();
         if (entriesList.Count == 0)
@@ -26,12 +45,33 @@ internal static class TraceReplayer
 
         var ordered = TopologicallyOrder(entriesList);
 
-        // Original SpanId -> the new SpanId assigned during replay.
-        var spanIdMap = new Dictionary<string, ActivitySpanId>(StringComparer.Ordinal);
+        // Keep span mappings isolated by trace and upload region.
+        var spanIdMap = sharedSpanIdMap ?? new Dictionary<SpanKey, ActivitySpanId>();
 
-        foreach (var entry in ordered)
+        var executionContext = ExecutionContext.Capture();
+        if (executionContext is not null)
         {
-            ReplayTrace(source, entry, spanIdMap);
+            ExecutionContext.Run(executionContext, _ => ReplayIsolated(), null);
+        }
+        else
+        {
+            var previous = Activity.Current;
+            try
+            {
+                ReplayIsolated();
+            }
+            finally
+            {
+                Activity.Current = previous;
+            }
+        }
+
+        void ReplayIsolated()
+        {
+            // A zero parent span otherwise borrows Activity.Current even with an explicit TraceId.
+            Activity.Current = null;
+            foreach (var entry in ordered)
+                ReplayTrace(source, entry, spanIdMap, profile);
         }
     }
 
@@ -41,21 +81,21 @@ internal static class TraceReplayer
     /// </summary>
     private static List<TraceEntry> TopologicallyOrder(List<TraceEntry> entries)
     {
-        var bySpanId = new Dictionary<string, TraceEntry>(StringComparer.Ordinal);
+        var bySpanId = new Dictionary<SpanKey, TraceEntry>();
         foreach (var e in entries)
         {
             if (!string.IsNullOrEmpty(e.SpanId))
-                bySpanId[e.SpanId] = e;
+                bySpanId[(e.TraceId, e.SpanId, e.GetUploadRegion())] = e;
         }
 
-        var childrenOf = new Dictionary<string, List<TraceEntry>>(StringComparer.Ordinal);
+        var childrenOf = new Dictionary<SpanKey, List<TraceEntry>>();
         var roots = new List<TraceEntry>();
 
         foreach (var e in entries)
         {
-            var parentKey = e.ParentSpanId;
-            if (string.IsNullOrEmpty(parentKey)
-                || parentKey == "0000000000000000"
+            var parentKey = (e.TraceId, e.ParentSpanId, e.GetUploadRegion());
+            if (string.IsNullOrEmpty(e.ParentSpanId)
+                || e.ParentSpanId == "0000000000000000"
                 || !bySpanId.ContainsKey(parentKey))
             {
                 roots.Add(e);
@@ -72,20 +112,25 @@ internal static class TraceReplayer
         }
 
         var ordered = new List<TraceEntry>(entries.Count);
-        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var visited = new HashSet<SpanKey>();
+        // Tracks what the walk emitted. visited cannot serve for this: an entry with no SpanId is
+        // emitted but deliberately kept out of visited, because every such entry would otherwise
+        // collide on the same (traceId, "") key and only the first would survive.
+        var emitted = new HashSet<TraceEntry>();
         var queue = new Queue<TraceEntry>(roots);
 
         while (queue.Count > 0)
         {
             var entry = queue.Dequeue();
-            var key = entry.SpanId ?? string.Empty;
+            var key = (entry.TraceId, entry.SpanId, entry.GetUploadRegion());
 
-            if (!string.IsNullOrEmpty(key) && !visited.Add(key))
+            if (!string.IsNullOrEmpty(entry.SpanId) && !visited.Add(key))
                 continue;
 
             ordered.Add(entry);
+            emitted.Add(entry);
 
-            if (!string.IsNullOrEmpty(key) && childrenOf.TryGetValue(key, out var children))
+            if (!string.IsNullOrEmpty(entry.SpanId) && childrenOf.TryGetValue(key, out var children))
             {
                 foreach (var child in children)
                     queue.Enqueue(child);
@@ -96,12 +141,16 @@ internal static class TraceReplayer
         {
             foreach (var e in entries)
             {
-                var key = e.SpanId ?? string.Empty;
-                if (string.IsNullOrEmpty(key) || !visited.Contains(key))
+                if (emitted.Contains(e))
+                    continue;
+
+                var key = (e.TraceId, e.SpanId, e.GetUploadRegion());
+                // Mirrors the walk above, which admits an empty SpanId and deduplicates only real
+                // ones. TraceEntry allows null ids, and an entry with no SpanId whose parent sits in
+                // a cycle is never reached by the walk, so requiring one here dropped it silently.
+                if (string.IsNullOrEmpty(e.SpanId) || visited.Add(key))
                 {
                     ordered.Add(e);
-                    if (!string.IsNullOrEmpty(key))
-                        visited.Add(key);
                 }
             }
         }
@@ -113,21 +162,31 @@ internal static class TraceReplayer
     /// Reconstructs one Activity from an entry and records its new SpanId in
     /// <paramref name="spanIdMap"/> for its descendants.
     /// </summary>
-    private static void ReplayTrace(ActivitySource source, TraceEntry entry, Dictionary<string, ActivitySpanId> spanIdMap)
+    private static void ReplayTrace(
+        ActivitySource source,
+        TraceEntry entry,
+        Dictionary<SpanKey, ActivitySpanId> spanIdMap,
+        TraceReplayProfile profile)
     {
         if (string.IsNullOrEmpty(entry.TraceId))
             return;
 
         var kind = Enum.TryParse<ActivityKind>(entry.Kind, out var k) ? k : ActivityKind.Internal;
 
-        // Use the parent's new SpanId when the parent was replayed in this batch; otherwise a random one,
-        // since an all-zero SpanId is invalid and would lose the TraceId.
         ActivitySpanId parentSpanId;
-        if (!string.IsNullOrEmpty(entry.ParentSpanId)
-            && entry.ParentSpanId != "0000000000000000"
-            && spanIdMap.TryGetValue(entry.ParentSpanId, out var remapped))
+        if (string.IsNullOrEmpty(entry.ParentSpanId) || entry.ParentSpanId == "0000000000000000")
+        {
+            parentSpanId = default;
+        }
+        else if (spanIdMap.TryGetValue(
+                     (entry.TraceId, entry.ParentSpanId, entry.GetUploadRegion()),
+                     out var remapped))
         {
             parentSpanId = remapped;
+        }
+        else if (profile == TraceReplayProfile.ManagedLayer)
+        {
+            parentSpanId = ActivitySpanId.CreateFromString(entry.ParentSpanId.AsSpan());
         }
         else
         {
@@ -148,7 +207,7 @@ internal static class TraceReplayer
             : DateTimeOffset.UtcNow;
 
         using var activity = source.StartActivity(
-            entry.DisplayName ?? entry.OperationName ?? "unknown",
+            entry.OperationName ?? "unknown",
             kind,
             parentContext,
             startTime: startTime);
@@ -163,9 +222,9 @@ internal static class TraceReplayer
 
         // Recorded before disposal so descendants can reference it.
         if (!string.IsNullOrEmpty(entry.SpanId))
-            spanIdMap[entry.SpanId] = activity.SpanId;
+            spanIdMap[(entry.TraceId, entry.SpanId, entry.GetUploadRegion())] =
+                activity.SpanId;
 
-        // Restore tags
         if (entry.Tags.ValueKind == JsonValueKind.Array)
         {
             foreach (var tag in entry.Tags.EnumerateArray())
@@ -174,15 +233,18 @@ internal static class TraceReplayer
                     tag.TryGetProperty("Value", out var valueEl))
                 {
                     var key = keyEl.GetString();
-                    if (key != null)
+                    if (key != null && key != TelemetryTags.UploadRegion &&
+                        key != TelemetryTags.DataBoundary && key != TelemetryTags.DataBoundaryOutcome)
                     {
-                        activity.SetTag(key, valueEl.ValueKind == JsonValueKind.String
-                            ? valueEl.GetString()
-                            : valueEl.ToString());
+                        activity.SetTag(key, profile == TraceReplayProfile.ManagedLayer
+                            ? RestoreTagValue(valueEl)
+                            : valueEl.ValueKind == JsonValueKind.String ? valueEl.GetString() : valueEl.ToString());
                     }
                 }
             }
         }
+
+        activity.SetTag(TelemetryTags.DataBoundary, entry.GetUploadRegion().ToDataBoundary());
 
         // Restore events
         if (entry.Events.ValueKind == JsonValueKind.Array)
@@ -216,11 +278,23 @@ internal static class TraceReplayer
             }
         }
 
-        // Restore status
+        // Restore status without free-form descriptions, which can contain sensitive error text.
         if (Enum.TryParse<ActivityStatusCode>(entry.Status, out var status))
-            activity.SetStatus(status, entry.StatusDescription);
+            activity.SetStatus(status);
 
         // Restore end time (start + duration)
         activity.SetEndTime(activity.StartTimeUtc + TimeSpan.FromMilliseconds(entry.Duration));
     }
+
+    private static object? RestoreTagValue(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString(),
+        JsonValueKind.Number when value.TryGetInt32(out var number) => number,
+        JsonValueKind.Number when value.TryGetInt64(out var number) => number,
+        JsonValueKind.Number => value.GetDouble(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        _ => value.ToString(),
+    };
 }

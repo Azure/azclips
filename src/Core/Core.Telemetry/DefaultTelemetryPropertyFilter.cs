@@ -4,6 +4,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
 using Core.Abstractions;
 
 namespace Core.Telemetry;
@@ -18,36 +19,44 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.ProductVersion,
         TelemetryTags.SchemaVersion,
         TelemetryTags.TelemetryVersion,
-        TelemetryTags.ClientType,
-        TelemetryTags.EventName,
+        TelemetryTags.CommandOutputType,
+        TelemetryTags.ExceptionType,
+        TelemetryTags.OperatingSystemType,
+        TelemetryTags.OperatingSystemVersion,
+        TelemetryTags.DistributionName,
+        TelemetryTags.DistributionId,
+        TelemetryTags.ShellType,
+        TelemetryTags.Locale,
+        TelemetryLayerTags.Schema,
+        TelemetryLayerTags.ServiceName,
+        TelemetryTags.DotNetVersion,
+        TelemetryTags.PowerShellVersion,
 
         // Per-command tags
-        TelemetryTags.Command,
-        TelemetryTags.ModuleName,
-        TelemetryTags.ModuleVersion,
-        TelemetryTags.Parameter,
+        TelemetryTags.CommandName,
+        TelemetryTags.CommandExtensionName,
+        TelemetryTags.CommandExtensionVersion,
+        TelemetryTags.CommandParameters,
         TelemetryTags.SubscriptionId,
         TelemetryTags.TenantId,
         TelemetryTags.EntraObjectId,
         TelemetryTags.AuthType,
-        TelemetryTags.CloudName,
+        TelemetryTags.AuthSuccess,
+        TelemetryTags.AuthStatusCode,
+        TelemetryTags.AuthDurationTotalMs,
+        TelemetryTags.ClientRequestId,
         TelemetryTags.Mode,
         TelemetryTags.ImportKind,
         TelemetryTags.DataBoundary,
 
-        // HTTP standard attributes — method/status/host are safe; URL/path are NOT allowed
-        "http.method",
-        "http.status_code",
-        "http.scheme",
-        "http.host",
-        "http.request.header.user-agent",
-        "http.request_content_length",
-        "http.response_content_length",
+        // HTTP standard attributes — URL/path attributes are intentionally not allowed.
+        "server.port",
+        "http.request.method",
+        "http.response.status_code",
+        "network.protocol.version",
 
-        // OTel status / exception shape — type and stacktrace only, NOT message
+        // Exception messages and formatted stacktraces can contain private URLs and inner exceptions.
         "otel.status_code",
-        "exception.type",
-        "exception.stacktrace",
     };
 
     /// <summary>
@@ -64,5 +73,21 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         // Reserved per-product properties channel: anything under
         // TelemetryTags.PropertyTagPrefix is product-vetted and allowed.
         return key.StartsWith(TelemetryTags.PropertyTagPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal void MergeAllowedTags(Activity activity, IDictionary<string, object?> destination)
+    {
+        var chain = new Stack<Activity>();
+        for (var current = activity; current is not null; current = current.Parent)
+            chain.Push(current);
+
+        while (chain.TryPop(out var current))
+        {
+            foreach (var tag in current.TagObjects)
+            {
+                if (IsAllowed(tag.Key))
+                    destination[tag.Key] = tag.Value;
+            }
+        }
     }
 }

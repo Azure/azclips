@@ -8,19 +8,11 @@ namespace Core.Abstractions;
 [ConfigurationSection("agent")]
 public sealed class AgentOptions
 {
-    // Off by default for Private Preview. The user opts in with
-    // `az config set --key agent.enabled --value true`; until then a failed
-    // command surfaces its original error and never spawns the agent.
-    [ConfigurationKey("enabled", Description = "Enable or disable agent features. Off by default; set true to opt in.")]
-    public bool Enabled { get; set; } = false;
     [ConfigurationKey("provider", Description = "Agent model provider: builtin (default, Microsoft's AOAI deployment via APIM, requires 'az login') | github (user's Copilot subscription, requires Copilot login).", AllowedValues = ["builtin", "github"])]
     public string Provider { get; set; } = "builtin";
+    [ConfigurationSection("builtin", IncludeInSchema = false)]
     public BuiltinProviderOptions Builtin { get; set; } = new();
-
-    // oneshot: agent proposes a fix and exits (az-CLI-like). interactive: agent
-    // stays in a chat loop until the user exits or the escape valve trips.
-    [ConfigurationKey("sessionStyle", Description = "Agent interaction style: oneshot (propose a fix and exit) | interactive (stay in a chat loop until you exit).", AllowedValues = ["oneshot", "interactive"])]
-    public string SessionStyle { get; set; } = "oneshot";
+    public RecoveryOptions Recovery { get; set; } = new();
 
     [ConfigurationKey("reasoningEffort", Description = "Reasoning effort requested from the model for all providers and interaction styles: low | medium | high.", AllowedValues = ["low", "medium", "high"], IsRequired = true)]
     public string ReasoningEffort { get; set; } = "medium";
@@ -37,12 +29,6 @@ public sealed class AgentOptions
 
     // Derived views are not configuration keys. Keep them out of serialized options as well.
 
-    // Single source of truth for the SessionStyle string comparison, so the
-    // "interactive" literal doesn't drift across call sites.
-    [JsonIgnore]
-    public bool IsInteractive =>
-        string.Equals(SessionStyle, "interactive", System.StringComparison.OrdinalIgnoreCase);
-
     [JsonIgnore]
     public bool IsBuiltinProvider =>
         string.Equals(Provider, "builtin", System.StringComparison.OrdinalIgnoreCase);
@@ -51,6 +37,27 @@ public sealed class AgentOptions
     [JsonIgnore]
     public bool IsGithubProvider =>
         string.Equals(Provider, "github", System.StringComparison.OrdinalIgnoreCase);
+}
+
+public sealed class RecoveryOptions
+{
+    [ConfigurationKey("trigger", Description = "Recovery trigger: off (disable and clear history), manual (save failures for troubleshoot), or auto (also start automatic diagnosis).", AllowedValues = ["off", "manual", "auto"])]
+    public string Trigger { get; set; } = "off";
+
+    [ConfigurationKey("style", Description = "Recovery interaction style for both manual and automatic diagnosis: oneshot or interactive.", AllowedValues = ["oneshot", "interactive"])]
+    public string Style { get; set; } = "oneshot";
+
+    [ConfigurationKey("historySize", Description = "Maximum encrypted failure records retained. Must be positive; reductions take effect on the next successful history write.", Minimum = 1)]
+    public int HistorySize { get; set; } = 10;
+
+    [JsonIgnore]
+    public bool IsEnabled => IsAutomatic || string.Equals(Trigger, "manual", StringComparison.OrdinalIgnoreCase);
+
+    [JsonIgnore]
+    public bool IsAutomatic => string.Equals(Trigger, "auto", StringComparison.OrdinalIgnoreCase);
+
+    [JsonIgnore]
+    public bool IsInteractive => string.Equals(Style, "interactive", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class InteractiveOptions
@@ -68,11 +75,11 @@ public sealed class TraceOptions
     [ConfigurationKey("enabled", Description = "When true, every agent session writes a JSONL trace (one file per session) under agent.trace.path. Off by default. Local debug/evaluation only.")]
     public bool Enabled { get; set; } = false;
 
-    // Where the JSONL trace files go (one file per session). Defaults to
-    // ~/.azclips/trace to match schema/docs defaults; the leading ~ is expanded
-    // at the point of use. The directory is created on first write if it doesn't exist.
+    // Where the JSONL trace files go (one file per session). Defaults to the
+    // agent/trace directory under the home root; a leading ~ in a user value
+    // is expanded at the point of use. The directory is created on first write if it doesn't exist.
     [ConfigurationKey("path", Description = "Directory for agent JSONL trace files (used when agent.trace.enabled=true). Created on first write if absent.")]
-    public string Path { get; set; } = HomePaths.GetDefaultTraceConfigValue();
+    public string Path { get; set; } = HomePaths.GetDefaultAgentTraceDirectory();
 }
 
 public sealed class BuiltinProviderOptions
@@ -83,10 +90,12 @@ public sealed class BuiltinProviderOptions
     /// </summary>
     public const string ArmScope = "https://management.core.windows.net//.default";
 
-    [ConfigurationKey("endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI).", IsUri = true)]
-    public string Endpoint { get; set; } = "https://azclis-copilot-apim-beta-eus.azure-api.net/azclips/openai/";
     [ConfigurationKey("modelId", Description = "Model deployment name used by the builtin provider.")]
     public string ModelId { get; set; } = "gpt-5.4-mini";
     [ConfigurationKey("apiVersion", Description = "Azure OpenAI API version used by the builtin provider.")]
     public string ApiVersion { get; set; } = "2025-04-01-preview";
+    [ConfigurationKey("globalEndpoint", Description = "Model endpoint for tenants with a Global data boundary. Empty uses the default.")]
+    public string GlobalEndpoint { get; set; } = string.Empty;
+    [ConfigurationKey("euEndpoint", Description = "Model endpoint for EU or unknown data boundaries. Empty uses the default.")]
+    public string EuEndpoint { get; set; } = string.Empty;
 }

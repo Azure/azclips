@@ -97,7 +97,7 @@ Each iteration runs the benchmark method exactly once (`[InvocationCount(1, 1)]`
 | CLI | In-process `Core.Cli.Program.Main(args)` | Warm CLI command pipeline (extension loaded once into a process-wide ALC) |
 | PS | Cmdlet invocation on a runspace + module imported in `[IterationSetup]` (PowerShell SDK) | Warm cmdlet execution (runspace creation + module import excluded) |
 
-HTTP is short-circuited by a resource-aware stub terminate handler (`StubHttpTerminateHandler`, backed by `StubResponseMappings` + `Stubs/Fixtures/*.json`): it returns a minimal, correctly-shaped ARM body per resource type (or `{}` for unmapped paths) plus a `Retry-After: 0` header, so benchmarks measure the local CLI/PS pipeline only, never call Azure, and orchestrated long-running creates complete without real polling.
+HTTP is short-circuited by a resource-aware stub terminate handler (`StubHttpTerminateHandler`, backed by `StubResponseMappings` + `Stubs/Fixtures/*.json`): it returns a minimal, correctly-shaped ARM body per resource type (or `{}` for unmapped paths, and an empty body for DELETEs whose real API returns none, such as user assigned identities) plus a `Retry-After: 0` header, so benchmarks measure the local CLI/PS pipeline only, never call Azure, and orchestrated long-running creates complete without real polling.
 
 ---
 
@@ -115,12 +115,12 @@ tests/Benchmark/
 │   ├── CLIBenchmarkBase.cs                       # BDN attributes, extension staging + DI overrides
 │   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
 │   ├── ResourceGroupBenchmarks.cs                # CLI: List / Create / Get RG  [Resources]
-│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update UAI [ManagedServiceIdentity]
+│   ├── UserAssignedIdentityBenchmarks.cs         # CLI: List / Create / Get / Update / Delete UAI [ManagedServiceIdentity]
 │   └── VirtualMachineBenchmarks.cs               # CLI: List / Create / Get VM  [Compute]
 └── PS/
     ├── PSBenchmarkBase.cs                         # BDN attributes, runspace + module-import helper
     ├── ResourceGroupBenchmarks.cs                # PS: List / Create / Get RG   [Resources]
-    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update UAI [ManagedServiceIdentity]
+    ├── UserAssignedIdentityBenchmarks.cs         # PS: List / Create / Get / Update / Delete UAI [ManagedServiceIdentity]
     └── VirtualMachineBenchmarks.cs               # PS: List / Create / Get VM   [Compute]
 ```
 
@@ -172,6 +172,7 @@ Azure user-assigned managed identity operations, run against the resource-aware 
 | Create | `identity create` | `New-AzUserAssignedIdentity` | PUT, includes tags, isolation scope, and resource restrictions |
 | Get | `identity show` | `Get-AzUserAssignedIdentity -Name` | GET, non-LRO |
 | Update | `identity update` | `Update-AzUserAssignedIdentity` | PATCH, updates tags and isolation scope |
+| Delete | `identity delete` | `Remove-AzUserAssignedIdentity` | DELETE, confirms remove path overhead |
 
 ---
 
@@ -262,6 +263,21 @@ fork-PR comment are all derived at runtime from the `[BenchmarkExtension]` attri
 (`src/Core`, benchmark base classes, the workflow, the detection script, …) re-run
 every extension; a change confined to one extension's source or benchmark class runs
 only that extension.
+
+## Key Vault Coverage
+
+The KeyVault CLI and PowerShell suites each exercise secret set/get/list and certificate
+create/get/list. Lists traverse two synthetic pages, and certificate creation follows an
+in-progress response through one pending-operation read. HTTP is stubbed; the real MSAL
+service reads an isolated synthetic cache seeded for `https://vault.azure.net/.default`.
+Other suites retain their existing ARM cache scope.
+
+These are command-execution microbenchmarks, not live-service or certificate-cryptography
+benchmarks. Certificate bytes in the response fixture are synthetic serialization data,
+not an import/download fixture. PEM/PFX import and public export behavior are covered by
+the KeyVault unit and scenario tests. Existing sample counts and regression thresholds
+are unchanged. Shared ExtensionRuntime, authentication-fixture and telemetry changes
+select all benchmark suites in CI.
 
 ---
 

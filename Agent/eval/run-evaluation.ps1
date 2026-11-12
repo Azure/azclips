@@ -2,8 +2,8 @@
 [CmdletBinding()]
 param(
     [string] $AzclipsExe = $env:AZCLIPS_EXE,
-    [string] $OutputPath = (Join-Path ([IO.Path]::GetTempPath()) "azclips-agent-evaluation-$([guid]::NewGuid().ToString('N')).json"),
-    [string] $TracePath = (Join-Path ([IO.Path]::GetTempPath()) "azclips-agent-evaluation-traces-$([guid]::NewGuid().ToString('N'))"),
+    [string] $OutputPath,
+    [string] $TracePath,
     [ValidateSet('automatic', 'manual')]
     [string] $RecoveryMode = 'automatic',
     [ValidateRange(1, 2147483647)]
@@ -31,6 +31,16 @@ if ($env:AZCLIPS_HOME -and -not [IO.Path]::IsPathFullyQualified($env:AZCLIPS_HOM
 }
 
 $AzclipsExe = (Resolve-Path $AzclipsExe).Path
+# Default artifacts go to agent/evaluation/<run-id> under the home root (HomePaths.GetDefaultAgentEvaluationDirectory).
+$homeRoot = if ($env:AZCLIPS_HOME) {
+    $env:AZCLIPS_HOME
+}
+else {
+    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)) '.azclips'
+}
+$runDirectory = Join-Path $homeRoot 'agent' 'evaluation' ([guid]::NewGuid().ToString('N'))
+if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = Join-Path $runDirectory 'result.json' }
+if ([string]::IsNullOrWhiteSpace($TracePath)) { $TracePath = Join-Path $runDirectory 'traces' }
 $OutputPath = [IO.Path]::GetFullPath($OutputPath)
 $TracePath = [IO.Path]::GetFullPath($TracePath)
 if (Test-Path -LiteralPath $OutputPath) {
@@ -45,16 +55,41 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Semantic judge configuration is incomplete; no Agent evaluation was started. Set endpoint/deployment in Agent/eval/judge.config.local.json or configure AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT.'
 }
 $configuration = if ($RecoveryMode -eq 'manual') {
-    [ordered]@{ 'agent.recovery' = 'manual' }
+    [ordered]@{ 'agent.recovery.trigger' = 'manual' }
 }
 else {
     [ordered]@{
-        'agent.enabled' = 'true'
-        'agent.sessionStyle' = 'oneshot'
+        'agent.recovery.trigger' = 'auto'
+        'agent.recovery.style' = 'oneshot'
     }
 }
 $configuration['agent.trace.enabled'] = 'true'
 $configuration['agent.trace.path'] = $TracePath
+
+function Invoke-WithFileRetry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Action,
+
+        [int]$MaxAttempts = 10,
+
+        [int]$DelayMilliseconds = 200
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            & $Action
+            return
+        }
+        catch {
+            if ($attempt -eq $MaxAttempts) {
+                throw
+            }
+            Write-Verbose "File operation attempt $attempt failed: $($_.Exception.Message)"
+            Start-Sleep -Milliseconds $DelayMilliseconds
+        }
+    }
+}
 
 function Invoke-AzclipsCommand {
     param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
@@ -75,7 +110,7 @@ function Invoke-AzclipsCommand {
 function Invoke-Azclips {
     param([Parameter(ValueFromRemainingArguments)][string[]] $Arguments)
 
-    # Keep stderr diagnostics out of structured stdout such as agent tool env.
+    # Keep stderr diagnostics out of structured stdout such as agent tool env show.
     $output = Invoke-AzclipsCommand @Arguments | Out-String
     if ($LASTEXITCODE -ne 0) {
         throw "azclips exited with $LASTEXITCODE while running: $($Arguments -join ' ')`n$output"
@@ -152,14 +187,6 @@ function ConvertFrom-ConfigGetOutput {
     return $null
 }
 
-$runtimeEnvironment = Invoke-Azclips agent tool env | ConvertFrom-Json
-$subscriptionId = [guid]::Empty
-if ($runtimeEnvironment.signedIn -ne $true -or
-    -not [guid]::TryParse($runtimeEnvironment.subscriptionId, [ref]$subscriptionId) -or
-    $subscriptionId -eq [guid]::Empty) {
-    throw 'The reference suite requires an Azure-signed-in active profile with a subscription.'
-}
-
 function Get-PackageFingerprint {
     param([string] $Root)
 
@@ -194,56 +221,41 @@ function Get-LastJsonLine {
     return $null
 }
 
-$targetVersion = [string]$runtimeEnvironment.azclipsVersion
-if ([string]::IsNullOrWhiteSpace($targetVersion)) {
-    throw 'agent tool env did not report azclipsVersion; the evaluated target build cannot be identified.'
-}
-$target = [ordered]@{ version = $targetVersion.Trim() }
-$packageFingerprint = Get-PackageFingerprint (Split-Path -Parent $AzclipsExe)
-if ($ExpectedPackageSha256 -and $packageFingerprint.packageSha256 -ne $ExpectedPackageSha256.ToLowerInvariant()) {
-    throw "Target package fingerprint $($packageFingerprint.packageSha256) does not match -ExpectedPackageSha256 $($ExpectedPackageSha256.ToLowerInvariant()); no Agent evaluation was started."
-}
-$target.packageSha256 = $packageFingerprint.packageSha256
-$target.packageFiles = $packageFingerprint.packageFiles
+function Set-ConfigurationTelemetryOff {
+    param([string] $Path)
 
-# Product lookups answer from the on-disk ARM cache and refresh it in the background.
-# Refresh it synchronously first so every case sees the same near-real-time cache.
-$fixtureGroup = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_EVALUATION_RESOURCE_GROUP)) {
-    'azclips-test-rg'
-}
-else {
-    $env:AZCLIPS_EVALUATION_RESOURCE_GROUP.Trim()
-}
-$resourceCacheState = [ordered]@{ mode = $ResourceCache }
-if ($ResourceCache -eq 'refresh') {
-    $refreshStarted = [DateTimeOffset]::UtcNow
-    $refreshWatch = [Diagnostics.Stopwatch]::StartNew()
-    $refreshStatus = Get-LastJsonLine (Invoke-Azclips agent tool resource refresh) 'status'
-    $refreshWatch.Stop()
-    if ($null -eq $refreshStatus -or $refreshStatus.status -ne 'ok') {
-        throw 'The ARM resource cache refresh did not report status ok; no Agent evaluation was started.'
+    # Same result as `config set telemetry.enabled false`: the nested key, with legacy flat spellings removed.
+    # Comments and trailing commas are accepted because the product's configuration reader accepts them.
+    $text = if (Test-Path -LiteralPath $Path -PathType Leaf) { [IO.File]::ReadAllText($Path) } else { '' }
+    $root = [Text.Json.Nodes.JsonObject]::new()
+    if (-not [string]::IsNullOrWhiteSpace($text)) {
+        $documentOptions = [Text.Json.JsonDocumentOptions]@{
+            CommentHandling = [Text.Json.JsonCommentHandling]::Skip
+            AllowTrailingCommas = $true
+        }
+        try {
+            $root = [Text.Json.Nodes.JsonNode]::Parse($text, $null, $documentOptions)
+        }
+        catch {
+            throw "Agent configuration '$Path' is not valid JSON; no Agent evaluation was started: $(($_.Exception.InnerException ?? $_.Exception).Message)"
+        }
+        if ($root -isnot [Text.Json.Nodes.JsonObject]) {
+            throw "Agent configuration '$Path' is not a JSON object; no Agent evaluation was started."
+        }
     }
-    $lookup = Get-LastJsonLine (Invoke-Azclips agent tool resource find --name $fixtureGroup --kind resourceGroup --subscription-id $subscriptionId.ToString()) 'matchCount'
-    $fixtureFound = $null -ne $lookup -and @($lookup.matches | Where-Object {
-            $_.name -ieq $fixtureGroup -and $_.subscriptionId -ieq $subscriptionId.ToString()
-        }).Count -gt 0
-    if (-not $fixtureFound -or $lookup.cache.resources -le 0) {
-        throw "The refreshed ARM cache does not contain fixture group '$fixtureGroup' in subscription $subscriptionId. Create or select the fixture group before evaluating."
+    [void]$root.Remove('telemetry.enabled')
+    [void]$root.Remove('telemetry:enabled')
+    $telemetry = $root['telemetry']
+    if ($telemetry -isnot [Text.Json.Nodes.JsonObject]) {
+        $telemetry = [Text.Json.Nodes.JsonObject]::new()
+        $root['telemetry'] = $telemetry
     }
-    $resourceCacheState.refreshStartedAtUtc = $refreshStarted.ToString('o')
-    $resourceCacheState.refreshMs = $refreshWatch.ElapsedMilliseconds
-    $resourceCacheState.resources = [long]$lookup.cache.resources
-    $resourceCacheState.fixtureGroup = $fixtureGroup
-    $resourceCacheState.fixtureGroupFound = $true
+    $telemetry['enabled'] = [Text.Json.Nodes.JsonValue]::Create($false)
+    [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path))
+    [IO.File]::WriteAllText($Path, $root.ToJsonString([Text.Json.JsonSerializerOptions]@{ WriteIndented = $true }))
 }
 
-$configurationRoot = if ($env:AZCLIPS_HOME) {
-    $env:AZCLIPS_HOME
-}
-else {
-    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)) '.azclips'
-}
-$configurationPath = [IO.Path]::GetFullPath((Join-Path $configurationRoot 'config.json'), $PWD.ProviderPath)
+$configurationPath = [IO.Path]::GetFullPath((Join-Path $homeRoot 'config.json'), $PWD.ProviderPath)
 $configurationExisted = Test-Path -LiteralPath $configurationPath
 $configurationBackupPath = "$configurationPath.evaluation-$([guid]::NewGuid().ToString('N')).bak"
 if ($configurationExisted) {
@@ -265,41 +277,92 @@ $previousSubscriptionId = $env:AZCLIPS_EVALUATION_SUBSCRIPTION_ID
 $previousRecoveryMode = $env:AZCLIPS_EVALUATION_RECOVERY_MODE
 $previousTarget = $env:AZCLIPS_EVALUATION_TARGET
 $previousResourceCache = $env:AZCLIPS_EVALUATION_RESOURCE_CACHE
-$previousAgentSettings = $env:AZCLIPS_EVALUATION_AGENT_SETTINGS
+$previousSettings = $env:AZCLIPS_EVALUATION_SETTINGS
 $previousWarmupObservations = $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS
 $runFailure = $null
 $restoreFailure = $null
 try {
+    # Evaluation runs must not report product telemetry. Write the switch into the file before any azclips
+    # process starts: `config set` would itself start with telemetry on and report that command.
+    Set-ConfigurationTelemetryOff $configurationPath
+
+    $runtimeEnvironment = Invoke-Azclips agent tool env show | ConvertFrom-Json
+    $subscriptionId = [guid]::Empty
+    if ($runtimeEnvironment.signedIn -ne $true -or
+        -not [guid]::TryParse($runtimeEnvironment.subscriptionId, [ref]$subscriptionId) -or
+        $subscriptionId -eq [guid]::Empty) {
+        throw 'The reference suite requires an Azure-signed-in active profile with a subscription.'
+    }
+
+    $targetVersion = [string]$runtimeEnvironment.azclipsVersion
+    if ([string]::IsNullOrWhiteSpace($targetVersion)) {
+        throw 'agent tool env show did not report azclipsVersion; the evaluated target build cannot be identified.'
+    }
+    $target = [ordered]@{ version = $targetVersion.Trim() }
+    $packageFingerprint = Get-PackageFingerprint (Split-Path -Parent $AzclipsExe)
+    if ($ExpectedPackageSha256 -and $packageFingerprint.packageSha256 -ne $ExpectedPackageSha256.ToLowerInvariant()) {
+        throw "Target package fingerprint $($packageFingerprint.packageSha256) does not match -ExpectedPackageSha256 $($ExpectedPackageSha256.ToLowerInvariant()); no Agent evaluation was started."
+    }
+    $target.packageSha256 = $packageFingerprint.packageSha256
+    $target.packageFiles = $packageFingerprint.packageFiles
+
+    # Product lookups answer from the on-disk ARM cache and refresh it in the background.
+    # Refresh it synchronously first so every case sees the same near-real-time cache.
+    $fixtureGroup = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_EVALUATION_RESOURCE_GROUP)) {
+        'azclips-test-rg'
+    }
+    else {
+        $env:AZCLIPS_EVALUATION_RESOURCE_GROUP.Trim()
+    }
+    $resourceCacheState = [ordered]@{ mode = $ResourceCache }
+    if ($ResourceCache -eq 'refresh') {
+        $refreshStarted = [DateTimeOffset]::UtcNow
+        $refreshWatch = [Diagnostics.Stopwatch]::StartNew()
+        $refreshStatus = Get-LastJsonLine (Invoke-Azclips agent tool resource refresh) 'status'
+        $refreshWatch.Stop()
+        if ($null -eq $refreshStatus -or $refreshStatus.status -ne 'ok') {
+            throw 'The ARM resource cache refresh did not report status ok; no Agent evaluation was started.'
+        }
+        $lookup = Get-LastJsonLine (Invoke-Azclips agent tool resource find --name $fixtureGroup --kind resourceGroup --subscription-id $subscriptionId.ToString()) 'matchCount'
+        $fixtureFound = $null -ne $lookup -and @($lookup.matches | Where-Object {
+                $_.name -ieq $fixtureGroup -and $_.subscriptionId -ieq $subscriptionId.ToString()
+            }).Count -gt 0
+        if (-not $fixtureFound -or $lookup.cache.resources -le 0) {
+            throw "The refreshed ARM cache does not contain fixture group '$fixtureGroup' in subscription $subscriptionId. Create or select the fixture group before evaluating."
+        }
+        $resourceCacheState.refreshStartedAtUtc = $refreshStarted.ToString('o')
+        $resourceCacheState.refreshMs = $refreshWatch.ElapsedMilliseconds
+        $resourceCacheState.resources = [long]$lookup.cache.resources
+        $resourceCacheState.fixtureGroup = $fixtureGroup
+        $resourceCacheState.fixtureGroupFound = $true
+    }
+
     foreach ($entry in $configuration.GetEnumerator()) {
         Invoke-Azclips config set --key $entry.Key --value $entry.Value | Out-Null
     }
 
-    # Record the model provider settings in effect, including inherited overrides such as a pinned
-    # modelId. List every agent, HTTP-retry and telemetry key the target defines, so settings that
-    # newer builds add (for example a reasoning effort) are recorded too; older packages fall back.
-    $settingKeys = @('agent.provider', 'agent.builtin.endpoint', 'agent.builtin.scope', 'agent.builtin.modelId',
-        'agent.builtin.apiVersion', 'agent.recovery', 'agent.recovery.style')
+    # Record the HTTP-retry and telemetry settings in effect. Agent settings come from the
+    # agent_settings note in each trace instead.
+    $settingKeys = @()
     $keyListing = Invoke-AzclipsCommand config info --keys-only 2>$null | Out-String
     if ($LASTEXITCODE -eq 0 -and $keyListing -match '(?s)\[[^\[\]]*\]') {
         try {
-            $listedKeys = @(@($Matches[0] | ConvertFrom-Json) | Where-Object {
+            $settingKeys = @(@($Matches[0] | ConvertFrom-Json) | Where-Object {
                     $_ -is [string] -and $_ -notmatch '(?i)secret|token|password|apikey' -and (
-                        ($_ -like 'agent.*' -and $_ -notlike 'agent.trace.*') -or
                         $_ -like 'core.http.*' -or $_ -eq 'telemetry.enabled')
                 } | Sort-Object -Unique)
-            if ($listedKeys.Count -gt 0) { $settingKeys = $listedKeys }
         }
         catch {
-            Write-Verbose 'The target did not list its configuration keys as JSON; using the default setting list.'
+            Write-Verbose 'The target did not list its configuration keys as JSON; no settings are recorded.'
         }
     }
-    $agentSettings = [ordered]@{}
+    $settings = [ordered]@{}
     foreach ($key in $settingKeys) {
         $settingText = Invoke-AzclipsCommand config get --key $key 2>$null | Out-String
         if ($LASTEXITCODE -ne 0) { continue }
         $setting = ConvertFrom-ConfigGetOutput $settingText $key
         if ($setting) {
-            $agentSettings[$key] = ConvertTo-RecordedSetting $setting.Value $setting.Source
+            $settings[$key] = ConvertTo-RecordedSetting $setting.Value $setting.Source
         }
     }
 
@@ -313,7 +376,7 @@ try {
     $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $RecoveryMode
     $env:AZCLIPS_EVALUATION_TARGET = $target | ConvertTo-Json -Compress
     $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = $resourceCacheState | ConvertTo-Json -Compress
-    $env:AZCLIPS_EVALUATION_AGENT_SETTINGS = $agentSettings | ConvertTo-Json -Compress -Depth 4
+    $env:AZCLIPS_EVALUATION_SETTINGS = $settings | ConvertTo-Json -Compress -Depth 4
     $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS = [string]$WarmupObservations
 
     Push-Location $PSScriptRoot
@@ -352,10 +415,10 @@ catch {
 finally {
     try {
         if ($configurationExisted) {
-            [IO.File]::Move($configurationBackupPath, $configurationPath, $true)
+            Invoke-WithFileRetry { [IO.File]::Move($configurationBackupPath, $configurationPath, $true) }
         }
         else {
-            [IO.File]::Delete($configurationPath)
+            Invoke-WithFileRetry { [IO.File]::Delete($configurationPath) }
         }
     }
     catch {
@@ -375,7 +438,7 @@ finally {
     $env:AZCLIPS_EVALUATION_RECOVERY_MODE = $previousRecoveryMode
     $env:AZCLIPS_EVALUATION_TARGET = $previousTarget
     $env:AZCLIPS_EVALUATION_RESOURCE_CACHE = $previousResourceCache
-    $env:AZCLIPS_EVALUATION_AGENT_SETTINGS = $previousAgentSettings
+    $env:AZCLIPS_EVALUATION_SETTINGS = $previousSettings
     $env:AZCLIPS_EVALUATION_WARMUP_OBSERVATIONS = $previousWarmupObservations
 }
 

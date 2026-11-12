@@ -53,7 +53,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         /// </summary>
         protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachineListResult? body)
         {
-            List<VirtualMachine> virtualMachines = await body.CollectWithPaginationAsync(
+            List<VirtualMachine> virtualMachines = await body.CollectWithNextLinkAsync(
                 pageBody => pageBody.Value,
                 pageBody => pageBody.NextLink,
                 CreateRequestMessage,

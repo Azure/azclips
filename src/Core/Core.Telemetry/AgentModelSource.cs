@@ -5,8 +5,8 @@ namespace Core.Telemetry;
 
 /// <summary>
 /// Closed vocabulary for the <c>agent.modelSource</c> telemetry dimension. The dimension is
-/// documented as exactly these four values, so the set is a type rather than a convention:
-/// a mistyped literal cannot reach the exporter and quietly create a fifth value.
+/// documented as exactly these five values, so the set is a type rather than a convention:
+/// a mistyped literal cannot reach the exporter and quietly create a sixth value.
 /// </summary>
 public enum AgentModelSource
 {
@@ -21,6 +21,9 @@ public enum AgentModelSource
 
     /// <summary>The model was observed on an assistant usage event within a send.</summary>
     Usage,
+
+    /// <summary>The model was read from the gateway's <c>x-ms-served-model</c> response header.</summary>
+    Response,
 }
 
 /// <summary>Wire mapping for <see cref="AgentModelSource"/>.</summary>
@@ -36,6 +39,7 @@ public static class AgentModelSourceExtensions
         AgentModelSource.Configuration => "configuration",
         AgentModelSource.Sdk => "sdk",
         AgentModelSource.Usage => "usage",
+        AgentModelSource.Response => "response",
         _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unmapped agent model source."),
     };
 }

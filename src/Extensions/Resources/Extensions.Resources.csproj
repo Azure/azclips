@@ -10,11 +10,13 @@
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
         <PackageId>Microsoft.Azure.Azclips.Extensions.Resources</PackageId>
-        <Version>0.1.3</Version>
+        <Version>0.1.5</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <EnableDynamicLoading>true</EnableDynamicLoading>
+        <!-- Generated models declare non-nullable reference properties without initializers. -->
+        <NoWarn>$(NoWarn);CS8618</NoWarn>
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />

@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Compute
-ms.date: 10/13/2026
+ms.date: 11/02/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVM
 ---
@@ -21,24 +21,27 @@ Create a virtual machine with a new network interface or attach existing network
 
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
- -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceName <string>
- [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
+ -AdminUsername <string> -NetworkInterfaceName <string> [-SubscriptionId <string>] [-Zone <string>]
+ [-StorageSku <string>] [-OSDiskDeleteOption <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-VirtualNetworkName <string>] [-SecurityGroupName <string>] [-SubnetName <string>]
- [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-AdminPassword <string>]
+ [-SshKeyValues <string[]>] [-VirtualNetworkName <string>] [-SecurityGroupName <string>]
+ [-SubnetName <string>] [-NetworkInterfaceDeleteOption <string>] [-SubnetNames <string[]>]
  [-SubnetAddressPrefixes <string[][]>] [-AddressPrefixes <string[]>] [-AcceleratedNetworking]
- [-PublicIpAddressName <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-PublicIpAddressName <string>] [-Tags <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ### ExistingNetworkInterface
 
 ```
 New-AzVM -Name <string> -Location <string> -ResourceGroupName <string> -VmSize <string>
- -AdminUsername <string> -AdminPassword <string> -NetworkInterfaceId <string[]>
- [-SubscriptionId <string>] [-Image <string>] [-SecurityType <string>]
+ -AdminUsername <string> -NetworkInterfaceId <string[]> [-SubscriptionId <string>] [-Zone <string>]
+ [-StorageSku <string>] [-OSDiskDeleteOption <string>] [-Image <string>] [-SecurityType <string>]
  [-OSDiskSecurityEncryptionType <string>] [-OSDiskSecureVMDiskEncryptionSet <string>]
- [-NetworkInterfaceDeleteOption <string>] [-Profile <string>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-EnableSecureBoot <bool>] [-EnableVtpm <bool>] [-AdminPassword <string>]
+ [-SshKeyValues <string[]>] [-NetworkInterfaceDeleteOption <string>] [-Tags <hashtable>]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -56,6 +59,10 @@ Use `-NetworkInterfaceId` instead of the network-creation parameters to attach o
 Use `-NetworkInterfaceDeleteOption` to choose whether attached network interfaces are deleted or detached when the virtual machine is deleted.
 In the default parameter set, the public IP address is a Standard, static address named after the virtual machine with a `PublicIP` suffix (for example `myvmPublicIP`), created or, if it already exists, updated.
 Use `-PublicIpAddressName` to choose the public IP address by name or resource ID, or pass an empty string to create none.
+Use `-Zone` to place the virtual machine in a single availability zone.
+Use `-StorageSku` to choose the storage SKU of the managed OS disk.
+Use `-OSDiskDeleteOption` to choose whether the OS disk is deleted or kept when the virtual machine is deleted.
+For Linux images, use `-SshKeyValues` with inline SSH public keys or public key file paths. `-AdminPassword` is optional when at least one SSH public key is supplied; omitting it disables password authentication.
 Use this command when you want a one-shot VM deployment without composing the underlying resources individually.
 
 ## EXAMPLES
@@ -68,6 +75,15 @@ Assign `$adminPassword` from a secure source in your own pipeline before invokin
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet
+```
+
+### Create a Linux VM with SSH key-only authentication
+
+Provision an Ubuntu VM using an existing SSH public key. Because `-AdminPassword` is omitted, password authentication is disabled.
+
+```powershell
+$sshPublicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8g'
+New-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest -AdminUsername azureuser -SshKeyValues $sshPublicKey -NetworkInterfaceName mynic -VirtualNetworkName myvnet
 ```
 
 ### Create a VM that uses an existing network security group
@@ -88,6 +104,15 @@ If a public IP address named `myvm-ip` already exists in `myrg`, it is attached 
 ```powershell
 $adminPassword = 'P@ssw0rd-replace-me!'
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -PublicIpAddressName myvm-ip
+```
+
+### Create a Trusted Launch VM with secure boot disabled
+
+Provision a Trusted Launch VM and explicitly disable secure boot while keeping vTPM enabled.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest -SecurityType TrustedLaunch -EnableSecureBoot $false -EnableVtpm $true -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet
 ```
 
 ### Create a VM without a public IP address
@@ -122,6 +147,42 @@ $nicIds = @(
     '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Network/networkInterfaces/my-secondary-nic'
 )
 New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceId $nicIds -NetworkInterfaceDeleteOption Detach
+```
+
+### Create a VM with tags
+
+Provision the same stack and tag the virtual machine, network interface, virtual network, network security group, and public IP address with `env=prod` and `owner=team-a`.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Tags @{ env = 'prod'; owner = 'team-a' }
+```
+
+### Create a VM in availability zone 1
+
+Deploy the VM in zone `1`.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -Zone 1
+```
+
+### Create a VM with a Premium SSD OS disk
+
+Use Premium SSD storage for the managed OS disk.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -StorageSku Premium_LRS
+```
+
+### Create a VM whose OS disk is deleted with the VM
+
+Delete the managed OS disk when the VM is deleted.
+
+```powershell
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-AzVM -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -OSDiskDeleteOption Delete
 ```
 
 ## PARAMETERS
@@ -171,7 +232,7 @@ HelpMessage: ''
 
 ### -AdminPassword
 
-The administrator password.
+The administrator password. For a Linux image, this parameter can be omitted when at least one SSH public key is supplied with `-SshKeyValues`; omitting it disables password authentication.
 
 ```yaml
 Type: System.String
@@ -181,7 +242,7 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -221,6 +282,48 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableSecureBoot
+
+Enables or disables secure boot in the virtual machine UEFI settings.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -EnableVtpm
+
+Enables or disables vTPM in the virtual machine UEFI settings.
+
+```yaml
+Type: System.Nullable`1[System.Boolean]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -359,6 +462,27 @@ ParameterSets:
 - Name: NewNetworkInterface
   Position: Named
   IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -OSDiskDeleteOption
+
+Whether the OS disk is deleted (`Delete`) or kept (`Detach`) when the virtual machine is deleted. When omitted, the service default (`Detach`) applies.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -532,6 +656,48 @@ AcceptedValues:
 HelpMessage: ''
 ```
 
+### -SshKeyValues
+
+One or more SSH public key values or paths to existing public key files. This parameter requires a Linux marketplace image. When `-AdminPassword` is omitted, password authentication is disabled.
+
+```yaml
+Type: System.String[]
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -StorageSku
+
+The storage SKU for the virtual machine's managed OS disk, such as `Premium_LRS`, `StandardSSD_LRS`, `Standard_LRS`, `Premium_ZRS`, or `StandardSSD_ZRS`. When omitted, the service default applies.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -SubnetAddressPrefixes
 
 Address prefixes for each subnet.
@@ -618,6 +784,28 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Tags
+
+Tags to apply to the virtual machine and to every network resource the command creates.
+Resources the command only attaches keep their own tags, such as network interfaces supplied through `-NetworkInterfaceId`, the virtual network of an existing subnet selected with `-SubnetName`, or an existing network security group or public IP address.
+
+```yaml
+Type: System.Collections.Hashtable
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -VirtualNetworkName
 
 The virtual network name to create or use when `-SubnetName` is a subnet name.
@@ -662,8 +850,7 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
+Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -671,6 +858,27 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - wi
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Zone
+
+Availability zone value for the virtual machine, such as `1`, `2`, or `3`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -702,11 +910,7 @@ The newly-created `VirtualMachine` object, including its assigned ARM resource I
 
 ## NOTES
 
-Generated help for compute.
 Networking resources are created or reused only in the default `NewNetworkInterface` parameter set.
 The `ExistingNetworkInterface` parameter set uses the existing NICs and their networking configuration without creating networking resources.
 
 ## RELATED LINKS
-
-
-- [Online Version]()

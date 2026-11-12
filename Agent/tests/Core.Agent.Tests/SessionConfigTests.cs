@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
+using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Plan;
+using Core.Agent.Telemetry;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using Core.Agent.Tools.Resource.Sku;
@@ -33,11 +35,11 @@ public class SessionConfigTests
     [InlineData("github", "interactive", "medium", "medium")]
     [InlineData("github", "interactive", "high", "high")]
     public async Task ConfiguredEffort_ReachesSdk_ForEveryProviderAndStyle(
-        string provider, string sessionStyle, string? effort, string expectedEffort)
+        string provider, string style, string? effort, string expectedEffort)
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.sessionStyle", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.recovery.style", style);
         if (effort is not null)
             await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", effort);
         var auth = new RecordingAuthService();
@@ -54,13 +56,13 @@ public class SessionConfigTests
             Assert.Equal(options.Builtin.ModelId, config.Provider.WireModel);
             Assert.Equal("azure", config.Provider.Type);
             Assert.Equal("responses", config.Provider.WireApi);
-            Assert.Equal(1, auth.CallCount);
+            Assert.Equal(1, auth.AcquireCount);
         }
         else
         {
             Assert.Null(config.Model);
             Assert.Null(config.Provider);
-            Assert.Equal(0, auth.CallCount);
+            Assert.Equal(0, auth.AcquireCount);
         }
     }
 
@@ -69,11 +71,11 @@ public class SessionConfigTests
     [InlineData("builtin", "interactive")]
     [InlineData("github", "oneshot")]
     [InlineData("github", "interactive")]
-    public async Task DeletedOverride_SendsMediumToSdk(string provider, string sessionStyle)
+    public async Task DeletedOverride_SendsMediumToSdk(string provider, string style)
     {
         using var fixture = new ConfigurationFixture();
         await fixture.Service.SetConfigurationAsync("agent.provider", provider);
-        await fixture.Service.SetConfigurationAsync("agent.sessionStyle", sessionStyle);
+        await fixture.Service.SetConfigurationAsync("agent.recovery.style", style);
         await fixture.Service.SetConfigurationAsync("agent.reasoningEffort", "high");
         var configured = await BuildAsync(fixture.Service.GetConfiguration<AgentOptions>(), new RecordingAuthService());
         Assert.Equal("high", configured.ReasoningEffort);
@@ -108,7 +110,7 @@ public class SessionConfigTests
     [InlineData("builtin", "interactive", " high ")]
     [InlineData("github", "interactive", "xhigh")]
     public async Task InvalidFileConfiguration_IsRejectedBeforeAuthentication(
-        string provider, string sessionStyle, string? effort)
+        string provider, string style, string? effort)
     {
         using var fixture = new ConfigurationFixture();
         // A hand-edited file bypasses config set's schema validation.
@@ -117,7 +119,7 @@ public class SessionConfigTests
             ["agent"] = new JsonObject
             {
                 ["provider"] = provider,
-                ["sessionStyle"] = sessionStyle,
+                ["recovery"] = new JsonObject { ["style"] = style },
                 ["reasoningEffort"] = effort,
             },
         });
@@ -128,7 +130,7 @@ public class SessionConfigTests
 
         Assert.Contains("agent.reasoningEffort", exception.Message);
         Assert.Contains("low | medium | high", exception.Message);
-        Assert.Equal(0, auth.CallCount);
+        Assert.Equal(0, auth.AcquireCount);
     }
 
     [Theory]
@@ -143,7 +145,6 @@ public class SessionConfigTests
             Builtin = new BuiltinProviderOptions
             {
                 ModelId = "custom-deployment",
-                Endpoint = "https://example.invalid/openai/",
                 ApiVersion = "test-api-version",
             },
         };
@@ -159,34 +160,37 @@ public class SessionConfigTests
             Assert.NotNull(config.Provider);
             Assert.Equal("custom-deployment", config.Provider.ModelId);
             Assert.Equal("custom-deployment", config.Provider.WireModel);
-            Assert.Equal("https://example.invalid/openai/", config.Provider.BaseUrl);
+            Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.ProdWestEurope, config.Provider.BaseUrl);
             Assert.Equal("test-api-version", config.Provider.Azure?.ApiVersion);
             Assert.Equal("test-access-token", config.Provider.BearerToken);
-            Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.Scopes);
-            Assert.False(auth.PromptOnError);
-            Assert.Equal(cts.Token, auth.Token);
+            Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.LastScopes);
+            Assert.False(auth.LastPromptOnError);
+            Assert.Equal(cts.Token, auth.LastCancellationToken);
         }
         else
         {
             Assert.Null(config.Model);
             Assert.Null(config.Provider);
-            Assert.Equal(0, auth.CallCount);
+            Assert.Equal(0, auth.AcquireCount);
         }
     }
 
     [Theory]
     [InlineData("oneshot", true)]
     [InlineData("interactive", false)]
-    public async Task Effort_PreservesSessionSettingsAndCallbacks(string sessionStyle, bool oneShot)
+    public async Task Effort_PreservesSessionSettingsAndCallbacks(string style, bool oneShot)
     {
         var renderer = new EventRenderer();
-        var options = new AgentOptions { Provider = "github", SessionStyle = sessionStyle, ReasoningEffort = "low" };
+        var options = new AgentOptions { Provider = "github", Recovery = new() { Style = style }, ReasoningEffort = "low" };
         using var cts = new CancellationTokenSource();
 
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
 
         Assert.True(Guid.TryParse(config.SessionId, out _));
-        Assert.Equal(HomePaths.GetDefaultHomeRoot(), config.ConfigDirectory);
+        // Pin Agent data to the home root while respecting AZCLIPS_HOME.
+        var expectedCopilot = Path.Combine(
+            HomePaths.GetDefaultHomeRoot(), HomePaths.AgentDirectoryName, HomePaths.AgentCopilotDirectoryName);
+        Assert.Equal(expectedCopilot, config.ConfigDirectory);
         Assert.True(config.Streaming);
         Assert.Null(config.AvailableTools);
         Assert.NotNull(config.SystemMessage);
@@ -224,6 +228,47 @@ public class SessionConfigTests
     }
 
     [Fact]
+    public async Task ReadOfAFileThatTheFailedCommandNames_IsApprovedWithoutPrompting()
+    {
+        var directory = Directory.CreateTempSubdirectory("azclips-session-files-").FullName;
+        using var cts = new CancellationTokenSource();
+        try
+        {
+            var template = Path.Combine(directory, "web-app.bicep");
+            File.WriteAllText(template, "param name string");
+            var options = new AgentOptions { Provider = "github", Recovery = new RecoveryOptions { Style = "oneshot" } };
+            var state = new SessionState
+            {
+                IsOneShot = true,
+                FailedCommandFiles = FailedCommandFiles.From("deployment group create --template-file web-app.bicep", directory),
+            };
+            var config = await BuildAsync(options, new RecordingAuthService(), ct: cts.Token, state: state);
+
+#pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            var pending = config.OnPermissionRequest!(
+                new PermissionRequestRead { Path = template, Intention = "Read the template" }, default!);
+            // A read that went to the approval prompt would wait there until the session ends.
+            Assert.True(pending == await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(10))),
+                "The read of the named file went to the approval prompt.");
+            Assert.Equal(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce().Kind, (await pending).Kind);
+#pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+            // Any other file still goes to the approval prompt, which stops when the session is canceled.
+            cts.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await config.OnPermissionRequest!(new PermissionRequestRead
+                {
+                    Path = Path.Combine(directory, "other.bicep"), Intention = "Read a file",
+                }, default!));
+        }
+        finally
+        {
+            cts.Cancel();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ProviderAuthenticationCancellation_IsNotConvertedToAnError()
     {
         using var cts = new CancellationTokenSource();
@@ -234,7 +279,7 @@ public class SessionConfigTests
             BuildAsync(new AgentOptions(), auth, ct: cts.Token));
 
         Assert.Equal(cts.Token, exception.CancellationToken);
-        Assert.Equal(1, auth.CallCount);
+        Assert.Equal(1, auth.AcquireCount);
     }
 
     [Fact]
@@ -246,7 +291,7 @@ public class SessionConfigTests
             BuildAsync(new AgentOptions { Provider = "unknown" }, auth));
 
         Assert.Contains("Unknown agent.provider value: 'unknown'. Expected: builtin | github.", exception.Message);
-        Assert.Equal(0, auth.CallCount);
+        Assert.Equal(0, auth.AcquireCount);
     }
 
     [Fact]
@@ -268,42 +313,36 @@ public class SessionConfigTests
         Assert.Equal("high", config.ReasoningEffort);
     }
 
+    private static readonly ConfigurationFixture s_configuration = new();
+
     private static Task<SessionConfig> BuildAsync(
-        AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default)
+        AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default,
+        SessionState? state = null)
     {
         const string azExePath = @"C:\test-only\az.exe";
         var profile = new StubProfileService();
         return ChatAgent.BuildSessionConfigAsync(
             options, auth, "test system prompt",
             new CachedResourceTools(new ArmDetailsClient(auth), profile),
-            new HelpTools(azExePath),
+            new HelpTools(azExePath, s_configuration.Service),
             new AvailableLocationsTool(auth, profile),
             new SubmitResponseTool(),
             new ProposePlanTool(),
             azExePath,
+            profile,
             new ConsoleApprovalPrompt(),
             renderer ?? new EventRenderer(),
-            new SessionState { IsOneShot = !options.IsInteractive },
+            state ?? new SessionState { IsOneShot = !options.Recovery.IsInteractive },
             failedHelp: null,
-            entrypoint: options.IsInteractive ? "inline" : "oneshot",
+            entrypoint: options.Recovery.IsInteractive ? "inline" : "oneshot",
+            new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),
             ct);
     }
 
-    private sealed class RecordingAuthService : IAuthService
+    private sealed class RecordingAuthService : StubAuthService
     {
-        public int CallCount { get; private set; }
-        public string[]? Scopes { get; private set; }
-        public bool PromptOnError { get; private set; }
-        public CancellationToken Token { get; private set; }
-
-        public Task<AuthResult> AcquireTokenSilentlyAsync(
-            string[]? scopes, string? tenantId, bool promptOnError = false,
-            CancellationToken cancellationToken = default, Profile? profile = null)
+        protected override Task<AuthResult> AcquireTokenAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken)
         {
-            CallCount++;
-            Scopes = scopes;
-            PromptOnError = promptOnError;
-            Token = cancellationToken;
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(new AuthResult
             {
@@ -314,11 +353,7 @@ public class SessionConfigTests
             });
         }
 
-        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
+        public override Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }
 

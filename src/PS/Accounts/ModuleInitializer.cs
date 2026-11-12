@@ -30,6 +30,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
                 services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
                 services.AddSingleton<IUserAgentHandler, PSUserAgentHandler>();
+                services.AddSingleton<IProductVersionProvider, PSVersionProvider>();
             });
             AzclipsServiceProvider.Initialize(
                 new ClientMetadata(
@@ -45,4 +46,5 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     {
         AzclipsServiceProvider.Dispose();
     }
+
 }

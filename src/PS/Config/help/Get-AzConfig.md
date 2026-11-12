@@ -89,9 +89,4 @@ One configuration entry for an exact key, or configuration entries with relative
 
 ## NOTES
 
-Generated help for config.
-
 ## RELATED LINKS
-
-
-- [Online Version]()

@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Authentication;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Core.Runtime.Handler;
 using Moq;
 using Xunit;
@@ -15,17 +16,9 @@ namespace Cli.Tests;
 /// <summary>
 /// Managed identity login E2E tests with a mock IMDS endpoint.
 /// <para>
-/// These tests isolate the profile store by pointing <c>LOCALAPPDATA</c> / <c>XDG_DATA_HOME</c> at a
-/// throwaway temp directory so the CLI subprocess never touches the real <c>~/.azclips</c>. That redirection
-/// only works on <b>Linux</b>: there .NET's
-/// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> for
-/// <see cref="System.Environment.SpecialFolder.LocalApplicationData"/> reads the <c>$XDG_DATA_HOME</c>
-/// environment variable. On <b>Windows</b> the same call resolves via the Win32 known-folder API
-/// (registry <c>User Shell Folders</c>), and on <b>macOS</b> it resolves via
-/// <c>NSApplicationSupportDirectory</c> (<c>~/Library/Application Support</c>); both <b>ignore the
-/// process-set environment variables</b>, so the subprocess would write to the developer's real profile
-/// store instead of the temp directory — breaking the assertions and polluting the real store. The
-/// profile-dependent cases are therefore restricted to Linux via <see cref="LinuxOnlyFactAttribute"/>.
+/// These tests isolate the CLI subprocess's state with <c>AZCLIPS_HOME</c>, so login and logout
+/// never touch the developer's real profile store on any platform.
+/// A test-only CLI host mocks ARM subscription access alongside the mock IMDS endpoint.
 /// </para>
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
@@ -66,8 +59,6 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        // must exist before use: on Unix GetFolderPath(LocalApplicationData) returns
-        // empty if the dir isn't there
         _localAppDataDir = Path.Combine(Path.GetTempPath(), "azclips-mi-e2e", Guid.NewGuid().ToString("N"));
         _profileDirectory = Path.Combine(_localAppDataDir, HomePaths.DefaultHomeDirectoryName);
         Directory.CreateDirectory(_profileDirectory);
@@ -114,63 +105,49 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         }
     }
 
-    /// <summary>Runs the CLI subprocess against the mock IMDS endpoint.</summary>
+    /// <summary>Runs the CLI subprocess against mock IMDS and ARM endpoints.</summary>
     private async Task<int> RunCliAsync(string cliBinary, params string[] args)
     {
+        var repoRoot = Directory.GetParent(ResolveArtifactsDirectory())!.Parent!.FullName;
+        var worker = Path.Combine(repoRoot, "tests", "Fixtures", "ManagedIdentityCli", "bin",
+            BuildConfiguration, "net10.0", "ManagedIdentity.TestWorker.dll");
+        Assert.True(File.Exists(worker), $"Test worker not found: {worker}. Build Cli.Tests first.");
         var psi = new ProcessStartInfo
         {
-            FileName = cliBinary,
+            FileName = "dotnet",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
         };
-
-        // route MI calls to the mock server
         psi.Environment["AZURE_POD_IDENTITY_AUTHORITY_HOST"] = _imds!.Url;
-
-        // point the subprocess at the temp store too (LOCALAPPDATA on Windows,
-        // XDG_DATA_HOME on Mac/Linux) so login/logout stay off the real ~/.azclips
-        psi.Environment["LOCALAPPDATA"] = _localAppDataDir;
-        psi.Environment["XDG_DATA_HOME"] = _localAppDataDir;
-
+        psi.Environment[HomePaths.HomeOverrideVariable] = _profileDirectory;
+        psi.ArgumentList.Add(worker);
+        psi.ArgumentList.Add(Path.GetDirectoryName(cliBinary)!);
         foreach (var arg in args)
         {
             psi.ArgumentList.Add(arg);
         }
+        await File.WriteAllTextAsync(Path.Combine(_profileDirectory, "config.json"),
+            """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
 
         using var process = new Process { StartInfo = psi };
-        var output = new StringBuilder();
-        var error = new StringBuilder();
-
-        process.OutputDataReceived += (sender, e) =>
+        process.OutputDataReceived += (_, e) =>
         {
-            if (e.Data != null)
-            {
-                output.AppendLine(e.Data);
-                Console.WriteLine($"[CLI OUT] {e.Data}");
-            }
+            if (e.Data is not null) Console.WriteLine($"[CLI OUT] {e.Data}");
         };
-
-        process.ErrorDataReceived += (sender, e) =>
+        process.ErrorDataReceived += (_, e) =>
         {
-            if (e.Data != null)
-            {
-                error.AppendLine(e.Data);
-                Console.WriteLine($"[CLI ERR] {e.Data}");
-            }
+            if (e.Data is not null) Console.WriteLine($"[CLI ERR] {e.Data}");
         };
-
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-
         await process.WaitForExitAsync();
-
         return process.ExitCode;
     }
 
-    [LinuxOnlyFact]
+    [Fact]
     public async Task ManagedIdentity_E2E_SystemAssigned_ShouldLoginAndSaveProfile()
     {
         // Arrange
@@ -209,7 +186,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         Assert.Contains("MSI@", profilesJson);
     }
 
-    [LinuxOnlyFact]
+    [Fact]
     public async Task ManagedIdentity_E2E_UserAssignedClientId_ShouldLoginAndSaveProfile()
     {
         // Arrange
@@ -236,7 +213,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
 
 
-    [LinuxOnlyFact]
+    [Fact]
     public async Task ManagedIdentity_E2E_CommandWithToken_ShouldUseTokenFromProfile()
     {
         // Exercise AuthHandler and verify it stamps the saved MI token on requests.
@@ -254,15 +231,22 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         Assert.NotNull(savedProfile);
         Assert.Equal(AuthMethod.ManagedIdentity, savedProfile!.AuthMethod);
 
+        var reauthExitCode = await RunCliAsync(cliBinary, "login", "--profile", savedProfile.Name);
+        Assert.Equal(0, reauthExitCode);
+
         // same auth service commands use for silent refresh
-        var msalOptions = new MsalClientOptions();
+        var persistence = new FilePersistenceStore(_profileDirectory);
+        var msalOptions = new MsalClientOptions(persistence);
+        var secretStore = new ServicePrincipalSecretStore(persistence, Logger);
         var authService = new MsalAuthService(
             Logger,
             Telemetry,
             profileService,
             new ClientMetadata(ClientType.CLI, MockClientId),
             new ManagedIdentityAuthenticator(new AzureCredentialFactory(), Logger, Telemetry),
-            new FederatedTokenAuthenticator(Logger, Telemetry, msalOptions),
+            new FederatedTokenAuthenticator(Logger, Telemetry, secretStore, msalOptions),
+            new ServicePrincipalSecretAuthenticator(Logger, Telemetry, secretStore, msalOptions),
+            secretStore,
             msalOptions);
 
         // production handler that adds the bearer token
@@ -294,7 +278,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
     }
 
 
-    [LinuxOnlyFact]
+    [Fact]
     public async Task ManagedIdentity_E2E_MultipleIdSelectors_ShouldFail()
     {
         // only one user-assigned MI selector is allowed
@@ -304,7 +288,8 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         var objectId = "22222222-2222-2222-2222-222222222222";
 
         var exitCode = await RunCliAsync(
-            cliBinary, "login", "--identity", "--client-id", clientId, "--object-id", objectId);
+            cliBinary, "login", "--identity", "--subscription-id", MockSubscriptionId,
+            "--client-id", clientId, "--object-id", objectId);
 
         Assert.NotEqual(0, exitCode);
     }
@@ -341,7 +326,8 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
 
     private static string ResolveCliBinary()
     {
-        var cliBinary = Path.Combine(ResolveArtifactsDirectory(), "Core.Cli", "az");
+        var cliBinary = Path.Combine(ResolveArtifactsDirectory(), "Core.Cli",
+            OperatingSystem.IsWindows() ? "az.exe" : "az");
 
         if (!File.Exists(cliBinary))
         {
@@ -376,7 +362,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
     private ProfileService CreateProfileService()
     {
         // same temp store the subprocess writes to
-        return new ProfileService(Logger, _profileDirectory);
+        return new ProfileService(Logger, new FilePersistenceStore(_profileDirectory));
     }
 
     private void ResetProfiles()
@@ -393,26 +379,4 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         }
     }
 
-    /// <summary>
-    /// A <see cref="FactAttribute"/> that runs only on Linux. The profile-store isolation these tests rely on
-    /// works by redirecting <c>LOCALAPPDATA</c> / <c>XDG_DATA_HOME</c> to a temp directory, which only affects
-    /// <see cref="System.Environment.GetFolderPath(System.Environment.SpecialFolder)"/> on Linux. Windows
-    /// resolves <c>LocalApplicationData</c> via the Win32 known-folder API and macOS via
-    /// <c>NSApplicationSupportDirectory</c>; neither honors the environment override, so the CLI subprocess
-    /// would write to the developer's real profile store instead of the temp one — failing the assertions and
-    /// polluting that store. Skip until the CLI honors an explicit cross-platform override.
-    /// </summary>
-    private sealed class LinuxOnlyFactAttribute : FactAttribute
-    {
-        public LinuxOnlyFactAttribute()
-        {
-            if (!OperatingSystem.IsLinux())
-            {
-                Skip = "Profile-store isolation redirects LOCALAPPDATA/XDG_DATA_HOME, which only affects "
-                    + "GetFolderPath on Linux. Windows resolves LocalApplicationData via the Win32 "
-                    + "known-folder API and macOS via NSApplicationSupportDirectory, so neither honors the "
-                    + "env override and the store cannot be isolated.";
-            }
-        }
-    }
 }
