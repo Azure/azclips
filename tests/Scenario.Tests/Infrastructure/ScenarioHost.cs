@@ -88,7 +88,12 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "Microsoft.Azure.Azclips.Extensions.Storage",
         typeof(Microsoft.Azure.Azclips.Extensions.Storage.ExtensionIndex).Assembly,
         "storage",
-        ["", "account create", "account show", "account list", "account delete"]);
+        ["", "account create", "account show", "account list", "account delete",
+            "container create", "container delete",
+            "blob list", "blob show", "blob upload", "blob upload-from-url", "blob download", "blob copy start", "blob delete",
+            "share create", "share show", "share list", "share update", "share delete",
+            "directory create", "directory show", "directory delete",
+            "file list", "file show", "file create", "file upload", "file download", "file copy start", "file delete"]);
     public static readonly ExtensionUnderTest Network = new(
         "Network",
         "Microsoft.Azure.Azclips.Extensions.Network",
