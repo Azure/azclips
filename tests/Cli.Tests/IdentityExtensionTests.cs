@@ -23,6 +23,7 @@ namespace Cli.Tests;
 public class IdentityExtensionTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
+    private const string MissingIdentityAddressMessage = "Provide either --ids, or both --name and --resource-group.";
 
     [Fact]
     public void CliMetadata_ExposesDocumentedIdentityCommandSet()
@@ -73,6 +74,42 @@ public class IdentityExtensionTests
         Assert.Equal("ResourceGroup", metadata.Parameters["resource-group"].Name);
         Assert.Equal("ResourceName", metadata.Parameters["name"].Name);
         Assert.Equal("TagsInput", metadata.Parameters["tags"].Name);
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public async Task CliProcess_AddressedIdentityCommandWithoutAddress_ThrowsInvalidInput(string commandName)
+    {
+        IProcessor processor = BindIdentityCommand(commandName, new());
+
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public async Task CliProcess_AddressedIdentityCommandWithNameOnly_ThrowsInvalidInput(string commandName)
+    {
+        IProcessor processor = BindIdentityCommand(commandName, new() { ["name"] = "identity-name" });
+
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public async Task CliProcess_AddressedIdentityCommandWithResourceGroupOnly_ThrowsInvalidInput(string commandName)
+    {
+        IProcessor processor = BindIdentityCommand(commandName, new() { ["resource-group"] = "test-rg" });
+
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
     }
 
     [Fact]
@@ -820,6 +857,22 @@ public class IdentityExtensionTests
         processor.ForceString = "maybe";
 
         await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+    }
+
+    private static IProcessor BindIdentityCommand(string commandName, Dictionary<string, string> arguments)
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata(commandName, ClientType.CLI);
+        IProcessor processor = metadata.GetInstance();
+        var logging = new ConsoleLoggingService();
+        var binder = new ArgumentParsingService(
+            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
+            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
+
+        return binder.BindArgumentsToProcessor(
+            processor,
+            arguments.ToDictionary(kvp => kvp.Key, kvp => (object)new List<List<string>> { new() { kvp.Value } }),
+            metadata,
+            new Profile { SubscriptionId = TestSubscriptionId });
     }
 
     private static T CreateProcessor<T>(IRuntimeHttpPipeline pipeline, IOutputHandler output, Profile? profile = null)
