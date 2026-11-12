@@ -279,8 +279,288 @@ namespace Microsoft.Azure.AzClips.Extensions.StorageBlob
         );
         #endregion
 
+        #region PS Command Metadata
+        private static readonly CommandMetadata psGetStorageBlobList = new(
+            Name: nameof(ListBlobsContainerProcessor),
+            InvocationName: "Get-AzStorageBlob_List",
+            Aliases: [],
+            FullName: typeof(ListBlobsContainerProcessor).FullName!,
+            AssemblyName: typeof(ListBlobsContainerProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(ListBlobsContainerProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The container URL. Alternative to -StorageAccountName and -ContainerName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Storage account name. Used with the container (and blob) name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature. Alternative to -StorageAccountKey.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Prefix"] = new("Prefix", "Prefix", typeof(string), "Filters the results to return only resources whose name begins with the specified prefix.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Marker"] = new("Marker", "Marker", typeof(string), "An opaque string value that identifies the portion of the result set to return with this operation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Maxresults"] = new("Maxresults", "Maxresults", typeof(int), "Specifies the maximum number of resources to return.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Include"] = new("Include", "Include", typeof(string[]), "Specify to include additional, optional information.", IsRequired: false, Aliases: [], AllowedValues: ["copy", "deleted", "metadata", "snapshots", "uncommittedblobs", "versions", "tags", "immutabilitypolicy", "legalhold", "deletedwithversions"]),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StartFrom"] = new("StartFrom", "StartFrom", typeof(string), "Specifies the relative path to list paths from.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata psGetStorageBlobGet = new(
+            Name: nameof(GetPropertiesBlobProcessor_Orchestrator),
+            InvocationName: "Get-AzStorageBlob_Get",
+            Aliases: [],
+            FullName: typeof(GetPropertiesBlobProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(GetPropertiesBlobProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(GetPropertiesBlobProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The blob URL. Alternative to -StorageAccountName, -ContainerName and -BlobName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Storage account name. Used with the container (and blob) name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobName"] = new("BlobName", "BlobName", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature. Alternative to -StorageAccountKey.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Snapshot"] = new("Snapshot", "Snapshot", typeof(string), "Specifies the snapshot of the blob.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["VersionId"] = new("VersionId", "VersionId", typeof(string), "Specifies the version ID of the blob.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["LeaseId"] = new("LeaseId", "LeaseId", typeof(string), "If specified, the operation only succeeds if the resource's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EncryptionKey"] = new("EncryptionKey", "EncryptionKey", typeof(string), "Specifies the encryption key to use to encrypt the data provided in the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EncryptionKeySha256"] = new("EncryptionKeySha256", "EncryptionKeySha256", typeof(string), "The SHA-256 hash of the provided encryption key. Must be provided if the encryption key is provided.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EncryptionAlgorithm"] = new("EncryptionAlgorithm", "EncryptionAlgorithm", typeof(string), "The algorithm used to produce the encryption key hash. Must be provided if the encryption key is provided.", IsRequired: false, Aliases: [], AllowedValues: ["AES256"]),
+                ["IfModifiedSince"] = new("IfModifiedSince", "IfModifiedSince", typeof(string), "Specify this value to operate only on a blob if it has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfUnmodifiedSince"] = new("IfUnmodifiedSince", "IfUnmodifiedSince", typeof(string), "Specify this value to operate only on a blob if it has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfMatch"] = new("IfMatch", "IfMatch", typeof(string), "Specify this value to operate only on a blob with a matching Etag value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfNoneMatch"] = new("IfNoneMatch", "IfNoneMatch", typeof(string), "Specify this value to operate only on a blob with a non-matching Etag value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfTags"] = new("IfTags", "IfTags", typeof(string), "Specifies a SQL-like where clause on blob tags to operate only on a blob with matching tags.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata psStartStorageBlobCopy = new(
+            Name: nameof(StartCopyFromUrlBlobProcessor_Orchestrator),
+            InvocationName: "Start-AzStorageBlobCopy",
+            Aliases: [],
+            FullName: typeof(StartCopyFromUrlBlobProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(StartCopyFromUrlBlobProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(StartCopyFromUrlBlobProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The destination blob URL. Alternative to -StorageAccountName, -ContainerName and -BlobName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Destination storage account name. Used with the container and blob name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Destination storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature for the destination. Alternative to -StorageAccountKey; a source SAS goes in -SourceUrl.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The destination container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobName"] = new("BlobName", "BlobName", typeof(string), "The destination blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SourceUrl"] = new("SourceUrl", "SourceUrl", typeof(string), "The source blob URL. It must be public, in the destination account, or carry a SAS.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Metadata"] = new("Metadata", "Metadata", typeof(string[]), "Destination metadata as key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tags"] = new("Tags", "Tags", typeof(string[]), "Destination tags as key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tier"] = new("Tier", "Tier", typeof(string), "The tier to be set on the destination blob.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["RehydratePriority"] = new("RehydratePriority", "RehydratePriority", typeof(string), "The priority of the rehydration operation.", IsRequired: false, Aliases: [], AllowedValues: ["High", "Standard"]),
+                ["LeaseId"] = new("LeaseId", "LeaseId", typeof(string), "The lease ID specified for the destination blob.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SourceIfModifiedSince"] = new("SourceIfModifiedSince", "SourceIfModifiedSince", typeof(string), "Copy only if the source blob has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SourceIfUnmodifiedSince"] = new("SourceIfUnmodifiedSince", "SourceIfUnmodifiedSince", typeof(string), "Copy only if the source blob has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SourceIfMatch"] = new("SourceIfMatch", "SourceIfMatch", typeof(string), "Copy only if the source blob ETag matches.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SourceIfNoneMatch"] = new("SourceIfNoneMatch", "SourceIfNoneMatch", typeof(string), "Copy only if the source blob ETag does not match.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SourceIfTags"] = new("SourceIfTags", "SourceIfTags", typeof(string), "A SQL-like where clause on the source blob's tags.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfModifiedSince"] = new("IfModifiedSince", "IfModifiedSince", typeof(string), "Copy only if the destination blob has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfUnmodifiedSince"] = new("IfUnmodifiedSince", "IfUnmodifiedSince", typeof(string), "Copy only if the destination blob has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfMatch"] = new("IfMatch", "IfMatch", typeof(string), "Copy only if the destination blob ETag matches.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfNoneMatch"] = new("IfNoneMatch", "IfNoneMatch", typeof(string), "Copy only if the destination blob ETag does not match.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfTags"] = new("IfTags", "IfTags", typeof(string), "A SQL-like where clause on the destination blob's tags.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata psSetStorageBlobContent = new(
+            Name: nameof(UploadBlockBlobProcessor_Orchestrator),
+            InvocationName: "Set-AzStorageBlobContent",
+            Aliases: [],
+            FullName: typeof(UploadBlockBlobProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(UploadBlockBlobProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(UploadBlockBlobProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The blob URL. Alternative to -StorageAccountName, -ContainerName and -BlobName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Storage account name. Used with the container and blob name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature. Alternative to -StorageAccountKey.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobName"] = new("BlobName", "BlobName", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["FilePath"] = new("FilePath", "FilePath", typeof(string), "Path of the local file to upload. An existing blob is not overwritten.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Metadata"] = new("Metadata", "Metadata", typeof(string[]), "Metadata as key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tags"] = new("Tags", "Tags", typeof(string[]), "Tags as key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobContentType"] = new("BlobContentType", "BlobContentType", typeof(string), "The blob's content type.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobContentEncoding"] = new("BlobContentEncoding", "BlobContentEncoding", typeof(string), "The blob's content encoding.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobContentLanguage"] = new("BlobContentLanguage", "BlobContentLanguage", typeof(string), "The blob's content language.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobContentDisposition"] = new("BlobContentDisposition", "BlobContentDisposition", typeof(string), "The blob's content disposition.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobCacheControl"] = new("BlobCacheControl", "BlobCacheControl", typeof(string), "The blob's cache control.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tier"] = new("Tier", "Tier", typeof(string), "The tier to be set on the blob.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EncryptionScope"] = new("EncryptionScope", "EncryptionScope", typeof(string), "The encryption scope used to encrypt the blob.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata psCopyStorageBlob = new(
+            Name: nameof(UploadBlobFromUrlBlockBlobProcessor_Orchestrator),
+            InvocationName: "Copy-AzStorageBlob",
+            Aliases: [],
+            FullName: typeof(UploadBlobFromUrlBlockBlobProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(UploadBlobFromUrlBlockBlobProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(UploadBlobFromUrlBlockBlobProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The blob URL. Alternative to -StorageAccountName, -ContainerName and -BlobName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Storage account name. Used with the container and blob name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature for the destination. Alternative to -StorageAccountKey; a source SAS goes in -SourceUrl.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobName"] = new("BlobName", "BlobName", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SourceUrl"] = new("SourceUrl", "SourceUrl", typeof(string), "The source blob URL. It must be public, in the destination account, or carry a SAS. An existing destination blob is not overwritten.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Metadata"] = new("Metadata", "Metadata", typeof(string[]), "Metadata as key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tags"] = new("Tags", "Tags", typeof(string[]), "Tags as key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobContentType"] = new("BlobContentType", "BlobContentType", typeof(string), "The blob's content type.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobContentEncoding"] = new("BlobContentEncoding", "BlobContentEncoding", typeof(string), "The blob's content encoding.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobContentLanguage"] = new("BlobContentLanguage", "BlobContentLanguage", typeof(string), "The blob's content language.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobContentDisposition"] = new("BlobContentDisposition", "BlobContentDisposition", typeof(string), "The blob's content disposition.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobCacheControl"] = new("BlobCacheControl", "BlobCacheControl", typeof(string), "The blob's cache control.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Tier"] = new("Tier", "Tier", typeof(string), "The tier to be set on the blob.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EncryptionScope"] = new("EncryptionScope", "EncryptionScope", typeof(string), "The encryption scope used to encrypt the blob.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["CopySourceBlobProperties"] = new("CopySourceBlobProperties", "CopySourceBlobProperties", typeof(bool), "Whether the source blob's properties are copied. Defaults to true.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata psGetStorageBlobContent = new(
+            Name: nameof(DownloadBlobProcessor_Orchestrator),
+            InvocationName: "Get-AzStorageBlobContent",
+            Aliases: [],
+            FullName: typeof(DownloadBlobProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(DownloadBlobProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(DownloadBlobProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The blob URL. Alternative to -StorageAccountName, -ContainerName and -BlobName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Storage account name. Used with the container and blob name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature. Alternative to -StorageAccountKey.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobName"] = new("BlobName", "BlobName", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["FilePath"] = new("FilePath", "FilePath", typeof(string), "Path of the local file to create. An existing file is not overwritten.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Snapshot"] = new("Snapshot", "Snapshot", typeof(string), "The snapshot of the blob to download.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["VersionId"] = new("VersionId", "VersionId", typeof(string), "The version ID of the blob to download.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["LeaseId"] = new("LeaseId", "LeaseId", typeof(string), "If specified, the operation only succeeds if the blob's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EncryptionKey"] = new("EncryptionKey", "EncryptionKey", typeof(string), "The customer-provided key the blob was encrypted with.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EncryptionKeySha256"] = new("EncryptionKeySha256", "EncryptionKeySha256", typeof(string), "The SHA-256 hash of the provided encryption key. Must be provided if the encryption key is provided.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["EncryptionAlgorithm"] = new("EncryptionAlgorithm", "EncryptionAlgorithm", typeof(string), "The algorithm used to produce the encryption key hash. Must be provided if the encryption key is provided.", IsRequired: false, Aliases: [], AllowedValues: ["AES256"]),
+                ["IfModifiedSince"] = new("IfModifiedSince", "IfModifiedSince", typeof(string), "Download only if the blob has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfUnmodifiedSince"] = new("IfUnmodifiedSince", "IfUnmodifiedSince", typeof(string), "Download only if the blob has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfMatch"] = new("IfMatch", "IfMatch", typeof(string), "Download only if the blob's ETag matches this value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfNoneMatch"] = new("IfNoneMatch", "IfNoneMatch", typeof(string), "Download only if the blob's ETag does not match this value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfTags"] = new("IfTags", "IfTags", typeof(string), "A SQL where clause on blob tags; download only if it matches.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata psRemoveStorageBlob = new(
+            Name: nameof(DeleteBlobProcessor),
+            InvocationName: "Remove-AzStorageBlob",
+            Aliases: [],
+            FullName: typeof(DeleteBlobProcessor).FullName!,
+            AssemblyName: typeof(DeleteBlobProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(DeleteBlobProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The blob URL. Alternative to -StorageAccountName, -ContainerName and -BlobName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Storage account name. Used with the container and blob name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature. Alternative to -StorageAccountKey.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobName"] = new("BlobName", "BlobName", typeof(string), "The blob name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["DeleteSnapshots"] = new("DeleteSnapshots", "DeleteSnapshots", typeof(string), "Required if the blob has snapshots. 'include' deletes the blob and its snapshots; 'only' deletes just the snapshots.", IsRequired: false, Aliases: [], AllowedValues: ["include", "only"]),
+                ["Snapshot"] = new("Snapshot", "Snapshot", typeof(string), "The snapshot of the blob to delete.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["VersionId"] = new("VersionId", "VersionId", typeof(string), "The version ID of the blob to delete.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["BlobDeleteType"] = new("BlobDeleteType", "BlobDeleteType", typeof(string), "'Permanent' permanently deletes a soft-deleted snapshot or version, if permanent delete is enabled on the account.", IsRequired: false, Aliases: [], AllowedValues: ["Permanent"]),
+                ["LeaseId"] = new("LeaseId", "LeaseId", typeof(string), "If specified, the operation only succeeds if the blob's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfModifiedSince"] = new("IfModifiedSince", "IfModifiedSince", typeof(string), "Delete only if the blob has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfUnmodifiedSince"] = new("IfUnmodifiedSince", "IfUnmodifiedSince", typeof(string), "Delete only if the blob has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfMatch"] = new("IfMatch", "IfMatch", typeof(string), "Delete only if the blob's ETag matches this value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfNoneMatch"] = new("IfNoneMatch", "IfNoneMatch", typeof(string), "Delete only if the blob's ETag does not match this value.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfTags"] = new("IfTags", "IfTags", typeof(string), "A SQL where clause on blob tags; delete only if it matches.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata psNewStorageContainer = new(
+            Name: nameof(CreateContainerProcessor_Orchestrator),
+            InvocationName: "New-AzStorageContainer",
+            Aliases: [],
+            FullName: typeof(CreateContainerProcessor_Orchestrator).FullName!,
+            AssemblyName: typeof(CreateContainerProcessor_Orchestrator).Assembly.GetName().Name!,
+            ProcessorType: typeof(CreateContainerProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The container URL. Alternative to -StorageAccountName and -ContainerName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Storage account name. Used with the container name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature. Alternative to -StorageAccountKey.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Metadata"] = new("Metadata", "Metadata", typeof(string[]), "Metadata as key=value pairs.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["PublicAccess"] = new("PublicAccess", "PublicAccess", typeof(string), "The public access level. Omit for private access.", IsRequired: false, Aliases: [], AllowedValues: ["blob", "container"]),
+                ["DefaultEncryptionScope"] = new("DefaultEncryptionScope", "DefaultEncryptionScope", typeof(string), "The default encryption scope for all writes to the container.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["PreventEncryptionScopeOverride"] = new("PreventEncryptionScopeOverride", "PreventEncryptionScopeOverride", typeof(bool), "Block writes that specify an encryption scope other than the container default.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata psRemoveStorageContainer = new(
+            Name: nameof(DeleteContainerProcessor),
+            InvocationName: "Remove-AzStorageContainer",
+            Aliases: [],
+            FullName: typeof(DeleteContainerProcessor).FullName!,
+            AssemblyName: typeof(DeleteContainerProcessor).Assembly.GetName().Name!,
+            ProcessorType: typeof(DeleteContainerProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["Url"] = new("Url", "Url", typeof(string), "The container URL. Alternative to -StorageAccountName and -ContainerName.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountName"] = new("StorageAccountName", "StorageAccountName", typeof(string), "Storage account name. Used with the container name when -Url is not given.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["StorageAccountKey"] = new("StorageAccountKey", "StorageAccountKey", typeof(string), "Storage account key.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SasToken"] = new("SasToken", "SasToken", typeof(string), "A shared access signature. Alternative to -StorageAccountKey.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ContainerName"] = new("ContainerName", "ContainerName", typeof(string), "The container name.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["LeaseId"] = new("LeaseId", "LeaseId", typeof(string), "If specified, the operation only succeeds if the container's lease is active and matches this ID.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfModifiedSince"] = new("IfModifiedSince", "IfModifiedSince", typeof(string), "Delete only if the container has been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["IfUnmodifiedSince"] = new("IfUnmodifiedSince", "IfUnmodifiedSince", typeof(string), "Delete only if the container has not been modified since the specified date-time.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Timeout"] = new("Timeout", "Timeout", typeof(int), "The timeout parameter is expressed in seconds.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ClientRequestId"] = new("ClientRequestId", "ClientRequestId", typeof(string), "An opaque, globally-unique, client-generated string identifier for the request.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        #endregion
+
         #region Command Tables
-        private static readonly Dictionary<string, CommandMetadata> psTable = new();
+        private static readonly Dictionary<string, CommandMetadata> psTable = BuildCommandTable(
+            psGetStorageBlobList,
+            psGetStorageBlobGet,
+            psStartStorageBlobCopy,
+            psSetStorageBlobContent,
+            psCopyStorageBlob,
+            psGetStorageBlobContent,
+            psRemoveStorageBlob,
+            psNewStorageContainer,
+            psRemoveStorageContainer
+        );
 
         private static readonly Dictionary<string, CommandMetadata> cliTable = BuildCommandTable(
             cliStorageBlobList,
