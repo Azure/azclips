@@ -30,7 +30,7 @@ namespace Core.Agent;
 /// race the send Task against <see cref="ConsoleApprovalPrompt.PumpOneAsync"/>
 /// to handle approvals during a busy turn.
 /// </summary>
-public sealed class ChatAgent : IAsyncDisposable
+public sealed class ChatAgent : IAsyncDisposable, ITurnAgent
 {
     private static readonly TimeSpan TurnTimeout = TimeSpan.FromMinutes(10);
 
