@@ -24,9 +24,9 @@ public class NetworkParameterSetTests
     [InlineData("network vnet show", "resource-group=rg")]
     [InlineData("network vnet subnet show", "resource-group=rg name=default")]
     [InlineData("network public-ip delete", "name=pip")]
-    public void CliBinding_MissingRequiredArgument_ThrowsUsageError(string command, string arguments)
+    public void CliBinding_MissingRequiredArgument_ThrowsMissingRequiredArgument(string command, string arguments)
     {
-        Assert.Throws<UsageErrorException>(() => Bind(command, arguments));
+        Assert.Throws<MissingRequiredArgumentException>(() => Bind(command, arguments));
     }
 
     [Fact]
