@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -23,10 +22,23 @@ internal static class TelemetryExporters
     {
         foreach (var target in targets)
         {
-            AddTraceExporter(builder, target);
+            AddTraceExporter(builder, target, uploadRegion);
         }
 
-        if (targets.Contains(TelemetryTarget.Remote))
+        builder.SetSampler(new AlwaysOnSampler());
+    }
+
+    internal static void AddTraceExporter(
+        TracerProviderBuilder builder,
+        TelemetryTarget target,
+        UploadRegion? uploadRegion = null)
+    {
+        TelemetryNetworkGuard.EnsureAllowed();
+        if (target == TelemetryTarget.Local)
+        {
+            builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());
+        }
+        else if (target == TelemetryTarget.Remote)
         {
             // Replay groups have fixed routing metadata; live providers route each Activity.
             AriaActivityExporter exporter;
@@ -41,24 +53,6 @@ internal static class TelemetryExporters
             }
 
             builder.AddProcessor(new SimpleActivityExportProcessor(exporter));
-        }
-
-        builder.SetSampler(new AlwaysOnSampler());
-    }
-
-    internal static void AddTraceExporter(TracerProviderBuilder builder, TelemetryTarget target)
-    {
-        TelemetryNetworkGuard.EnsureAllowed();
-        if (target == TelemetryTarget.Local)
-        {
-            builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());
-        }
-        else if (target == TelemetryTarget.Remote)
-        {
-            builder.AddAzureMonitorTraceExporter(options =>
-            {
-                options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
-            });
         }
         else
         {

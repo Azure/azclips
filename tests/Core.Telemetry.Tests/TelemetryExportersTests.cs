@@ -3,12 +3,40 @@
 
 using OpenTelemetry;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
 using Core.Abstractions;
+using System.Diagnostics;
+using System.Reflection;
 
 namespace Core.Telemetry.Tests;
 
 public class TelemetryExportersTests
 {
+    [Theory]
+    [InlineData(null)]
+    [InlineData(UploadRegion.EU)]
+    [InlineData(UploadRegion.ROW)]
+    public void AddTraceExporters_Remote_RegistersOnlyAria(UploadRegion? uploadRegion)
+    {
+        var builder = Sdk.CreateTracerProviderBuilder().AddSource("test-source");
+
+        TelemetryExporters.AddTraceExporters(builder, [TelemetryTarget.Remote], uploadRegion);
+
+        using var provider = builder.Build();
+        Assert.IsType<AriaActivityExporter>(GetSingleExporter(provider));
+    }
+
+    [Fact]
+    public void AddTraceExporter_Local_RegistersOnlyOtlp()
+    {
+        var builder = Sdk.CreateTracerProviderBuilder().AddSource("test-source");
+
+        TelemetryExporters.AddTraceExporter(builder, TelemetryTarget.Local);
+
+        using var provider = builder.Build();
+        Assert.IsType<OtlpTraceExporter>(GetSingleExporter(provider));
+    }
+
     [Theory]
     [InlineData(TelemetryTarget.Local)]
     [InlineData(TelemetryTarget.Remote)]
@@ -78,5 +106,17 @@ public class TelemetryExportersTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             TelemetryExporters.ResolveAriaExporter((UploadRegion)region));
+    }
+
+    private static BaseExporter<Activity> GetSingleExporter(TracerProvider provider)
+    {
+        const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        // The SDK has no public pipeline inspection API; a composite processor indicates extra exporters.
+        var processorProperty = provider.GetType().GetProperty("Processor", Flags);
+        Assert.NotNull(processorProperty);
+        var processor = Assert.IsAssignableFrom<BaseExportProcessor<Activity>>(processorProperty.GetValue(provider));
+        var exporterProperty = typeof(BaseExportProcessor<Activity>).GetProperty("Exporter", Flags);
+        Assert.NotNull(exporterProperty);
+        return Assert.IsAssignableFrom<BaseExporter<Activity>>(exporterProperty.GetValue(processor));
     }
 }

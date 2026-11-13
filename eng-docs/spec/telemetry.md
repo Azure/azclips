@@ -1,6 +1,6 @@
 # Telemetry
 
-Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations and exports them to local files, Azure Application Insights.
+Telemetry of Azclips is implemented using [OpenTelemetry](https://opentelemetry.io/). It collects traces of operations and exports them to local files, Aria/OneCollector, and the local OTLP collector.
 
 CLI and PowerShell register an `IProductVersionProvider` through dependency injection.
 CLI uses `DefaultAssemblyVersionProvider` from Core.AssemblyLoading to read the
@@ -31,7 +31,7 @@ attempts reuse the same request ID.
 
 | Term                     | Definition                                                                                                                                                                                                                                                                      |
 |--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **OpenTelemetry (OTel)** | A vendor-neutral, open-source observability framework (CNCF project) that provides APIs, SDKs, and tools for generating, collecting, and exporting telemetry data (traces, metrics, and logs) to backends such as Azure Application Insights, Jaeger, or Prometheus.            |
+| **OpenTelemetry (OTel)** | A vendor-neutral, open-source observability framework (CNCF project) that provides APIs, SDKs, and tools for generating, collecting, and exporting telemetry data (traces, metrics, and logs) to backends such as Jaeger or Prometheus.            |
 | **Trace**                | An end-to-end record of a single logical operation as it propagates through a system. A trace is a tree of spans that share the same trace ID and together represent the full lifecycle of a request or workflow.                                                               |
 | **Span**                 | The fundamental building block of a trace in OpenTelemetry. A span represents one unit of work (e.g., a function call, an HTTP request, a database query) with a name, start/end timestamps, status, attributes, and parent/child relationships to other spans.                 |
 | **Activity**             | The .NET equivalent of a span. The `System.Diagnostics.Activity` API is what OpenTelemetry for .NET builds on top of: starting an `Activity` creates a span, and the activity's tags become span attributes. In this codebase, "activity" and "span" refer to the same concept. |
@@ -416,7 +416,7 @@ Without a tenant it selects the tenant-unavailable default; a known tenant witho
 confirmed cached boundary uses the boundary-unavailable default because authentication
 has not been attempted.
 The diagnostic startup probe remains separate from telemetry routing.
-This does not change the fixed Azure Monitor destination or claim product-wide residency compliance.
+Regional Aria routing does not claim product-wide residency compliance.
 
 The uploader retains invalid managed files as `.rejected` with local diagnostics.
 Reservations track process identity for abandoned-owner recovery; uploader locks protect active claims.
@@ -465,11 +465,11 @@ does not establish plan adoption, successful execution, or resolution of the ori
 | Exporter | Configuration | Enabled |
 |----------|---------------|---------|
 | **File** | `HomePaths.GetDefaultTraceDirectory()` | CLI/TUI and opted-in layers |
-| **Azure Monitor** | App Insights connection string | Unless user disabled |
+| **Aria/OneCollector** | Build-configured connection string and recorded EU/ROW region | Unless user disabled |
 | **OTLP (local)** | `http://localhost:4317`, port via `AZCLIPS_OTLP_PORT` | Debug builds only |
 
-A Debug build exports to the local OTLP collector and Azure Monitor simultaneously; a Release build
-exports to Azure Monitor only. See [`wiki/02-deep-dive/telemetry.md#export-targets`](../../wiki/02-deep-dive/telemetry.md#export-targets).
+A Debug build exports to the local OTLP collector and Aria simultaneously; a Release build
+exports to Aria only. See [`wiki/02-deep-dive/telemetry.md#export-targets`](../../wiki/02-deep-dive/telemetry.md#export-targets).
 
 ### Local File Export
 
@@ -507,21 +507,19 @@ by JSON arrays of trace records, not one JSON object or JSONL per file:
 ]
 ```
 
-### Azure Application Insights
+### Aria/OneCollector
 
-Telemetry is exported to Azure Application Insights using the `AzureMonitorTraceExporter`.
-
-For now the connection string is hardcoded to a specific Application Insights resource. In the future, this can be made configurable.
-
-To visit the Application Insights resource, go to: [nori-test2](https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/9e223dbe-3399-4e19-88eb-0975f02ac87f/resourceGroups/nori-app-insights/providers/microsoft.insights/components/nori-test2/overview)
-
-[Link to Simple Query](https://ms.portal.azure.com#@72f988bf-86f1-41af-91ab-2d7cd011db47/blade/Microsoft_OperationsManagementSuite_Workspace/Logs.ReactView/resourceId/%2Fsubscriptions%2F9e223dbe-3399-4e19-88eb-0975f02ac87f%2FresourceGroups%2Fnori-app-insights%2Fproviders%2Fmicrosoft.insights%2Fcomponents%2Fnori-test2/source/LogsBlade.AnalyticsShareLinkToQuery/q/H4sIAAAAAAAAAytKLSxNLS4p5qpRKEnMTlUwNAAA1mhqPhIAAAA%253D/timespan/P1D/limit/1000)
+Remote telemetry uses the Aria activity exporter through OneCollector. Live providers
+resolve EU/ROW routing per activity; replay groups use their recorded upload region.
+The connection string is supplied through build metadata, with a development default.
+Collector endpoints and connection-string resolution are defined in `WellKnownEndpoints`.
 
 ## Dependencies
 
 - [OpenTelemetry](https://opentelemetry.io/) - Distributed tracing framework
 - [OpenTelemetry.Instrumentation.Http](https://www.nuget.org/packages/OpenTelemetry.Instrumentation.Http) - Auto-instrument HttpClient
-- [Azure.Monitor.OpenTelemetry.Exporter](https://www.nuget.org/packages/Azure.Monitor.OpenTelemetry.Exporter) - App Insights export
+- [OpenTelemetry.Exporter.OneCollector](https://www.nuget.org/packages/OpenTelemetry.Exporter.OneCollector) - Aria export
+- [OpenTelemetry.Exporter.OpenTelemetryProtocol](https://www.nuget.org/packages/OpenTelemetry.Exporter.OpenTelemetryProtocol) - Local OTLP export
 
 ---
 
@@ -529,4 +527,3 @@ To visit the Application Insights resource, go to: [nori-test2](https://ms.porta
 
 - **Layer completion**: Agent drains producers; Core completes accepted writes and publication. Borrowed telemetry views do not dispose the provider.
 - **Sync file writes**: `FileExporter` writes synchronously to avoid data loss
-- **Azure Monitor disabled**: Initialization overhead (~seconds) impacts CLI startup time
