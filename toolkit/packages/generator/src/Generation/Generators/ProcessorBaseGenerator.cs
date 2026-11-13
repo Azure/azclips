@@ -60,6 +60,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
                 UsingDirective(ParseName("System")),
+                UsingDirective(ParseName("System.Collections.Generic")),
                 UsingDirective(ParseName("System.Net.Http")),
                 UsingDirective(ParseName("System.Net.Http.Json")),
                 UsingDirective(ParseName("System.Text.Json")),
@@ -228,7 +229,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
             .AddConstraintClauses(
                 TypeParameterConstraintClause(IdentifierName("TRequest")).AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)),
                 TypeParameterConstraintClause(IdentifierName("TResponse")).AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)))
-            .WithLeadingXmlDoc("Generic processor base: default ProcessAsync pipeline (SendAsync -> deserialize TResponse -> WriteOutput), with a typed TRequest body seam.")
+            .WithLeadingXmlDoc("Generic processor base: ProcessAsync owns lifecycle events and delegates to ExecuteAsync. Pageable processors override execution and page reading independently of output hooks.")
             .AddMembers(
                 ArrowMethod("TRequest?", "CreateRequestBody", "default", SyntaxKind.ProtectedKeyword, SyntaxKind.OverrideKeyword)
                     .WithLeadingXmlDoc("Typed request-body seam. Null (no body) by default; write processors override to return their TRequest model. Covariantly overrides the non-generic CreateRequestBody."),
@@ -263,7 +264,46 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName("TResponse?")))
                     .WithExpressionBody(ArrowExpressionClause(ParseExpression("Task.FromResult(false)")))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
-                    .WithLeadingXmlDoc("Hook before writing output. Return true to suppress the default WriteOutput (e.g. a processor that writes its own paginated output)."),
+                    .WithLeadingXmlDoc("Hook before writing a single response. Return true to suppress the default WriteOutput. Pageable execution uses ReadPagesAsync instead."),
+                MethodDeclaration(ParseTypeName("Task<TResponse?>"), Identifier("ReadResponseAsync"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.AsyncKeyword))
+                    .WithRawBody("""
+                        Publisher.Token.ThrowIfCancellationRequested();
+                        using HttpResponseMessage response = await SendAsync();
+                        return await ReadResponseAsync(response);
+                        """),
+                MethodDeclaration(ParseTypeName("Task<TResponse?>"), Identifier("ReadResponseAsync"))
+                    .AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.AsyncKeyword))
+                    .AddParameterListParameters(Parameter(Identifier("response")).WithType(ParseTypeName("HttpResponseMessage")))
+                    .WithRawBody(ReadResponseBody),
+                MethodDeclaration(ParseTypeName("IAsyncEnumerable<TResponse>"), Identifier("ReadPagesAsync"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
+                    .WithRawBody("""
+                        if (await ReadResponseAsync() is { } body)
+                        {
+                            yield return body;
+                        }
+                        """)
+                    .WithLeadingXmlDoc("Reads pages on demand. The default yields a single response; pageable processors supply the continuation strategy. Cancellation uses Publisher.Token."),
+                MethodDeclaration(ParseTypeName("Task"), Identifier("ExecutePagesAsync"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.AsyncKeyword))
+                    .AddTypeParameterListParameters(TypeParameter("TItem"))
+                    .AddParameterListParameters(Parameter(Identifier("pageItems")).WithType(ParseTypeName("Func<TResponse, IEnumerable<TItem>?>")))
+                    .WithRawBody("""
+                        List<TItem> items = await ReadPagesAsync().CollectItemsAsync(pageItems);
+                        await WriteOutput(items);
+                        """)
+                    .WithLeadingXmlDoc("Default paged execution collects all items before one write. Override ExecuteAsync to consume pages differently or transform collected items."),
+                MethodDeclaration(ParseTypeName("Task"), Identifier("ExecuteAsync"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
+                    .WithRawBody("""
+                        using HttpResponseMessage response = await SendAsync();
+                        TResponse? body = await ReadResponseAsync(response);
+                        if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
+                        {
+                            await WriteOutput(body);
+                        }
+                        """),
                 MethodDeclaration(ParseTypeName("Task"), Identifier("ProcessAsync"))
                     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.OverrideKeyword), Token(SyntaxKind.AsyncKeyword))
                     .WithRawBody(GenericProcessAsyncBody));
@@ -444,39 +484,38 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         return child;
         """;
 
+    private const string ReadResponseBody = """
+        string? rawBody = null;
+        TResponse? body = default;
+        if (response.Content is null)
+        {
+            await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+        }
+        else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync()))
+        {
+            await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+        }
+        else
+        {
+            try
+            {
+                body = await DeserializeResponseAsync(rawBody);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                await Publisher.Publish(Events.ResponseInvalidJson, $"response could not be deserialized for {response.RequestMessage?.RequestUri}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
+            }
+        }
+        return body;
+        """;
+
     private const string GenericProcessAsyncBody = """
         try
         {
             await BeforeProcessAsync();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-            using HttpResponseMessage response = await SendAsync();
-            string? rawBody = null;
-            TResponse? body = default;
-
-            if (response.Content is null)
-            {
-                await Publisher.Publish(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
-            }
-            else if (string.IsNullOrWhiteSpace(rawBody = await response.Content.ReadAsStringAsync()))
-            {
-                await Publisher.Publish(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
-            }
-            else
-            {
-                try
-                {
-                    body = await DeserializeResponseAsync(rawBody);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    await Publisher.Publish(Events.ResponseInvalidJson, $"response could not be deserialized for {response.RequestMessage?.RequestUri}");
-                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
-                }
-            }
-            if (!await BeforeWriteOutputAsyncAndReturn(body) && body is not null)
-            {
-                await WriteOutput(body);
-            }
+            await ExecuteAsync();
         }
         finally
         {

@@ -50,9 +50,8 @@ public class ListVMProcessor : ComputeProcessorBase<object, VirtualMachineListRe
     private string? nextLink(VirtualMachineListResult body) => body.NextLink;
     private VirtualMachine[]? pageItems(VirtualMachineListResult body) => body.Value;
 
-    protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(VirtualMachineListResult? body)
-    {
-        await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
-        return true;
-    }
+    protected override IAsyncEnumerable<VirtualMachineListResult> ReadPagesAsync() =>
+        Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline);
+
+    protected override Task ExecuteAsync() => ExecutePagesAsync(pageItems);
 }

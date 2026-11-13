@@ -23,10 +23,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         private string? nextLink(ResourceGroupListResult body) => body.NextLink;
         private ResourceGroup[]? pageItems(ResourceGroupListResult body) => body.Value;
 
-        protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(ResourceGroupListResult? body)
-        {
-            await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions);
-            return true;
-        }
+        protected override IAsyncEnumerable<ResourceGroupListResult> ReadPagesAsync() =>
+            Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline);
+
+        protected override Task ExecuteAsync() => ExecutePagesAsync(pageItems);
     }
 }

@@ -564,12 +564,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     // ── Pagination ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// The pageable members: <c>pageItems</c> plus either a <c>nextLink</c> or a
-    /// <c>continuationToken</c> selector, and a <c>BeforeWriteOutputAsyncAndReturn</c> override that
-    /// hands them to the runtime's <c>WriteOutputWithPaginationAsync</c>, whose overload follows a
-    /// next link as a URL or sets a continuation token on its command parameter and rebuilds the
-    /// request. Thin per-command wiring —
-    /// the pagination logic lives in the runtime library — parallel to the LRO hooks.
+    /// Supplies page selectors, a lazy ReadPagesAsync strategy and an ExecuteAsync override.
+    /// The runtime owns continuation requests; the base's default paged execution collects
+    /// all items before output without performing network operations in an output hook.
     /// </summary>
     private static IEnumerable<MemberDeclarationSyntax> PageableMembers(
         GenerationContext context,
@@ -610,14 +607,19 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .WithExpressionBody(ArrowExpressionClause(ParseExpression(nextExpression)))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
-        string write = continuation is not null
-            ? $"await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => {continuation.Parameter} = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline); return true;"
-            : "await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions); return true;";
+        string read = continuation is not null
+            ? $"Pagination.ReadWithTokenAsync(ReadResponseAsync, continuationToken, token => {continuation.Parameter} = token, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)"
+            : "Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)";
 
-        yield return MethodDeclaration(ParseTypeName("Task<bool>"), Identifier("BeforeWriteOutputAsyncAndReturn"))
-            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword), Token(SyntaxKind.AsyncKeyword))
-            .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType + "?")))
-            .WithRawBody(write);
+        yield return MethodDeclaration(ParseTypeName($"IAsyncEnumerable<{listResultType}>"), Identifier("ReadPagesAsync"))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression(read)))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+
+        yield return MethodDeclaration(ParseTypeName("Task"), Identifier("ExecuteAsync"))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression($"ExecutePagesAsync<{itemType}>(pageItems)")))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
     }
 
     /// <summary>
