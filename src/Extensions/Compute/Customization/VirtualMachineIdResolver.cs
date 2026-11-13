@@ -13,6 +13,30 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
     /// </summary>
     internal static class VirtualMachineIdResolver
     {
+        /// <summary>
+        /// Enforces that a VM is addressed either by ids or by name and resource group, never both
+        /// and never neither. Returns true when ids should be used.
+        /// </summary>
+        internal static bool HasIds(string[]? ids, string? name, string? resourceGroup)
+        {
+            bool hasIds = ids is { Length: > 0 };
+            bool hasName = !string.IsNullOrWhiteSpace(name);
+            bool hasResourceGroup = !string.IsNullOrWhiteSpace(resourceGroup);
+
+            if (hasIds && (hasName || hasResourceGroup))
+            {
+                throw AzclipsErrorException.InvalidInput(
+                    "Ids cannot be combined with Name or ResourceGroupName. Provide either Ids, or both Name and ResourceGroupName.");
+            }
+
+            if (!hasIds && !(hasName && hasResourceGroup))
+            {
+                throw AzclipsErrorException.InvalidInput(
+                    "A virtual machine identifier is required. Provide Ids, or both Name and ResourceGroupName.");
+            }
+
+            return hasIds;
+        }
         internal static (string SubscriptionId, string ResourceGroupName, string Name) ParseVirtualMachineResourceId(string id)
             => ParseResourceId(id, "Microsoft.Compute", "virtualMachines", "Virtual machine", "vmName");
 

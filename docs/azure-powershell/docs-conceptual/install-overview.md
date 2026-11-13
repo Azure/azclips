@@ -12,22 +12,23 @@ The Azure PowerShell public preview ships as **azps** — the Az PowerShell modu
 
 ## Install azps (one command)
 
-Public preview artifacts are available from the [GitHub Releases](https://github.com/Azure/azclips/releases) page. The installer uses your authenticated GitHub CLI (`gh`) session.
+The installer downloads the latest release from [GitHub Releases](https://github.com/Azure/azclips/releases).
 
 **Prerequisites:**
 
 - [PowerShell 7.6+](https://aka.ms/powershell)
-- [GitHub CLI](https://cli.github.com/) signed in (`gh auth login`)
+- `tar` available on `PATH` to extract the bundle
 
-**Download and install:**
+**Linux / macOS / WSL / Windows** (run inside PowerShell 7.6+, `pwsh`):
 
 ```powershell
-gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber
-New-Item -ItemType Directory -Force -Path azps-cmdlets | Out-Null
-$bundle = Get-ChildItem azps-cmdlets-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-tar -xzf $bundle.FullName -C azps-cmdlets
-./azps-cmdlets/InstallModule.ps1
+# Linux / macOS / WSL / Windows (PowerShell 7.6+)
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps1 -ErrorAction Stop | iex
 ```
+
+The bootstrap downloads and extracts the bundle into a temporary directory, invokes its `InstallModule.ps1` helper for the current user, and removes its temporary repository and files afterward.
+
+For module/version/scope options or manual/offline installation, see the [module installation guide](./install-powershell-modules.md).
 
 ## Verify
 

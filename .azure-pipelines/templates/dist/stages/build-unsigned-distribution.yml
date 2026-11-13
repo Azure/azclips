@@ -47,6 +47,12 @@ parameters:
 - name: include_docker_images_in_final_distribution
   type: boolean
   default: true
+- name: limit_ps_testing
+  type: boolean
+  default: false
+- name: skip_ps_version_check
+  type: boolean
+  default: false
 
 stages:
 - template: init-resolve-version.yml
@@ -205,6 +211,21 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
 
+- stage: ValidatePS
+  displayName: Validate (PS)
+  dependsOn:
+  - BuildPSModules
+  condition: succeeded()
+  jobs:
+  - template: ../jobs/validate-ps-build.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+      limit_testing: ${{ parameters.limit_ps_testing }}
+      skip_version_check: ${{ parameters.skip_ps_version_check }}
+
 - stage: ValidateDockerAzureLinux3
   displayName: Validate Docker Azure Linux 3 Images
   dependsOn:
@@ -276,6 +297,7 @@ stages:
   - BuildPSModules
   - ValidatePSModules
   - ValidateLinux
+  - ValidatePS
   - ValidateWindows
   - ValidateMacOS
   - ComponentGovernance
@@ -297,6 +319,7 @@ stages:
     BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
     PSBinaryAnalysisResult: $[ stageDependencies.ValidatePSModules.PSBinaryAnalysis.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
+    ValidatePSResult: $[ dependencies.ValidatePS.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
     ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]
