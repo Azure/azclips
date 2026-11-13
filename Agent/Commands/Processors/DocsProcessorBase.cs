@@ -13,15 +13,22 @@ public abstract class DocsProcessorBase : AgentProcessorBase
 {
     protected abstract Task<string> ReadJsonAsync(HelpCatalogProvider provider);
 
-    public override async Task ProcessAsync()
+    /// <summary>Provider over the default agent help cache that regenerates in process.</summary>
+    internal static HelpCatalogProvider CreateHelpCatalogProvider()
     {
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         var configuration = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
         var azPath = Path.Combine(AppContext.BaseDirectory, "az.dll");
         var cache = HomePaths.GetDefaultAgentHelpDirectory();
         var provider = new HelpCatalogProvider(azPath, configuration, cache, ct => Task.FromResult(
             DocsGenerateProcessor.Generate(AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>(),
                 configuration, azPath, cache, ct)));
+        return provider;
+    }
+
+    public override async Task ProcessAsync()
+    {
+        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+        var provider = CreateHelpCatalogProvider();
         await WriteOutput(await ReadJsonAsync(provider));
         await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
     }
