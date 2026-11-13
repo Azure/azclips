@@ -26,6 +26,34 @@ public class StreamRoutingIntegrationTests
 #endif
 
     [Fact]
+    public async Task StorageBlob_ExecutesSeparateMockExtension_AlongsideStorageAccountCommands()
+    {
+        var (helpExit, help, helpError) = await RunCliAsync("storage", "--help");
+        Assert.True(helpExit == 0, helpError);
+        Assert.Contains("account", help);
+        Assert.Contains("blob", help);
+
+        var (exit, stdout, stderr) = await RunCliAsync("storage", "blob", "--output", "json");
+        Assert.True(exit == 0, stderr);
+        Assert.DoesNotContain("ERROR:", stderr);
+        using var document = System.Text.Json.JsonDocument.Parse(stdout);
+        var result = document.RootElement;
+        Assert.True(result.GetProperty("isMock").GetBoolean());
+        Assert.Equal("storage blob", result.GetProperty("command").GetString());
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.StorageData.Blobs",
+            result.GetProperty("assembly").GetString());
+
+        var (blobHelpExit, blobHelp, blobHelpError) = await RunCliAsync("storage", "blob", "--help");
+        Assert.True(blobHelpExit == 0, blobHelpError);
+        Assert.Contains("az storage blob:", blobHelp);
+
+        var (accountExit, accountHelp, accountError) =
+            await RunCliAsync("storage", "account", "list", "--help");
+        Assert.True(accountExit == 0, accountError);
+        Assert.Contains("storage account list", accountHelp);
+    }
+
+    [Fact]
     public async Task WriteError_GoesToStderr_NotStdout()
     {
         var (exit, stdout, stderr) = await RunCliAsync("nonexistent-command-xyz");

@@ -28,6 +28,18 @@ public class ExtensionHintTableEmbeddedTests
     }
 
     [Fact]
+    public void Default_ShouldKeepPreciseStorageHints_WithoutAnAmbiguousGroupOwner()
+    {
+        var table = ExtensionHintTable.Default;
+
+        Assert.False(table.TryGetPackageId("storage", out _));
+        Assert.True(table.TryGetPackageId("storage", "account list", out var accountPackage));
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.Storage", accountPackage);
+        Assert.True(table.TryGetPackageId("storage", "blob", out var blobPackage));
+        Assert.Equal("Microsoft.Azure.Azclips.Extensions.StorageData.Blobs", blobPackage);
+    }
+
+    [Fact]
     public void Default_ShouldEmitObjectShapedLeafEntries()
     {
         // Leaves are objects (not bare strings) so optional compat fields can be added later
