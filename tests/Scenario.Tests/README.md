@@ -98,6 +98,14 @@ fails with `StorageAccountAlreadyTaken`; change the name in the test and re-reco
 deletes the account itself, so a re-record does not collide with the previous run, but the
 resource group (`scenario-storage-lifecycle-rg`) is left behind and should be removed afterwards.
 
+The Storage data-plane lifecycle scenarios
+(`--filter FullyQualifiedName~StorageDataPlaneLifecycleScenarioTests`) exercise single and multiple
+`--include` values on Blob, Share, and File list operations. Record mode captures the CLI workflow;
+playback runs both CLI and PowerShell against the same recordings, including the serialized query
+values. File listings also verify the requested timestamps and ETags are returned. Recording requires
+`AZCLIPS_TEST_STORAGE_ACCOUNT_KEY` for the account named in the test. The Authorization header is
+removed from recordings, and the scenarios clean up their container and share after recording.
+
 The VNet scenarios have two live recordings: `CreateShowListDeleteVirtualNetwork` covers the CLI
 dispatcher and PowerShell processor invocations, while
 `PowerShellCmdlets_ConvertTheirParameters_AndRouteParameterSets` runs the real PowerShell cmdlets,

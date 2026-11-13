@@ -132,10 +132,13 @@ public class StorageDataPlaneLifecycleScenarioTests
             ["storage", "blob", "upload", "--container-name", ContainerName, "--name", BlobName, "--file", source],
             "Set-AzStorageBlobContent", new() { ["ContainerName"] = ContainerName, ["BlobName"] = BlobName, ["FilePath"] = source })));
 
-        var listed = Flatten<BlobItem>(steps.Run(
-            ["storage", "blob", "list", "--container-name", ContainerName],
-            "Get-AzStorageBlob_List", new() { ["ContainerName"] = ContainerName }));
-        Assert.Contains(listed, blob => blob.NameContent == BlobName);
+        foreach (string[] include in new string[][] { ["metadata"], ["metadata", "snapshots"] })
+        {
+            var listed = Flatten<BlobItem>(steps.Run(
+                ["storage", "blob", "list", "--container-name", ContainerName, "--include", .. include],
+                "Get-AzStorageBlob_List", new() { ["ContainerName"] = ContainerName, ["Include"] = include }));
+            Assert.Contains(listed, blob => blob.NameContent == BlobName);
+        }
 
         var shown = Assert.IsType<BlobItem>(Assert.Single(steps.Run(
             ["storage", "blob", "show", "--container-name", ContainerName, "--name", BlobName],
@@ -184,9 +187,12 @@ public class StorageDataPlaneLifecycleScenarioTests
             ["storage", "share", "show", "--name", ShareName],
             "Get-AzStorageShare_Get", new() { ["ShareName"] = ShareName }));
 
-        Assert.NotEmpty(steps.Run(
-            ["storage", "share", "list"],
-            "Get-AzStorageShare_List", new()));
+        foreach (string[] include in new string[][] { ["metadata"], ["metadata", "snapshots"] })
+        {
+            Assert.NotEmpty(steps.Run(
+                ["storage", "share", "list", "--prefix", ShareName, "--include", .. include],
+                "Get-AzStorageShare_List", new() { ["Prefix"] = ShareName, ["Include"] = include }));
+        }
 
         Assert.IsType<ShareDirectory>(Assert.Single(steps.Run(
             ["storage", "directory", "create", "--share-name", ShareName, "--name", DirectoryPath],
@@ -205,11 +211,20 @@ public class StorageDataPlaneLifecycleScenarioTests
             ["storage", "file", "upload", "--share-name", ShareName, "--path", UploadedFilePath, "--source", source],
             "Set-AzStorageFileContent", new() { ["ShareName"] = ShareName, ["FilePath"] = UploadedFilePath, ["Source"] = source })));
 
-        // Pages are written as one batch; collect the file entries across them.
-        var pages = Flatten<ListFilesAndDirectoriesSegmentResponse>(steps.Run(
-            ["storage", "file", "list", "--share-name", ShareName, "--name", DirectoryPath],
-            "Get-AzStorageFile_List", new() { ["ShareName"] = ShareName, ["DirectoryPath"] = DirectoryPath }));
-        Assert.Equal([Path.GetFileName(CreatedFilePath), Path.GetFileName(UploadedFilePath)], pages.SelectMany(page => page.SegmentFileItems).Select(file => file.NameContent).Order());
+        foreach (string[] include in new string[][] { ["Timestamps"], ["Timestamps", "Etag"] })
+        {
+            // Pages are written as one batch; collect the file entries across them.
+            var pages = Flatten<ListFilesAndDirectoriesSegmentResponse>(steps.Run(
+                ["storage", "file", "list", "--share-name", ShareName, "--name", DirectoryPath, "--include", .. include],
+                "Get-AzStorageFile_List", new() { ["ShareName"] = ShareName, ["DirectoryPath"] = DirectoryPath, ["Include"] = include }));
+            var files = pages.SelectMany(page => page.SegmentFileItems).ToArray();
+            Assert.Equal([Path.GetFileName(CreatedFilePath), Path.GetFileName(UploadedFilePath)], files.Select(file => file.NameContent).Order());
+            Assert.All(files, file => Assert.False(string.IsNullOrEmpty(file.CreationTime)));
+            if (include.Contains("Etag"))
+            {
+                Assert.All(files, file => Assert.False(string.IsNullOrEmpty(file.ETag)));
+            }
+        }
 
         var shown = Assert.IsType<ShareFile>(Assert.Single(steps.Run(
             ["storage", "file", "show", "--share-name", ShareName, "--path", UploadedFilePath],

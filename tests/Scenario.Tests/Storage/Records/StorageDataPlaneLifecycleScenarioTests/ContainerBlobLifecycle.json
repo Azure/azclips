@@ -10,7 +10,7 @@
         "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx?restype=container",
         "headers": {
           "x-ms-client-request-id": [
-            "220eda02-b51d-45ca-b008-3a18b04ad470"
+            "984e3138-9d17-4c5c-a4e8-e31cb318f31e"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -21,23 +21,23 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF408D84484F02\u0022"
+            "\u00220x8DF412543398DC5\u0022"
           ],
           "Server": [
             "Windows-Azure-Blob/1.0",
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672dbc7-301e-0008-7276-726983000000"
+            "40e15915-501e-0053-500e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "220eda02-b51d-45ca-b008-3a18b04ad470"
+            "984e3138-9d17-4c5c-a4e8-e31cb318f31e"
           ],
           "x-ms-version": [
             "2027-03-07"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:05 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -45,7 +45,7 @@
             "0"
           ],
           "Last-Modified": [
-            "Thu, 12 Nov 2026 07:21:06 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "body": ""
@@ -63,7 +63,7 @@
             "BlockBlob"
           ],
           "x-ms-client-request-id": [
-            "62a4b41c-83f0-4753-ae19-58a0725c887c"
+            "00c30560-f660-41ab-8707-a821918762d4"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -75,17 +75,17 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF408D84A77D0A\u0022"
+            "\u00220x8DF412543411DC1\u0022"
           ],
           "Server": [
             "Windows-Azure-Blob/1.0",
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672dd5c-301e-0008-5976-726983000000"
+            "40e15947-501e-0053-790e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "62a4b41c-83f0-4753-ae19-58a0725c887c"
+            "00c30560-f660-41ab-8707-a821918762d4"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -97,7 +97,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:06 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -108,7 +108,7 @@
             "5LoENVMAeMt/X7uTSOn8Gw=="
           ],
           "Last-Modified": [
-            "Thu, 12 Nov 2026 07:21:07 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "body": ""
@@ -117,10 +117,10 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx?restype=container\u0026comp=list",
+        "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx?restype=container\u0026comp=list\u0026include=metadata",
         "headers": {
           "x-ms-client-request-id": [
-            "1ff3c8cb-14cc-4735-b631-7771992e2667"
+            "ad45ba7b-a186-4b0f-8b04-c3e9a02137e3"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -138,16 +138,16 @@
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672df35-301e-0008-6a76-726983000000"
+            "40e1596f-501e-0053-1f0e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "1ff3c8cb-14cc-4735-b631-7771992e2667"
+            "ad45ba7b-a186-4b0f-8b04-c3e9a02137e3"
           ],
           "x-ms-version": [
             "2027-03-07"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:06 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -155,7 +155,51 @@
             "application/xml"
           ]
         },
-        "body": "\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://20261110testaccount.blob.core.windows.net/\u0022 ContainerName=\u002220261112testxxx\u0022\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003E20261112testxxx.txt\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EThu, 12 Nov 2026 07:21:07 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EThu, 12 Nov 2026 07:21:07 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF408D84A77D0A\u003C/Etag\u003E\u003CContent-Length\u003E29367\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003E5LoENVMAeMt/X7uTSOn8Gw==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+        "body": "\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://20261110testaccount.blob.core.windows.net/\u0022 ContainerName=\u002220261112testxxx\u0022\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003E20261112testxxx.txt\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 13 Nov 2026 01:27:20 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 13 Nov 2026 01:27:20 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF412543411DC1\u003C/Etag\u003E\u003CContent-Length\u003E29367\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003E5LoENVMAeMt/X7uTSOn8Gw==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003CMetadata /\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx?restype=container\u0026comp=list\u0026include=metadata%2Csnapshots",
+        "headers": {
+          "x-ms-client-request-id": [
+            "fec2f4d4-c05e-45e4-9c38-a8f979f178e7"
+          ],
+          "x-ms-version": [
+            "2027-03-07"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Transfer-Encoding": [
+            "chunked"
+          ],
+          "Server": [
+            "Windows-Azure-Blob/1.0",
+            "Microsoft-HTTPAPI/2.0"
+          ],
+          "x-ms-request-id": [
+            "40e1597f-501e-0053-2f0e-7350b8000000"
+          ],
+          "x-ms-client-request-id": [
+            "fec2f4d4-c05e-45e4-9c38-a8f979f178e7"
+          ],
+          "x-ms-version": [
+            "2027-03-07"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 01:27:20 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/xml"
+          ]
+        },
+        "body": "\u003C?xml version=\u00221.0\u0022 encoding=\u0022utf-8\u0022?\u003E\u003CEnumerationResults ServiceEndpoint=\u0022https://20261110testaccount.blob.core.windows.net/\u0022 ContainerName=\u002220261112testxxx\u0022\u003E\u003CBlobs\u003E\u003CBlob\u003E\u003CName\u003E20261112testxxx.txt\u003C/Name\u003E\u003CProperties\u003E\u003CCreation-Time\u003EFri, 13 Nov 2026 01:27:20 GMT\u003C/Creation-Time\u003E\u003CLast-Modified\u003EFri, 13 Nov 2026 01:27:20 GMT\u003C/Last-Modified\u003E\u003CEtag\u003E0x8DF412543411DC1\u003C/Etag\u003E\u003CContent-Length\u003E29367\u003C/Content-Length\u003E\u003CContent-Type\u003Eapplication/octet-stream\u003C/Content-Type\u003E\u003CContent-Encoding /\u003E\u003CContent-Language /\u003E\u003CContent-CRC64 /\u003E\u003CContent-MD5\u003E5LoENVMAeMt/X7uTSOn8Gw==\u003C/Content-MD5\u003E\u003CCache-Control /\u003E\u003CContent-Disposition /\u003E\u003CBlobType\u003EBlockBlob\u003C/BlobType\u003E\u003CAccessTier\u003EHot\u003C/AccessTier\u003E\u003CAccessTierInferred\u003Etrue\u003C/AccessTierInferred\u003E\u003CLeaseStatus\u003Eunlocked\u003C/LeaseStatus\u003E\u003CLeaseState\u003Eavailable\u003C/LeaseState\u003E\u003CServerEncrypted\u003Etrue\u003C/ServerEncrypted\u003E\u003C/Properties\u003E\u003CMetadata /\u003E\u003COrMetadata /\u003E\u003C/Blob\u003E\u003C/Blobs\u003E\u003CNextMarker /\u003E\u003C/EnumerationResults\u003E"
       }
     },
     {
@@ -164,7 +208,7 @@
         "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx/20261112testxxx.txt",
         "headers": {
           "x-ms-client-request-id": [
-            "acf9590f-02f1-41d6-952d-c4f49b95ec07"
+            "7b48f60a-45fc-40a9-834d-c5634207c2b7"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -178,23 +222,23 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF408D84A77D0A\u0022"
+            "\u00220x8DF412543411DC1\u0022"
           ],
           "Server": [
             "Windows-Azure-Blob/1.0",
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672e070-301e-0008-7f76-726983000000"
+            "40e1598d-501e-0053-3c0e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "acf9590f-02f1-41d6-952d-c4f49b95ec07"
+            "7b48f60a-45fc-40a9-834d-c5634207c2b7"
           ],
           "x-ms-version": [
             "2027-03-07"
           ],
           "x-ms-creation-time": [
-            "Thu, 12 Nov 2026 07:21:07 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -215,7 +259,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:06 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -229,7 +273,7 @@
             "5LoENVMAeMt/X7uTSOn8Gw=="
           ],
           "Last-Modified": [
-            "Thu, 12 Nov 2026 07:21:07 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "body": ""
@@ -241,7 +285,7 @@
         "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx/20261112testxxx.txt",
         "headers": {
           "x-ms-client-request-id": [
-            "43389b19-1fe9-4d94-a66f-ba2de420f5de"
+            "0876616b-f753-4624-9267-916b20b9f9d2"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -255,23 +299,23 @@
             "bytes"
           ],
           "ETag": [
-            "\u00220x8DF408D84A77D0A\u0022"
+            "\u00220x8DF412543411DC1\u0022"
           ],
           "Server": [
             "Windows-Azure-Blob/1.0",
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672e1ba-301e-0008-2976-726983000000"
+            "40e159a0-501e-0053-4c0e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "43389b19-1fe9-4d94-a66f-ba2de420f5de"
+            "0876616b-f753-4624-9267-916b20b9f9d2"
           ],
           "x-ms-version": [
             "2027-03-07"
           ],
           "x-ms-creation-time": [
-            "Thu, 12 Nov 2026 07:21:07 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ],
           "x-ms-lease-status": [
             "unlocked"
@@ -292,7 +336,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:07 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -303,7 +347,7 @@
             "5LoENVMAeMt/X7uTSOn8Gw=="
           ],
           "Last-Modified": [
-            "Thu, 12 Nov 2026 07:21:07 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "body": "// ----------------------------------------------------------------------------------\r\n//\r\n// Copyright Microsoft Corporation\r\n// Licensed under the Apache License, Version 2.0 (the \u0022License\u0022);\r\n// you may not use this file except in compliance with the License.\r\n// You may obtain a copy of the License at\r\n// http://www.apache.org/licenses/LICENSE-2.0\r\n// Unless required by applicable law or agreed to in writing, software\r\n// distributed under the License is distributed on an \u0022AS IS\u0022 BASIS,\r\n// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n// See the License for the specific language governing permissions and\r\n// limitations under the License.\r\n// ----------------------------------------------------------------------------------\r\n\r\n\r\nnamespace Microsoft.WindowsAzure.Commands.Storage.Blob.Cmdlet\r\n{\r\n    using Azure.Commands.Common.Authentication.Abstractions;\r\n    using Commands.Common.Storage.ResourceModel;\r\n    using global::Azure.Storage.Blobs;\r\n    using global::Azure.Storage.Blobs.Models;\r\n    using global::Azure.Storage.Blobs.Specialized;\r\n    using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;\r\n    using Microsoft.Azure.Storage.Blob;\r\n    using Microsoft.WindowsAzure.Commands.Storage.Common;\r\n    using Microsoft.WindowsAzure.Commands.Storage.Model.Contract;\r\n    using System;\r\n    using System.Collections.Generic;\r\n    using System.Management.Automation;\r\n    using System.Security.Permissions;\r\n    using System.Threading.Tasks;\r\n    using Track2Models = global::Azure.Storage.Blobs.Models;\r\n\r\n    [Cmdlet(\u0022Copy\u0022, Azure.Commands.ResourceManager.Common.AzureRMConstants.AzurePrefix \u002B \u0022StorageBlob\u0022, SupportsShouldProcess = true, DefaultParameterSetName = ContainerNameParameterSet),OutputType(typeof(AzureStorageBlob))]\r\n    public class CopyAzureStorageBlob : StorageDataMovementCmdletBase\r\n    {\r\n        /// \u003Csummary\u003E\r\n        /// Blob Pipeline parameter set name\r\n        /// \u003C/summary\u003E\r\n        private const string BlobParameterSet = \u0022BlobInstance\u0022;\r\n\r\n        /// \u003Csummary\u003E\r\n        /// Blob name and container name parameter set\r\n        /// \u003C/summary\u003E\r\n        private const string ContainerNameParameterSet = \u0022ContainerName\u0022;\r\n\r\n        /// \u003Csummary\u003E\r\n        /// Source uri parameter set\r\n        /// \u003C/summary\u003E\r\n        private const string UriParameterSet = \u0022UriPipeline\u0022;\r\n\r\n        [Parameter(HelpMessage = \u0022BlobBaseClient Object\u0022, Mandatory = false,\r\n            ValueFromPipelineByPropertyName = true, ParameterSetName = BlobParameterSet)]\r\n        [ValidateNotNull]\r\n        public BlobBaseClient BlobBaseClient { get; set; }\r\n\r\n        [Alias(\u0022SourceBlob\u0022)]\r\n        [Parameter(HelpMessage = \u0022Blob name\u0022, ParameterSetName = ContainerNameParameterSet, Mandatory = true, Position = 0)]\r\n        public string SrcBlob\r\n        {\r\n            get { return BlobName; }\r\n            set { BlobName = value; }\r\n        }\r\n        private string BlobName = String.Empty;\r\n\r\n        [Alias(\u0022SourceContainer\u0022)]\r\n        [Parameter(HelpMessage = \u0022Source Container name\u0022, Mandatory = true, ParameterSetName = ContainerNameParameterSet)]\r\n        [ValidateNotNullOrEmpty]\r\n        public string SrcContainer\r\n        {\r\n            get { return ContainerName; }\r\n            set { ContainerName = value; }\r\n        }\r\n        private string ContainerName = String.Empty;\r\n\r\n        [Alias(\u0022SrcUri\u0022, \u0022SourceUri\u0022)]\r\n        [Parameter(HelpMessage = \u0022Source blob uri\u0022, Mandatory = true,\r\n            ValueFromPipelineByPropertyName = true, ParameterSetName = UriParameterSet)]\r\n        public string AbsoluteUri { get; set; }\r\n\r\n        [Alias(\u0022DestinationContainer\u0022)]\r\n        [Parameter(HelpMessage = \u0022Destination container name\u0022, Mandatory = true, ParameterSetName = ContainerNameParameterSet)]\r\n        [Parameter(HelpMessage = \u0022Destination container name\u0022, Mandatory = true, ParameterSetName = UriParameterSet)]\r\n        [Parameter(HelpMessage = \u0022Destination container name\u0022, Mandatory = true, ParameterSetName = BlobParameterSet)]\r\n        //[Parameter(HelpMessage = \u0022Destination container name\u0022, Mandatory = true, ParameterSetName = ContainerParameterSet)]\r\n        public string DestContainer { get; set; }\r\n\r\n        [Alias(\u0022DestinationBlob\u0022)]\r\n        [Parameter(HelpMessage = \u0022Destination blob name\u0022, Mandatory = true, ParameterSetName = UriParameterSet)]\r\n        [Parameter(HelpMessage = \u0022Destination blob name\u0022, Mandatory = false, ParameterSetName = ContainerNameParameterSet)]\r\n        [Parameter(HelpMessage = \u0022Destination blob name\u0022, Mandatory = false, ParameterSetName = BlobParameterSet)]\r\n        //[Parameter(HelpMessage = \u0022Destination blob name\u0022, Mandatory = false, ParameterSetName = ContainerParameterSet)]\r\n        public string DestBlob { get; set; }\r\n\r\n        [Parameter(HelpMessage = \u0022Destination blob type\u0022, Mandatory = false, ParameterSetName = UriParameterSet)]\r\n        [Parameter(HelpMessage = \u0022Destination blob type\u0022, Mandatory = false, ParameterSetName = ContainerNameParameterSet)]\r\n        [Parameter(HelpMessage = \u0022Destination blob type\u0022, Mandatory = false, ParameterSetName = BlobParameterSet)]\r\n        //[Parameter(HelpMessage = \u0022Destination blob name\u0022, Mandatory = false, ParameterSetName = ContainerParameterSet)]\r\n        [ValidateSet(\u0022Block\u0022, \u0022Page\u0022, \u0022Append\u0022, IgnoreCase = true)]\r\n        public string DestBlobType { get; set; }\r\n\r\n        [Parameter(HelpMessage = \u0022Block Blob Tier, valid values are Hot/Cool/Archive/Cold. See detail in https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-storage-tiers\u0022, Mandatory = false)]\r\n        [ValidateNotNullOrEmpty]\r\n        [PSArgumentCompleter(\u0022Hot\u0022, \u0022Cool\u0022, \u0022Archive\u0022, \u0022Cold\u0022)]\r\n        public string StandardBlobTier\r\n        {\r\n            get\r\n            {\r\n                return accesstier?.ToString();\r\n            }\r\n\r\n            set\r\n            {\r\n                if (value != null)\r\n                {\r\n                    accesstier = new AccessTier(value);\r\n                    isBlockBlobAccessTier = true;\r\n                }\r\n                else\r\n                {\r\n                    accesstier = null;\r\n                }\r\n            }\r\n        }\r\n        private bool? isBlockBlobAccessTier = null;\r\n        private AccessTier? accesstier = null;\r\n\r\n        [Parameter(HelpMessage = \u0022Block Blob RehydratePriority. Indicates the priority with which to rehydrate an archived blob. Valid values are High/Standard.\u0022, Mandatory = false)]\r\n        [ValidateSet(\u0022Standard\u0022, \u0022High\u0022, IgnoreCase = true)]\r\n        public Azure.Storage.Blob.RehydratePriority RehydratePriority\r\n        {\r\n            get\r\n            {\r\n                return rehydratePriority.Value;\r\n            }\r\n\r\n            set\r\n            {\r\n                rehydratePriority = value;\r\n            }\r\n        }\r\n        private Azure.Storage.Blob.RehydratePriority? rehydratePriority = null;\r\n\r\n        [Parameter(HelpMessage = \u0022Encryption scope to be used when making requests to the dest blob.\u0022,\r\n            Mandatory = false)]\r\n        [ValidateNotNullOrEmpty]\r\n        public string EncryptionScope { get; set; }\r\n\r\n        [Alias(\u0022SrcContext\u0022, \u0022SourceContext\u0022)]\r\n        [Parameter(HelpMessage = \u0022Source Azure Storage Context Object\u0022, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, ParameterSetName = ContainerNameParameterSet)]\r\n        [Parameter(HelpMessage = \u0022Source Azure Storage Context Object\u0022, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, ParameterSetName = BlobParameterSet)]\r\n        [Parameter(HelpMessage = \u0022Source Azure Storage Context Object\u0022, ParameterSetName = UriParameterSet)]\r\n        public override IStorageContext Context { get; set; }\r\n\r\n        [Alias(\u0022DestinationContext\u0022)]\r\n        [Parameter(HelpMessage = \u0022Destination Storage context object\u0022, Mandatory = false)]\r\n        public IStorageContext DestContext { get; set; }\r\n\r\n        public override int? ServerTimeoutPerRequest { get; set; }\r\n        public override int? ClientTimeoutPerRequest { get; set; }\r\n        public override int? ConcurrentTaskCount { get; set; }\r\n\r\n        private bool skipSourceChannelInit;\r\n\r\n        /// \u003Csummary\u003E\r\n        /// Create blob client and storage service management channel if need to.\r\n        /// \u003C/summary\u003E\r\n        /// \u003Creturns\u003EIStorageManagement object\u003C/returns\u003E\r\n        protected override IStorageBlobManagement CreateChannel()\r\n        {\r\n            //Init storage blob management channel\r\n            if (skipSourceChannelInit)\r\n            {\r\n                return null;\r\n            }\r\n            else\r\n            {\r\n                return base.CreateChannel();\r\n            }\r\n        }\r\n\r\n        /// \u003Csummary\u003E\r\n        /// Begin cmdlet processing\r\n        /// \u003C/summary\u003E\r\n        protected override void BeginProcessing()\r\n        {\r\n            if (ParameterSetName == UriParameterSet)\r\n            {\r\n                skipSourceChannelInit = true;\r\n            }\r\n\r\n            base.BeginProcessing();\r\n        }\r\n\r\n        private IStorageFileManagement GetFileChannel()\r\n        {\r\n            return new StorageFileManagement(GetCmdletStorageContext());\r\n        }\r\n\r\n        /// \u003Csummary\u003E\r\n        /// Set up the Channel object for Destination container and blob\r\n        /// \u003C/summary\u003E\r\n        internal IStorageBlobManagement GetDestinationChannel()\r\n        {\r\n            //If destChannel exits, reuse it.\r\n            //If desContext exits, use it.\r\n            //If Channel object exists, use it.\r\n            //Otherwise, create a new channel.\r\n            IStorageBlobManagement destChannel = default(IStorageBlobManagement);\r\n\r\n            if (destChannel == null)\r\n            {\r\n                if (DestContext == null)\r\n                {\r\n                    if (Channel != null)\r\n                    {\r\n                        destChannel = Channel;\r\n                    }\r\n                    else\r\n                    {\r\n                        destChannel = base.CreateChannel();\r\n                    }\r\n                }\r\n                else\r\n                {\r\n                    destChannel = CreateChannel(this.GetCmdletStorageContext(DestContext));\r\n                }\r\n            }\r\n\r\n            return destChannel;\r\n        }\r\n\r\n        /// \u003Csummary\u003E\r\n        /// Execute command\r\n        /// \u003C/summary\u003E\r\n        [PermissionSet(SecurityAction.Demand, Name = \u0022FullTrust\u0022)]\r\n        public override void ExecuteCmdlet()\r\n        {\r\n            if (AsJob.IsPresent)\r\n            {\r\n                if (ParameterSetName == UriParameterSet)\r\n                {\r\n                    skipSourceChannelInit = true;\r\n                }\r\n                DoBeginProcessing();\r\n            }\r\n\r\n            IStorageBlobManagement destChannel = GetDestinationChannel();\r\n            IStorageBlobManagement srcChannel = Channel;\r\n\r\n            if (!string.IsNullOrEmpty(this.EncryptionScope))\r\n            {\r\n                SetClientOptionsWithEncryptionScope(this.EncryptionScope);\r\n            }\r\n\r\n            string target = string.Empty;\r\n            Action copyAction = null;\r\n            switch (ParameterSetName)\r\n            {\r\n                case ContainerNameParameterSet:\r\n                    copyAction = () =\u003E CopyBlobSync(srcChannel, destChannel, SrcContainer, SrcBlob, DestContainer, DestBlob);\r\n                    target = SrcBlob;\r\n                    break;\r\n\r\n                case UriParameterSet:\r\n                    copyAction = () =\u003E CopyBlobSync(destChannel, AbsoluteUri, DestContainer, DestBlob, (Context != null ? GetCmdletStorageContext(Context) : null));\r\n                    target = AbsoluteUri;\r\n                    break;\r\n\r\n                case BlobParameterSet:\r\n                    copyAction = () =\u003E CopyBlobSync(destChannel, BlobBaseClient, DestContainer, DestBlob);\r\n                    target = BlobBaseClient.Name;\r\n                    break;\r\n            }\r\n\r\n            if (copyAction != null \u0026\u0026 ShouldProcess(target, VerbsCommon.Copy))\r\n            {\r\n                copyAction();\r\n            }\r\n\r\n            if (AsJob.IsPresent)\r\n            {\r\n                DoEndProcessing();\r\n            }\r\n        }\r\n\r\n        private void CopyBlobSync(IStorageBlobManagement SrcChannel, IStorageBlobManagement destChannel, string srcContainerName, string srcBlobName, string destContainerName, string destBlobName)\r\n        {\r\n            NameUtil.ValidateBlobName(srcBlobName);\r\n            NameUtil.ValidateContainerName(srcContainerName);\r\n\r\n            BlobBaseClient srcBlobBaseClient = Util.GetTrack2BlobServiceClient(SrcChannel.StorageContext, ClientOptions).GetBlobContainerClient(srcContainerName).GetBlobBaseClient(srcBlobName);\r\n\r\n            this.CopyBlobSync(destChannel, srcBlobBaseClient, destContainerName, destBlobName);\r\n        }\r\n\r\n        private void CopyBlobSync(IStorageBlobManagement destChannel, BlobBaseClient srcBlobBaseClient, string destContainerName, string destBlobName)\r\n        {\r\n            NameUtil.ValidateContainerName(destContainerName);\r\n            if (string.IsNullOrEmpty(destBlobName))\r\n            {\r\n                destBlobName = srcBlobBaseClient.Name;\r\n            }\r\n            else\r\n            {\r\n                NameUtil.ValidateBlobName(destBlobName);\r\n            }\r\n            BlobBaseClient destBlob = this.GetDestBlob(destChannel, destContainerName, destBlobName, null);\r\n\r\n            this.CopyBlobSync(destChannel, srcBlobBaseClient, destBlob);\r\n        }\r\n\r\n        private void CopyBlobSync(IStorageBlobManagement destChannel, BlobBaseClient srcCloudBlob, BlobBaseClient destCloudBlob)\r\n        {\r\n            Track2Models.BlobType srcBlobType = Util.GetBlobType(srcCloudBlob, true).Value;\r\n\r\n            if (srcCloudBlob is BlobClient)\r\n            {\r\n                srcCloudBlob = Util.GetTrack2BlobClientWithType(srcCloudBlob, Channel.StorageContext, srcBlobType, ClientOptions);\r\n            }\r\n            if (destCloudBlob is BlobClient)\r\n            {\r\n                destCloudBlob = Util.GetTrack2BlobClientWithType(destCloudBlob, destChannel.StorageContext, srcBlobType, ClientOptions);\r\n            }\r\n\r\n            Func\u003Clong, Task\u003E taskGenerator = (taskId) =\u003E CopyFromUri(taskId, destChannel, srcCloudBlob.GenerateUriWithCredentials(Channel.StorageContext), destCloudBlob);\r\n            RunTask(taskGenerator);\r\n        }\r\n\r\n        private void CopyBlobSync(IStorageBlobManagement destChannel, string srcUri, string destContainer, string destBlobName, AzureStorageContext context)\r\n        {\r\n            Track2Models.BlobType srcBlobType = Util.GetBlobType(new BlobBaseClient(new Uri(srcUri), ClientOptions), true).Value;\r\n\r\n            BlobBaseClient destBlob = this.GetDestBlob(destChannel, destContainer, destBlobName, srcBlobType);\r\n            Func\u003Clong, Task\u003E taskGenerator = (taskId) =\u003E CopyFromUri(taskId, destChannel, new Uri(srcUri), destBlob);\r\n            RunTask(taskGenerator);\r\n        }\r\n\r\n        private async Task CopyFromUri(long taskId, IStorageBlobManagement destChannel, Uri srcUri, BlobBaseClient destBlob)\r\n        {\r\n            bool destExist = true;\r\n            Track2Models.BlobType? srcBlobType = Util.GetBlobType(new BlobBaseClient(srcUri, ClientOptions), true).Value;\r\n            Track2Models.BlobType? destBlobType = Util.GetBlobType(new BlobBaseClient(srcUri, ClientOptions), true).Value;\r\n            Track2Models.BlobProperties properties = null;\r\n\r\n            try\r\n            {\r\n                properties = (await destBlob.GetPropertiesAsync(this.BlobRequestConditions, cancellationToken: this.CmdletCancellationToken).ConfigureAwait(false)).Value;\r\n                destBlobType = properties.BlobType;\r\n\r\n                // Throw an exception if the input dest blob type and the existing dest blob\u0027s type given don\u0027t match\r\n                if (!String.IsNullOrEmpty(this.DestBlobType) \u0026\u0026 !String.Equals(this.DestBlobType.ToLower(), destBlobType.ToString().ToLower()))\r\n                {\r\n                    throw new ArgumentException(\u0022Input dest blob type doesn\u0027t match with the actual dest blob type\u0022);\r\n                }\r\n            }\r\n            catch (global::Azure.RequestFailedException e) when (e.Status == 404)\r\n            {\r\n                destExist = false;\r\n            }\r\n\r\n            if (!String.IsNullOrEmpty(this.DestBlobType))\r\n            {\r\n                switch (this.DestBlobType.ToLower())\r\n                {\r\n                    case \u0022block\u0022:\r\n                        destBlobType = Track2Models.BlobType.Block;\r\n                        break;\r\n                    case \u0022page\u0022:\r\n                        destBlobType = Track2Models.BlobType.Page;\r\n                        break;\r\n                    case \u0022append\u0022:\r\n                        destBlobType = Track2Models.BlobType.Append;\r\n                        break;\r\n                    default:\r\n                        throw new ArgumentException(\u0022The input dest blob type is invalid\u0022);\r\n                }   \r\n            } else\r\n            {\r\n                if (destExist)\r\n                { \r\n                    OutputStream.WriteDebug(string.Format(\u0022DestBlobType is not specified. Will use the existing dest blob type by default: {0}\u0022, destBlobType.ToString()));\r\n                } \r\n                else\r\n                { \r\n                    OutputStream.WriteDebug(string.Format(\u0022DestBlobType is not specified. Will use the source blob type by default: {0}\u0022, srcBlobType.ToString()));\r\n                }\r\n            }\r\n\r\n            if (destBlobType != null)\r\n            {\r\n                ValidateBlobTier(Util.convertBlobType_Track2ToTrack1(destBlobType), null, isBlockBlobAccessTier, rehydratePriority);\r\n                if (this.rehydratePriority != null \u0026\u0026 this.accesstier == null)\r\n                {\r\n                    throw new ArgumentException(\u0022RehydratePriority should only be specified when StandardBlobTier is specified.\u0022);\r\n                }\r\n            }\r\n\r\n            if (!destExist || this.ConfirmOverwrite(srcUri.AbsoluteUri.ToString(), destBlob.Uri.ToString()))\r\n            {\r\n\r\n                BlobBaseClient srcBlobClient= new BlobBaseClient(srcUri, ClientOptions);\r\n                Track2Models.BlobProperties srcProperties = srcBlobClient.GetProperties(cancellationToken: this.CmdletCancellationToken).Value;\r\n\r\n                Track2Models.BlobHttpHeaders httpHeaders = new Track2Models.BlobHttpHeaders\r\n                {\r\n                    ContentType = srcProperties.ContentType,\r\n                    ContentLanguage = srcProperties.ContentLanguage,\r\n                    ContentHash = srcProperties.ContentHash,\r\n                    ContentDisposition = srcProperties.ContentDisposition,\r\n                    ContentEncoding = srcProperties.ContentEncoding\r\n                };\r\n\r\n                IDictionary\u003Cstring, string\u003E blobTags = null;\r\n\r\n                try\r\n                {\r\n                    blobTags = srcBlobClient.GetTags(cancellationToken: this.CmdletCancellationToken).Value.Tags;\r\n                }\r\n                catch (global::Azure.RequestFailedException)\r\n                {\r\n                    if (!this.Force \u0026\u0026 !OutputStream.ConfirmAsync(\u0022Can\u0027t get source blob Tags, so source blob tags won\u0027t be copied to dest blob. Do you want to continue the blob copy?\u0022).Result)\r\n                    {\r\n                        return;\r\n                    }\r\n                }\r\n\r\n                //Prepare progress handler\r\n                string activity = String.Format(\u0022Copy Blob {0} to {1}\u0022, srcBlobClient.Name, destBlob.Name);\r\n                string status = \u0022Prepare to Copy Blob\u0022;\r\n                ProgressRecord pr = new ProgressRecord(OutputStream.GetProgressId(taskId), activity, status);\r\n                IProgress\u003Clong\u003E progressHandler = new Progress\u003Clong\u003E((finishedBytes) =\u003E\r\n                {\r\n                    if (pr != null)\r\n                    {\r\n                        // Size of the source file might be 0, when it is, directly treat the progress as 100 percent.\r\n                        pr.PercentComplete = 0 == srcProperties.ContentLength ? 100 : (int)(finishedBytes * 100 / srcProperties.ContentLength);\r\n                        pr.StatusDescription = string.Format(\u0022Percent: {0}%.\u0022, pr.PercentComplete);\r\n                        this.OutputStream.WriteProgress(pr);\r\n                    }\r\n                });\r\n\r\n                switch (destBlobType)\r\n                {\r\n                    case Track2Models.BlobType.Page:\r\n                        PageBlobClient destPageBlob = (PageBlobClient)Util.GetTrack2BlobClientWithType(destBlob, destChannel.StorageContext, Track2Models.BlobType.Page, ClientOptions);\r\n\r\n                        Track2Models.PageBlobCreateOptions pageBlobCreateOptions = new Track2Models.PageBlobCreateOptions();\r\n                        pageBlobCreateOptions.HttpHeaders = httpHeaders;\r\n                        pageBlobCreateOptions.Metadata = srcProperties.Metadata;\r\n                        pageBlobCreateOptions.Tags = blobTags ?? null;\r\n\r\n                        destPageBlob.Create(srcProperties.ContentLength, pageBlobCreateOptions, this.CmdletCancellationToken);\r\n          \r\n                        Track2Models.PageBlobUploadPagesFromUriOptions pageBlobUploadPagesFromUriOptions = new Track2Models.PageBlobUploadPagesFromUriOptions();\r\n                        long pageCopyOffset = 0;\r\n                        progressHandler.Report(pageCopyOffset);\r\n                        long contentLenLeft = srcProperties.ContentLength;\r\n                        while (contentLenLeft \u003E 0)\r\n                        {\r\n                            long contentSize = contentLenLeft \u003C size4MB ? contentLenLeft : size4MB;\r\n                            destPageBlob.UploadPagesFromUri(srcUri, new global::Azure.HttpRange(pageCopyOffset, contentSize), new global::Azure.HttpRange(pageCopyOffset, contentSize), pageBlobUploadPagesFromUriOptions, this.CmdletCancellationToken);\r\n                            pageCopyOffset \u002B= contentSize;\r\n                            progressHandler.Report(pageCopyOffset);\r\n                            contentLenLeft -= contentSize;\r\n                        }\r\n                        break;\r\n\r\n                    case Track2Models.BlobType.Append:\r\n                        AppendBlobClient destAppendBlob = (AppendBlobClient)Util.GetTrack2BlobClientWithType(destBlob, destChannel.StorageContext, Track2Models.BlobType.Append, ClientOptions);\r\n\r\n                        Track2Models.AppendBlobCreateOptions appendBlobCreateOptions = new Track2Models.AppendBlobCreateOptions();\r\n                        appendBlobCreateOptions.HttpHeaders = httpHeaders;\r\n                        appendBlobCreateOptions.Metadata = srcProperties.Metadata;\r\n                        appendBlobCreateOptions.Tags = blobTags ?? null;\r\n\r\n                        destAppendBlob.Create(appendBlobCreateOptions, this.CmdletCancellationToken);\r\n\r\n                        long appendCopyOffset = 0;\r\n                        progressHandler.Report(appendCopyOffset);\r\n                        long appendContentLenLeft = srcProperties.ContentLength;\r\n                        while (appendContentLenLeft \u003E 0)\r\n                        {\r\n                            long appendContentSize = appendContentLenLeft \u003C size4MB ? appendContentLenLeft : size4MB;\r\n\r\n                            Track2Models.AppendBlobAppendBlockFromUriOptions appendBlobAppendBlockFromUriOptions = new Track2Models.AppendBlobAppendBlockFromUriOptions\r\n                            {\r\n                                SourceRange = new global::Azure.HttpRange(appendCopyOffset, appendContentSize)\r\n                            };\r\n\r\n                            destAppendBlob.AppendBlockFromUri(srcUri, appendBlobAppendBlockFromUriOptions, this.CmdletCancellationToken);\r\n                            appendCopyOffset \u002B= appendContentSize;\r\n                            progressHandler.Report(appendContentSize);\r\n                            appendContentLenLeft -= appendContentSize;\r\n                        }\r\n                        break;\r\n\r\n                    default: // default: block\r\n                        // When the source and dest blobs are both Block blobs and the size of the source blob is not larger than 256MiB, use CopyBlobFromUrl \r\n                        // Details can be found in https://learn.microsoft.com/en-us/rest/api/storageservices/copy-blob-from-url\r\n                        if (srcBlobType is Track2Models.BlobType.Block \u0026\u0026 srcProperties.ContentLength \u003C= size256MB)\r\n                        {\r\n                            BlobBaseClient destBlobClient = Util.GetTrack2BlobClientWithType(destBlob, destChannel.StorageContext, Track2Models.BlobType.Block, ClientOptions);\r\n                            Track2Models.BlobCopyFromUriOptions options = new Track2Models.BlobCopyFromUriOptions();\r\n\r\n                            // The Blob Type and Blob Tier must match, since already checked before\r\n                            if (accesstier != null || rehydratePriority != null)\r\n                            {\r\n                                options.AccessTier = accesstier;\r\n                                options.RehydratePriority = Util.ConvertRehydratePriority_Track1ToTrack2(rehydratePriority);\r\n                            }\r\n                            options.SourceConditions = this.BlobRequestConditions;\r\n                            options.Metadata = srcProperties.Metadata;\r\n                            options.Tags = blobTags ?? null;\r\n\r\n                            destBlobClient.SyncCopyFromUri(srcUri, options, this.CmdletCancellationToken);\r\n\r\n                            // Set rehydrate priority\r\n                            if (rehydratePriority != null \u0026\u0026 accesstier != null)\r\n                            {\r\n                                destBlobClient.SetAccessTier(accesstier.Value,\r\n                                        rehydratePriority: Util.ConvertRehydratePriority_Track1ToTrack2(rehydratePriority), cancellationToken: this.CmdletCancellationToken);\r\n                            }\r\n                            break;\r\n                        }\r\n\r\n                        BlockBlobClient destBlockBlob = (BlockBlobClient)Util.GetTrack2BlobClientWithType(destBlob, destChannel.StorageContext, Track2Models.BlobType.Block, ClientOptions);\r\n\r\n                        Track2Models.CommitBlockListOptions commitBlockListOptions = new Track2Models.CommitBlockListOptions();\r\n                        commitBlockListOptions.HttpHeaders = httpHeaders;\r\n                        commitBlockListOptions.Metadata = srcProperties.Metadata;\r\n                        commitBlockListOptions.Tags = blobTags ?? null;\r\n\r\n                        if (accesstier != null)\r\n                        {\r\n                            commitBlockListOptions.AccessTier = accesstier;\r\n                        }\r\n\r\n                        long blockLength = GetBlockLength(srcProperties.ContentLength);\r\n                        string[] blockIDs = GetBlockIDs(srcProperties.ContentLength, blockLength, destBlockBlob.Name);\r\n                        long copyoffset = 0;\r\n                        progressHandler.Report(copyoffset);\r\n                        foreach (string id in blockIDs)\r\n                        {\r\n                            long blocksize = blockLength;\r\n                            if (copyoffset \u002B blocksize \u003E srcProperties.ContentLength)\r\n                            {\r\n                                blocksize = srcProperties.ContentLength - copyoffset;\r\n                            }\r\n                            destBlockBlob.StageBlockFromUri(srcUri, id, new global::Azure.HttpRange(copyoffset, blocksize), null, null, null, cancellationToken: this.CmdletCancellationToken);\r\n                            copyoffset \u002B= blocksize;\r\n                            progressHandler.Report(copyoffset);\r\n\r\n                        }\r\n                        destBlockBlob.CommitBlockList(blockIDs, commitBlockListOptions, this.CmdletCancellationToken);\r\n\r\n                        // Set rehydrate priority\r\n                        if (rehydratePriority != null \u0026\u0026 accesstier != null)\r\n                        {\r\n                            destBlockBlob.SetAccessTier(accesstier.Value,\r\n                                rehydratePriority: Util.ConvertRehydratePriority_Track1ToTrack2(rehydratePriority), cancellationToken: this.CmdletCancellationToken);\r\n                        }\r\n                        break;\r\n                }\r\n\r\n                OutputStream.WriteObject(taskId, new AzureStorageBlob(destBlob, destChannel.StorageContext, null, options: ClientOptions));\r\n            }\r\n        }\r\n\r\n        private BlobBaseClient GetDestBlob(IStorageBlobManagement destChannel, string destContainerName, string destBlobName, global::Azure.Storage.Blobs.Models.BlobType? blobType)\r\n        {\r\n            NameUtil.ValidateContainerName(destContainerName);\r\n            NameUtil.ValidateBlobName(destBlobName);\r\n\r\n            BlobContainerClient container = AzureStorageContainer.GetTrack2BlobContainerClient(destChannel.GetContainerReference(destContainerName), destChannel.StorageContext, ClientOptions);\r\n            BlobBaseClient destBlob = Util.GetTrack2BlobClient(container, destBlobName, destChannel.StorageContext, null, null, null, ClientOptions, blobType);\r\n            return destBlob;\r\n        }\r\n    }\r\n}"
@@ -315,7 +359,7 @@
         "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx/20261112testxxx-copy.md",
         "headers": {
           "x-ms-client-request-id": [
-            "af3abaad-8841-491d-852c-c56c1be8327c"
+            "61bbfcbb-1100-49de-9874-78cfdc75c384"
           ],
           "x-ms-copy-source": [
             "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/storage/data-plane/BlobStorage/readme.md"
@@ -329,29 +373,29 @@
         "statusCode": 202,
         "headers": {
           "ETag": [
-            "\u00220x8DF408D85D82D76\u0022"
+            "\u00220x8DF41254381AEE7\u0022"
           ],
           "Server": [
             "Windows-Azure-Blob/1.0",
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672e3d4-301e-0008-0976-726983000000"
+            "40e159c8-501e-0053-6f0e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "af3abaad-8841-491d-852c-c56c1be8327c"
+            "61bbfcbb-1100-49de-9874-78cfdc75c384"
           ],
           "x-ms-version": [
             "2027-03-07"
           ],
           "x-ms-copy-id": [
-            "f1928779-92f1-4740-a0c7-c72a531b5f85"
+            "243867a5-f044-4b05-9b23-094297f0f798"
           ],
           "x-ms-copy-status": [
             "pending"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:08 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -359,7 +403,7 @@
             "0"
           ],
           "Last-Modified": [
-            "Thu, 12 Nov 2026 07:21:09 GMT"
+            "Fri, 13 Nov 2026 01:27:21 GMT"
           ]
         },
         "body": ""
@@ -377,7 +421,7 @@
             "BlockBlob"
           ],
           "x-ms-client-request-id": [
-            "3ba0ae9d-d360-4033-a5ab-3051ac6d22fa"
+            "6363b07a-c510-49d6-9df4-33a935d5003b"
           ],
           "x-ms-copy-source": [
             "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/refs/heads/main/specification/storage/data-plane/BlobStorage/readme.md"
@@ -391,17 +435,17 @@
         "statusCode": 201,
         "headers": {
           "ETag": [
-            "\u00220x8DF408D86114ED8\u0022"
+            "\u00220x8DF412543863DA6\u0022"
           ],
           "Server": [
             "Windows-Azure-Blob/1.0",
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672e64d-301e-0008-3976-726983000000"
+            "40e15ac8-501e-0053-570e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "3ba0ae9d-d360-4033-a5ab-3051ac6d22fa"
+            "6363b07a-c510-49d6-9df4-33a935d5003b"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -413,7 +457,7 @@
             "true"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:08 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -421,7 +465,7 @@
             "0"
           ],
           "Last-Modified": [
-            "Thu, 12 Nov 2026 07:21:09 GMT"
+            "Fri, 13 Nov 2026 01:27:21 GMT"
           ]
         },
         "body": ""
@@ -433,7 +477,7 @@
         "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx/20261112testxxx-fromurl.md",
         "headers": {
           "x-ms-client-request-id": [
-            "8a570f51-ad85-4b7f-8869-8775063f5c3c"
+            "85380fa3-33c0-4b9e-916b-5768b360ca78"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -448,10 +492,10 @@
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672e7c0-301e-0008-7b76-726983000000"
+            "40e15ae6-501e-0053-710e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "8a570f51-ad85-4b7f-8869-8775063f5c3c"
+            "85380fa3-33c0-4b9e-916b-5768b360ca78"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -460,7 +504,7 @@
             "false"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:08 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -477,7 +521,7 @@
         "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx/20261112testxxx-copy.md",
         "headers": {
           "x-ms-client-request-id": [
-            "dab08c36-6497-414c-89a1-2e7711720ee7"
+            "760eca7d-c45a-43e1-8e11-8f554691393d"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -492,10 +536,10 @@
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672e93b-301e-0008-4b76-726983000000"
+            "40e15ae9-501e-0053-740e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "dab08c36-6497-414c-89a1-2e7711720ee7"
+            "760eca7d-c45a-43e1-8e11-8f554691393d"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -504,7 +548,7 @@
             "false"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:09 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -521,7 +565,7 @@
         "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx/20261112testxxx.txt",
         "headers": {
           "x-ms-client-request-id": [
-            "9871a2b7-9b8a-4e54-ac2b-b3057879365b"
+            "9fe0e047-4a2c-4d20-9cbf-be1e2ec1c770"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -536,10 +580,10 @@
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672ea62-301e-0008-4976-726983000000"
+            "40e15af3-501e-0053-7e0e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "9871a2b7-9b8a-4e54-ac2b-b3057879365b"
+            "9fe0e047-4a2c-4d20-9cbf-be1e2ec1c770"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -548,7 +592,7 @@
             "false"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:09 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
@@ -565,7 +609,7 @@
         "uri": "https://20261110testaccount.blob.core.windows.net/20261112testxxx?restype=container",
         "headers": {
           "x-ms-client-request-id": [
-            "97c65b50-e9e8-4a38-b2a5-bdeadc131094"
+            "3d156483-28a1-42ec-a223-7f9bf8faa81a"
           ],
           "x-ms-version": [
             "2027-03-07"
@@ -580,16 +624,16 @@
             "Microsoft-HTTPAPI/2.0"
           ],
           "x-ms-request-id": [
-            "3672eb59-301e-0008-1d76-726983000000"
+            "40e15b02-501e-0053-080e-7350b8000000"
           ],
           "x-ms-client-request-id": [
-            "97c65b50-e9e8-4a38-b2a5-bdeadc131094"
+            "3d156483-28a1-42ec-a223-7f9bf8faa81a"
           ],
           "x-ms-version": [
             "2027-03-07"
           ],
           "Date": [
-            "Thu, 12 Nov 2026 07:21:09 GMT"
+            "Fri, 13 Nov 2026 01:27:20 GMT"
           ]
         },
         "contentHeaders": {
