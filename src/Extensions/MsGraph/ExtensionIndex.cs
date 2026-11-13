@@ -426,8 +426,8 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ProcessorType: typeof(Processors.ListGroupMemberProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["group"]             = new("Group", "group", typeof(string), GroupDescription, IsRequired: false, Aliases: ["g"], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["ByGroup"] = new("ByGroup", IsRequired: true) }),
-                ["display-name"]      = new("GroupDisplayName", "display-name", typeof(string), GroupDisplayNameDescription, IsRequired: false, Aliases: [], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["ByDisplayName"] = new("ByDisplayName", IsRequired: true) }),
+                ["group"]             = new("Group", "group", typeof(string), GroupDescription, IsRequired: false, Aliases: ["g"], AllowedValues: []),
+                ["display-name"]      = new("GroupDisplayName", "display-name", typeof(string), GroupDisplayNameDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["filter"]            = new("Filter", "filter", typeof(string), GroupMemberFilterDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["select"]            = new("Select", "select", typeof(string[]), GroupMemberSelectDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["expand"]            = new("Expand", "expand", typeof(string[]), GroupMemberExpandDescription, IsRequired: false, Aliases: [], AllowedValues: []),
@@ -435,34 +435,7 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
                 ["search"]            = new("Search", "search", typeof(string), GroupMemberSearchDescription, IsRequired: false, Aliases: [], AllowedValues: []),
                 ["consistency-level"] = new("ConsistencyLevel", "consistency-level", typeof(string), ConsistencyLevelDescription, IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" },
-            ParameterSets: new Dictionary<string, ParameterSetMetadata>
-            {
-                ["ByGroup"] = new("ByGroup",
-                                    IsDefault: true,
-                                    Parameters: new Dictionary<string, ParameterReference>
-                                    {
-                                        ["Group"] = new("Group", IsRequired: true),
-                                        ["Filter"] = new("Filter", IsRequired: false),
-                                        ["Select"] = new("Select", IsRequired: false),
-                                        ["Expand"] = new("Expand", IsRequired: false),
-                                        ["Orderby"] = new("Orderby", IsRequired: false),
-                                        ["Search"] = new("Search", IsRequired: false),
-                                        ["ConsistencyLevel"] = new("ConsistencyLevel", IsRequired: false),
-                                    }),
-                ["ByDisplayName"] = new("ByDisplayName",
-                                    IsDefault: false,
-                                    Parameters: new Dictionary<string, ParameterReference>
-                                    {
-                                        ["GroupDisplayName"] = new("GroupDisplayName", IsRequired: true),
-                                        ["Filter"] = new("Filter", IsRequired: false),
-                                        ["Select"] = new("Select", IsRequired: false),
-                                        ["Expand"] = new("Expand", IsRequired: false),
-                                        ["Orderby"] = new("Orderby", IsRequired: false),
-                                        ["Search"] = new("Search", IsRequired: false),
-                                        ["ConsistencyLevel"] = new("ConsistencyLevel", IsRequired: false),
-                                    }),
-            }
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
         );
         private static readonly CommandMetadata s_checkGroupMember_CLI = new(
             Name: "CheckGroupMemberProcessor_Orchestrator",
@@ -473,20 +446,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph
             ProcessorType: typeof(Processors.CheckGroupMemberProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["group"]     = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["Default"] = new("Default", IsRequired: true) }),
-                ["member-id"] = new("MemberId", "member-id", typeof(string), MemberIdDescription, IsRequired: true, Aliases: [], AllowedValues: [], ParameterSets: new Dictionary<string, ParameterSetReference> { ["Default"] = new("Default", IsRequired: true) }),
+                ["group"]     = new("Group", "group", typeof(string), GroupDescription, IsRequired: true, Aliases: ["g"], AllowedValues: []),
+                ["member-id"] = new("MemberId", "member-id", typeof(string), MemberIdDescription, IsRequired: true, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" },
-            ParameterSets: new Dictionary<string, ParameterSetMetadata>
-            {
-                ["Default"] = new("Default", 
-                                    IsDefault: true, 
-                                    Parameters: new Dictionary<string, ParameterReference>
-                                    {
-                                        ["Group"] = new("Group", IsRequired: true),
-                                        ["MemberId"] = new("MemberId", IsRequired: true),
-                                    })
-            }
+            ParameterAliases: new Dictionary<string, string> { ["g"] = "group" }
         );
 
         // ── Application: CLI Command Metadata ──

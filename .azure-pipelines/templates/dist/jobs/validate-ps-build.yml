@@ -1,0 +1,136 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
+- name: ps_modules_artifact_name
+  type: string
+  default: 'PSModules'
+# Runs only the entries marked testInAlpha; also disables version discovery.
+- name: limit_testing
+  type: boolean
+  default: false
+# Disables distribution and PowerShell version discovery.
+- name: skip_version_check
+  type: boolean
+  default: false
+
+jobs:
+- job: GeneratePowerShellValidationMatrix
+  displayName: Generate PS Validation Matrix
+  pool:
+    ${{ if startsWith(parameters.ubuntu_pool, 'pool-') }}:
+      name: ${{ parameters.ubuntu_pool }}
+    ${{ else }}:
+      vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 1
+
+  - pwsh: |
+      & ./tests/Scripts/PS/PSModuleLifecycleFixtures.ps1
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & ./tests/Scripts/PS/PSValidationPipelineFixtures.ps1
+      exit $LASTEXITCODE
+    displayName: Test PS Validation Scripts
+
+  - bash: |
+      set -euo pipefail
+      matrix_args=()
+      if [[ "${LIMIT_TESTING,,}" == "true" ]]; then
+        matrix_args+=(--limit-testing)
+      fi
+      if [[ "${SKIP_VERSION_CHECK,,}" == "true" ]]; then
+        matrix_args+=(--skip-version-check)
+      fi
+      echo "PowerShell validation generator arguments: ${matrix_args[*]:-<none>}"
+      bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh \
+        --pool '${{ parameters.ubuntu_pool }}' \
+        --pool-for 'macos_arm64=${{ parameters.macos_arm64_pool }}' \
+        --pool-for 'macos_x64=${{ parameters.macos_intel_pool }}' \
+        --azure-variable matrix \
+        "${matrix_args[@]}"
+    name: GenerateMatrix
+    displayName: Generate PS Validation Matrix
+    env:
+      LIMIT_TESTING: ${{ parameters.limit_testing }}
+      SKIP_VERSION_CHECK: ${{ parameters.skip_version_check }}
+
+- job: PowerShellValidation
+  dependsOn:
+  - GeneratePowerShellValidationMatrix
+  condition: and(not(canceled()), in(dependencies.GeneratePowerShellValidationMatrix.result, 'Succeeded', 'SucceededWithIssues'))
+  displayName: PS Validation
+  timeoutInMinutes: 60
+  variables:
+    PsValidationBootstrapped: 'false'
+    PsValidationInstalled: 'false'
+  strategy:
+    matrix: $[ dependencies.GeneratePowerShellValidationMatrix.outputs['GenerateMatrix.matrix'] ]
+  pool:
+    name: $(DistributionPoolName)
+    vmImage: $(DistributionVmImage)
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 1
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download PS Module Packages
+    inputs:
+      artifact: ${{ parameters.ps_modules_artifact_name }}
+      path: $(Pipeline.Workspace)/${{ parameters.ps_modules_artifact_name }}
+
+  # Validation is split into one step per phase so that a failure points straight at
+  # the phase that broke. Each distribution owns a small bootstrap script whose only
+  # responsibility is installing the PowerShell 7 dependency; every phase after that
+  # is the centralized flow that every agent shares.
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Bootstrap
+      display_name: Install PowerShell $(PowerShellVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  # Install imports every module under its exact packaged version and checks cmdlets/help.
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Install
+      display_name: Install Azure PS v$(AzVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  - template: ../steps/ps-validation-phase.yml
+    parameters:
+      phase: Uninstall
+      display_name: Uninstall Azure PS v$(AzVersion)
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+
+  # The container is started detached so that it survives between phase steps, so it
+  # has to be removed explicitly even when a phase failed.
+  - bash: |
+      docker rm --force "azclips-psval-$(System.JobId)" >/dev/null 2>&1 || true
+    condition: and(always(), eq(variables['ValidationMode'], 'container'))
+    displayName: Clean Up Validation Container
+
+  - pwsh: |
+      & "$env:BUILD_SOURCESDIRECTORY/devops/scripts/packaging/powershell/complete_ps_validation_artifacts.ps1" `
+        -ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY "azclips-ps-validation-reports-$env:SYSTEM_JOBID") `
+        -ValidationKey $env:PS_VALIDATION_KEY `
+        -JobStatus $env:AGENT_JOBSTATUS
+    env:
+      PS_VALIDATION_KEY: $(ValidationKey)
+    condition: always()
+    displayName: Finalize PS Validation Artifacts
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish PS Validation Artifacts
+    condition: always()
+    inputs:
+      targetPath: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)
+      artifact: Validate_PS_Sim_$(ValidationKey)
+      publishLocation: pipeline

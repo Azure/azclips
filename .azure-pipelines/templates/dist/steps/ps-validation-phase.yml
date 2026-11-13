@@ -1,0 +1,57 @@
+parameters:
+- name: phase
+  type: string
+  values:
+  - Bootstrap
+  - Install
+  - Uninstall
+- name: display_name
+  type: string
+- name: ps_modules_artifact_name
+  type: string
+
+steps:
+# Hosted Linux, macOS and Windows images all provide pwsh for orchestration.
+# The requested PowerShell version is installed separately for module testing.
+- pwsh: |
+    & "$env:BUILD_SOURCESDIRECTORY/devops/scripts/packaging/powershell/invoke_ps_validation_step.ps1" `
+      -Phase '${{ parameters.phase }}' `
+      -ValidationMode $env:PS_VALIDATION_MODE `
+      -DistributionFamily $env:PS_DISTRIBUTION_FAMILY `
+      -DistributionScript $env:PS_DISTRIBUTION_SCRIPT `
+      -DistributionName $env:PS_DISTRIBUTION_NAME `
+      -SourceRoot $env:BUILD_SOURCESDIRECTORY `
+      -ArtifactsRoot (Join-Path $env:PIPELINE_WORKSPACE $env:PS_ARTIFACT_NAME) `
+      -WorkRoot (Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-ps-validation') `
+      -ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY "azclips-ps-validation-reports-$env:SYSTEM_JOBID") `
+      -ValidationKey $env:PS_VALIDATION_KEY `
+      -AzVersion $env:PS_AZ_VERSION `
+      -PowerShellVersion $env:PS_VERSION `
+      -DotnetRuntimeVersion $env:PS_DOTNET_RUNTIME_VERSION `
+      -ContainerImage $env:PS_CONTAINER_IMAGE `
+      -ContainerName "azclips-psval-$env:SYSTEM_JOBID" `
+      -PwshPath $env:PS_VALIDATION_PWSH_PATH `
+      -DotnetRootPath $env:PS_VALIDATION_DOTNET_ROOT `
+      -ContinueOnError $env:PS_CONTINUE_ON_ERROR
+    exit $LASTEXITCODE
+  env:
+    PS_VALIDATION_KEY: $(ValidationKey)
+    PS_AZ_VERSION: $(AzVersion)
+    PS_VALIDATION_MODE: $(ValidationMode)
+    PS_DISTRIBUTION_FAMILY: $(DistributionFamily)
+    PS_DISTRIBUTION_SCRIPT: $(DistributionScript)
+    PS_DISTRIBUTION_NAME: $(DistributionName)
+    PS_ARTIFACT_NAME: ${{ parameters.ps_modules_artifact_name }}
+    PS_VERSION: $(PowerShellVersion)
+    PS_DOTNET_RUNTIME_VERSION: $(DotnetRuntimeVersion)
+    PS_CONTAINER_IMAGE: $(ContainerImage)
+    PS_VALIDATION_PWSH_PATH: $(PwshPath)
+    PS_VALIDATION_DOTNET_ROOT: $(DotnetRootPath)
+    PS_CONTINUE_ON_ERROR: $(ContinueOnError)
+  ${{ if eq(parameters.phase, 'Uninstall') }}:
+    condition: and(always(), eq(variables['PsValidationInstalled'], 'true'))
+  ${{ elseif eq(parameters.phase, 'Install') }}:
+    condition: and(succeededOrFailed(), eq(variables['PsValidationBootstrapped'], 'true'))
+  ${{ else }}:
+    condition: succeeded()
+  displayName: ${{ parameters.display_name }}

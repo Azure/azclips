@@ -20,6 +20,7 @@ public class ShowIdentityProcessor_Orchestrator : ShowIdentityProcessor
     {
         if (Ids is null || Ids.Length == 0)
         {
+            ManagedIdentityResolver.ValidateInputs(ResourceGroup, ResourceName);
             await base.ProcessAsync();
             return;
         }
@@ -32,7 +33,7 @@ public class ShowIdentityProcessor_Orchestrator : ShowIdentityProcessor
             //handle client customisation to enable batch processing of multiple identities
             foreach (var id in Ids)
             {
-                var identityId = IdentityIdResolver.ParseIdentityResourceId(id);
+                var identityId = ManagedIdentityResolver.ParseResourceId(id);
                 using HttpResponseMessage response = await CreateExtendedProcessor<ShowIdentityProcessor>(p =>
                 {
                     p.SubscriptionId = identityId.SubscriptionId;
