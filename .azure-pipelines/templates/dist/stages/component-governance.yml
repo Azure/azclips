@@ -48,12 +48,14 @@ stages:
         scanFolder: ${{ parameters.scan_root }}
         suppressionsFile: $(Build.SourcesDirectory)/devops/scripts/compliance/CredScanSuppressions.json
 
-    - template: ../steps/publish-artifact.yml
-      parameters:
-        display_name: Publish Security Analysis Logs
-        condition: succeededOrFailed()
-        artifact_type: security_analysis_logs
-        artifact_name: CodeAnalysisLogs
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
+      displayName: Publish Security Analysis Logs
+      condition: succeededOrFailed()
+      inputs:
+        ArtifactName: CodeAnalysisLogs
+        ArtifactType: Container
+        PublishProcessedResults: false
+        AllTools: true
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
       displayName: Analyze Security Results

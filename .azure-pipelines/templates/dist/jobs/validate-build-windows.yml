@@ -153,12 +153,14 @@ jobs:
         arguments: '-ReportRoot "$(Pipeline.Workspace)/.gdn/.r/binskim"'
         pwsh: true
 
-    - template: ../steps/publish-artifact.yml
-      parameters:
-        display_name: Publish Security Analysis Logs
-        condition: succeededOrFailed()
-        artifact_type: security_analysis_logs
-        artifact_name: CodeAnalysisLogs_$(DistributionArtifact)
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
+      displayName: Publish Security Analysis Logs
+      condition: succeededOrFailed()
+      inputs:
+        ArtifactName: CodeAnalysisLogs_$(DistributionArtifact)
+        ArtifactType: Container
+        PublishProcessedResults: false
+        AllTools: true
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
       displayName: Analyze BinSkim Results

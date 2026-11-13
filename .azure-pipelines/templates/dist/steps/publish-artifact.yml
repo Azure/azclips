@@ -1,23 +1,32 @@
-# Publishes a build artifact so that "Rerun failed jobs" does not fail with
-# "Artifact <name> already exists": artifact names are immutable within a build,
-# so a retried job cannot publish under the name its earlier attempt already used.
-# This covers publishes that also run after failures, which "Rerun failed jobs"
-# would otherwise always collide with. It does not protect success-only publishes
+# Publishes a pipeline artifact so that "Rerun failed jobs" does not fail with
+# "Artifact <name> already exists": pipeline artifact names are immutable within a
+# build, so a retried job cannot publish under the name its earlier attempt used.
+# (Container/build artifacts, such as PublishSecurityAnalysisLogs, merge uploads to
+# the same name instead of failing, so they do not need this template.)
+#
+# Use it for publishes that also run after failures, which "Rerun failed jobs"
+# would otherwise always collide with, and for jobs that publish several artifacts
+# before a step that can still fail. It does not protect success-only publishes
 # from "Rerun all jobs", which reruns jobs that already succeeded and published.
 #
 # retry_mode:
 #   suffix - Attempt 1 publishes <artifact_name>; retries publish
-#            <artifact_name>_attempt<N>, keeping every attempt's output. Use for
-#            diagnostics that nothing downloads by name.
-#   reuse  - Retries skip publishing when an earlier attempt already published
+#            <artifact_name>_attempt<N>. The plain name therefore keeps the first
+#            (failed) attempt's output and the latest attempt has the highest
+#            suffix. Use for diagnostics that nothing downloads by name.
+#   reuse  - Skips publishing when an earlier attempt already published
 #            <artifact_name>, checked through the build artifacts REST API with the
-#            job's System.AccessToken. Use only for artifacts that downstream jobs
-#            download by name and whose content is identical on every attempt.
-#            Supports only artifact_type 'pipeline' and requires bash and curl.
+#            job's System.AccessToken. The check runs on every attempt so access
+#            problems surface as a warning on attempt 1 instead of failing a later
+#            retry unexpectedly. Use only for artifacts that downstream jobs download
+#            by name and whose content is identical on every attempt. Requires bash
+#            and curl.
 parameters:
 - name: display_name
   type: string
 - name: artifact_name
+  type: string
+- name: target_path
   type: string
 - name: condition
   type: string
@@ -28,21 +37,13 @@ parameters:
   values:
   - suffix
   - reuse
-- name: artifact_type
-  type: string
-  default: pipeline
-  values:
-  - pipeline
-  - security_analysis_logs
-# Required for pipeline artifacts; security analysis logs collect their own files.
-- name: target_path
-  type: string
-  default: ''
 
 steps:
 - ${{ if eq(parameters.retry_mode, 'reuse') }}:
   - bash: |
       set -euo pipefail
+      # Reset first so a failed check never inherits an earlier call's result.
+      echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]false"
       if [[ ! "$ARTIFACT_NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
         echo "##[error]Artifact name must contain only letters, digits, '.', '_' or '-'."
         exit 1
@@ -54,20 +55,24 @@ steps:
         --header "Authorization: Bearer ${SYSTEM_ACCESSTOKEN}" "$url" || true)"
       case "$status" in
         200)
-          echo "Artifact '$ARTIFACT_NAME' was published by an earlier attempt; reusing it."
-          exists=true
+          echo "Artifact '$ARTIFACT_NAME' was already published in this build; reusing it."
+          echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]true"
           ;;
         404)
-          exists=false
           ;;
         *)
-          echo "##[error]Could not check whether artifact '$ARTIFACT_NAME' exists (HTTP $status)."
-          exit 1
+          message="Could not check whether artifact '$ARTIFACT_NAME' exists (HTTP $status)."
+          if [[ "$SYSTEM_JOBATTEMPT" == "1" ]]; then
+            # Nothing can have been published by an earlier attempt yet, so publish anyway.
+            echo "##[warning]$message Job reruns will fail until this is fixed."
+          else
+            echo "##[error]$message"
+            exit 1
+          fi
           ;;
       esac
-      echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]$exists"
     displayName: ${{ parameters.display_name }} (Check Earlier Attempt)
-    condition: and(${{ parameters.condition }}, ne(variables['System.JobAttempt'], '1'))
+    condition: ${{ parameters.condition }}
     env:
       ARTIFACT_NAME: ${{ parameters.artifact_name }}
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
@@ -81,7 +86,7 @@ steps:
       artifact: ${{ parameters.artifact_name }}
       publishLocation: pipeline
 
-- ${{ if and(eq(parameters.retry_mode, 'suffix'), eq(parameters.artifact_type, 'pipeline')) }}:
+- ${{ if eq(parameters.retry_mode, 'suffix') }}:
   - task: PublishPipelineArtifact@1
     displayName: ${{ parameters.display_name }}
     condition: and(${{ parameters.condition }}, eq(variables['System.JobAttempt'], '1'))
@@ -97,22 +102,3 @@ steps:
       targetPath: ${{ parameters.target_path }}
       artifact: ${{ parameters.artifact_name }}_attempt$(System.JobAttempt)
       publishLocation: pipeline
-
-- ${{ if and(eq(parameters.retry_mode, 'suffix'), eq(parameters.artifact_type, 'security_analysis_logs')) }}:
-  - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
-    displayName: ${{ parameters.display_name }}
-    condition: and(${{ parameters.condition }}, eq(variables['System.JobAttempt'], '1'))
-    inputs:
-      ArtifactName: ${{ parameters.artifact_name }}
-      ArtifactType: Container
-      PublishProcessedResults: false
-      AllTools: true
-
-  - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
-    displayName: ${{ parameters.display_name }} (Retry)
-    condition: and(${{ parameters.condition }}, ne(variables['System.JobAttempt'], '1'))
-    inputs:
-      ArtifactName: ${{ parameters.artifact_name }}_attempt$(System.JobAttempt)
-      ArtifactType: Container
-      PublishProcessedResults: false
-      AllTools: true
