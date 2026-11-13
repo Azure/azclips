@@ -104,7 +104,6 @@ if ($Scenario)
         ContainerImage = 'fixture:latest'
         ContainerName = 'azclips-psval-fixture'
         PwshPath = '/opt/pwsh/pwsh'
-        DotnetRootPath = Join-Path $ScratchRoot 'dotnet with spaces'
         ContinueOnError = 'false'
         ReportRoot = Join-Path $ScratchRoot 'reports with spaces'
         ValidationKey = 'alpine_3_23_ps7_6'
@@ -293,11 +292,7 @@ $count = 0
 $installedByScenario = @{}
 try
 {
-    $sharedBootstrap = Get-Content -LiteralPath (Join-Path $repoRoot 'devops/scripts/packaging/powershell/shared/bootstrap_powershell.sh') -Raw
-    Assert-Contains $sharedBootstrap '--configfile "$source_root/NuGet.config"' 'Non-Windows PowerShell bootstrap explicitly selects the repository feed configuration'
-    $windowsBootstrap = Get-Content -LiteralPath (Join-Path $repoRoot 'devops/scripts/packaging/powershell/windows/windows_install_script.ps1') -Raw
-    Assert-Contains $windowsBootstrap "'--configfile', (Join-Path `$SourceRoot 'NuGet.config')" 'Windows PowerShell bootstrap explicitly selects the repository feed configuration'
-    Write-Host 'PASS: PowerShell bootstrap feed selection does not depend on the working directory'
+    & (Join-Path $PSScriptRoot 'PSBootstrapFixtures.ps1')
     $count++
 
     $scenarios = @(
@@ -467,11 +462,12 @@ try
         if ($name -in @('bootstrap-success', 'bootstrap-hard-fails', 'bootstrap-soft-fails'))
         {
             Assert-Equal 'pull,run,exec' (($calls | ForEach-Object { $_.Arguments[0] }) -join ',') 'Container lifecycle order'
-            Assert-Contains ($calls[1].Arguments -join '|') 'DOTNET_ROOT=/opt/dotnet' 'Container runtime persists'
+            Assert-Equal $false (($calls[1].Arguments -join '|').Contains('DOTNET_ROOT=')) 'Standalone container needs no external runtime'
             Assert-Contains ($calls[1].Arguments -join '|') 'artifacts with spaces:/artifacts:ro' 'Mount path remains one argument'
             Assert-Contains ($calls[1].Arguments -join '|') 'reports with spaces:/reports' 'Reports use a separate persistent writable mount'
             Assert-Equal $false (($calls[1].Arguments -join '|').Contains('reports with spaces:/reports:ro')) 'Report mount is writable'
-            Assert-Equal 8 $calls[2].Arguments.Count 'Bootstrap argument count'
+            Assert-Equal 6 $calls[2].Arguments.Count 'Bootstrap argument count'
+            Assert-Equal '7.6|/opt' (($calls[2].Arguments | Select-Object -Last 2) -join '|') 'Bootstrap gets the requested release line and isolated root'
             if ($name -eq 'bootstrap-success')
             {
                 Assert-Contains $text 'variable=PwshPath]/opt/pwsh/pwsh' 'Bootstrap publishes path'
@@ -486,8 +482,7 @@ try
         if ($name -like 'container-*')
         {
             Assert-Equal 1 $calls.Count 'One exec per module phase'
-            Assert-Equal 'export PATH="$DOTNET_ROOT:$PATH"; exec "$@"' $calls[0].Arguments[4] 'Container reconstructs its own PATH'
-            Assert-Equal '_' $calls[0].Arguments[5] 'sh argument-zero placeholder'
+            Assert-Equal '/opt/pwsh/pwsh' $calls[0].Arguments[2] 'Container directly executes standalone PowerShell'
             Assert-Contains ($calls[0].Arguments -join '|') ("-Phase|" + $name.Substring(10)) 'Requested phase is forwarded'
             Assert-Contains ($calls[0].Arguments -join '|') '/artifacts/artifacts/PSGallery/local-repo' 'Downloaded gallery location'
             Assert-Contains ($calls[0].Arguments -join '|') '-ReportRoot|/reports' 'Container phase writes to the host-backed report root'
@@ -501,14 +496,13 @@ try
         if ($name -eq 'macos-bootstrap')
         {
             Assert-Equal 'sh' $calls[0].Command 'macOS bootstrap uses POSIX shell'
-            Assert-Equal 5 $calls[0].Arguments.Count 'macOS bootstrap signature'
+            Assert-Equal 3 $calls[0].Arguments.Count 'macOS bootstrap signature'
         }
         if ($name -in @('native-install', 'phase-hard-fails', 'phase-soft-fails'))
         {
             Assert-Equal 'tested-pwsh' $calls[0].Command 'Native phase uses requested PowerShell'
-            $dotnetRoot = Join-Path $caseRoot 'dotnet with spaces'
-            Assert-Equal $dotnetRoot $calls[0].DotnetRoot 'Native DOTNET_ROOT restored'
-            Assert-Equal $true ($calls[0].Path.StartsWith($dotnetRoot + [System.IO.Path]::PathSeparator)) 'Native PATH restored'
+            Assert-Equal $env:DOTNET_ROOT $calls[0].DotnetRoot 'Native phase does not change DOTNET_ROOT'
+            Assert-Equal $env:PATH $calls[0].Path 'Native phase does not change PATH'
             Assert-Contains ($calls[0].Arguments -join '|') "-ReportRoot|$reportRoot" 'Native report root is forwarded as one argument'
         }
         if ($name -eq 'complete-lifecycle')

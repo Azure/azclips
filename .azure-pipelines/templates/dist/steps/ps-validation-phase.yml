@@ -31,7 +31,6 @@ steps:
       -ContainerImage $env:PS_CONTAINER_IMAGE `
       -ContainerName "azclips-psval-$env:SYSTEM_JOBID" `
       -PwshPath $env:PS_VALIDATION_PWSH_PATH `
-      -DotnetRootPath $env:PS_VALIDATION_DOTNET_ROOT `
       -ContinueOnError $env:PS_CONTINUE_ON_ERROR
     exit $LASTEXITCODE
   env:
@@ -46,7 +45,6 @@ steps:
     PS_DOTNET_RUNTIME_VERSION: $(DotnetRuntimeVersion)
     PS_CONTAINER_IMAGE: $(ContainerImage)
     PS_VALIDATION_PWSH_PATH: $(PwshPath)
-    PS_VALIDATION_DOTNET_ROOT: $(DotnetRootPath)
     PS_CONTINUE_ON_ERROR: $(ContinueOnError)
   ${{ if eq(parameters.phase, 'Uninstall') }}:
     condition: and(always(), eq(variables['PsValidationInstalled'], 'true'))

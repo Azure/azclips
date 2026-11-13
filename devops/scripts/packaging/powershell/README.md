@@ -36,19 +36,21 @@ preinstalled PowerShell 7. Bootstrap installs the requested PowerShell separatel
 all module phases run through that executable and `run_ps_validation_phase.ps1`.
 Custom agent images must provide PowerShell 7 for orchestration as well.
 
-Linux jobs keep a single Docker container alive across phases. Each `docker exec`
-prepends the installed .NET directory to the **container's** PATH. The always-run
-container cleanup task removes it even after a failed phase. Native Windows and
-macOS jobs reuse a toolchain under the agent's temporary directory and restore both
-`DOTNET_ROOT` and PATH for every module phase.
+Linux jobs keep a single Docker container alive across phases and execute the
+standalone PowerShell directly. The always-run container cleanup task removes it
+even after a failed phase. Native Windows and macOS jobs reuse the isolated
+PowerShell installation under the agent's temporary directory. No separate .NET
+installation, `DOTNET_ROOT`, or PATH changes are needed.
 
 ## Matrix and support policy
 
 `ps_validation_matrix.json` declares schema version 3, the PowerShell release lines
 and matching .NET runtime channels, distribution versions, and execution modes.
-The .NET SDK comes from the repository's `global.json`. PowerShell release lines
-such as `7.6` install the latest available `7.6.*` tool package; the installed version
-is printed during bootstrap. `AzVersion` comes from `src/PS/Az/Az.psd1`.
+Runtime channels remain matrix/report metadata; bootstrap does not install an SDK
+or runtime separately. PowerShell release lines such as `7.6` select the highest
+stable `7.6.*` release among the latest 100 official GitHub releases, excluding
+drafts and prereleases. The installed version is printed during bootstrap.
+`AzVersion` comes from `src/PS/Az/Az.psd1`.
 The Az modules target .NET 10, so PowerShell releases older than 7.6 are unsupported.
 
 Keep version identifiers as JSON strings (for example, `"7.6"`, `"10.0"`, and `"2025"`),
@@ -170,29 +172,37 @@ developer workstation. Use a fresh work directory: tool installation is not an
 upgrade operation.
 
 ```text
-sh linux/<id>_install_script.sh <source-root> <powershell-version> <dotnet-runtime> [work-root]
-sh macos/macos_install_script.sh <source-root> <powershell-version> <dotnet-runtime> [work-root]
+sh linux/<id>_install_script.sh <powershell-version> [work-root]
+sh macos/macos_install_script.sh <powershell-version> [work-root]
 ```
 
 Linux defaults to `/opt`; macOS defaults to
 `${AGENT_TEMPDIRECTORY:-${TMPDIR:-/tmp}}/azclips-ps-validation`. Each work directory
-contains `dotnet`, `pwsh`, and the downloaded .NET installer.
+contains `pwsh`, the downloaded archive and checksum manifest, and release metadata
+when resolving a release line. Exact numeric versions such as `7.6.10` skip release
+discovery.
 
 Windows exposes the corresponding named parameters:
 
 ```powershell
 .\devops\scripts\packaging\powershell\windows\windows_install_script.ps1 `
-    -SourceRoot (Get-Location).Path `
     -PowerShellVersion '7.6' `
-    -DotnetRuntimeVersion '10.0' `
     -WorkRoot 'C:\temp\ps-validation-toolchain'
 ```
 
-The bootstrap scripts install dependencies only. They do not install or uninstall
-Az modules, and their environment changes do not persist into another process.
-PowerShell tool installation explicitly uses the source root's `NuGet.config`,
-so restores use the approved CFS feed even when the working directory is outside
-the checkout.
+The bootstrap scripts install dependencies only, not Az modules. Standalone
+Windows ZIPs and Linux/macOS tarballs bundle the required .NET runtime. Linux
+installs native OS prerequisites and jq; hosted macOS images must provide curl,
+jq, tar, shasum and the native runtime libraries. Alpine uses the musl x64 archive;
+other Linux and macOS archives match the native x64/ARM64 architecture.
+
+PowerShell provisioning now uses official `PowerShell/PowerShell` GitHub release
+assets, not NuGet or the .NET installer scripts. Repository `NuGet.config` is
+unchanged and still governs repository restores; it does not select the
+PowerShell archive source. Agents need HTTPS access to `api.github.com`,
+`github.com` and the release-asset redirect hosts. Downloads have a 180-second
+timeout and up to five attempts, including TLS/stream failures. Bootstrap checks
+the published SHA256 before extraction and verifies the installed version.
 
 ## Running module phases locally
 
@@ -212,8 +222,6 @@ After a successful Windows bootstrap, this runs the shared phases:
 $sourceRoot = (Get-Location).Path
 $workRoot = 'C:\temp\ps-validation-toolchain'
 $pwshPath = Join-Path $workRoot 'pwsh\pwsh.exe'
-$env:DOTNET_ROOT = Join-Path $workRoot 'dotnet'
-$env:PATH = $env:DOTNET_ROOT + [IO.Path]::PathSeparator + $env:PATH
 $dispatcher = Join-Path $sourceRoot 'devops\scripts\packaging\powershell\run_ps_validation_phase.ps1'
 $gallery = Join-Path $sourceRoot 'artifacts\Release\PSGallery\local-repo'
 
@@ -225,9 +233,8 @@ if ($LASTEXITCODE -ne 0) { throw "Install failed with exit code $LASTEXITCODE." 
 if ($LASTEXITCODE -ne 0) { throw "Uninstall failed with exit code $LASTEXITCODE." }
 ```
 
-On Linux/macOS, use `<work-root>/pwsh/pwsh` and export
-`DOTNET_ROOT=<work-root>/dotnet` and `PATH="$DOTNET_ROOT:$PATH"` before invoking the
-same dispatcher with the same phase arguments.
+On Linux/macOS, use `<work-root>/pwsh/pwsh` with the same dispatcher and phase
+arguments; no runtime environment setup is necessary.
 
 Successful installation intentionally leaves modules installed for subsequent
 phases. If installation or an import/version assertion fails, failure cleanup attempts
@@ -260,7 +267,11 @@ operations in child processes, including a module that loads under the wrong ver
 They resolve temporary-directory symlink ancestors before scratch setup and cover
 artifact capture through a resolved linked temporary root without relaxing
 artifact symlink rejection.
-Pipeline fixtures exercise the real host runner
+Pipeline fixtures also run `PSBootstrapFixtures.ps1`, which requires bash and jq
+(Git Bash on Windows). These fixtures exercise real archive bootstraps with fake
+downloads/extraction, including release-line selection, platform assets, bounded
+transport retries, checksum rejection, and execution without a separate .NET
+installation. Pipeline fixtures exercise the real host runner
 with fake native commands and evaluate prerequisite and publication gates from the
 YAML, including multiple failures, unsupported warnings, and cancellation.
 The Azure DevOps matrix-generation job runs the lifecycle and pipeline fixtures
