@@ -822,7 +822,7 @@ Execute this command? (yes/no): yes
 **Running Tests:**
 
 ```bash
-dotnet test tests/Cli.Tests/Cli.Tests.csproj
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj
 # Or run all tests:
 dotnet test
 ```

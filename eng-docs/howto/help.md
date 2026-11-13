@@ -416,8 +416,8 @@ Get-Help New-AzVM -Full
 Get-Help Get-AzVM -Examples
 
 # Automated tests
-dotnet test tests/Cli.Tests/Cli.Tests.csproj
-dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj
+dotnet test --project tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj
 ```
 
 ## Best Practices

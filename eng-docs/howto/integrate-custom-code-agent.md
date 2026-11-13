@@ -202,7 +202,7 @@ Review that the scenario has assertions for the selected behavior. It should not
 
 ## Step 6: Record The Scenario
 
-A new scenario has no recording yet, so playback fails until it is recorded. Recording runs against real Azure, needs credentials, and creates billable resources, so the agent never starts it on its own: once you confirm the scenario code, it asks whether to record. If you agree, it checks that you are signed in with the azclips CLI, then records only the scenarios you approved, one `--filter` at a time, following the `Record vs. playback` section of [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md).
+A new scenario has no recording yet, so playback fails until it is recorded. Recording runs against real Azure, needs credentials, and creates billable resources, so the agent never starts it on its own: once you confirm the scenario code, it asks whether to record. If you agree, it checks that you are signed in with the azclips CLI, then records only the scenarios you approved, one `--filter-class` or `--filter-method` selection at a time, following the `Record vs. playback` section of [tests/Scenario.Tests/README.md](../../tests/Scenario.Tests/README.md).
 
 Afterwards, review the recording it wrote against the `Secret scanning` section of the same README, replay it without credentials, and delete the resources the record run created, which the agent lists.
 

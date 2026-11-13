@@ -4,7 +4,7 @@
     Test fixtures are plain class libraries (NOT test projects). They produce DLLs that
     Cli.Tests stages into temp directories to drive `LeafReader` / `ExtensionAddPlanner`.
     This file shadows tests/Directory.Build.props for everything under tests/Fixtures so
-    fixtures don't inherit Microsoft.NET.Test.Sdk / xunit references.
+    fixtures don't inherit xUnit / Microsoft.Testing.Platform references.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

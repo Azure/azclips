@@ -26,7 +26,7 @@ credentials and no network. Record mode is never enabled in a PR run.
 Normal runs need nothing; the default is playback:
 
 ```
-dotnet test tests/Scenario.Tests
+dotnet test --project tests/Scenario.Tests/Scenario.Tests.csproj
 ```
 
 Offline `ScenarioHost` runs automatically disable the fallback LRO polling delay through the
@@ -47,13 +47,13 @@ the signed-in profile; the sanitisers replace it with a placeholder before the f
 # PowerShell
 az login --tenant-id <test-tenant> --subscription-id <test-subscription>
 $env:AZURE_TEST_MODE = "Record"
-dotnet test tests/Scenario.Tests --filter FullyQualifiedName~GroupCreateScenarioTests
+dotnet test --project tests/Scenario.Tests/Scenario.Tests.csproj --filter-class "*GroupCreateScenarioTests"
 $env:AZURE_TEST_MODE = $null
 ```
 
 ```
 # bash
-AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests --filter FullyQualifiedName~GroupCreateScenarioTests
+AZURE_TEST_MODE=Record dotnet test --project tests/Scenario.Tests/Scenario.Tests.csproj --filter-class "*GroupCreateScenarioTests"
 ```
 
 The recording under `<Module>/Records/<TestClass>/<TestName>.json`, next to the test that owns
@@ -71,7 +71,7 @@ process; everything a test creates matches `scenario-*-t<8 hex>`, which is the s
 tier's cleanup sweep is allowed to delete.
 
 The resource-group read scenario
-(`--filter FullyQualifiedName~GroupReadScenarioTests.ShowsAndListsResourceGroup`) creates one
+(`--filter-method "*GroupReadScenarioTests.ShowsAndListsResourceGroup"`) creates one
 empty, run-scoped group and exercises `group show`, `group list`, and both parameter sets of
 `Get-AzResourceGroup`, with explicit and profile-default subscriptions. PowerShell playback
 invokes the real cmdlet in a runspace, including parameter binding and output enumeration.
@@ -80,7 +80,7 @@ only the scenario's group before they are saved. The other `GroupReadScenarioTes
 an injected in-memory HTTP backend for pagination, empty results, errors and invalid parameters;
 they do not access Azure, even when `AZURE_TEST_MODE=Record`.
 
-The vm create scenario (`--filter FullyQualifiedName~VmCreateScenarioTests`) records a whole
+The vm create scenario (`--filter-class "*VmCreateScenarioTests"`) records a whole
 orchestration: the marketplace image lookups behind `--image`, vnet, the default nsg
 (`scenario-vmNSG`, with its `rdp` rule), the default public
 IP, nic, and the vm with its polling, then the detail reads behind its output (the vm with
@@ -91,7 +91,7 @@ signed-in profile. The run deletes its resource group afterwards, which removes 
 public IP, its nsg and all its other network resources with it.
 
 The storage account lifecycle scenario
-(`--filter FullyQualifiedName~StorageAccountLifecycleScenarioTests`) creates a resource group and
+(`--filter-class "*StorageAccountLifecycleScenarioTests"`) creates a resource group and
 an account, reads it back through show and both list forms, then deletes the account. Storage
 account names are globally unique across Azure, so if `azclipslifecycletest` is taken the create
 fails with `StorageAccountAlreadyTaken`; change the name in the test and re-record. The scenario
@@ -106,7 +106,7 @@ The VNet request-shape and delete-polling tests use a fake ARM backend and captu
 memory; they do not produce recording JSON files.
 
 The deployment group lifecycle scenario
-(`--filter FullyQualifiedName~DeploymentGroupLifecycleScenarioTests`) runs validate, what-if,
+(`--filter-class "*DeploymentGroupLifecycleScenarioTests"`) runs validate, what-if,
 create, show, list, export, cancel, and delete against one resource group, then cancels an
 in-flight deployment. Before recording it live, the subscription needs the `Microsoft.Storage`
 provider registered: what-if links a public quickstart storage template, pinned to a commit on
@@ -115,7 +115,7 @@ cancellable. If that deployment finishes before the cancel lands, the test fails
 re-record; run it again. The run deletes its resource group afterwards.
 
 The subscription deployment scenario
-(`--filter FullyQualifiedName~SubscriptionDeploymentScenarioTests`) records one session at
+(`--filter-class "*SubscriptionDeploymentScenarioTests"`) records one session at
 subscription scope: validate, what-if, create, show, list, export, cancel, and delete, a
 cancelled in-flight deployment, and failure cases, followed by parameters, what-if, template spec,
 and Bicep parts. Record mode runs the CLI only; playback replays the session through the CLI and

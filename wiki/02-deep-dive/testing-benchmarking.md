@@ -1,6 +1,6 @@
 ---
 title: Testing & Benchmarking
-description: How Azclips validates correctness (xUnit + Coverlet, snapshot & HTTP-mock strategy) and guards performance (BenchmarkDotNet) across the CLI, PowerShell, Core, and Agent surfaces.
+description: How Azclips validates correctness (xUnit v3 + MTP v2, snapshot & HTTP-mock strategy) and guards performance (BenchmarkDotNet) across the CLI, PowerShell, Core, and Agent surfaces.
 outline: deep
 ---
 
@@ -13,7 +13,7 @@ Azclips ships as a re-implementation of the Azure CLI/PowerShell experience, so 
 - **Deterministic defaults** — unit tests use fakes or stub registrations, and scenario tests default to committed HTTP playback. Explicit record-mode runs are different: they contact Azure with test credentials and may create billable resources (`tests/Scenario.Tests/README.md:7`).
 - **Speed as a merge gate** — correctness (xUnit) _and_ performance (BenchmarkDotNet) both block merges. A change that keeps the tests green but makes `az` start 20% slower is treated as a failure.
 
-Every test project targets `net10.0` and pulls its framework/coverage packages from a single `Directory.Build.props`, so the toolchain (xUnit 2.9.3, Coverlet 6.0.4, Test SDK 17.14.1) is uniform across the solution (`tests/Directory.Build.props:17`).
+Every test project targets `net10.0` and pulls its framework/coverage packages from `tests/Directory.Build.props`: xUnit.net v3 with explicit MTP v2 support and Microsoft.Testing.Extensions.CodeCoverage. `global.json` selects the native Microsoft.Testing.Platform runner, not VSTest. Shared helpers and fixture libraries are not test executables.
 
 The repository codename is `Azclips`; the shipping surfaces are Azure CLI and Azure PowerShell.
 
@@ -84,11 +84,11 @@ fast. Sign in with **this repository's CLI**, not classic Azure CLI, before reco
 
 ```bash
 # Default, offline playback
-dotnet test tests/Scenario.Tests/Scenario.Tests.csproj
+dotnet test --project tests/Scenario.Tests/Scenario.Tests.csproj
 
 # Explicit live recording: run only against a disposable test subscription
-AZURE_TEST_MODE=Record dotnet test tests/Scenario.Tests/Scenario.Tests.csproj \
-  --filter FullyQualifiedName~GroupCreateScenarioTests
+AZURE_TEST_MODE=Record dotnet test --project tests/Scenario.Tests/Scenario.Tests.csproj \
+  --filter-class "*GroupCreateScenarioTests"
 ```
 
 Review sanitized recordings before committing. Do not assume a replay proves exact request
@@ -183,25 +183,25 @@ The extension test-coverage workflow generates an **advisory** report, not a mer
 It tests attribution, writes Markdown/HTML/JSON reports under `artifacts/TestCoverage`, and
 publishes successful `main` results separately from product tests
 (`.github/workflows/extension-test-coverage.yml:33`).
-This command-surface attribution complements, rather than replaces, Coverlet line coverage.
+This command-surface attribution complements, rather than replaces, line coverage.
 
 ## Running tests locally
 
 | Goal                              | Command                                                                               |
 | --------------------------------- | ------------------------------------------------------------------------------------- |
-| Run the whole solution            | `dotnet test azclips.slnx`                                                            |
-| Run one project                   | `dotnet test tests/Cli.Tests/Cli.Tests.csproj`                                        |
-| Run with coverage (Coverlet)      | `dotnet test --collect:"XPlat Code Coverage"`                                         |
-| Run the agent suite               | `dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj`                    |
-| Rebaseline agent snapshots        | `UPDATE_SNAPSHOTS=1 dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj` |
+| Run the whole solution            | `dotnet test --solution azclips.slnx`                                                            |
+| Run one project                   | `dotnet test --project tests/Cli.Tests/Cli.Tests.csproj`                                        |
+| Run with coverage                | `dotnet test --coverage --coverage-output-format cobertura`                                         |
+| Run the agent suite               | `dotnet test --project Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj`                    |
+| Rebaseline agent snapshots        | `UPDATE_SNAPSHOTS=1 dotnet test --project Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj` |
 | Run benchmarks (local, no upload) | `dotnet run -c Release --project tests/Benchmark/Benchmark.csproj -- --local`         |
 
-Coverlet is wired in via the `coverlet.collector` package reference in the shared props, so `--collect:"XPlat Code Coverage"` produces Cobertura output for every project without per-project configuration (`tests/Directory.Build.props:17`). CI builds/tests in **Debug** today (a known Release limitation for extension DLL location) — see [Build & CI/CD](./build-cicd.md).
+The shared props provide native MTP coverage, so `--coverage --coverage-output-format cobertura` produces Cobertura reports without per-project configuration. Use `--report-xunit-trx` for TRX reports and `--filter-class`, `--filter-method`, or `--filter-not-trait "Category=LocalOnly"` for selection. VSTest `--collect`, `--logger`, and `--filter` arguments no longer apply. See [Contributing](../../CONTRIBUTING.md#test-runner) for the unit-only command and IDE requirements.
 
 ## References
 
 - `azclips.slnx:31,34-45` — test projects registered in the solution
-- `tests/Directory.Build.props:13,17-20` — xUnit/Coverlet/Test SDK versions and the `CA1707` underscore exception
+- `tests/Directory.Build.props` — xUnit v3/MTP v2 packages, coverage, and the `CA1707` underscore exception
 - `tests/Cli.Tests/RestProcessorTests.cs:45,55,535-550` — `FakeHttpPipeline` and offline URL-validation tests
 - `tests/Common/Stubs/StubHttpTerminateHandler.cs:12-18` — resource-aware terminating-step stub
 - `src/Core/Core.Abstractions/IHttpPipelineService.cs:8-9` — tracing & terminating pipeline steps

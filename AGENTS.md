@@ -3,7 +3,7 @@
 ## Essentials
 - Use the .NET SDK pinned in `global.json`.
 - Build with `dotnet build azclips.slnx`.
-- Run targeted tests with `dotnet test <test-project>.csproj`.
+- Run targeted tests with `dotnet test --project <test-project>.csproj` (xUnit v3 / Microsoft.Testing.Platform v2).
 - Keep changes focused and avoid unrelated refactors.
 
 ## Project Layout

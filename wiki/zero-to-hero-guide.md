@@ -783,8 +783,8 @@ Run them:
 
 ```bash
 dotnet test                                        # everything
-dotnet test tests/Cli.Tests/Cli.Tests.csproj       # one project
-dotnet test --collect:"XPlat Code Coverage"        # with coverage
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj # one project
+dotnet test --coverage --coverage-output-format cobertura # with coverage
 ```
 
 Naming convention (`AGENTS.md`): `MethodName_ShouldBehavior_WhenCondition`. Example: `SetConfig_ShouldRejectUnknownKey_WhenForceNotSet`.
@@ -862,7 +862,7 @@ Note: `HomePaths.GetDefaultConfigFilePath()` (`src/Core/Core.Abstractions/HomePa
 ```bash
 dotnet build -c Release azclips.slnx
 ./artifacts/Release/Core.Cli/az config path
-dotnet test tests/Cli.Tests/Cli.Tests.csproj
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj
 ```
 
 **What you just learned by doing:** how a verb is registered, how a processor writes output through the context, how to reuse a Core abstraction (`HomePaths`), where help lives, and how to test a CLI command. That's the same shape as every non-trivial change.

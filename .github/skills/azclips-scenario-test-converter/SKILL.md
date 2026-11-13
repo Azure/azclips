@@ -133,7 +133,7 @@ The tasks of a change written by `/scenario-test-spec` point `/opsx:apply` here.
 2. Place each case by `Avoiding duplicate scenarios`: add its assertions to an existing scenario, extend that scenario, or create a new one.
 3. Build the test project and run it in playback mode. Playback of a new or extended scenario fails until it is recorded, which is expected; report it as `recording-required` rather than working around it.
 4. Stop for user review of the scenario code with the Apply Report. Apply the corrections they ask for and show the result again, repeating until they confirm.
-5. Only after that confirmation, ask whether to record. Record mode performs real Azure operations against the user's own subscription, so record only the scenarios the user approved, never on your own initiative, one `--filter` at a time, following `Record vs. playback` in `tests/Scenario.Tests/README.md`. Confirm the user is signed in with the azclips CLI first. Then report the rewritten recordings for the user to review and commit, and the resources the run created that still need cleanup.
+5. Only after that confirmation, ask whether to record. Record mode performs real Azure operations against the user's own subscription, so record only the scenarios the user approved, never on your own initiative, one `--filter-class` or `--filter-method` selection at a time, following `Record vs. playback` in `tests/Scenario.Tests/README.md`. Confirm the user is signed in with the azclips CLI first. Then report the rewritten recordings for the user to review and commit, and the resources the run created that still need cleanup.
 
 ## Report Format
 
@@ -180,7 +180,7 @@ coverage_result:
 recordings:
   new: []
   re_record_required: []
-record_filter: "<the --filter value for these scenarios>"
+record_filter: "<the --filter-class or --filter-method selection for these scenarios>"
 live_effects: "<resources the record run creates, and required cleanup>"
 playback_result: "<passed | recording-required | failed with reason>"
 ```

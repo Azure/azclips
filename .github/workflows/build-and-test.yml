@@ -30,7 +30,7 @@ jobs:
         # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
       - name: Run tests
-        run: dotnet test azclips.slnx --no-build --configuration Debug --verbosity normal --filter "Category!=LocalOnly"
+        run: dotnet test --solution azclips.slnx --no-build --configuration Debug --filter-not-trait "Category=LocalOnly"
 
       - name: E2E - CLI Help
         run: |
@@ -79,7 +79,7 @@ jobs:
         run: dotnet build azclips.slnx --no-restore --configuration Debug
 
       - name: Run Agent tests
-        run: dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj --no-build --configuration Debug --verbosity normal --filter "Category!=LocalOnly" --blame-hang-timeout 10min --blame-hang-dump-type none --logger trx --results-directory TestResults
+        run: dotnet test --project Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj --no-build --configuration Debug --filter-not-trait "Category=LocalOnly" --timeout 10m --report-xunit-trx --results-directory TestResults
 
       - name: Upload test results
         if: failure()
@@ -156,7 +156,7 @@ jobs:
         run: dotnet build azclips.slnx --no-restore --configuration Debug -p:CopilotSkipCliDownload=true
 
       - name: Run help tool tests
-        run: dotnet test tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal
+        run: dotnet test --project tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj --no-build --configuration Debug
 
   ps-docs-sync-tests:
     runs-on: ubuntu-latest
@@ -224,6 +224,9 @@ jobs:
       - name: Run PR file policy and stable release tagging tests
         working-directory: devops/scripts/ci
         run: python3 -m unittest test_check_pull_request_changes.py test_stable_release_tag.py -v
+
+      - name: Run recording refresh tests
+        run: python3 -m unittest discover -s devops/scripts/live -p test_refresh_recordings.py -v
 
       - name: Install Pester 5+
         shell: pwsh

@@ -264,7 +264,7 @@ Configuration is stored at:
 ### 1) Run defaults resolver test
 
 ```bash
-dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release --filter "FullyQualifiedName~ConfigurationServiceTests.ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured"
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj -c Release --filter-method "*ConfigurationServiceTests.ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured"
 ```
 
 Expected result:
@@ -274,7 +274,7 @@ Expected result:
 ### 2) Optional full config regression pass
 
 ```bash
-dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj -c Release
 ```
 
 This confirms defaults handling and command-surface regressions as a bundle.

@@ -11,7 +11,6 @@ using Microsoft.Extensions.Logging;
 using Tests.Common.Utilities;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Core.Telemetry.Tests;
 
