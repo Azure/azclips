@@ -1,11 +1,13 @@
 using System.Text.Json.Nodes;
 using Core.Abstractions;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
 
 public sealed class FileLockTests : IDisposable
 {
+
     private readonly string _root = Directory.CreateTempSubdirectory("azclips-filelock-").FullName;
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
@@ -15,7 +17,7 @@ public sealed class FileLockTests : IDisposable
     {
         var path = Path.Combine(_root, "state.json");
 
-        Parallel.For(0, 40, i => Assert.True(FileLock.UpdateJson(path, document => document[$"k{i}"] = i)));
+        Parallel.For(0, 40, i => Assert.True(FileLock.UpdateJson(path, document => document[$"k{i}"] = i, wait: TimeSpan.FromMinutes(1))));
 
         var document = FileLock.ReadJson(path);
         Assert.Equal(40, document.Count);
@@ -38,10 +40,11 @@ public sealed class FileLockTests : IDisposable
         File.WriteAllText(path, """{"a":1}""");
         using var held = FileLock.TryAcquire($"{path}.lock", TimeSpan.Zero);
 
-        var updated = Task.Run(() => FileLock.UpdateJson(path, document => document["b"] = 2));
+        var updated = Task.Run(() => FileLock.UpdateJson(path, document => document["b"] = 2, AgentTestTimeouts.HangGuard));
 
         Assert.False(updated.Wait(TimeSpan.FromSeconds(1)));
         held!.Dispose();
+        Assert.True(updated.Wait(AgentTestTimeouts.HangGuard));
         Assert.True(updated.Result);
         Assert.Equal(2, FileLock.ReadJson(path)["b"]!.GetValue<int>());
     }
@@ -50,7 +53,7 @@ public sealed class FileLockTests : IDisposable
     public void Concurrent_readers_do_not_make_updates_fail()
     {
         var path = Path.Combine(_root, "state.json");
-        FileLock.UpdateJson(path, document => document["n"] = 0);
+        Assert.True(FileLock.UpdateJson(path, document => document["n"] = 0, AgentTestTimeouts.HangGuard));
         using var stop = new CancellationTokenSource();
         var reader = Task.Run(() =>
         {
@@ -59,7 +62,7 @@ public sealed class FileLockTests : IDisposable
         });
 
         for (var i = 1; i <= 200; i++)
-            Assert.True(FileLock.UpdateJson(path, document => document["n"] = i));
+            Assert.True(FileLock.UpdateJson(path, document => document["n"] = i, AgentTestTimeouts.HangGuard));
 
         stop.Cancel();
         reader.Wait();
@@ -67,16 +70,25 @@ public sealed class FileLockTests : IDisposable
     }
 
     [Fact]
-    public void Update_gives_up_after_the_requested_wait()
+    public async Task Update_gives_up_after_the_requested_wait()
     {
         var path = Path.Combine(_root, "state.json");
         using var held = FileLock.TryAcquire($"{path}.lock", TimeSpan.Zero);
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var clock = new SignalingFakeTimeProvider();
+        var wait = TimeSpan.FromMilliseconds(200);
 
-        var updated = FileLock.UpdateJson(path, document => document["a"] = 1, TimeSpan.FromMilliseconds(200));
+        var updated = Task.Run(() => FileLock.UpdateJson(path, document => document["a"] = 1, wait, clock));
+        var retryDelay = TimeSpan.FromMilliseconds(50);
+        for (var elapsed = TimeSpan.Zero; elapsed < wait; elapsed += retryDelay)
+        {
+            await clock.WaitForTimerAsync(retryDelay, AgentTestTimeouts.HangGuard);
+            Assert.False(updated.IsCompleted);
+            clock.Advance(retryDelay);
+        }
 
-        Assert.False(updated);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"elapsed {stopwatch.Elapsed}");
+        var nextRetry = clock.WaitForTimerAsync(retryDelay, AgentTestTimeouts.HangGuard);
+        Assert.Same(updated, await Task.WhenAny(updated, nextRetry));
+        Assert.False(await updated);
         Assert.False(File.Exists(path));
     }
 

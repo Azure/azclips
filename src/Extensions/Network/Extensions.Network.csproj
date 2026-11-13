@@ -10,11 +10,14 @@
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
         <PackageId>Microsoft.Azure.Azclips.Extensions.Network</PackageId>
-        <Version>0.1.2</Version>
+        <Version>0.1.3</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <EnableDynamicLoading>true</EnableDynamicLoading>
+        <!-- Deep flattened setters in Ace.Generator output still trigger CS8602.
+             Keep these visible as warnings until the generator is fixed. -->
+        <WarningsNotAsErrors>$(WarningsNotAsErrors);CS8602</WarningsNotAsErrors>
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />

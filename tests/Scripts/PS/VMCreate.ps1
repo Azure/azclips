@@ -110,7 +110,7 @@ $missingPublicIpId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGro
 $cvmEnabled        = $env:AZCLIPS_ENABLE_CVM -eq '1'
 $existingNicEnabled = $env:AZCLIPS_ENABLE_EXISTING_NIC -eq '1'
 $cvmImage          = $env:AZCLIPS_CVM_IMAGE
-$cvmSize           = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_SIZE)) { 'Standard_DC2as_v5' } else { $env:AZCLIPS_CVM_SIZE }
+$cvmSize           = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_SIZE)) { 'Standard_D2ds_v6' } else { $env:AZCLIPS_CVM_SIZE }
 $cvmEncryptionType = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE)) { 'VMGuestStateOnly' } else { $env:AZCLIPS_CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE }
 $existingNsg       = "azclips-vmcreate-existing-nsg-$suffix"
 $existingNsgId     = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityGroups/$existingNsg"
@@ -218,10 +218,9 @@ function New-SmokeVM([string]$Name, [hashtable]$Extra = @{})
         ResourceGroupName     = $resourceGroup
         Name                  = $Name
         Location              = $location
-        VmSize                = 'Standard_D2ls_v7'
+        VmSize                = 'Standard_D2ds_v6'
         AdminUsername         = 'Artemis'
         AdminPassword         = $env:AZCLIPS_VM_ADMIN_PASSWORD
-        NetworkInterfaceName  = "$Name-nic"
         VirtualNetworkName    = "$Name-vnet"
         AddressPrefixes       = '10.0.0.0/16'
         SubnetNames           = "$Name-subnet"
@@ -252,7 +251,7 @@ function New-NetworkSmokeVM([string]$Name, [hashtable]$Extra)
         ResourceGroupName = $resourceGroup
         Name = $Name
         Location = $location
-        VmSize = 'Standard_D2ls_v7'
+        VmSize = 'Standard_D2ds_v6'
         AdminUsername = 'Artemis'
         AdminPassword = $env:AZCLIPS_VM_ADMIN_PASSWORD
     }
@@ -278,7 +277,7 @@ function Test-NoNetworkSideEffects([string]$Name)
         $resources = (Invoke-AzRestMethod -Method GET -Uri $url).Content | ConvertFrom-Json
         foreach ($resource in $resources.value)
         {
-            if ($resource.name -in @("$Name-nic", "${Name}NSG", "${Name}PublicIP", "$Name-vnet"))
+            if ($resource.name -in @("${Name}VMNic", "${Name}NSG", "${Name}PublicIP", "$Name-vnet"))
             {
                 Add-Failure "${Name}: unexpected generated resource '$($resource.name)' in $type"
             }
@@ -346,7 +345,7 @@ function Format-NsgRule($Rule)
     "$($Rule.name)/$($p.protocol)/$($p.sourceAddressPrefix)/$($p.sourcePortRange)/$($p.destinationAddressPrefix)/$($p.destinationPortRange)/$($p.access)/$($p.direction)/$($p.priority)"
 }
 
-# The NIC <vm>-nic must reference the NSG $ExpectedId; -ne compares case-insensitively, which
+# The NIC <vm>VMNic must reference the NSG $ExpectedId; -ne compares case-insensitively, which
 # matters because ARM can return the resource group in another case. That NSG must hold exactly
 # one rule, equal to $ExpectedRule, and carry the azclips-smoke tag $ExpectedSmokeTag when given.
 function Test-Nsg([string]$Label, [string]$VmName, [string]$ExpectedId, [string]$ExpectedRule, [string]$ExpectedSmokeTag = '')
@@ -354,18 +353,18 @@ function Test-Nsg([string]$Label, [string]$VmName, [string]$ExpectedId, [string]
     $nsgName = ($ExpectedId -split '/')[-1]
     try
     {
-        $nic = Get-NetworkResource -Type 'networkInterfaces' -Name "$VmName-nic"
+        $nic = Get-NetworkResource -Type 'networkInterfaces' -Name "${VmName}VMNic"
         $nsg = Get-NetworkResource -Type 'networkSecurityGroups' -Name $nsgName
     }
     catch
     {
-        Add-Failure "${Label}: could not read NIC '$VmName-nic' or NSG '$nsgName': $($_.Exception.Message)"
+        Add-Failure "${Label}: could not read NIC '${VmName}VMNic' or NSG '$nsgName': $($_.Exception.Message)"
         return
     }
 
     if ($nic.properties.networkSecurityGroup.id -ne $ExpectedId)
     {
-        Add-Failure "${Label}: NIC '$VmName-nic' references NSG '$($nic.properties.networkSecurityGroup.id)', expected '$ExpectedId'"
+        Add-Failure "${Label}: NIC '${VmName}VMNic' references NSG '$($nic.properties.networkSecurityGroup.id)', expected '$ExpectedId'"
         return
     }
 
@@ -383,7 +382,7 @@ function Test-Nsg([string]$Label, [string]$VmName, [string]$ExpectedId, [string]
         return
     }
 
-    Write-Host "OK: ${Label}: NIC '$VmName-nic' uses NSG '$nsgName', whose only rule is '$ExpectedRule'"
+    Write-Host "OK: ${Label}: NIC '${VmName}VMNic' uses NSG '$nsgName', whose only rule is '$ExpectedRule'"
 }
 
 # The network resource $Type/$Name must carry the azclips-smoke tag $ExpectedSmokeTag.
@@ -469,7 +468,7 @@ try
     {
         Add-Failure "default: VM '$defaultVm' azclips-smoke tag '$defaultVmTag' did not match '$vmTag'"
     }
-    Test-NetworkTag -Label 'default' -Type 'networkInterfaces' -Name "$defaultVm-nic" -ExpectedSmokeTag $vmTag
+    Test-NetworkTag -Label 'default' -Type 'networkInterfaces' -Name "${defaultVm}VMNic" -ExpectedSmokeTag $vmTag
     Test-NetworkTag -Label 'default' -Type 'virtualNetworks' -Name "$defaultVm-vnet" -ExpectedSmokeTag $vmTag
 
     Write-Host "== 2. New-AzVM -SecurityType Standard -PublicIpAddressName $namedPublicIp (new name) =="
@@ -624,7 +623,6 @@ try
             foreach ($name in @($subnetNameVm, $subnetIdVm))
             {
                 $extra = @{
-                    NetworkInterfaceName = "$name-nic"
                     SubnetName = $existingNicSubnetId
                     PublicIpAddressName = ''
                     NetworkInterfaceDeleteOption = 'Delete'
@@ -635,7 +633,7 @@ try
                     $extra.VirtualNetworkName = $existingNicVnet
                 }
                 $null = New-NetworkSmokeVM -Name $name -Extra $extra
-                $nic = Get-NetworkResource -Type 'networkInterfaces' -Name "$name-nic"
+                $nic = Get-NetworkResource -Type 'networkInterfaces' -Name "${name}VMNic"
                 if ($nic.properties.ipConfigurations[0].properties.subnet.id -ne $existingNicSubnetId)
                 {
                     Add-Failure "${name}: created NIC references the wrong subnet"
@@ -659,7 +657,6 @@ try
             try
             {
                 $null = New-NetworkSmokeVM -Name $missingSubnetVm -Extra @{
-                    NetworkInterfaceName = "$missingSubnetVm-nic"
                     SubnetName = $missingSubnetId
                 }
                 Add-Failure 'missing subnet: expected failure'

@@ -58,17 +58,29 @@ stages:
       - checkout: none
       - bash: |
           set -euo pipefail
-          allowed_source_branch='${{ parameters.allowed_signing_source_branch }}'
+          allowed_source_branch="$ALLOWED_SOURCE_BRANCH"
 
-          if [[ '$(System.TeamProject)' != 'public' ]]; then
-            echo "ERROR: sign_beta must run from the public project. Got: $(System.TeamProject)"
+          # Azure Pipelines treats this marker anywhere in output as a logging command.
+          log_value() {
+            local value="$1"
+            local marker='##vso['
+            local escaped_marker='##vso_['
+            printf '%s' "${value//"$marker"/"$escaped_marker"}"
+          }
+
+          if [[ "$TEAM_PROJECT" != 'public' ]]; then
+            echo "ERROR: sign_beta must run from the public project. Got: $(log_value "$TEAM_PROJECT")"
             exit 1
           fi
-          if [[ '$(Build.SourceBranch)' != 'refs/heads/main' && '$(Build.SourceBranch)' != "$allowed_source_branch" ]]; then
-            echo "ERROR: sign_beta only supports refs/heads/main or the configured allowed_signing_source_branch. Got: $(Build.SourceBranch); allowed: $allowed_source_branch"
+          if [[ "$SOURCE_BRANCH" != 'refs/heads/main' && "$SOURCE_BRANCH" != "$allowed_source_branch" ]]; then
+            echo "ERROR: sign_beta only supports refs/heads/main or the configured allowed_signing_source_branch. Got: $(log_value "$SOURCE_BRANCH"); allowed: $(log_value "$allowed_source_branch")"
             exit 1
           fi
 
           echo 'Adding sign-beta tag so azclips-beta-sign can consume this completed build.'
           echo '##vso[build.addbuildtag]sign-beta'
         displayName: Add sign-beta tag for release-project signing trigger
+        env:
+          ALLOWED_SOURCE_BRANCH: ${{ parameters.allowed_signing_source_branch }}
+          TEAM_PROJECT: $(System.TeamProject)
+          SOURCE_BRANCH: $(Build.SourceBranch)

@@ -1,8 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Authentication.Recovery;
+using Moq;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests.Recovery;
 
@@ -263,6 +266,110 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         Assert.Empty(native.LiveObjects);
     }
 
+    [Fact]
+    public void AddAndRestoreFailure_ReportsTheAddErrorAndLogsTheRestoreError()
+    {
+        var native = new FakeNative { AddStatus = -25291 };
+        native.PolicyStatuses.Enqueue(0);
+        native.PolicyStatuses.Enqueue(-50);
+        var debug = new List<string>();
+        var logger = new Mock<ILoggingService>();
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+
+        var error = Assert.Throws<FailureHistoryException>(
+            () => new MacOsFailureHistoryKeyStorage(Service, Account, native, logger.Object).WriteData(new byte[32]));
+
+        Assert.Contains("OSStatus -25291", error.Message);
+        Assert.DoesNotContain("OSStatus -50", error.ToString());
+        Assert.Contains("OSStatus -50", Assert.Single(debug));
+        Assert.Equal(new[] { false, true }, native.PolicyWrites);
+    }
+
+    [Fact]
+    public void CopyAndRestoreFailure_RethrowsTheCopyErrorAndLogsTheRestoreError()
+    {
+        var native = new FakeNative { ThrowDuringCopy = true };
+        native.PolicyStatuses.Enqueue(0);
+        native.PolicyStatuses.Enqueue(-50);
+        var debug = new List<string>();
+        var logger = new Mock<ILoggingService>();
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+
+        Assert.Throws<InvalidOperationException>(
+            () => new MacOsFailureHistoryKeyStorage(Service, Account, native, logger.Object).ReadData());
+
+        Assert.Contains("OSStatus -50", Assert.Single(debug));
+    }
+
+    [Fact]
+    public void Delete_RemovesOnlyTheFirstMatchWithoutUi()
+    {
+        var native = new FakeNative();
+
+        Create(native).DeleteData();
+
+        var query = Assert.Single(native.Queries);
+        AssertIdentityAndPolicy(query);
+        Assert.Equal(MacOsKeychainConstant.MatchLimitOne, query[MacOsKeychainConstant.MatchLimit]);
+        Assert.Equal(MacOsKeychainConstant.BooleanTrue, query[MacOsKeychainConstant.ReturnRef]);
+        Assert.Equal(1, native.DeleteCalls);
+        Assert.Equal(new[] { false, true }, native.PolicyWrites);
+        Assert.Empty(native.LiveObjects);
+    }
+
+    [Fact]
+    public void Delete_OfAnAbsentItem_DeletesNothing()
+    {
+        var native = new FakeNative { ReadStatus = -25300 };
+
+        Create(native).DeleteData();
+
+        Assert.Equal(0, native.DeleteCalls);
+        Assert.Empty(native.LiveObjects);
+    }
+
+    [Fact]
+    public void DeleteThenRestoreFailure_IsNotReportedAsAFailedDelete()
+    {
+        var native = new FakeNative();
+        native.PolicyStatuses.Enqueue(0);
+        native.PolicyStatuses.Enqueue(-50);
+        var debug = new List<string>();
+        var logger = new Mock<ILoggingService>();
+        logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+
+        new MacOsFailureHistoryKeyStorage(Service, Account, native, logger.Object).DeleteData();
+
+        Assert.Equal(1, native.DeleteCalls);
+        Assert.Contains("OSStatus -50", Assert.Single(debug));
+    }
+
+    [Fact]
+    public void ReadThenRestoreFailure_IsStillAnError()
+    {
+        var native = new FakeNative();
+        native.PolicyStatuses.Enqueue(0);
+        native.PolicyStatuses.Enqueue(-50);
+
+        Assert.Equal("failure_history_key_unavailable",
+            Assert.Throws<FailureHistoryException>(() => Create(native).ReadData()).Code);
+    }
+
+    [Theory]
+    [InlineData(-25308)]
+    [InlineData(-25293)]
+    [InlineData(-25291)]
+    public void DeleteFailure_IsUnavailable(int status)
+    {
+        var native = new FakeNative { DeleteStatus = status };
+
+        var error = Assert.Throws<FailureHistoryException>(() => Create(native).DeleteData());
+
+        Assert.Equal("failure_history_key_unavailable", error.Code);
+        Assert.True(native.UserInteractionAllowed);
+        Assert.Empty(native.LiveObjects);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(31)]
@@ -303,7 +410,7 @@ public sealed class MacOsFailureHistoryKeyStorageTests
             BeforeMatching = () =>
             {
                 firstEntered.Set();
-                Assert.True(releaseFirst.Wait(TimeSpan.FromSeconds(10)));
+                Assert.True(releaseFirst.Wait(AgentTestTimeouts.HangGuard));
             },
         };
         var secondNative = new FakeNative { BeforePolicyRead = secondEntered.Set };
@@ -311,21 +418,21 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         Task<byte[]>? second = null;
         try
         {
-            Assert.True(firstEntered.Wait(TimeSpan.FromSeconds(10)));
+            Assert.True(firstEntered.Wait(AgentTestTimeouts.HangGuard));
             second = Task.Run(() =>
             {
                 secondStarted.Set();
                 return Create(secondNative).ReadData();
             });
-            Assert.True(secondStarted.Wait(TimeSpan.FromSeconds(10)));
+            Assert.True(secondStarted.Wait(AgentTestTimeouts.HangGuard));
             Assert.False(secondEntered.Wait(TimeSpan.FromMilliseconds(100)));
         }
         finally
         {
             releaseFirst.Set();
-            await first.WaitAsync(TimeSpan.FromSeconds(10));
+            await first.WaitAsync(AgentTestTimeouts.HangGuard);
             if (second is not null)
-                await second.WaitAsync(TimeSpan.FromSeconds(10));
+                await second.WaitAsync(AgentTestTimeouts.HangGuard);
         }
 
         Assert.True(secondEntered.IsSet);
@@ -362,6 +469,8 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         public int PolicyReads { get; private set; }
         public int ReadStatus { get; init; }
         public int AddStatus { get; init; }
+        public int DeleteStatus { get; init; }
+        public int DeleteCalls { get; private set; }
         public int AddCalls { get; private set; }
         public int Creations { get; private set; }
         public int FailCreation { get; init; }
@@ -419,6 +528,7 @@ public sealed class MacOsFailureHistoryKeyStorageTests
         {
             BeforeMatching?.Invoke();
             Snapshot(query);
+
             result = !NullResult && (ReadStatus == 0 || ReturnResultOnFailure)
                 ? Allocate(ResultIsData ? ReadBytes.ToArray() : "not-data") : 0;
             if (ThrowAfterResult)
@@ -432,6 +542,14 @@ public sealed class MacOsFailureHistoryKeyStorageTests
             var query = Snapshot(attributes);
             AddedBytes = Assert.IsType<byte[]>(query[MacOsKeychainConstant.ValueData]);
             return AddStatus;
+        }
+
+        public int DeleteItem(nint item)
+        {
+            Assert.False(UserInteractionAllowed, "Deletion must run with the legacy UI policy disabled.");
+            Assert.True(LiveObjects.ContainsKey(item));
+            DeleteCalls++;
+            return DeleteStatus;
         }
 
         public bool IsData(nint value) => LiveObjects[value] is byte[];

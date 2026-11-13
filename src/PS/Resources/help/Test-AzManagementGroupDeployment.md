@@ -141,7 +141,7 @@ HelpMessage: ''
 
 ### -Name
 
-The name used for validation. Defaults to a new GUID when omitted.
+The name used for validation. When omitted, defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.
 Use 1-64 characters: letters, numbers, underscores, hyphens, periods, or parentheses.
 
 ```yaml
@@ -422,5 +422,5 @@ Differences from Az.Resources: on success this cmdlet returns the `DeploymentVal
 
 ## RELATED LINKS
 
-- [New-AzManagementGroupDeployment]()
-- [Get-AzManagementGroupDeployment]()
+- [New-AzManagementGroupDeployment](./New-AzManagementGroupDeployment.md)
+- [Get-AzManagementGroupDeployment](./Get-AzManagementGroupDeployment.md)

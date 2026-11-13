@@ -160,7 +160,7 @@ public sealed class ProcessorBaseTests
             });
 
         Assert.Contains("protected virtual string Endpoint => $\"https://{AccountName}.example.com\";", src);
-        Assert.Contains("public string AccountName { get; set; } = string.Empty;", src);
+        Assert.Contains("public virtual string AccountName { get; set; } = string.Empty;", src);
         Assert.DoesNotContain("management.azure.com", src);
     }
 
@@ -170,8 +170,74 @@ public sealed class ProcessorBaseTests
         // Nothing to derive at all, so the endpoint is a plain input rather than a fabricated default.
         string src = await EmitBaseAsync(nameof(Endpoint_Itself_Becomes_A_Public_Input_When_The_Ir_Declares_No_Server));
 
-        Assert.Contains("public string Endpoint { get; set; } = string.Empty;", src);
-        Assert.DoesNotContain("virtual string Endpoint", src);
+        Assert.Contains("public virtual string Endpoint { get; set; } = string.Empty;", src);
+        Assert.DoesNotContain("protected virtual string Endpoint", src);
         Assert.DoesNotContain("management.azure.com", src);
+    }
+
+    private static async Task<string> EmitBaseForAuthAsync(string scenario, params IRAuth?[] auths)
+    {
+        var writer = new ArtifactWriter(scenario);
+        GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
+            new TransformedIR
+            {
+                SchemaVersion = "0.12.0",
+                Sources = [.. auths.Select((auth, i) => new IRSource { Id = $"M{i}", Auth = auth })],
+                Models = [],
+                Operations = [],
+                Target = Targets.For("Azure.ElasticSan"),
+            },
+            config: null,
+            writer.WriteAsync);
+        return writer.Files.Source(result, "ProcessorBase");
+    }
+
+    private static IRAuth OAuth2(params IROAuth2Flow[] flows) =>
+        new() { Options = [new IRAuthOptions { Schemes = [new IRAuthSchemeOauth2 { Id = "oauth", Flows = flows }] }] };
+
+    private static IROAuth2Scope[] Scopes(params string[] values) =>
+        [.. values.Select(value => new IROAuth2Scope { Value = value })];
+
+    [Fact]
+    public async Task Carries_The_Specs_OAuth2_Authorization_Url_And_Scopes()
+    {
+        // The Storage Blob data-plane shape: an implicit flow with a service-specific scope.
+        string src = await EmitBaseForAuthAsync(
+            nameof(Carries_The_Specs_OAuth2_Authorization_Url_And_Scopes),
+            OAuth2(new IROAuth2FlowImplicit
+            {
+                AuthorizationUrl = "https://login.microsoftonline.com/common/oauth2/authorize",
+                Scopes = Scopes("https://storage.azure.com/.default"),
+            }));
+
+        Assert.Contains("protected virtual string? AuthorizationUrl => \"https://login.microsoftonline.com/common/oauth2/authorize\";", src);
+        Assert.Contains("protected virtual string[] AuthScopes => [\"https://storage.azure.com/.default\"];", src);
+    }
+
+    [Fact]
+    public async Task Scopes_Union_Across_Flows_And_Url_Is_Null_Without_An_Authorization_Flow()
+    {
+        string src = await EmitBaseForAuthAsync(
+            nameof(Scopes_Union_Across_Flows_And_Url_Is_Null_Without_An_Authorization_Flow),
+            OAuth2(
+                new IROAuth2FlowClientCredentials { TokenUrl = "https://token.example.com", Scopes = Scopes("a", "b") },
+                new IROAuth2FlowClientCredentials { TokenUrl = "https://token.example.com", Scopes = Scopes("b", "c") }));
+
+        Assert.Contains("protected virtual string? AuthorizationUrl => null;", src);
+        Assert.Contains("protected virtual string[] AuthScopes => [\"a\", \"b\", \"c\"];", src);
+        Assert.DoesNotContain("token.example.com", src);
+    }
+
+    [Fact]
+    public async Task Auth_Members_Are_Omitted_Without_An_OAuth2_Scheme()
+    {
+        var apiKey = new IRAuth
+        {
+            Options = [new IRAuthOptions { Schemes = [new IRAuthSchemeApiKey { Id = "key", In = IRAuthSchemeApiKeyIn.Header, Name = "x-api-key" }] }],
+        };
+        string src = await EmitBaseForAuthAsync(nameof(Auth_Members_Are_Omitted_Without_An_OAuth2_Scheme), apiKey, null);
+
+        Assert.DoesNotContain("AuthorizationUrl", src);
+        Assert.DoesNotContain("AuthScopes", src);
     }
 }

@@ -40,8 +40,7 @@ internal sealed class TraceUploader
         if (claimedFiles.Count == 0)
             return;
 
-        // Group by service and persisted data boundary so each replay batch exports
-        // under the right cloud_RoleName and Aria ingestion endpoint.
+        // Group by service and recorded routing metadata, never the current active profile.
         var groups = new Dictionary<UploadGroupKey, (HashSet<string> Files, List<TraceEntry> Entries)>();
         var fileGroups = new Dictionary<string, HashSet<UploadGroupKey>>(StringComparer.Ordinal);
         var failedReservations = new HashSet<string>(StringComparer.Ordinal);
@@ -87,6 +86,15 @@ internal sealed class TraceUploader
                 entries = TraceFileFormat.Parse(content);
             }
 
+            if (entries.Any(entry =>
+                    entry.UploadRegion is { } region && !UploadRegions.TryParse(region, out _) ||
+                    entry.GetStringTag(TelemetryTags.UploadRegion) is { } tagRegion &&
+                    !UploadRegions.TryParse(tagRegion, out _)))
+            {
+                _store.Reject(file, "invalid_upload_region");
+                rejectedFiles.Add(file);
+                continue;
+            }
             AddFileEntries(file, entries, profile, groups, fileGroups);
         }
 
@@ -98,7 +106,7 @@ internal sealed class TraceUploader
         {
             if (batch.Dependencies.Any(parent => !deliveredBatches.Contains(parent)) ||
                 !_sink.TryExport(batch.Key.Group.ServiceName, batch.Entries,
-                    batch.Key.Group.DataBoundary, batch.Key.Group.Profile, replayContext))
+                    batch.Key.Group.UploadRegion, batch.Key.Group.Profile, replayContext))
                 continue;
 
             deliveredBatches.Add(batch.Key);
@@ -112,7 +120,9 @@ internal sealed class TraceUploader
         foreach (var (file, keys) in fileGroups)
         {
             if (!reservationByClaimedFile.ContainsKey(file) && keys.All(deliveredGroups.Contains))
+            {
                 _store.Delete(file);
+            }
         }
 
         foreach (var reservationGroup in reservationByClaimedFile
@@ -130,7 +140,9 @@ internal sealed class TraceUploader
             if (!_store.DeleteReservation(reservationGroup.Key))
                 continue;
             foreach (var file in files)
+            {
                 _store.Delete(file);
+            }
         }
     }
 
@@ -224,7 +236,7 @@ internal sealed class TraceUploader
         return batchMap.Values
             .OrderBy(batch => batch.Key.Rank)
             .ThenBy(batch => batch.Key.Group.ServiceName, StringComparer.Ordinal)
-            .ThenBy(batch => batch.Key.Group.DataBoundary, StringComparer.Ordinal)
+            .ThenBy(batch => batch.Key.Group.UploadRegion)
             .ThenBy(batch => batch.Key.Group.Profile)
             .ToArray();
     }
@@ -239,7 +251,7 @@ internal sealed class TraceUploader
             foreach (var entry in data.Entries)
             {
                 if (!string.IsNullOrEmpty(entry.TraceId) && !string.IsNullOrEmpty(entry.SpanId))
-                    owners.TryAdd(new ReplaySpanKey(entry.TraceId, entry.SpanId, group.DataBoundary), group);
+                    owners.TryAdd(new ReplaySpanKey(entry.TraceId, entry.SpanId, group.UploadRegion), group);
             }
         }
 
@@ -251,7 +263,7 @@ internal sealed class TraceUploader
                 if (string.IsNullOrEmpty(entry.TraceId) ||
                     string.IsNullOrEmpty(entry.ParentSpanId) ||
                     entry.ParentSpanId == "0000000000000000" ||
-                    !owners.TryGetValue(new ReplaySpanKey(entry.TraceId, entry.ParentSpanId, group.DataBoundary),
+                    !owners.TryGetValue(new ReplaySpanKey(entry.TraceId, entry.ParentSpanId, group.UploadRegion),
                         out var parent) ||
                     parent == group)
                     continue;
@@ -308,16 +320,16 @@ internal sealed class TraceUploader
 
         if (entries.Count == 0)
         {
-            AddGroup(file, new UploadGroupKey(serviceName, DataBoundaryRouting.Unknown, profile), [], groups, fileGroups);
+            AddGroup(file, new UploadGroupKey(serviceName, UploadRegion.EU, profile), [], groups, fileGroups);
             return;
         }
 
-        foreach (var boundaryGroup in entries.GroupBy(e => DataBoundaryRouting.Normalize(e.DataBoundary)))
+        foreach (var regionGroup in entries.GroupBy(e => e.GetUploadRegion()))
         {
             AddGroup(
                 file,
-                new UploadGroupKey(serviceName, boundaryGroup.Key, profile),
-                boundaryGroup.ToList(),
+                new UploadGroupKey(serviceName, regionGroup.Key, profile),
+                regionGroup.ToList(),
                 groups,
                 fileGroups);
         }
@@ -352,16 +364,28 @@ internal sealed class TraceUploader
         if (entries.Count == 0)
             return false;
 
+        var uploadRegion = entries[0].UploadRegion;
         var boundary = entries[0].DataBoundary;
-        if (boundary is null || boundary != DataBoundaryRouting.Normalize(boundary))
+        var outcome = entries[0].DataBoundaryOutcome;
+        if (uploadRegion is not null ? !UploadRegions.TryParse(uploadRegion, out _) :
+            boundary is null || boundary != DataBoundaryRouting.Normalize(boundary))
             return false;
 
         return entries.All(entry =>
             entry.TryGetServiceName() == layer.ServiceName &&
-            entry.DataBoundary == boundary &&
+            (uploadRegion is not null
+                ? entry.UploadRegion == uploadRegion &&
+                  ReadStringTag(entry, TelemetryTags.UploadRegion) == uploadRegion &&
+                  entry.DataBoundary is null && entry.DataBoundaryOutcome is null &&
+                  ReadStringTag(entry, TelemetryTags.DataBoundary) is null &&
+                  ReadStringTag(entry, TelemetryTags.DataBoundaryOutcome) is null
+                : entry.UploadRegion is null &&
+                  entry.DataBoundary == boundary && entry.DataBoundaryOutcome == outcome &&
+                  (outcome is null || DataBoundaryRouting.ParseOutcome(outcome) is not null) &&
+                  ReadStringTag(entry, TelemetryTags.DataBoundary) == boundary &&
+                  ReadStringTag(entry, TelemetryTags.DataBoundaryOutcome) == outcome) &&
             ReadStringTag(entry, TelemetryLayerTags.Schema) == layer.Schema &&
             ReadStringTag(entry, TelemetryLayerTags.ServiceName) == layer.ServiceName &&
-            ReadStringTag(entry, TelemetryTags.DataBoundary) == boundary &&
             Guid.TryParseExact(ReadStringTag(entry, TelemetryLayerTags.InvocationId), "N", out _) &&
             IsHexId(entry.TraceId, 32) &&
             IsHexId(entry.SpanId, 16) &&
@@ -379,31 +403,12 @@ internal sealed class TraceUploader
         value is not null && value.Length == length &&
         value.Any(character => character != '0') && value.All(char.IsAsciiHexDigit);
 
-    private static string? ReadStringTag(TraceEntry entry, string name)
-    {
-        if (entry.Tags.ValueKind != JsonValueKind.Array)
-            return null;
-
-        string? result = null;
-        foreach (var tag in entry.Tags.EnumerateArray())
-        {
-            if (tag.ValueKind != JsonValueKind.Object)
-                return null;
-            if (!tag.TryGetProperty("Key", out var key) || key.ValueKind != JsonValueKind.String ||
-                key.GetString() != name)
-                continue;
-            if (result is not null ||
-                !tag.TryGetProperty("Value", out var value) || value.ValueKind != JsonValueKind.String)
-                return null;
-            result = value.GetString();
-        }
-        return result;
-    }
+    private static string? ReadStringTag(TraceEntry entry, string name) => entry.GetStringTag(name);
 
     private readonly record struct UploadGroupKey(
-        string ServiceName, string DataBoundary, TraceReplayProfile Profile);
+        string ServiceName, UploadRegion UploadRegion, TraceReplayProfile Profile);
 
-    private readonly record struct ReplaySpanKey(string TraceId, string SpanId, string DataBoundary);
+    private readonly record struct ReplaySpanKey(string TraceId, string SpanId, UploadRegion UploadRegion);
 
     private readonly record struct ReplayBatchKey(int Rank, UploadGroupKey Group);
 
@@ -413,12 +418,12 @@ internal sealed class TraceUploader
         internal TraceEntry Entry { get; } = entry;
         internal ReplaySpanKey? Identity => !string.IsNullOrEmpty(Entry.TraceId) &&
             !string.IsNullOrEmpty(Entry.SpanId)
-                ? new ReplaySpanKey(Entry.TraceId, Entry.SpanId, Group.DataBoundary)
+                ? new ReplaySpanKey(Entry.TraceId, Entry.SpanId, Group.UploadRegion)
                 : null;
         internal ReplaySpanKey? ParentIdentity => !string.IsNullOrEmpty(Entry.TraceId) &&
             !string.IsNullOrEmpty(Entry.ParentSpanId) &&
             Entry.ParentSpanId != "0000000000000000"
-                ? new ReplaySpanKey(Entry.TraceId, Entry.ParentSpanId, Group.DataBoundary)
+                ? new ReplaySpanKey(Entry.TraceId, Entry.ParentSpanId, Group.UploadRegion)
                 : null;
         internal int? ParentIndex { get; set; }
         internal int Rank { get; set; }

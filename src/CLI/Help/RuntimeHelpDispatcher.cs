@@ -24,7 +24,7 @@ namespace Core.Cli.Help;
 /// multi-verb extensions like Compute surface as both <c>vm</c> and <c>disk</c> roots.
 /// </para>
 /// <para>
-/// <see cref="RenderExtensionHelp"/> resolves verb ownership from discovered extension metadata;
+/// <see cref="RenderExtensionHelp"/> combines verb contributions from discovered extension metadata;
 /// on a miss it consults <see cref="ExtensionHintTable.Default"/> so <c>az vm --help</c>
 /// (when Compute is uninstalled) yields a precise "install it with: az extension add --name Compute"
 /// hint instead of a bare <see cref="KeyNotFoundException"/>.
@@ -37,21 +37,19 @@ public sealed class RuntimeHelpDispatcher
     private readonly ExtensionHintTable _hintTable;
     private readonly TextWriter _output;
     private readonly OutputStreams _streams;
-    private readonly IExtensionRegistryStore _registryStore;
 
-    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore)
-        : this(engine, streams, registryStore, output: null)
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams)
+        : this(engine, streams, output: null)
     {
     }
 
-    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, IExtensionRegistryStore registryStore, TextWriter? output)
+    public RuntimeHelpDispatcher(IEngine engine, OutputStreams streams, TextWriter? output)
         : this(
             engine,
             ExtensionHintTable.Default,
             new RuntimeHelpRenderer(ShouldBoldHeaders(output)),
             output ?? Console.Out,
-            streams,
-            registryStore)
+            streams)
     {
     }
 
@@ -75,22 +73,27 @@ public sealed class RuntimeHelpDispatcher
         ExtensionHintTable hintTable,
         IHelpRenderer renderer,
         TextWriter output,
-        OutputStreams streams,
-        IExtensionRegistryStore registryStore)
+        OutputStreams streams)
     {
         _engine = engine;
         _hintTable = hintTable;
         _renderer = renderer;
         _output = output;
         _streams = streams;
-        _registryStore = registryStore;
     }
+
+    /// <summary>
+    /// Supplies the package ids routing selected. When set and non-empty, help discovers only those
+    /// packages, and each loads the copy routing selected, so help shows the commands dispatch runs.
+    /// </summary>
+    internal Func<IReadOnlyList<string>>? SelectedPackageIds { get; init; }
+    internal CommandTimingRecorder? Performance { get; init; }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
     public int RenderRoot()
     {
         var rootGroups = EnumerateAllVerbRoots().ToArray();
-        WriteLines(_renderer.RenderRoot(rootGroups, TerminalWidth()));
+        WriteLines(() => _renderer.RenderRoot(rootGroups, TerminalWidth()));
         return 0;
     }
 
@@ -111,7 +114,8 @@ public sealed class RuntimeHelpDispatcher
         var isCommandHelp = path.Count > 1;
 
         var discovered = DiscoverInstalledExtensions();
-        if (!TryResolveExtension(discovered, verb, out var extensionInfo))
+        using var projection = Performance?.MeasureLocal("Help projection/render/output");
+        if (!TryResolveExtension(discovered, verb, out _))
         {
             // Intrinsic host verbs (e.g. `version`) are not owned by any installed extension, but
             // their help still lives in the markdown corpus so `az <verb> --help` keeps working.
@@ -121,9 +125,13 @@ public sealed class RuntimeHelpDispatcher
             }
 
             // Matches the execute-path UX in ExtensionDispatcher.Parse.
-            if (_hintTable.TryGetPackageId(verb, out var hintedPackage))
+            for (var length = path.Count - 1; length >= 0; length--)
             {
-                throw new ExtensionNotInstalledException(verb, hintedPackage);
+                var commandPath = string.Join(" ", path.Skip(1).Take(length));
+                if (_hintTable.TryGetPackageId(verb, commandPath, out var hintedPackage))
+                {
+                    throw new ExtensionNotInstalledException(verb, hintedPackage);
+                }
             }
 
             // Truly unknown verb (no install hint either). Surface as a known error so the
@@ -135,22 +143,43 @@ public sealed class RuntimeHelpDispatcher
                 details: new Dictionary<string, object?> { ["verb"] = verb });
         }
 
-        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, verb);
+        var contributors = discovered
+            .Where(info => OwnsVerb(info, verb))
+            .OrderByDescending(info => OwnsRootLeaf(info, verb))
+            .ThenBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
+        var commands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+        foreach (var contributor in contributors)
+        {
+            foreach (var (key, metadata) in contributor.Commands)
+            {
+                if (!key.Equals(verb, StringComparison.OrdinalIgnoreCase) &&
+                    !key.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
 
-        IEnumerable<string> lines;
+                if (!commands.TryAdd(key, metadata))
+                {
+                    TryWriteDebug($"RuntimeHelpDispatcher: duplicate help command '{key}' from '{contributor.PackageId}' ignored; retaining the earlier root-owner/package-id entry.");
+                }
+            }
+        }
+        var helpProvider = new ExtensionIndexHelpAdapter(commands, verb);
+
+        Func<IEnumerable<string>> render;
         if (isCommandHelp)
         {
             // Extra tokens may name an intermediate group; fall back to group help if no command matches.
             var command = helpProvider.GetCommandHelp(path);
             if (command != null)
             {
-                lines = _renderer.RenderCommand(command, TerminalWidth());
+                render = () => _renderer.RenderCommand(command, TerminalWidth());
             }
             else
             {
                 var group = helpProvider.GetGroupHelp(path)
                     ?? throw new KeyNotFoundException($"No help found for path '{string.Join(" ", path)}'.");
-                lines = _renderer.RenderGroup(group, TerminalWidth());
+                render = () => _renderer.RenderGroup(group, TerminalWidth());
             }
         }
         else
@@ -159,23 +188,24 @@ public sealed class RuntimeHelpDispatcher
             var rootCommand = helpProvider.GetCommandHelp(path);
             if (rootCommand != null)
             {
-                lines = _renderer.RenderCommand(rootCommand, TerminalWidth());
+                render = () => _renderer.RenderCommand(rootCommand, TerminalWidth());
             }
             else
             {
                 var group = helpProvider.GetGroupHelp(path)
                     ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", path)}'.");
-                lines = _renderer.RenderGroup(group, TerminalWidth());
+                render = () => _renderer.RenderGroup(group, TerminalWidth());
             }
         }
 
-        WriteLines(lines);
+        WriteLines(render);
         return 0;
     }
 
-    private void WriteLines(IEnumerable<string> lines)
+    private void WriteLines(Func<IEnumerable<string>> render)
     {
-        foreach (var line in lines)
+        using var output = Performance?.MeasureLocal("Help render/output");
+        foreach (var line in render())
         {
             _output.WriteLine(line);
         }
@@ -209,7 +239,7 @@ public sealed class RuntimeHelpDispatcher
             Examples: examples,
             Tags: []);
 
-        WriteLines(_renderer.RenderCommand(command, TerminalWidth()));
+        WriteLines(() => _renderer.RenderCommand(command, TerminalWidth()));
         return true;
     }
 
@@ -222,6 +252,27 @@ public sealed class RuntimeHelpDispatcher
     {
         var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var discovered = DiscoverInstalledExtensions();
+        using var projection = Performance?.MeasureLocal("Help projection");
+        LeafIndex? leafIndex = null;
+        try
+        {
+            var routingRegistry = new ExtensionRegistry
+            {
+                Extensions = discovered.ToDictionary(
+                    static info => info.PackageId,
+                    static info => new ExtensionRegistryEntry
+                    {
+                        Version = info.ResolvedVersion,
+                        Contributions = CliExtensionServiceRegistration.BuildContributionProjection(info).Contributions,
+                    },
+                    StringComparer.OrdinalIgnoreCase),
+            };
+            leafIndex = LeafIndex.Build(routingRegistry);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            TryWriteDebug($"RuntimeHelpDispatcher: routing conflict; root command tags suppressed: {ex.Message}");
+        }
         var ordered = discovered
             .OrderBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
 
@@ -232,18 +283,27 @@ public sealed class RuntimeHelpDispatcher
             {
                 if (!seenVerbs.Add(verb))
                 {
-                    // First owner wins; ordering above is stable package-id sort.
+                    continue;
+                }
+
+                if (!TryResolveExtensionCore(discovered, verb, out var rootOwner))
+                {
+                    TryWriteDebug($"RuntimeHelpDispatcher: no owner found for discovered verb '{verb}'.");
                     continue;
                 }
 
                 RuntimeHelpGroup? root;
                 try
                 {
-                    root = new ExtensionIndexHelpAdapter(info.Commands, verb).GetRootGroup();
+                    root = new ExtensionIndexHelpAdapter(rootOwner.Commands, verb).GetRootGroup();
+                    if (leafIndex is null || leafIndex.IsCommandGroup(verb, string.Empty))
+                    {
+                        root = root with { RootCommandTags = [] };
+                    }
                 }
                 catch (Exception ex)
                 {
-                    TryWriteDebug($"RuntimeHelpDispatcher: failed to build root help for '{info.PackageId}' verb '{verb}': {ex.Message}");
+                    TryWriteDebug($"RuntimeHelpDispatcher: failed to build root help for '{rootOwner.PackageId}' verb '{verb}': {ex.Message}");
                     continue;
                 }
 
@@ -284,10 +344,29 @@ public sealed class RuntimeHelpDispatcher
             WriteError: _streams.WriteError,
             WriteInformation: _streams.WriteInformation);
 
+        IReadOnlyList<string> selectedPackageIds = [];
         try
         {
+            selectedPackageIds = SelectedPackageIds?.Invoke() ?? [];
+        }
+        catch (Exception ex)
+        {
+            TryWriteDebug($"RuntimeHelpDispatcher: routing selection unavailable: {ex.Message}");
+        }
+
+        // An empty name list asks discovery for every copy on disk; help must only describe
+        // the copies routing selected, so with no selection there are no extensions to show.
+        if (selectedPackageIds.Count == 0)
+        {
+            TryWriteDebug("RuntimeHelpDispatcher: routing selected no extensions.");
+            return [];
+        }
+
+        try
+        {
+            using var discovery = Performance?.MeasureLocal("Discovery/command metadata (includes DLL loading)");
             using var session = _engine.OpenDiscoverySession(
-                extensionNames: [],
+                extensionNames: selectedPackageIds.ToList(),
                 commandName: null,
                 outputStreams: outputStreams,
                 isTransient: true);
@@ -300,67 +379,10 @@ public sealed class RuntimeHelpDispatcher
             return [];
         }
 
-        var discovered = discoveredInfos
+        // Routing already chose one copy per package; discovery loaded only those.
+        return discoveredInfos
             .Where(static info => !string.IsNullOrWhiteSpace(info.PackageId))
             .ToList();
-
-        return SelectPreferredCandidates(discovered);
-    }
-
-    private IReadOnlyList<DiscoveredExtensionInfo> SelectPreferredCandidates(IReadOnlyList<DiscoveredExtensionInfo> discovered)
-    {
-        if (discovered.Count == 0)
-        {
-            return discovered;
-        }
-
-        ExtensionRegistry? registry = null;
-        try
-        {
-            registry = _registryStore.Load();
-        }
-        catch (Exception ex)
-        {
-            // Help discovery should remain resilient in degraded environments.
-            TryWriteDebug($"RuntimeHelpDispatcher: failed to load registry preferences: {ex.Message}");
-        }
-
-        var selected = new List<DiscoveredExtensionInfo>();
-        foreach (var group in discovered.GroupBy(static info => info.PackageId, StringComparer.OrdinalIgnoreCase))
-        {
-            ExtensionRegistryEntry? persisted = null;
-            if (registry is not null && registry.Extensions.TryGetValue(group.Key, out var entry))
-            {
-                persisted = entry;
-            }
-
-            var selection = ExtensionCandidateSelector.Select(group.ToList(), persisted);
-            EmitSelectionDebug(
-                context: "RuntimeHelpDispatcher.SelectPreferredCandidates",
-                selection: selection,
-                persistedPreference: persisted);
-            selected.Add(selection.Selected);
-        }
-
-        return selected;
-    }
-
-    private void EmitSelectionDebug(
-        string context,
-        SelectedExtensionCandidate selection,
-        ExtensionRegistryEntry? persistedPreference)
-    {
-        try
-        {
-            _streams.WriteDebug(
-                ExtensionCandidateSelector.BuildDiagnostics(context, selection, persistedPreference),
-                CancellationToken.None).GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            // Help rendering must remain resilient even if debug sink fails.
-            TryWriteDebug($"RuntimeHelpDispatcher: failed to write selection diagnostics: {ex.Message}");
-        }
     }
 
     private void TryWriteDebug(string message)

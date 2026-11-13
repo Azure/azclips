@@ -10,7 +10,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.0'
+ModuleVersion = '0.1.1'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -31,14 +31,14 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'AzClips - Storage'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Minimum version of Microsoft .NET Framework required by this module. This prerequisite is valid for the PowerShell Desktop edition only.
 DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.3' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.4' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -58,7 +58,12 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Stor
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzStorageAccount', 'Get-AzStorageAccount', 'Remove-AzStorageAccount'
+CmdletsToExport = 'New-AzStorageAccount', 'Get-AzStorageAccount', 'Remove-AzStorageAccount',
+    'Get-AzStorageBlob', 'Start-AzStorageBlobCopy', 'Set-AzStorageBlobContent', 'Copy-AzStorageBlob', 'Get-AzStorageBlobContent', 'Remove-AzStorageBlob',
+    'New-AzStorageContainer', 'Remove-AzStorageContainer',
+    'New-AzStorageShare', 'Get-AzStorageShare', 'Update-AzStorageShare', 'Remove-AzStorageShare',
+    'New-AzStorageDirectory', 'Get-AzStorageDirectory', 'Remove-AzStorageDirectory',
+    'Get-AzStorageFile', 'New-AzStorageFile', 'Set-AzStorageFileContent', 'Get-AzStorageFileContent', 'Start-AzStorageFileCopy', 'Remove-AzStorageFile'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{

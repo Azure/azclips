@@ -99,11 +99,10 @@ public class VmCreateScenarioTests
         "--name", VmName,
         "--location", Location,
         "--resource-group", groupName ?? ResourceGroupName,
-        "--size", "Standard_D2s_v3",
+        "--size", "Standard_D2ds_v6",
         "--image", Image,
         "--admin-username", "azadmin",
         "--admin-password", Password,
-        "--network-interface-name", "scenario-vm-nic",
         "--virtual-network-name", "scenario-vm-vnet",
         "--subnet-names", "default",
         "--subnet-address-prefixes", "10.0.0.0/24",
@@ -116,11 +115,10 @@ public class VmCreateScenarioTests
         ["Name"] = VmName,
         ["Location"] = Location,
         ["ResourceGroupName"] = ResourceGroupName,
-        ["VmSize"] = "Standard_D2s_v3",
+        ["VmSize"] = "Standard_D2ds_v6",
         ["Image"] = Image,
         ["AdminUsername"] = "azadmin",
         ["AdminPassword"] = Password,
-        ["NetworkInterfaceName"] = "scenario-vm-nic",
         ["VirtualNetworkName"] = "scenario-vm-vnet",
         ["SubnetNames"] = new List<string> { "default" },
         ["SubnetAddressPrefixes"] = new List<List<string>> { new() { "10.0.0.0/24" } },
@@ -163,7 +161,7 @@ public class VmCreateScenarioTests
         Assert.Equal("Standard", publicIp.Sku!.Name);
         Assert.Equal("Static", publicIp.Properties.PublicIPAllocationMethod);
 
-        var nic = RecordedArm.SentPut<NetworkInterface>(sent, "networkInterfaces", "scenario-vm-nic");
+        var nic = RecordedArm.SentPut<NetworkInterface>(sent, "networkInterfaces", "scenario-vmVMNic");
         var ipConfig = Assert.Single(nic.Properties.IPConfigurations).Properties;
         Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG", groupName), nic.Properties.NetworkSecurityGroup!.Id, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP", groupName), ipConfig.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
@@ -183,7 +181,7 @@ public class VmCreateScenarioTests
         Assert.Equal("Static", publicIp.Properties.PublicIPAllocationMethod);
         Assert.Equal(vm.PublicIps, publicIp.Properties.IpAddress);
 
-        var nic = RecordedArm.FinalGet<NetworkInterface>(entries, "networkInterfaces", "scenario-vm-nic");
+        var nic = RecordedArm.FinalGet<NetworkInterface>(entries, "networkInterfaces", "scenario-vmVMNic");
         Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG"), nic.Properties.NetworkSecurityGroup!.Id, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP"), Assert.Single(nic.Properties.IPConfigurations).Properties.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
     }

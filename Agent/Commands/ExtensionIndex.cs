@@ -20,7 +20,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
 
         private static readonly CommandMetadata s_env_CLI = new(
             Name: "EnvProcessor",
-            InvocationName: "agent tool env",
+            InvocationName: "agent tool env show",
             Aliases: [],
             FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.EnvProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
@@ -29,18 +29,40 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
             ParameterAliases: new Dictionary<string, string>()
         );
 
-        private static readonly CommandMetadata s_help_CLI = new(
-            Name: "HelpProcessor",
-            InvocationName: "agent tool help",
+        private static readonly CommandMetadata s_docsList_CLI = new(
+            Name: "DocsListProcessor",
+            InvocationName: "agent tool docs list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.HelpProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.DocsListProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
-            ProcessorType: typeof(HelpProcessor),
+            ProcessorType: typeof(DocsListProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_docsShow_CLI = new(
+            Name: "DocsShowProcessor",
+            InvocationName: "agent tool docs show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.DocsShowProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(DocsShowProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["name"] = new("Name", "name", typeof(string), "Command name to look up (e.g. 'vm create'). Omit to list all known commands.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), "Command name to look up (e.g. 'vm create').", IsRequired: true, Aliases: [], AllowedValues: [],
+                    ParameterSets: new Dictionary<string, ParameterSetReference>
+                    {
+                        ["(All)"] = new("(All)", IsRequired: true),
+                    }),
             },
-            ParameterAliases: new Dictionary<string, string>()
+            ParameterAliases: new Dictionary<string, string>(),
+            ParameterSets: new Dictionary<string, ParameterSetMetadata>
+            {
+                ["(All)"] = new("(All)", IsDefault: true, Parameters: new Dictionary<string, ParameterReference>
+                {
+                    ["Name"] = new("Name", IsRequired: true),
+                }),
+            }
         );
 
         private static readonly CommandMetadata s_resourceFind_CLI = new(
@@ -58,6 +80,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
                 ["resource-group"] = new("ResourceGroup", "resource-group", typeof(string), "Optional resource group name to narrow the search (only meaningful for kind=resource).", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["top"] = new("Top", "top", typeof(int), "Max candidates to return. Default 10.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        private static readonly CommandMetadata s_docsGenerate_CLI = new(
+            Name: "DocsGenerateProcessor",
+            InvocationName: "agent tool docs generate",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.DocsGenerateProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
+            ProcessorType: typeof(DocsGenerateProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
 
@@ -126,17 +159,17 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
         // Full-path keys keyed on the space-joined invocation path. The root
         // verb ("agent") isn't a runnable leaf — dispatcher treats it as a group.
 
-        private static readonly CommandMetadata s_troubleshootAnalyze_CLI = new(
-            Name: "TroubleshootAnalyzeProcessor",
-            InvocationName: "troubleshoot analyze",
+        private static readonly CommandMetadata s_troubleshootRecover_CLI = new(
+            Name: "TroubleshootRecoverProcessor",
+            InvocationName: "troubleshoot recover",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot.TroubleshootAnalyzeProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot.TroubleshootRecoverProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Agent",
-            ProcessorType: typeof(TroubleshootAnalyzeProcessor),
+            ProcessorType: typeof(TroubleshootRecoverProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["id"] = new("Id", "id", typeof(string), "Analyze this exact saved failure. Omit to select the latest saved failure in this terminal, then the global latest.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["style"] = new("Style", "style", typeof(string), "Override agent.recovery.style for this analysis only.", IsRequired: false, Aliases: [], AllowedValues: ["oneshot", "interactive"]),
+                ["id"] = new("Id", "id", typeof(string), "Recover from this exact saved failure. Omit to select the latest saved failure in this terminal, then the global latest.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["style"] = new("Style", "style", typeof(string), "Override agent.recovery.style for this recovery only.", IsRequired: false, Aliases: [], AllowedValues: ["oneshot", "interactive"]),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -170,14 +203,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent
 
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["agent tool env"]            = s_env_CLI,
-            ["agent tool help"]           = s_help_CLI,
+            ["agent tool env show"]       = s_env_CLI,
+            ["agent tool docs list"]      = s_docsList_CLI,
+            ["agent tool docs show"]      = s_docsShow_CLI,
+            ["agent tool docs generate"]  = s_docsGenerate_CLI,
             ["agent tool resource find"]  = s_resourceFind_CLI,
             ["agent tool resource sku"]   = s_resourceSku_CLI,
             ["agent tool resource tree"]  = s_resourceTree_CLI,
             ["agent tool resource show"]  = s_resourceShow_CLI,
             ["agent tool resource refresh"]  = s_resourceRefresh_CLI,
-            ["troubleshoot analyze"]      = s_troubleshootAnalyze_CLI,
+            ["troubleshoot recover"]      = s_troubleshootRecover_CLI,
             ["troubleshoot list"]         = s_troubleshootList_CLI,
             ["troubleshoot show"]         = s_troubleshootShow_CLI,
         };

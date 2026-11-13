@@ -143,7 +143,7 @@ public class TracerProviderExportSinkTests
         var sink = new TracerProviderExportSink([TelemetryTarget.Remote], (builder, target, boundary) =>
         {
             Assert.Equal(TelemetryTarget.Remote, target);
-            Assert.Equal("EU", boundary);
+            Assert.Equal(UploadRegion.EU, boundary);
             builder.SetSampler(new AlwaysOnSampler())
                 .AddProcessor(new SimpleActivityExportProcessor(new ResourceExporter(captured)));
         });
@@ -161,7 +161,7 @@ public class TracerProviderExportSinkTests
         };
         using var unrelated = new Activity("ambient").Start();
 
-        Assert.True(sink.TryExport("Agent", [entry], "EU", TraceReplayProfile.ManagedLayer));
+        Assert.True(sink.TryExport("Agent", [entry], UploadRegion.EU, TraceReplayProfile.ManagedLayer));
 
         var actual = Assert.Single(captured);
         Assert.Equal("Agent", actual.Role);
@@ -195,7 +195,7 @@ public class TracerProviderExportSinkTests
         var sink = new TracerProviderExportSink([TelemetryTarget.Local, TelemetryTarget.Remote],
             (builder, target, actualBoundary) =>
             {
-                Assert.Equal(boundary, actualBoundary);
+                Assert.Equal(UploadRegions.Resolve(null, boundary), actualBoundary);
                 if (!byTarget.TryGetValue(target, out var exported))
                     byTarget[target] = exported = [];
                 builder.SetSampler(new AlwaysOnSampler())
@@ -312,19 +312,18 @@ public class TracerProviderExportSinkTests
             };
         return new
         {
-            TraceId = traceId,
-            SpanId = spanId,
-            ParentSpanId = parentSpanId,
-            OperationName = name,
-            DisplayName = name,
-            StartTime = "2024-01-01T00:00:00.0000000Z",
-            Duration = 1.0,
-            Status = "Unset",
-            Kind = "Internal",
-            DataBoundary = boundary,
-            Tags = tags,
-            Events = Array.Empty<object>(),
-            Resource = new Dictionary<string, string> { ["service.name"] = service },
+            traceId,
+            spanId,
+            parentSpanId,
+            operationName = name,
+            startTime = "2024-01-01T00:00:00.0000000Z",
+            durationMs = 1.0,
+            status = "Unset",
+            kind = "Internal",
+            dataBoundary = boundary,
+            tags,
+            events = Array.Empty<object>(),
+            resource = new Dictionary<string, string> { ["service.name"] = service },
         };
     }
 

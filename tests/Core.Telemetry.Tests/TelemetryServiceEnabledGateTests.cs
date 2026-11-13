@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -40,7 +41,8 @@ public class TelemetryServiceEnabledGateTests : IDisposable
         _telemetryService = new TelemetryService(
             _provider,
             _config,
-            new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"));
+            new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"),
+            new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
     }
 
     public void Dispose()
@@ -137,7 +139,7 @@ public class TelemetryServiceEnabledGateTests : IDisposable
             Assert.Null(root.Parent);
             Assert.NotEqual(ambient.TraceId, root.TraceId);
             Assert.Same(root, Activity.Current);
-            Assert.NotNull(root.GetTagItem(TelemetryTags.ProductName));
+            Assert.Equal("PowerShell", root.GetTagItem(TelemetryTags.ProductName));
         }
         Assert.Same(ambient, Activity.Current);
     }

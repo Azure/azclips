@@ -614,6 +614,10 @@ describe("pagination", () => {
     };
     const nestedProperty = (wireName: string, segment: string) => ({
       ...pagingProperty(wireName, segment),
+      sourcePath: [
+        { id: id("WidgetEnvelope.result"), name: "result" },
+        { id: id(segment), name: wireName },
+      ],
       bindings: [
         { location: "body", path: ["result", wireName], response: { statusCode: { kind: "exact", code: 200 } } },
       ],
@@ -646,6 +650,27 @@ describe("pagination", () => {
     expect(command.surface.response).toEqual({ kind: "model", id: id("WidgetPage") });
   });
 
+  it("resolves by source-path id when the wire path is spelled in another content type's names", () => {
+    // An XML page binds `values` as `<Entries>`, while the model records its JSON wire name.
+    const xml = listing();
+    const semantics = xml["semantics"] as { pageable: { output: Record<string, unknown> } };
+    semantics.pageable.output["pageItems"] = {
+      ...pagingProperty("value", "WidgetPage.value"),
+      bindings: [
+        {
+          location: "body",
+          path: ["Entries"],
+          contentType: "application/xml",
+          response: { statusCode: { kind: "exact", code: 200 } },
+        },
+      ],
+    };
+
+    const pagination = only(document([xml], [page])).steps[0]!.pagination;
+
+    expect(pagination?.items).toEqual({ property: id("WidgetPage.value"), via: [] });
+  });
+
   it("degrades to a plain call when a paging path does not resolve", () => {
     const broken = listing();
     const semantics = broken["semantics"] as { pageable: { output: Record<string, unknown> } };
@@ -656,6 +681,52 @@ describe("pagination", () => {
     expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["paging-binding-unresolved"]);
     expect(out.commands[0]!.surface.paginated).toBe(false);
     expect(out.commands[0]!.steps[0]!.pagination).toBeUndefined();
+  });
+
+  describe("continuation token", () => {
+    const markerPage = {
+      ...page,
+      properties: [
+        page.properties[0],
+        { ...page.properties[1], id: id("WidgetPage.nextMarker"), name: "NextMarker", wireName: "nextMarker" },
+      ],
+    };
+    const tokenListing = (queryParameters: Record<string, unknown>[]) => {
+      const op = listing({
+        input: {
+          continuationToken: {
+            ...pagingProperty("marker", "p.marker"),
+            bindings: [{ location: "query", path: ["marker"], parameter: id("p.marker") }],
+          },
+        },
+        output: {
+          pageItems: pagingProperty("value", "WidgetPage.value"),
+          continuationToken: pagingProperty("nextMarker", "WidgetPage.nextMarker"),
+        },
+      });
+      op["queryParameters"] = queryParameters;
+      return op;
+    };
+
+    it("pairs the response token with the command parameter that sends it back", () => {
+      const { out, diagnostics } = run(document([tokenListing([param("marker", { optional: true })])], [markerPage]));
+      const pagination = out.commands[0]!.steps[0]!.pagination;
+
+      expect(diagnostics).toEqual([]);
+      expect(pagination?.nextLink).toBeUndefined();
+      expect(pagination?.continuationToken).toEqual({
+        response: { property: id("WidgetPage.nextMarker"), via: [] },
+        parameter: "Marker",
+      });
+    });
+
+    it("keeps the first page's items when the request token has no parameter to set", () => {
+      const { out, diagnostics } = run(document([tokenListing([])], [markerPage]));
+
+      expect(diagnostics.map((d) => d.code.split("/").pop())).toEqual(["paging-continuation-unresolved"]);
+      expect(out.commands[0]!.surface.paginated).toBe(true);
+      expect(out.commands[0]!.steps[0]!.pagination?.continuationToken).toBeUndefined();
+    });
   });
 });
 

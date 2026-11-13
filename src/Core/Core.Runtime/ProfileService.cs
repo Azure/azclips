@@ -1,32 +1,18 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.Abstractions;
+using Core.Runtime.Persistence;
 
 namespace Core.Runtime;
 
 /// <summary>
 /// File-backed implementation of <see cref="IProfileService"/>. Profiles are stored as a JSON
-/// object keyed by profile name in <c>{LocalApplicationData}/.azclips/profiles.json</c>; the active
-/// profile name is stored separately in <c>{LocalApplicationData}/.azclips/active-profile</c>.
+/// object keyed by profile name in <c>~/.azclips/profiles.json</c>; the active
+/// profile name is stored separately in <c>~/.azclips/active-profile</c>.
 /// All writes are atomic (temp file plus rename) to prevent corruption from concurrent access.
 /// </summary>
-public class ProfileService : IProfileService // todo: testability, consider injecting file system abstractions
+public class ProfileService(ILoggingService Logger, IPersistenceStore Persistence) : IProfileService
 {
-    private static string DefaultAzclipsDirectory => HomePaths.GetDefaultLocalAppDataRoot();
-
-    private readonly ILoggingService _logger;
-    private readonly string _azclipsDirectory;
-    private readonly string _profilesFilePath;
-    private readonly string _activeProfileFilePath;
-
-    public ProfileService(ILoggingService logger, string? baseDirectory = null)
-    {
-        _logger = logger;
-        _azclipsDirectory = string.IsNullOrWhiteSpace(baseDirectory) ? DefaultAzclipsDirectory : baseDirectory;
-        _profilesFilePath = Path.Combine(_azclipsDirectory, "profiles.json");
-        _activeProfileFilePath = Path.Combine(_azclipsDirectory, "active-profile");
-    }
-
     // default profile keys for other services to use as default, for now SubscriptionId only
     public List<string> GetProfileKeysForDefault() =>
     [
@@ -212,13 +198,13 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     {
         try
         {
-            if (!File.Exists(_profilesFilePath))
+            Logger.Verbose($"[{nameof(ProfileService)}] Loading profiles from: {Persistence.GetFilePath(HomePaths.ProfilesFileName)}");
+            var json = await Persistence.ReadTextAsync(HomePaths.ProfilesFileName, cancellationToken);
+            if (json is null)
             {
                 return new Dictionary<string, Profile>(StringComparer.OrdinalIgnoreCase);
             }
 
-            _logger.Verbose($"[{nameof(ProfileService)}] Loading profiles from: {_profilesFilePath}");
-            var json = await File.ReadAllTextAsync(_profilesFilePath, cancellationToken);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return new Dictionary<string, Profile>(StringComparer.OrdinalIgnoreCase);
@@ -231,25 +217,26 @@ public class ProfileService : IProfileService // todo: testability, consider inj
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            throw new Exception($"Failed to load profiles from file '{_profilesFilePath}': {ex.Message}", ex);
+            throw new Exception($"Failed to load profiles from file {Persistence.GetFilePath(HomePaths.ProfilesFileName)}: {ex.Message}", ex);
         }
     }
 
     private async Task SaveProfilesAsync(Dictionary<string, Profile> profiles, CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(profiles, JsonOptions);
-        _logger.Verbose($"[{nameof(ProfileService)}] Saving {profiles.Count} profile(s) to: {_profilesFilePath}");
-        await WriteFileAtomicAsync(_profilesFilePath, json, cancellationToken);
+        Logger.Verbose($"[{nameof(ProfileService)}] Saving {profiles.Count} profile(s) to: {Persistence.GetFilePath(HomePaths.ProfilesFileName)}");
+        await Persistence.WriteTextAsync(HomePaths.ProfilesFileName, json, cancellationToken);
     }
 
     private async Task<string?> ReadActiveProfileNameAsync(CancellationToken cancellationToken)
     {
-        if (!File.Exists(_activeProfileFilePath))
+        var content = await Persistence.ReadTextAsync(HomePaths.ActiveProfileFileName, cancellationToken);
+        if (content is null)
         {
             return null;
         }
 
-        var text = (await File.ReadAllTextAsync(_activeProfileFilePath, cancellationToken)).Trim();
+        var text = content.Trim();
         return string.IsNullOrEmpty(text) ? null : text;
     }
 
@@ -257,36 +244,14 @@ public class ProfileService : IProfileService // todo: testability, consider inj
     {
         if (string.IsNullOrEmpty(name))
         {
-            if (File.Exists(_activeProfileFilePath))
-            {
-                _logger.Verbose($"[{nameof(ProfileService)}] Clearing active profile pointer: {_activeProfileFilePath}");
-                File.Delete(_activeProfileFilePath);
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            Logger.Verbose($"[{nameof(ProfileService)}] Clearing active profile pointer: {Persistence.GetFilePath(HomePaths.ActiveProfileFileName)}");
+            await Persistence.DeleteAsync(HomePaths.ActiveProfileFileName, cancellationToken);
             return;
         }
 
-        _logger.Verbose($"[{nameof(ProfileService)}] Setting active profile to '{name}': {_activeProfileFilePath}");
-        await WriteFileAtomicAsync(_activeProfileFilePath, name, cancellationToken);
-    }
-
-    /// <summary>Writes content to a temporary file then atomically renames it over the destination.</summary>
-    private async Task WriteFileAtomicAsync(string path, string content, CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(_azclipsDirectory);
-        var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            await File.WriteAllTextAsync(tempPath, content, cancellationToken);
-            File.Move(tempPath, path, overwrite: true);
-        }
-        catch
-        {
-            if (File.Exists(tempPath))
-            {
-                try { File.Delete(tempPath); } catch { /* best-effort cleanup */ }
-            }
-            throw;
-        }
+        Logger.Verbose($"[{nameof(ProfileService)}] Setting active profile to '{name}'");
+        await Persistence.WriteTextAsync(HomePaths.ActiveProfileFileName, name, cancellationToken);
     }
 
     private static void ValidateProfile(Profile profile)

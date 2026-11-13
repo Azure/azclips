@@ -11,13 +11,16 @@ internal static class FailureHistoryTestWorker
 {
     public static async Task<int> Main(string[] args)
     {
+        // Stands in for the CLI history worker: <mode> <input pipe handle>.
+        if (args.Length == 2)
+            return await RunStderrModeAsync(args[0]);
         if (args.Length != 4)
             return 64;
         var (directory, mode, ready, release) = (args[0], args[1], args[2], args[3]);
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(120));
         var token = deadline.Token;
-        // Cold processes queue on the lock longer than the production two-second budget.
-        var files = new FailureHistoryFiles(directory, lockTimeout: TimeSpan.FromSeconds(10), replace: (source, target) =>
+        // Cold processes can queue on the lock far longer than the production two-second budget.
+        var files = new FailureHistoryFiles(directory, lockTimeout: TimeSpan.FromSeconds(60), replace: (source, target) =>
         {
             if (mode == "crash-before-replace")
             {
@@ -61,9 +64,54 @@ internal static class FailureHistoryTestWorker
         }
     }
 
+    private static async Task<int> RunStderrModeAsync(string mode)
+    {
+        var stderr = Console.Error;
+        switch (mode)
+        {
+            case "stderr-flood":
+                // 8 MB without a newline, then a structured result on stdout.
+                var chunk = new string('x', 64 * 1024);
+                for (var i = 0; i < 128; i++)
+                    stderr.Write(chunk);
+                stderr.Flush();
+                Console.Out.Write("""{"Entry":null,"Code":"flood_done","Message":"flood done"}""");
+                return 1;
+            case "stderr-hang":
+                stderr.Write("partial-diagnostic-before-hang");
+                stderr.Flush();
+                SignalWritten();
+                await Task.Delay(Timeout.Infinite);
+                return 0;
+            case "stderr-utf8-hang":
+                // 4096 bytes: fewer chars than one 4096-char read request.
+                var raw = Console.OpenStandardError();
+                raw.Write(System.Text.Encoding.UTF8.GetBytes(new string('é', 2048)));
+                raw.Flush();
+                SignalWritten();
+                await Task.Delay(Timeout.Infinite);
+                return 0;
+            case "stderr-early-exit":
+                stderr.Write("diagnostic-before-exit");
+                stderr.Flush();
+                return 3;
+            default:
+                return 64;
+        }
+    }
+
+    // Tells the test that the partial stderr has been written, so it can cancel the save.
+    private static void SignalWritten()
+    {
+        if (Environment.GetEnvironmentVariable(WrittenFileVariable) is { Length: > 0 } path)
+            File.WriteAllText(path, "written");
+    }
+
+    internal const string WrittenFileVariable = "AZCLIPS_TEST_STDERR_WRITTEN_FILE";
+
     private sealed class OfflineKeyStore : IFailureHistoryKeyStore
     {
-        public Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default) =>
+        public Task<byte[]> GetKeyAsync(bool createIfMissing, Action? replaced = null, CancellationToken cancellationToken = default) =>
             Task.FromResult<byte[]>([.. Enumerable.Repeat((byte)0x31, 32)]);
     }
 }

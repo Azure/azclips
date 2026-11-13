@@ -113,14 +113,14 @@ public sealed class RecordPlaybackInterceptor(
             {
                 Method = snapshot.Method,
                 Uri = snapshot.Uri,
-                Headers = sensitive ? [] : WithoutDerivedHeaders(snapshot.Headers),
+                Headers = sensitive ? [] : WithoutDerivedHeaders(snapshot.Headers, snapshot.Body),
                 Body = sensitive && snapshot.Body is not null ? bodySanitizer.Sanitize(snapshot.Body) : snapshot.Body,
             }),
             Response = _sanitizers.Sanitize(new RecordedResponse
             {
                 StatusCode = (int)response.StatusCode,
                 Headers = sensitive ? [] : responseHeaders,
-                ContentHeaders = sensitive ? [] : WithoutDerivedHeaders(contentHeaders),
+                ContentHeaders = sensitive ? [] : WithoutDerivedHeaders(contentHeaders, responseBody),
                 Body = sensitive && responseBody is not null ? bodySanitizer.Sanitize(responseBody) : responseBody,
             }),
         };
@@ -134,11 +134,12 @@ public sealed class RecordPlaybackInterceptor(
         return response;
     }
 
-    // Content-Length is derived from the body, which sanitising rewrites, so drop it and let
-    // playback recompute it from the stored body.
-    private static Dictionary<string, string[]> WithoutDerivedHeaders(IReadOnlyDictionary<string, string[]> headers)
+    // With a body, Content-Length is derived from it and sanitising may rewrite the body, so drop it
+    // and let playback recompute it from the stored body. Without one (e.g. a HEAD response) it
+    // describes the resource, not the body, so it is kept.
+    private static Dictionary<string, string[]> WithoutDerivedHeaders(IReadOnlyDictionary<string, string[]> headers, string? body)
         => headers
-            .Where(header => !string.Equals(header.Key, "Content-Length", StringComparison.OrdinalIgnoreCase))
+            .Where(header => string.IsNullOrEmpty(body) || !string.Equals(header.Key, "Content-Length", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(header => header.Key, header => header.Value);
 
     private HttpResponseMessage Playback(CapturedHttpRequest snapshot, bool sensitive)

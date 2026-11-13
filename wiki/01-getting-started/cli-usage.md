@@ -12,19 +12,28 @@ The `az` binary is a thin front door over the Core engine. It does almost no bus
 
 ## Command Surface
 
-The installed command groups are documented under `src/CLI/Help/Docs/` — each folder is a verb: `config`, `deployment`, `disk`, `extension`, `group`, `login`, `logout`, `profile`, `rest`, and `vm`. These `index.md` files are the authoritative command surface. Representative examples:
+Help Markdown under `src/CLI/Help/Docs/` describes groups such as `config`, `deployment`,
+`disk`, `extension`, `group`, `identity`, `keyvault`, `msgraph`, `network`, `profile`, `role`,
+`storage`, `troubleshoot`, and `vm`. The installed extensions' command metadata determines
+what actually runs: a help folder or a project in the solution is not proof that a command
+is exposed in the current package. Check `az --help` and command-scoped help against your
+build (`src/Core/Core.Abstractions/IExtensionIndex.cs:10`,
+`src/CLI/Parser/ExtensionDispatcher.cs:44`). Representative examples:
 
 | Command                 | Example                                                                                                   | Docs                                   |
 | ----------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | Create a resource group | `az group create --name myrg --location eastus --subscription-id <sub>`                                   | `src/CLI/Help/Docs/group/index.md`     |
 | List resource groups    | `az group list --subscription-id <sub>`                                                                   | `src/CLI/Help/Docs/group/index.md`     |
 | Manage VMs              | `az vm create ... / az vm list / az vm show`                                                              | `src/CLI/Help/Docs/vm/index.md`        |
-| Get/set/list config     | `az config get --key output.format` · `az config set --key output.format --value json` · `az config list` | `src/CLI/Help/Docs/config/index.md`    |
+| Get/set/list config     | `az config get --key clients.cli.output.format` · `az config set --key clients.cli.output.format --value json` · `az config list` | `src/CLI/Help/Docs/config/index.md`    |
 | Authenticate            | `az login --subscription-id <sub> [--use-device-code]`                                                    | `src/CLI/Help/Docs/login/index.md`     |
 | Manage extensions       | `az extension add / list`                                                                                 | `src/CLI/Help/Docs/extension/index.md` |
 | Raw ARM call            | `az rest ...`                                                                                             | `src/CLI/Help/Docs/rest/index.md`      |
 
-Configuration keys use dot notation (e.g. `output.format`, `core.debug`) and persist to your local config file (`src/CLI/Help/Docs/config/index.md`).
+Configuration keys use dot notation, such as `clients.cli.output.format` and
+`core.logging.level`, and persist to your local config file
+(`src/CLI/Help/Docs/config/index.md:8`). See [Authentication](../02-deep-dive/authentication.md)
+for managed-identity, federated, and client-secret login syntax.
 
 ## Global Flags
 
@@ -89,16 +98,26 @@ The generator handles requests in `TryHandleAsync` (`src/CLI/Completions/Complet
 
 ## Profiles
 
-Commands accept a `--profile` override, and a global profile can be configured so subsequent commands reuse the same account context. Profile state is persisted under the LocalApplicationData `.azclips` root (`src/Core/Core.Abstractions/HomePaths.cs:47`), and PowerShell exposes the mirror `Get-AzProfile` / `Set-AzProfile` cmdlets.
+Commands accept a `--profile` override; `az profile set <name>` changes the active profile
+used by subsequent commands. Definitions live in `profiles.json`, with the active name in
+`active-profile`, under the LocalApplicationData `.azclips` root. `AZCLIPS_HOME` overrides
+that root (`src/Core/Core.Abstractions/HomePaths.cs:19`,
+`src/Core/Core.Abstractions/HomePaths.cs:36`). PowerShell exposes the corresponding
+`Get-AzProfile` / `Set-AzProfile` cmdlets.
 
 ## The AI Agent-Mode Fallback
 
-The CLI's most distinctive UX is what happens when a command _fails_. On an unhandled exception, `Program.Main` calls `TryAgentFallbackAsync` (`src/CLI/Program.cs:281`). Rather than hosting AI in-process, it **spawns the TUI as a child process** in `--agent-mode`, handing over the failed command and error text so the agent can suggest or run a corrected command interactively.
+For eligible failures, `Program.Main` can call `TryAgentFallbackAsync`. It launches
+**`azclips-agent --agent-mode`**, not the Hex1b TUI, carrying a recovery request with the
+failed command and error context. Typed errors marked `AgentFallbackEligible` can also
+reach this path (`src/CLI/Program.cs:247`, `src/CLI/Program.cs:554`).
 
 Crucially, this only happens when it is safe:
 
-- `agent.recovery.trigger` must be `auto` (off by default). Enable it with `az config set --key agent.recovery.trigger --value auto`. With `manual`, failures are saved locally and AI runs only when you run `az troubleshoot analyze`.
-- The session must be an interactive TTY — if stdin or stdout is redirected (CI, a pipe, an unattended script), the fallback is skipped and the original error is surfaced (`src/CLI/Program.cs:308`).
+- `agent.recovery.trigger` must be `auto` (off by default). Enable it with `az config set --key agent.recovery.trigger --value auto`. With `manual`, failures are saved locally and AI runs only when you run `az troubleshoot recover`.
+- Interactive style requires a terminal. One-shot style can run with redirected streams,
+  but preserves the original failing exit code; it only proposes a fix
+  (`src/CLI/Recovery/AutomaticRecoveryPolicy.cs:19`, `src/CLI/Program.cs:639`).
 - A recursion guard: if `AZCLIPS_IN_AGENT_MODE == 1`, no nested agent is spawned (`src/CLI/Program.cs:315`).
 
 ```mermaid
@@ -109,7 +128,7 @@ sequenceDiagram
     participant Disp as ExtensionDispatcher
     participant Eng as IEngine / ExecutionSession
     participant Fallback as TryAgentFallbackAsync<br>(:281)
-    participant TUI as Core.Tui --agent-mode
+    participant TUI as azclips-agent --agent-mode
 
     User->>Main: az vm create ... (mistyped / fails)
     Main->>Main: strip --debug/--output/--no-cache
@@ -118,13 +137,13 @@ sequenceDiagram
     Main->>Eng: OpenExecutionSession + RunAsync
     Eng--xMain: throws Exception
     Main->>Fallback: TryAgentFallbackAsync(args, error)
-    alt agent.recovery.trigger not auto OR redirected OR AZCLIPS_IN_AGENT_MODE
+    alt trigger not auto OR interactive style with redirected streams OR recursion guard
         Fallback-->>User: return 1 (original error)
     else interactive + enabled
         Fallback->>TUI: spawn with AZCLIPS_IN_AGENT_MODE=1<br>--failed-command --error
         TUI-->>User: interactive AI suggestion / rerun
         TUI-->>Fallback: exit code
-        Fallback-->>User: propagate exit code
+        Fallback-->>User: oneshot keeps original failure, interactive returns agent result
     end
 ```
 

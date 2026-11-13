@@ -26,7 +26,7 @@ public sealed class ExtensionIndex : IExtensionIndex
             Aliases: [],
             FullName: "Azclips.Tests.Fixtures.SharedAlpha.AlphaProcessor",
             AssemblyName: "Azclips.Tests.Fixtures.SharedAlpha",
-            ProcessorType: typeof(ExtensionIndex),
+            ProcessorType: typeof(AlphaProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()),
     };
@@ -44,4 +44,17 @@ public sealed class ExtensionIndex : IExtensionIndex
 
     public IEnumerable<string> GetCommandKeys(ClientType clientType) =>
         clientType == ClientType.CLI ? s_cliTable.Keys : Array.Empty<string>();
+}
+
+public sealed class AlphaProcessor : IProcessor
+{
+    private ProcessorContext _context = null!;
+
+    public IProcessor Init(ProcessorContext context)
+    {
+        _context = context;
+        return this;
+    }
+
+    public Task ProcessAsync() => _context.OutputHandler.WriteOutput("alpha-payload", CancellationToken.None);
 }

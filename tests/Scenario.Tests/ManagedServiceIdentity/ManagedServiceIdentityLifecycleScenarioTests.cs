@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using UserAssignedIdentity = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models.UserAssignedIdentity;
 using Tests.Recording;
 using Tests.Common.Recording;
 
@@ -64,6 +65,19 @@ public class ManagedServiceIdentityLifecycleScenarioTests
             AssertUpdated(RunUpdate(cli, SubscriptionId), SubscriptionId);
             RunDelete(cli, SubscriptionId);
         }
+
+        using (var ps = new ScenarioHost(
+            ClientType.PowerShell,
+            recording.CreateInterceptor(),
+            extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.ManagedServiceIdentity]))
+        {
+            ps.RunPowerShell("New-AzResourceGroup", PsGroupParameters(SubscriptionId), extension: "Resources");
+            AssertCreatedPs(ps.RunPowerShell("New-AzUserAssignedIdentity", PsCreateParameters(SubscriptionId), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertListed(ps.RunPowerShell("Get-AzUserAssignedIdentity_List", PsListParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
+            AssertShownPs(ps.RunPowerShell("Get-AzUserAssignedIdentity_Get", PsShowParameters(SubscriptionId), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertUpdatedPs(ps.RunPowerShell("Update-AzUserAssignedIdentity", PsUpdateParameters(SubscriptionId), extension: "ManagedServiceIdentity"), SubscriptionId);
+            AssertDeleted(ps.RunPowerShell("Remove-AzUserAssignedIdentity", PsDeleteParameters(SubscriptionId), extension: "ManagedServiceIdentity"));
+        }
     }
 
     private static IReadOnlyList<object> RunGroupCreate(ScenarioHost host, string subscriptionId, string? groupName = null) =>
@@ -101,6 +115,53 @@ public class ManagedServiceIdentityLifecycleScenarioTests
         host.RunCli("identity", "delete",
             "--ids", IdentityId(subscriptionId, groupName));
 
+    private static Dictionary<string, object> PsGroupParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["Name"] = ResourceGroupName,
+        ["Location"] = Location,
+    };
+
+    private static Dictionary<string, object> PsCreateParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = IdentityName,
+        ["Location"] = Location,
+        ["Tags"] = new Dictionary<string, string> { ["env"] = "scenario" },
+        ["IsolationScope"] = "Regional",
+        ["ResourceRestriction"] = new[] { "Microsoft.Compute" },
+    };
+
+    private static Dictionary<string, object> PsListParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+    };
+
+    private static Dictionary<string, object> PsShowParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = IdentityName,
+    };
+
+    private static Dictionary<string, object> PsUpdateParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = IdentityName,
+        ["IsolationScope"] = "None",
+        ["Tags"] = new Dictionary<string, string> { ["env"] = "scenario-updated" },
+    };
+
+    private static Dictionary<string, object> PsDeleteParameters(string subscriptionId) => new()
+    {
+        ["SubscriptionId"] = subscriptionId,
+        ["ResourceGroupName"] = ResourceGroupName,
+        ["Name"] = IdentityName,
+    };
+
     private static string IdentityId(string subscriptionId, string? groupName = null) =>
         $"/subscriptions/{subscriptionId}/resourceGroups/{groupName ?? ResourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{IdentityName}";
 
@@ -111,6 +172,9 @@ public class ManagedServiceIdentityLifecycleScenarioTests
         Assert.Equal("scenario", identity.Tags?["env"]);
         Assert.Equal("Microsoft.Compute", Assert.Single(identity.Properties?.AssignmentRestrictions?.Providers ?? []));
     }
+
+    private static void AssertCreatedPs(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null) =>
+        AssertCreated(outputs, expectedSubscriptionId);
 
     private static void AssertListed(IReadOnlyList<object> outputs)
     {
@@ -127,6 +191,12 @@ public class ManagedServiceIdentityLifecycleScenarioTests
         AssertIdentity(identity, "Regional", expectedSubscriptionId);
     }
 
+    private static void AssertShownPs(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    {
+        var identity = Assert.IsType<UserAssignedIdentity>(Assert.Single(outputs));
+        AssertIdentity(identity, "Regional", expectedSubscriptionId);
+    }
+
     private static void AssertUpdated(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
     {
         var identities = Assert.IsType<UserAssignedIdentity[]>(Assert.Single(outputs));
@@ -134,6 +204,16 @@ public class ManagedServiceIdentityLifecycleScenarioTests
         AssertIdentity(identity, "None", expectedSubscriptionId);
         Assert.Equal("scenario-updated", identity.Tags?["env"]);
     }
+
+    private static void AssertUpdatedPs(IReadOnlyList<object> outputs, string? expectedSubscriptionId = null)
+    {
+        var identity = Assert.IsType<UserAssignedIdentity>(Assert.Single(outputs));
+        AssertIdentity(identity, "None", expectedSubscriptionId);
+        Assert.Equal("scenario-updated", identity.Tags?["env"]);
+    }
+
+    private static void AssertDeleted(IReadOnlyList<object> outputs) =>
+        Assert.DoesNotContain(outputs, output => output is UserAssignedIdentity);
 
     private static void AssertIdentity(UserAssignedIdentity identity, string isolationScope, string? expectedSubscriptionId)
     {

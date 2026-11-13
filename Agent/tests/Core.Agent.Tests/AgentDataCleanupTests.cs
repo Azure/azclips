@@ -10,8 +10,9 @@ public sealed class AgentDataCleanupTests : IDisposable
     private static readonly DateTime Now = new(2026, 10, 21, 12, 0, 0, DateTimeKind.Utc);
 
     private readonly string _root = Directory.CreateTempSubdirectory("azclips-cleanup-").FullName;
-    private string AgentRoot => Path.Combine(_root, "local", "agent");
     private string OldHome => Path.Combine(_root, "home");
+    private string AgentRoot => Path.Combine(OldHome, "agent");
+    private string TelemetryQueue => Path.Combine(_root, "local", "traces");
     private string DefaultTrace => Path.Combine(AgentRoot, HomePaths.AgentTraceDirectoryName);
     private string Sessions => Path.Combine(AgentRoot, HomePaths.AgentCopilotDirectoryName, "session-state");
     private string Evaluation => Path.Combine(AgentRoot, HomePaths.AgentEvaluationDirectoryName);
@@ -197,7 +198,7 @@ public sealed class AgentDataCleanupTests : IDisposable
         Directory.CreateDirectory(agentRoot);
         var queue = File(Path.Combine(shared, "traces"), "traces-1.log", ageDays: 0);
 
-        AgentDataCleanup.Run(Path.Combine(agentRoot, "trace"), agentRoot, shared, Now);
+        AgentDataCleanup.Run(Path.Combine(agentRoot, "trace"), agentRoot, shared, Path.Combine(shared, "traces"), Now);
 
         Assert.True(System.IO.File.Exists(queue));
     }
@@ -219,7 +220,7 @@ public sealed class AgentDataCleanupTests : IDisposable
     }
 
     private void Run(string tracePath, DateTime? now = null)
-        => AgentDataCleanup.Run(tracePath, AgentRoot, OldHome, now ?? Now);
+        => AgentDataCleanup.Run(tracePath, AgentRoot, OldHome, TelemetryQueue, now ?? Now);
 
     private JsonObject ReadState() => (JsonObject)JsonNode.Parse(System.IO.File.ReadAllText(StatePath))!;
 

@@ -1,10 +1,14 @@
 parameters:
 - name: ubuntu_pool
   type: string
+- name: windows_pool
+  type: string
+- name: macos_arm64_pool
+  type: string
 
 jobs:
-- job: UnitTests
-  displayName: Unit Tests
+- job: UnitTestsLinux
+  displayName: Unit Tests (Linux)
   timeoutInMinutes: 30
   pool:
     name: ${{ parameters.ubuntu_pool }}
@@ -12,6 +16,11 @@ jobs:
   - checkout: self
     clean: true
     fetchDepth: 0
+
+  - bash: |
+      set -euo pipefail
+      python3 -m unittest discover -s devops/scripts/ci -p test_pipeline_input_safety.py -v
+    displayName: Run Pipeline Input Safety Tests
 
   - task: UseDotNet@2
     displayName: .NET SDK
@@ -23,8 +32,85 @@ jobs:
       set -euo pipefail
       dotnet restore azclips.slnx
       dotnet build azclips.slnx -c Release --no-restore
-      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests"
+      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests&Category!=LocalOnly" --logger trx --results-directory "$(Agent.TempDirectory)/linux-unit-tests"
     displayName: Run Unit Tests
+
+  - task: PublishTestResults@2
+    displayName: Publish Linux Unit Test Results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: '$(Agent.TempDirectory)/linux-unit-tests/**/*.trx'
+      testRunTitle: Linux Unit Tests
+
+- job: UnitTestsWindows
+  displayName: Unit Tests (Windows)
+  timeoutInMinutes: 30
+  pool:
+    name: ${{ parameters.windows_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - task: PowerShell@2
+    displayName: Run Unit Tests
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        dotnet restore azclips.slnx
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        dotnet build azclips.slnx -c Release --no-restore
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests&Category!=LocalOnly" --logger trx --results-directory "$(Agent.TempDirectory)/windows-unit-tests"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  - task: PublishTestResults@2
+    displayName: Publish Windows Unit Test Results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: '$(Agent.TempDirectory)/windows-unit-tests/**/*.trx'
+      testRunTitle: Windows Unit Tests
+
+- job: UnitTestsMacOS
+  displayName: Unit Tests (macOS)
+  timeoutInMinutes: 30
+  pool:
+    vmImage: ${{ parameters.macos_arm64_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - bash: |
+      set -euo pipefail
+      dotnet restore azclips.slnx
+      dotnet build azclips.slnx -c Release --no-restore
+      dotnet test azclips.slnx -c Release --no-build --no-restore --verbosity normal --filter "FullyQualifiedName!~Scenario.Tests&Category!=LocalOnly" --logger trx --results-directory "$(Agent.TempDirectory)/macos-unit-tests"
+    displayName: Run Unit Tests
+
+  - task: PublishTestResults@2
+    displayName: Publish macOS Unit Test Results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: '$(Agent.TempDirectory)/macos-unit-tests/**/*.trx'
+      testRunTitle: macOS Unit Tests
 
 # The scenario suite runs apart from the unit tests so a recording failure surfaces as its
 # own check, and the suite can grow without stretching the unit job.

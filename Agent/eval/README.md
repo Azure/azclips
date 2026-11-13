@@ -151,21 +151,26 @@ subscription, and cache conditions when comparing an optimized build.
 Every result records the facts needed to compare builds:
 
 - `response.metadata.target`: `version` is the `azclipsVersion` reported by
-  `agent tool env` (it includes the source commit), and `packageSha256` hashes the
+  `agent tool env show` (it includes the source commit), and `packageSha256` hashes the
   relative path and SHA-256 of every file in the executable's directory.
   Framework-dependent packages keep the product code in DLLs beside a generic app
   host, so the executable hash alone does not identify a build.
 - `response.metadata.resourceCache`: the cache mode, refresh start time and
   duration, cached resource count, and fixture-group check.
-- `response.metadata.agentSettings`: the effective value and source (`default` or
-  the configuration file that set it) of every setting that `config info
-  --keys-only` lists under `agent.*` (except `agent.trace.*`), `core.http.*` and
-  `telemetry.enabled`. This covers `agent.provider`, `agent.builtin.*`, recovery,
-  and any agent setting that a newer build adds, such as a reasoning effort. A
-  target that cannot list its keys falls back to the provider and recovery keys.
-  Values come from `config get`. Both the older `key = value [source]` text and
-  the newer JSON object output are accepted, and both record the same value text
-  (for example `false`, `9` or `null`).
+- `response.metadata.agentSettings`: the `agent_settings` note from the case's
+  trace, copied as written. `options` is the whole effective `AgentOptions`
+  (every Agent configuration value, including the hidden `agent.builtin.*`
+  defaults), and `run` is the resolved trigger and session style of that run
+  (including a `--style` override). The Agent writes it before sign-in and data
+  boundary lookup, so a run that fails at startup still records it. It is
+  absent when the trace has no such note.
+- `response.metadata.settings`: the effective value and source (`default` or
+  the configuration file that set it) of every non-Agent setting that `config
+  info --keys-only` lists under `core.http.*` and `telemetry.enabled`. A target
+  that cannot list its keys records none. Values come from `config get`. Both
+  the older `key = value [source]` text and the newer JSON object output are
+  accepted, and both record the same value text (for example `false`, `9` or
+  `null`).
   Keys whose names look secret are skipped, and a URL value is recorded without
   its user info, query and fragment (marked `redacted: true`).
   Apart from the keys it sets for the run (`telemetry.enabled`, `agent.recovery.trigger` in
@@ -266,11 +271,11 @@ latency from 37.8 s to 41.9 s. Report per-case medians beside means.
 
 For the on-demand recovery baseline, use a complete package containing PR #934
 and pass `-RecoveryMode manual`. The provider first runs the failing command,
-then invokes `az troubleshoot analyze --id <exact-failure-id> --style oneshot`.
+then invokes `az troubleshoot recover --id <exact-failure-id> --style oneshot`.
 It never selects the global latest failure. Since #1081, azclips writes errors
 as text on stderr for every output format: an `ERROR:` message, `WARNING:`
 messages (only the first line of each has the prefix), and a hint that names
-the command `az troubleshoot analyze --id <id>`. The provider reads the ID from that
+the command `az troubleshoot recover --id <id>`. The provider reads the ID from that
 command, which it runs itself, and not from the sentence around it or the ID's
 format. Older targets wrote a JSON error instead; when the text names no ID,
 the provider reads `recovery.id` and `recoveryWarning` from it. If the failing
@@ -285,7 +290,7 @@ retry), the troubleshoot process, and trace extraction; compare runs using the
 same mode. Trace timings such as `processMs` start at the troubleshoot process,
 so a retry does not change them.
 The provider records the original CLI diagnostic in
-`response.metadata.originalError` before starting analysis: the `ERROR:` lines
+`response.metadata.originalError` before starting recovery: the `ERROR:` lines
 (with the `[<code>]` that starts them) or, for older targets, the JSON error.
 Log lines such as `VERBOSE:` and `DEBUG:` are left out. It is separate from
 the proposed plan, assertion failures, and provider/process errors. Existing
@@ -316,10 +321,14 @@ declarative contracts; unrecorded script internals must be labelled as missing,
 not reconstructed from a model response or an unrelated newer script version.
 The target Model field is read only from `LlmTurnCompleted.Model` reported by the
 running Agent. A configured model name is not a substitute for observed usage.
-The reported value is the deployment name (for example `gpt-5.4`), not the dated
-model version that answered; the Judge records its service model. To detect a
-model update between runs, record the deployment's service model separately, for
-example with one request through the Judge provider.
+For the builtin provider, the reported value is the model the gateway served,
+from the `x-ms-served-model` response header (for example
+`gpt-5.4-mini-2026-03-17`). When that header is missing, it falls back to the
+deployment name from usage (for example `gpt-5.4-mini`).
+For other providers, the reported value is the deployment name, not the dated
+model version that answered. To detect a model update between runs, record the
+deployment's service model separately, for example with one request through the
+Judge provider.
 Older target packages that omit that field remain explicitly unrecorded; use a
 versioned target with the metadata instrumentation for a model-complete baseline.
 Reasoning and cache-write totals are present only when every captured usage event

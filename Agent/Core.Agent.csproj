@@ -23,6 +23,7 @@
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\Shared.props" />
+  <Import Project="$(MSBuildThisFileDirectory)Targets\CopilotCli.targets" />
 
   <ItemGroup>
     <Compile Remove="tests\**" />
@@ -69,7 +70,37 @@
          library so Agent.Commands (the extension) can consume them without
          pulling in the whole azclips-agent.exe assembly. -->
     <ProjectReference Include="Tools\Core.Agent.Tools.csproj" />
+    <!-- Agent code calls types in az.dll (help contracts), so az.dll must be in the deps.json.
+         Build Core.Cli without the RID so a RID publish reuses the build that Core.Agent.Tools also uses. -->
+    <ProjectReference Include="..\src\CLI\Core.Cli.csproj" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained" />
   </ItemGroup>
+
+  <!-- Core.Cli is an exe with content of its own. From it the agent needs only az.dll.
+       These items match the CLI apphost, deps.json and runtimeconfig files by output path.
+       The help/ and completions/ conditions below match the Core.Cli content folders; update them if Core.Cli adds a content folder.
+       The targets below use SDK-internal item names. If an SDK upgrade renames them, CLI files are copied again without a build error. -->
+  <ItemGroup>
+    <_CliHostFile Include="az.exe;az;az.deps.json;az.runtimeconfig.json;az.runtimeconfig.dev.json" TargetPath="%(Identity)" RelativePath="%(Identity)" />
+  </ItemGroup>
+  <!-- Build: do not copy the CLI host files, help/ or completions/ into the agent output. -->
+  <Target Name="RemoveCliFilesFromBuildOutput" AfterTargets="GetCopyToOutputDirectoryItems">
+    <ItemGroup>
+      <_CliContentToRemove Include="@(AllItemsFullPathWithTargetPath)" Condition="$([System.String]::Copy('%(TargetPath)').Replace('\', '/').StartsWith('help/')) or $([System.String]::Copy('%(TargetPath)').Replace('\', '/').StartsWith('completions/'))" />
+      <_CliContentToRemove Include="@(_CliHostFile)" />
+      <_TransitiveItemsToCopyToOutputDirectory Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
+      <AllItemsFullPathWithTargetPath Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
+      <_SourceItemsToCopyToOutputDirectory Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
+      <_SourceItemsToCopyToOutputDirectoryAlways Remove="@(_CliContentToRemove)" MatchOnMetadata="TargetPath" />
+    </ItemGroup>
+  </Target>
+  <!-- Publish: also drop az.dll and az.pdb. The packaged agent relies on the CLI install root to provide az.dll. -->
+  <Target Name="RemoveCliFilesFromPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_CliFileToNotPublish Include="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'az.dll' or '%(Filename)%(Extension)' == 'az.pdb' or $([System.String]::Copy('%(RelativePath)').Replace('\', '/').StartsWith('help/')) or $([System.String]::Copy('%(RelativePath)').Replace('\', '/').StartsWith('completions/'))" />
+      <_CliFileToNotPublish Include="@(_CliHostFile)" />
+      <ResolvedFileToPublish Remove="@(_CliFileToNotPublish)" MatchOnMetadata="RelativePath" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <!-- These files are already picked up as None items by the SDK's default glob

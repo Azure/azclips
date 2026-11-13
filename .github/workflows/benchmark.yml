@@ -28,7 +28,7 @@ permissions:
 
 concurrency:
   group: benchmark-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ─────────────── Detect which extensions / families changed ───────────────
@@ -52,9 +52,9 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3
         id: filter
         with:
           list-files: json          # expose the changed-file list for generic detection
@@ -107,16 +107,16 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           global-json-file: global.json
 
       - name: Restore + build
-        run: dotnet build azclips.slnx --configuration Release
+        run: dotnet build azclips.slnx --configuration Release -p:CopilotSkipCliDownload=true
 
       - name: Upload build outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: benchmark-build-outputs
           path: |
@@ -140,7 +140,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Display dotnet version
         run: dotnet --version
@@ -152,7 +152,7 @@ jobs:
           path: .
 
       - name: Run CLI benchmarks (with retry)
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
         with:
           timeout_minutes: 60
           max_attempts: 2
@@ -161,7 +161,7 @@ jobs:
 
       - name: Upload CLI benchmark outputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: benchmark-cli-results-${{ matrix.extension }}
           path: artifacts/Benchmark/ci
@@ -184,7 +184,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Display dotnet version
         run: dotnet --version
@@ -196,7 +196,7 @@ jobs:
           path: .
 
       - name: Run PS benchmarks (with retry)
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
         with:
           timeout_minutes: 60
           max_attempts: 2
@@ -205,7 +205,7 @@ jobs:
 
       - name: Upload PS benchmark outputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: benchmark-ps-results-${{ matrix.extension }}
           path: artifacts/Benchmark/ci
@@ -225,7 +225,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Display dotnet version
         run: dotnet --version
@@ -237,7 +237,7 @@ jobs:
           path: .
 
       - name: Run STARTUP benchmarks (with retry)
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
         with:
           timeout_minutes: 20
           max_attempts: 2
@@ -246,7 +246,7 @@ jobs:
 
       - name: Upload STARTUP benchmark outputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: benchmark-startup-results
           path: artifacts/Benchmark/ci
@@ -274,7 +274,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Download all benchmark results
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -335,7 +335,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Download all benchmark results
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -423,7 +423,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Download all benchmark results
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -439,7 +439,7 @@ jobs:
       - name: Checkout gh-pages for trace baselines
         id: baselines
         continue-on-error: true
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: gh-pages
           path: gh-pages
@@ -449,7 +449,7 @@ jobs:
       # Upload benchmark result JSONs for the fork-PR comment workflow
       - name: Upload benchmark results for fork PR
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: benchmark-results
           path: downloaded/**/results/*-report-full-compressed.json
@@ -458,7 +458,7 @@ jobs:
 
       - name: Upload BDN logs (always)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: benchmark-ci-${{ github.run_id }}
           path: downloaded/**
@@ -479,7 +479,7 @@ jobs:
 
       - name: Upload trace sidecars
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: benchmark-trace-sidecars
           path: sidecars
@@ -514,7 +514,7 @@ jobs:
 
       - name: Checkout gh-pages
         if: steps.download.outcome == 'success'
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: gh-pages
           path: gh-pages

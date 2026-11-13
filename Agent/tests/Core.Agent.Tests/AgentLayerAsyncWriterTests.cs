@@ -4,13 +4,13 @@
 using Core.Abstractions;
 using Core.Agent.AgentMode;
 using Core.Telemetry;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
 [Collection("AgentTelemetry")]
 public class AgentLayerAsyncWriterTests
 {
-    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
 
     [Theory]
     [InlineData(0, true)]
@@ -19,15 +19,22 @@ public class AgentLayerAsyncWriterTests
     [InlineData(0, false)]
     [InlineData(1, false)]
     [InlineData(130, false)]
-    public async Task RunSessionAsync_ChildDisposeCannotBlockAdmissionToBoundedCompletion(
-        int expectedExit, bool expireBudget)
+    public Task RunSessionAsync_ChildDisposeCannotBlockAdmissionToBoundedCompletion(
+        int expectedExit, bool expireBudget) =>
+        AgentLayerTestHarness.WithCapturedConsoleAsync(() => ChildDisposeCannotBlockAdmissionAsync(expectedExit, expireBudget));
+
+    private static async Task ChildDisposeCannotBlockAdmissionAsync(int expectedExit, bool expireBudget)
     {
         var directory = Path.Combine(AppContext.BaseDirectory, "TestArtifacts",
             "AgentLayerAsyncWriter", Guid.NewGuid().ToString("N"));
         using var blockedDirectory = new BlockingDirectory(directory);
-        var clock = new FileBudgetTimeProvider();
+        var clock = new SignalingFakeTimeProvider();
         var factory = new TelemetryLayerScopeFactory(
-            blockedDirectory, new AgentTestConfiguration(), timeProvider: clock);
+            blockedDirectory, new AgentTestConfiguration(),
+            new Core.AssemblyLoading.AssemblyLoadingService(
+                new Core.AssemblyLoading.DefaultAssemblyLoadingProvider(),
+                new Core.AssemblyLoading.DefaultAssemblyVersionProvider()),
+            timeProvider: clock);
         var scope = factory.CreateScope("Agent", new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true));
         Assert.True(scope.TelemetryProvider.ActivitySource.HasListeners());
         var businessReturned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -54,12 +61,18 @@ public class AgentLayerAsyncWriterTests
 
         try
         {
-            await blockedDirectory.Entered.Task.WaitAsync(TestTimeout);
-            await Task.WhenAny(businessReturned.Task, Task.Delay(TimeSpan.FromSeconds(1)));
-            Assert.True(businessReturned.Task.IsCompleted,
-                $"Child.Dispose prevented the actual Agent host from entering completion; state={scope.State}.");
-            await clock.FileWaitArmed.Task.WaitAsync(TestTimeout);
-            await WaitForFileFenceAsync(scope).WaitAsync(TestTimeout);
+            await blockedDirectory.Entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            try
+            {
+                await businessReturned.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            }
+            catch (TimeoutException)
+            {
+                Assert.Fail($"Child.Dispose prevented the actual Agent host from entering completion; state={scope.State}.");
+            }
+            await clock.WaitForTimerAsync(
+                dueTime => dueTime > TimeSpan.Zero && dueTime <= LayerTelemetryScope.FileCompletionBudget, AgentTestTimeouts.HangGuard);
+            await WaitForFileFenceAsync(scope).WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Equal(TelemetryLayerState.Fenced, scope.State);
             Assert.False(scope.FileSession.HasRecords);
             Assert.True(scope.TelemetryProvider.ActivitySource.HasListeners());
@@ -71,7 +84,7 @@ public class AgentLayerAsyncWriterTests
                 blockedDirectory.Release();
             }
 
-            Assert.Equal(expectedExit, await host.WaitAsync(TestTimeout));
+            Assert.Equal(expectedExit, await host.WaitAsync(AgentTestTimeouts.HangGuard));
             Assert.Equal(1, disposedServices);
             // Query only after the real host returned; this does not start completion from a side caller.
             Assert.Equal(expireBudget ? TelemetryLayerCompletion.NotPublished : TelemetryLayerCompletion.Published,
@@ -83,7 +96,7 @@ public class AgentLayerAsyncWriterTests
             {
                 var entries = AgentLayerTestHarness.ReadEntries(scope);
                 Assert.Equal(["Agent.Send", "Agent.Session"],
-                    entries.Select(entry => entry.GetProperty("OperationName").GetString()));
+                    entries.Select(entry => entry.GetProperty("operationName").GetString()));
             }
         }
         finally
@@ -91,9 +104,9 @@ public class AgentLayerAsyncWriterTests
             blockedDirectory.Release();
             try
             {
-                await host.WaitAsync(TestTimeout);
-                await WaitForProviderReleaseAsync(scope).WaitAsync(TestTimeout);
-                await scope.DisposeAsync();
+                await host.WaitAsync(AgentTestTimeouts.HangGuard);
+                await WaitForProviderReleaseAsync(scope).WaitAsync(AgentTestTimeouts.HangGuard);
+                await AgentLayerTestHarness.ReleaseAsync(scope);
                 publishedAfterRelease = scope.FileSession.Published || File.Exists(scope.FileSession.PublishedPath);
             }
             finally
@@ -125,49 +138,12 @@ public class AgentLayerAsyncWriterTests
         public string GetTraceDirectory()
         {
             Entered.TrySetResult();
-            if (!_released.Wait(TestTimeout))
+            if (!_released.Wait(AgentTestTimeouts.HangGuard))
                 throw new TimeoutException("The controlled directory seam was not released.");
             return path;
         }
 
         internal void Release() => _released.Set();
         public void Dispose() => Release();
-    }
-
-    private sealed class FileBudgetTimeProvider : TimeProvider
-    {
-        private readonly AgentTestTimeProvider _clock = new();
-        internal TaskCompletionSource FileWaitArmed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public override long TimestampFrequency => _clock.TimestampFrequency;
-        public override long GetTimestamp() => _clock.GetTimestamp();
-        public override DateTimeOffset GetUtcNow() => _clock.GetUtcNow();
-
-        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
-        {
-            var timer = _clock.CreateTimer(callback, state, dueTime, period);
-            NoteDueTime(dueTime);
-            return new ObservedTimer(this, timer);
-        }
-
-        private void NoteDueTime(TimeSpan dueTime)
-        {
-            if (dueTime > TimeSpan.Zero && dueTime <= LayerTelemetryScope.FileCompletionBudget)
-                FileWaitArmed.TrySetResult();
-        }
-
-        internal void Advance(TimeSpan amount) => _clock.Advance(amount);
-
-        private sealed class ObservedTimer(FileBudgetTimeProvider clock, ITimer timer) : ITimer
-        {
-            public bool Change(TimeSpan dueTime, TimeSpan period)
-            {
-                var changed = timer.Change(dueTime, period);
-                clock.NoteDueTime(dueTime);
-                return changed;
-            }
-
-            public void Dispose() => timer.Dispose();
-            public ValueTask DisposeAsync() => timer.DisposeAsync();
-        }
     }
 }

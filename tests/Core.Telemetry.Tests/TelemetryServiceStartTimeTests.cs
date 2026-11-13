@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Globalization;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -37,7 +39,8 @@ public class TelemetryServiceStartTimeTests : IDisposable
         _telemetryService = new TelemetryService(
             _provider,
             _config,
-            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
+            new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()));
     }
 
     public void Dispose()
@@ -91,8 +94,7 @@ public class TelemetryServiceStartTimeTests : IDisposable
 
         Assert.NotNull(activity);
         Assert.Equal(past.UtcDateTime, activity.StartTimeUtc);
-        Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ClientType));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductVersion));
+        Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
     }
 
     [Fact]
@@ -102,11 +104,19 @@ public class TelemetryServiceStartTimeTests : IDisposable
 
         Assert.NotNull(activity);
         Assert.Equal("CLI.Activity.AiRecovery", activity.OperationName);
-        // eventName mirrors the span name; the invariants are what make a root row queryable.
-        Assert.Equal("CLI.Activity.AiRecovery", activity.GetTagItem(TelemetryTags.EventName));
         Assert.NotNull(activity.GetTagItem(TelemetryTags.InstallationId));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ProductName));
-        Assert.NotNull(activity.GetTagItem(TelemetryTags.ClientType));
+        Assert.Equal("CLI", activity.GetTagItem(TelemetryTags.ProductName));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemType));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.OperatingSystemVersion));
+        Assert.Equal(
+            TelemetryPropertyResolver.DistributionName,
+            activity.GetTagItem(TelemetryTags.DistributionName));
+        Assert.Equal(
+            TelemetryPropertyResolver.DistributionId,
+            activity.GetTagItem(TelemetryTags.DistributionId));
+        Assert.NotNull(activity.GetTagItem(TelemetryTags.ShellType));
+        Assert.Equal(CultureInfo.CurrentCulture.Name, activity.GetTagItem(TelemetryTags.Locale));
+        Assert.Null(activity.GetTagItem(TelemetryTags.PowerShellVersion));
     }
 
     [Fact]

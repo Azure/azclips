@@ -16,7 +16,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public override async Task ProcessAsync()
         {
-            if (Ids is null || Ids.Length == 0)
+            if (!VirtualMachineIdResolver.HasIds(Ids, Name, ResourceGroupName))
             {
                 await base.ProcessAsync();
                 return;
@@ -26,7 +26,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             {
                 await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-                foreach (var id in Ids)
+                foreach (var id in Ids!)
                 {
                     var vmId = VirtualMachineIdResolver.ParseVirtualMachineResourceId(id);
 

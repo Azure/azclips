@@ -11,13 +11,30 @@ Runs a two-stage transform of AzClips CLI content into the shape `MicrosoftDocs/
 
 Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/…` — via the `--sourceRepo` / `--editBranch` options landed in [ceapex/CLI2Yaml PR 1213094](https://ceapex.visualstudio.com/Engineering/_git/CLI2Yaml/pullrequest/1213094), packaged as `CLI2Yaml 20260827.1.0` and later.
 
+### Release status
+
+The exporter defaults command and group maturity to `ProductReleaseInfo.Maturity` in
+[`Core.Abstractions`](../../src/Core/Core.Abstractions/ProductReleaseInfo.cs), currently Preview.
+An explicit command Preview, Experimental or GA tag overrides that default; conflicting maturity
+tags fail export. Deprecation and breaking-change information are preserved independently.
+Parameters do not automatically inherit product maturity. Changing the product default to GA
+leaves explicitly tagged preview/experimental commands unchanged.
+
+### Parameter aliases
+
+Exported parameter names include the canonical long flag followed by every alias in
+metadata order, matching terminal help (for example, `--subscription-id -s -subscription`).
+CLI2Yaml preserves these spellings in reference parameter entries and also includes
+double-dash aliases in command syntax. Global parameters continue to use
+`KnownGlobalFlags` as their source.
+
 ## Three-mode escape hatch
 
 | Mode              | Flag     | Effect                                                                                                                                                 | Auth needed                     |
 | ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
 | Dry-run (default) | —        | Builds + exports + runs CLI2Yaml into a scratch folder at `artifacts/cli-yaml/dry-run/`; prints a shape report with editLink sanity. No target writes. | Read-only on the `apidrop` feed |
 | Force             | `-Force` | Same pipeline but writes into a sibling `MicrosoftDocs/azure-docs-cli` clone, creates an `azclips-cli-sync-<timestamp>` branch, commits. **No push.**  | Same                            |
-| Push              | `-Push`  | Would push the branch + open a PR. **Currently throws** — docs.ms bot-auth pattern is still pending.                                                   | Deferred                        |
+| Push              | `-Push`  | Clones the docs target temporarily, generates a sync commit, pushes to the specified head repo and opens a draft PR.                                  | Existing Git and GitHub access  |
 
 ## Prerequisites
 
@@ -76,11 +93,15 @@ Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `-NoBuild`           | Skip the leading `dotnet build azclips.slnx` (CI usually builds in a preceding step)                                                             |
 | `-Configuration`     | `Debug` \| `Release` for the build + exporter run (default `Debug`)                                                                              |
+| `-ReleaseTag`        | Verify the checkout is clean and at this tag, then build and export `Release` for a release sync                                                 |
+| `-TargetBranch`      | With `-Push`, the PR base branch name; with `-Force`, a local or remote-tracking docs branch                                                    |
+| `-TargetRepository`  | GitHub base repository for `-Push` (default `MicrosoftDocs/azure-docs-cli`)                                                                      |
+| `-HeadRepository`    | GitHub repository to push to for `-Push`, e.g. `your-user/azure-docs-cli`                                                                        |
 | `-FetchIfMissing`    | Auto-fetch `CLI2Yaml` non-interactively when missing from the NuGet cache. Requires pre-arranged credentials (federated identity or PAT env var) |
 | `-CommitAuthor`      | Inline `user.name` for the target commit. Does NOT persist to the target repo's git config                                                       |
 | `-CommitEmail`       | Inline `user.email` — same                                                                                                                       |
 | `-OutputManifest`    | Write a machine-readable JSON summary to the given path. Feeds CI PR-body generation, artifact upload, downstream steps                          |
-| `-SkipServicePages`  | Drop `service-page/**/*.yml` from CLI2Yaml output before applying to the target. Defaults to `$true` because our current `service_name.json` produces a single broken page with unresolvable xrefs. Pass `-SkipServicePages:$false` once upstream is fixed |
+| `-SkipServicePages`  | Drop `service-page/**/*.yml` from CLI2Yaml output before applying to the target, and regenerate `latest/TOC.yml` as an alphabetical command-group tree preserving literal command spelling in navigation labels. Groups with subgroups have a `Commands` entry. Root commands from `reference-index.yml` (such as `az login`) are included alongside the groups; command names and UIDs are unchanged. Defaults to `$true` because our current `service_name.json` produces a single broken page with unresolvable xrefs, and CLI2Yaml's own TOC only points at that page. Pass `-SkipServicePages:$false` once CLI2Yaml supports the AzClips layout natively |
 
 **Two folder concepts, decoupled by design:**
 
@@ -88,6 +109,28 @@ Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/
 - `versionFolder` = filesystem name inside `docs-ref-autogen/`. Convention only, tied to the URL slug via `docfx.json`'s `group`/`src` mapping. Matches how `azure-cli-latest` slug's content lives at `docs-ref-autogen/Latest-version/latest/`.
 
 ## Running locally
+
+### Release-tag sync
+
+For release publishing, pass `-ReleaseTag` with a tag available in the local Git repository.
+The script creates a fresh source clone at that tag. The tag must contain this version of the
+sync script; older tags without it cannot use this workflow directly.
+
+```powershell
+git fetch origin --tags
+pwsh -File .\build\Sync-AzClipsCliDocs.ps1 -ReleaseTag v1.0.0
+```
+
+The isolated checkout is verified against the tag; CLI release generation requires full Git
+history and an initially absent `artifacts\Release` directory. It builds Release
+non-incrementally, exports from `artifacts\Release` to a new export directory, and checks that
+root and command-group JSON were produced. `-NoBuild` and `-Configuration Debug` are rejected
+in this mode. The dry-run does not touch the target and retains its temporary source workspace
+so you can inspect the generated files; its path is printed.
+
+Each run gets a fresh source clone. Source content comes from the tag; generated edit links
+still use `sourceBranch` (normally `main`). The rolling preview moniker does not change just
+because the source is tagged. Runs without `-ReleaseTag` use the current checkout.
 
 ### Dry-run (safest — start here)
 
@@ -143,6 +186,19 @@ Requires a local clone of the target docs repo (or a stand-in). Simplest way:
 
 `-Timestamp` is optional but locks the branch name (`azclips-cli-sync-<timestamp>`) and commit message. Otherwise the script uses the current UTC time.
 
+To choose the target explicitly, fetch the docs remote and pass its remote-tracking branch:
+
+```powershell
+git -C ..\azure-docs-cli fetch upstream
+pwsh -File .\build\Sync-AzClipsCliDocs.ps1 -Force -Configuration Release `
+    -TargetBranch 'upstream/release-preview-azure-cli-2026-11'
+```
+
+The script requires a clean target checkout, checks out the selected commit detached without
+overwriting ignored files, and creates the sync branch from it. It does not fetch automatically.
+Without `-TargetBranch`, the current target checkout remains the base. A dry-run does not check
+out the target branch. `-SourceBranch` controls edit links, not the docs target.
+
 Expected tail on a fresh-content run:
 
 ```
@@ -178,9 +234,27 @@ Docs.ms's build check on the PR includes a preview URL. Every rendered page's "E
 
 > ⚠️ Same trap as the PS side — after pushing to your fork, don't click GitHub's "Compare & pull request" web-UI prompt. It defaults the base to the fork parent's `main` with the sync shim's auto-commit message as title. Always open via the `gh pr create` command above with an explicit `--head <owner>:<branch>`.
 
-### `-Push` (currently deferred)
+### `-Push` — generate a draft PR
 
-Fails cleanly with a message pointing at the auth-pattern decision. Nothing to do here yet.
+No docs clone is needed. Supply a plain target branch name and the fork (or the base repository
+itself) to push to:
+
+```powershell
+pwsh -File .\build\Sync-AzClipsCliDocs.ps1 -Push `
+    -TargetBranch 'release-preview-azure-cli-2026-11' `
+    -HeadRepository 'your-user/azure-docs-cli'
+```
+
+Add `-ReleaseTag v1.0.0` to use a tag rather than the current checkout. The script clones the
+target branch into a temporary workspace, builds Release and generates the docs, and opens a draft PR
+after pushing the sync branch. It keeps the target repository's PR template and includes source
+and base commit provenance. No PR is created when there are no changes. Git and `gh` must already
+be authenticated and configured; `-CommitAuthor` and `-CommitEmail` can supply commit identity.
+`-NoBuild` and `-Configuration Debug` are not allowed with `-Push`.
+The head repository must have the same name as the target repository. For a fork, `gh pr create`
+requires a user-owned head; organization-owned fork heads are not supported by `gh`.
+successful temporary workspaces are removed; failed ones are retained and their paths printed.
+If pushing succeeded but PR creation failed, the error identifies the pushed branch.
 
 ## Cleanup
 
@@ -208,7 +282,7 @@ The CLI2Yaml cache at `~/.nuget/packages/cli2yaml/` stays around — harmless, a
 | `Target '…' is not a git repository`                                | `-TargetRepoPath` points somewhere that isn't a git repo                                                                 | Check the path; typically `../azure-docs-cli`                                                                                                   |
 | `Branch 'azclips-cli-sync-…' already exists`                        | Re-running with the same `-Timestamp`                                                                                    | Delete the old branch or pass a fresh `-Timestamp`                                                                                              |
 | yellow warning: `editLinks do NOT start with '<sourceRepo>/blob/…'` | A stale pre-`20260827.1.0` `CLI2Yaml` package is cached and doesn't support `--sourceRepo`                               | `Remove-Item -Recurse "$env:USERPROFILE\.nuget\packages\cli2yaml"` and rerun the fetch snippet to pull the current version                      |
-| `-Push is not yet implemented`                                      | Correct behavior — auth boundary                                                                                         | Use `-Force` and hand off to your normal PR flow                                                                                                |
+| `-Push requires -TargetBranch and -HeadRepository`                   | The PR base branch or push repository was omitted                                                                        | Supply both parameters                                                                                                                         |
 
 ## Running the tests
 
@@ -225,11 +299,11 @@ Exporter + CLI2Yaml integration is intentionally not part of Pester — both req
 
 **PR CI** — the `cli-docs-sync-tests` job in [`.github/workflows/build-and-test.yml`](../../.github/workflows/build-and-test.yml) runs the Pester suite plus a load-only smoke (dot-sources the shim under `AZCLIPS_CLI_SYNC_LOAD_ONLY=1` to catch parse errors and stale function references without needing CLI2Yaml, which lives behind apidrop auth).
 
-**Publish CI** — not wired yet. The shim is intentionally iterative; we're battle-testing it by using it to refresh [MicrosoftDocs/azure-docs-cli#6153](https://github.com/MicrosoftDocs/azure-docs-cli/pull/6153) as we go. A publish workflow (real dry-run + `-Push`) lands once the docs.ms bot-auth pattern is decided (588-D2).
+**Publish CI** — not wired yet. The `-Push` command can be invoked locally or from a future CI workflow with prearranged credentials.
 
 ## What's NOT covered (yet)
 
-- **Actual publish.** `-Push` throws by design. Real bot-PR-open + `git push` land when the docs.ms auth pattern is decided.
+- **CI credentials and release trigger.** These must be configured before running `-Push` in CI.
 - **Conceptual docs.** This shim is reference-only. The 11 conceptual articles the content writer plans to migrate live under `docs-ref-conceptual/`, not `docs-ref-autogen/`, and are hand-copied — no automation planned initially.
 - **PR body customization / label management.** Deferred.
 - **Multi-moniker publishing.** Current script assumes a single moniker per invocation. If we ship multiple concurrent preview channels (e.g. `azure-cli-preview` and a `-lts-preview`), config gains a moniker-list.

@@ -22,6 +22,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         public string[]? TagsInput { get; set; }
 
+        public string? Zone { get; set; }
+
+        public string? StorageSku { get; set; }
+
+        public string? OsDiskDeleteOption { get; set; }
+
         [ParameterGroup("Security Arguments")]
         public string? SecurityType { get; set; }
 
@@ -45,9 +51,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
         [ParameterGroup("Authentication Arguments")]
         public List<string> SshKeyValues { get; set; } = [];
-
-        [ParameterGroup("Network Arguments")]
-        public string NetworkInterfaceName { get; set; } = string.Empty;
 
         [ParameterGroup("Network Arguments")]
         public string VirtualNetworkName { get; set; } = string.Empty;
@@ -85,6 +88,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         internal override async Task<HttpResponseMessage> SendAsync()
         {
             Dictionary<string, string>? tags = VmTagsParser.ParseTags(TagsInput);
+            var osDiskStorageAccountType = OsDiskStorageSkuResolver.Resolve(StorageSku);
             ValidateNetworkArguments();
 
             if (string.IsNullOrWhiteSpace(AdminPassword) && SshKeyValues.Count == 0)
@@ -113,7 +117,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
             if (SshKeyValues.Count > 0 && !operatingSystemType.Equals(OperatingSystemTypes.Linux, StringComparison.OrdinalIgnoreCase))
             {
-                throw AzclipsErrorException.UsageError("SSH public keys require a Linux marketplace image. Specify --image with a Linux URN.");
+                throw AzclipsErrorException.UsageError("SSH public keys require a Linux marketplace image. Specify a Linux marketplace image URN.");
             }
 
             ResolvedLinuxProfile? linuxProfile = null;
@@ -138,7 +142,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
                 {
                     p.SubscriptionId = SubscriptionId;
-                    p.Name = NetworkInterfaceName;
+                    p.Name = $"{Name}VMNic";
                     p.Location = Location;
                     p.ResourceGroupName = ResourceGroupName;
                     p.VirtualNetworkName = VirtualNetworkName;
@@ -177,6 +181,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                 p.PlanName = plan?.Name;
                 p.PlanProduct = plan?.Product;
                 p.PlanPublisher = plan?.Publisher;
+                p.Zones = string.IsNullOrWhiteSpace(Zone) ? [] : [Zone];
+                p.OsDiskStorageAccountType = osDiskStorageAccountType;
+                p.OsDiskDeleteOption = OsDiskDeleteOption;
                 p.AdminUsername = AdminUsername;
                 p.AdminPassword = string.IsNullOrEmpty(AdminPassword) ? null : AdminPassword;
                 p.IncludeWindowsConfiguration = operatingSystemType.Equals(OperatingSystemTypes.Windows, StringComparison.OrdinalIgnoreCase);
@@ -210,16 +217,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         {
             if (NetworkInterfaceIds.Count == 0)
             {
-                if (string.IsNullOrWhiteSpace(NetworkInterfaceName))
-                {
-                    throw AzclipsErrorException.UsageError(
-                        "Specify a name for the new network interface when existing network interfaces are not supplied.");
-                }
                 return;
             }
 
             var conflicts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(NetworkInterfaceName)) conflicts.Add("a new network interface name");
             if (!string.IsNullOrWhiteSpace(VirtualNetworkName)) conflicts.Add("a virtual network name");
             if (SubnetName is not null) conflicts.Add("a subnet");
             if (SubnetNames.Count > 0) conflicts.Add("subnet names");

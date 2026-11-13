@@ -18,8 +18,8 @@ test('eval harness tests run as a Windows job without secrets or Azure sign-in',
 
 test('eval harness tests install locked dependencies and run only the offline suite', () => {
   assert.deepEqual(job.steps.map((step) => step.uses || step.run.trim()), [
-    'actions/checkout@v4',
-    'actions/setup-node@v4',
+    'actions/checkout@11d5960a326750d5838078e36cf38b85af677262',
+    'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020',
     'npm ci --legacy-peer-deps',
     'npm test',
   ]);

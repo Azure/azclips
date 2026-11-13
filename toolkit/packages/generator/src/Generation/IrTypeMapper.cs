@@ -32,7 +32,9 @@ internal static class IrTypeMapper
     public static string ToCSharp(IRTypeRef typeRef, IrIndex index) => Normalize(typeRef, index) switch
     {
         IRTypeRefPrimitive p => Primitive(p.Name),
-        IRTypeRefModel m => (index.Model(m.Id)?.Name ?? m.Id.Name).Identifier(),
+        IRTypeRefModel m => index.Model(m.Id) is { } model && RecordValue(model) is { } value
+            ? $"IDictionary<string, {ToCSharp(value, index)}>"
+            : (index.Model(m.Id)?.Name ?? m.Id.Name).Identifier(),
         IRTypeRefArray a => $"IList<{ToCSharp(a.Element, index)}>",
         IRTypeRefDictionary d => $"IDictionary<string, {ToCSharp(d.Value, index)}>",
         IRTypeRefUnion => "object",
@@ -49,6 +51,14 @@ internal static class IrTypeMapper
         IRPropertyUnion p => ToCSharp(p.Type, index),
         _ => "object",
     };
+
+    /// <summary>
+    /// The value type of a pure record — a model with no properties and an open map
+    /// (TypeSpec <c>is Record&lt;T&gt;</c>) — or <c>null</c> for any other model. A pure record
+    /// is not emitted as a class: every reference to it renders as <c>IDictionary&lt;string, T&gt;</c>.
+    /// </summary>
+    public static IRTypeRef? RecordValue(IRModel model) =>
+        model is { Properties.Count: 0, AdditionalProperties: { } value } ? value : null;
 
     /// <summary>
     /// <paramref name="typeRef"/> as it renders: a declared enum becomes the primitive of its

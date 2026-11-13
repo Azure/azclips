@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.4'
+ModuleVersion = '0.1.5'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -33,7 +33,7 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'Azure PowerShell - Resources'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -52,7 +52,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.3' }
+    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.4' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -86,7 +86,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Reso
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceGroup', 'Remove-AzResourceGroup', 'New-AzResourceGroupDeployment', 'New-AzResourceGroupDeploymentWhatIf', 'Test-AzResourceGroupDeployment', 'Get-AzResourceGroupDeployment', 'Stop-AzResourceGroupDeployment', 'Remove-AzResourceGroupDeployment', 'Save-AzResourceGroupDeploymentTemplate', 'New-AzManagementGroupDeployment', 'Get-AzManagementGroupDeployment', 'Stop-AzManagementGroupDeployment', 'Remove-AzManagementGroupDeployment', 'Test-AzManagementGroupDeployment', 'Invoke-AzRestMethod', 'Get-AzRoleAssignment', 'New-AzRoleAssignment', 'Remove-AzRoleAssignment'
+CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceGroup', 'Remove-AzResourceGroup', 'New-AzResourceGroupDeployment', 'New-AzResourceGroupDeploymentWhatIf', 'Test-AzResourceGroupDeployment', 'Get-AzResourceGroupDeployment', 'Stop-AzResourceGroupDeployment', 'Remove-AzResourceGroupDeployment', 'Save-AzResourceGroupDeploymentTemplate', 'New-AzManagementGroupDeployment', 'Get-AzManagementGroupDeployment', 'Stop-AzManagementGroupDeployment', 'Remove-AzManagementGroupDeployment', 'Test-AzManagementGroupDeployment', 'Invoke-AzRestMethod', 'Get-AzRoleAssignment', 'New-AzRoleAssignment', 'Remove-AzRoleAssignment', 'Get-AzResourceGroupDeploymentOperation', 'Get-AzDeploymentOperation', 'Get-AzManagementGroupDeploymentOperation', 'Get-AzTenantDeploymentOperation', 'New-AzTenantDeployment', 'Test-AzTenantDeployment', 'Get-AzTenantDeploymentWhatIfResult', 'Get-AzTenantDeployment', 'Stop-AzTenantDeployment', 'Remove-AzTenantDeployment', 'Save-AzTenantDeploymentTemplate', 'New-AzSubDeployment', 'Test-AzSubDeployment', 'Get-AzSubDeploymentWhatIfResult', 'Get-AzSubDeployment', 'Stop-AzSubDeployment', 'Remove-AzSubDeployment', 'Save-AzSubDeploymentTemplate'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec',

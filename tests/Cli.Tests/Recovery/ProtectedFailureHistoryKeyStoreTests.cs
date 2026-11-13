@@ -40,7 +40,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(true, cancellation.Token));
+            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(true, cancellationToken: cancellation.Token));
         Assert.False(Directory.Exists(_directory));
     }
 
@@ -85,19 +85,114 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
     }
 
     [WindowsProtectedStoreFact]
-    public async Task CorruptWindowsProtectedKey_FailsWithoutReplacementOrNativeDiagnostics()
+    public async Task DamagedWindowsKeyFile_IsReplacedOnlyWhenCreating()
     {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
         byte[] invalidKey = [1, 2, 3, 4, 5];
         await File.WriteAllBytesAsync(path, invalidKey);
+        var store = new ProtectedFailureHistoryKeyStore(_directory);
+
+        Assert.Equal("failure_history_key_invalid",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(createIfMissing: false))).Code);
+        Assert.Equal(invalidKey, await File.ReadAllBytesAsync(path));
+
+        var replaced = 0;
+        var key = await store.GetKeyAsync(createIfMissing: true, () => replaced++);
+        Clear(key);
+
+        Assert.Equal(1, replaced);
+        Assert.NotEqual(invalidKey, await File.ReadAllBytesAsync(path));
+    }
+
+    [Theory]
+    [InlineData(0, DataProtectionScope.CurrentUser)]
+    [InlineData(32, DataProtectionScope.CurrentUser)]
+    [InlineData(32, DataProtectionScope.LocalMachine)]
+    [InlineData(1000, DataProtectionScope.CurrentUser)]
+    public void DpapiOutput_StillStartsWithTheExpectedHeader(int size, DataProtectionScope scope)
+    {
+        // The header is not documented by Windows. If this fails, DPAPI changed its format and the
+        // header check would treat every healthy key file as damaged and replace it.
+        if (!OperatingSystem.IsWindows())
+            return;
+        var blob = ProtectedData.Protect(new byte[size], optionalEntropy: [1, 2, 3], scope);
+
+        Assert.True(MsalProtectedHistoryKeyStorage.StartsWithDpapiHeader(blob));
+    }
+
+    [WindowsProtectedStoreFact]
+    public async Task HeaderOnlyWindowsKeyFile_IsUnavailableAndKept()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
+        var blob = ProtectedData.Protect(new byte[32], optionalEntropy: null, DataProtectionScope.CurrentUser);
+        await File.WriteAllBytesAsync(path, blob[..20]);
 
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
             new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
 
         Assert.Equal("failure_history_key_unavailable", error.Code);
-        Assert.Null(error.InnerException);
-        Assert.Equal(invalidKey, await File.ReadAllBytesAsync(path));
+        Assert.Equal(blob[..20], await File.ReadAllBytesAsync(path));
+    }
+
+    [WindowsProtectedStoreFact]
+    public async Task WindowsKeyThatDecryptsToNothing_IsInvalid()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
+        await File.WriteAllBytesAsync(path, ProtectedData.Protect([], optionalEntropy: null, DataProtectionScope.CurrentUser));
+        var store = new ProtectedFailureHistoryKeyStore(_directory);
+
+        Assert.Equal("failure_history_key_invalid",
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(createIfMissing: false))).Code);
+        var replaced = 0;
+        Clear(await store.GetKeyAsync(createIfMissing: true, () => replaced++));
+        Assert.Equal(1, replaced);
+    }
+
+    [WindowsProtectedStoreFact]
+    public async Task UndecryptableWindowsKey_IsUnavailableAndKept()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
+        // A well-formed DPAPI blob that this context cannot decrypt, as after a profile move.
+        var blob = ProtectedData.Protect(new byte[32], optionalEntropy: [9, 9], DataProtectionScope.CurrentUser);
+        await File.WriteAllBytesAsync(path, blob);
+
+        var error = await Assert.ThrowsAsync<FailureHistoryException>(() =>
+            new ProtectedFailureHistoryKeyStore(_directory).GetKeyAsync(createIfMissing: true));
+
+        Assert.Equal("failure_history_key_unavailable", error.Code);
+        Assert.IsType<CryptographicException>(error.InnerException);
+        Assert.Equal(blob, await File.ReadAllBytesAsync(path));
+    }
+
+    [WindowsProtectedStoreFact]
+    public async Task ReadOnlyEmptyWindowsKey_KeepsTheSwallowedWriteError()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, FailureHistoryKeyNames.FileName);
+        await File.WriteAllBytesAsync(path, []);
+        File.SetAttributes(path, FileAttributes.ReadOnly);
+        try
+        {
+            var debug = new List<string>();
+            var logger = new Mock<ILoggingService>(MockBehavior.Strict);
+            logger.Setup(log => log.Debug(It.IsAny<string>())).Callback<string>(debug.Add);
+
+            var error = await Assert.ThrowsAsync<FailureHistoryException>(
+                () => new ProtectedFailureHistoryKeyStore(_directory, logger.Object).GetKeyAsync(createIfMissing: true));
+
+            Assert.Equal("failure_history_key_unavailable", error.Code);
+            Assert.Contains("UnauthorizedAccessException", Assert.IsType<IOException>(error.InnerException).Message);
+            // Written while MSAL retries, before the key call returns.
+            Assert.Contains(debug, line => line.Contains("UnauthorizedAccessException", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.SetAttributes(path, FileAttributes.Normal);
+        }
     }
 
     [WindowsProtectedStoreFact]
@@ -112,7 +207,7 @@ public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable
         {
             var error = await Assert.ThrowsAsync<FailureHistoryException>(() => store.GetKeyAsync(createIfMissing: true));
             Assert.Equal("failure_history_key_unavailable", error.Code);
-            Assert.Null(error.InnerException);
+            Assert.IsAssignableFrom<IOException>(error.InnerException);
         }
 
         Assert.Equal(original, await File.ReadAllBytesAsync(path));

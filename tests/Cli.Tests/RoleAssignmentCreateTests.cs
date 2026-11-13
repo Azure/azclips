@@ -9,6 +9,7 @@ using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
@@ -477,8 +478,7 @@ public class RoleAssignmentCreateTests
                 ["role"] = Value(RoleDefinitionId),
                 ["assignee-object-id"] = Value(AssigneeObjectId),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);
@@ -978,7 +978,7 @@ public class RoleAssignmentCreateTests
         var logging = new ConsoleLoggingService();
         return new ArgumentParsingService(
             new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService()));
+            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
     }
 
     private static List<List<string>> Value(string value) => [new() { value }];

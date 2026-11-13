@@ -29,6 +29,20 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "C#: msgraph group member check",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az.exe",
+            "args": [
+                "msgraph",
+                "group",
+                "member",
+                "check"
+            ],
+            "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "C#: group show Debug",
             "type": "coreclr",
             "request": "launch",

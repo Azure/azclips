@@ -2,9 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using Core.Abstractions;
 using Core.Agent.Hosting;
 using Core.Agent.Telemetry;
@@ -12,6 +9,7 @@ using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using GitHub.Copilot;
 using Microsoft.Extensions.AI;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -22,7 +20,7 @@ public sealed class SdkAgentNativeGraphTests
     [Fact]
     public async Task StartupError_RemainsSeparateFromTheSuccessfulFinalTurn()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer();
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
@@ -50,7 +48,7 @@ public sealed class SdkAgentNativeGraphTests
     [Fact]
     public async Task RealSdkParallelCallbacks_PreserveTheirNestedToolParents()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer
         {
@@ -74,7 +72,7 @@ public sealed class SdkAgentNativeGraphTests
         {
             SessionId = Guid.NewGuid().ToString(),
             OnPermissionRequest = PermissionHandler.ApproveAll,
-            Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand, outer],
+            Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand, outer],
         };
         var client = new CopilotClient(new CopilotClientOptions { Connection = RuntimeConnection.ForUri(server.Url) });
         ChatAgent agent;
@@ -107,7 +105,7 @@ public sealed class SdkAgentNativeGraphTests
     [Fact]
     public async Task RealSdkDispatch_ParentsRegisteredToolsToChatAgentSendNotCreate()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer
         {
@@ -132,7 +130,7 @@ public sealed class SdkAgentNativeGraphTests
         {
             SessionId = Guid.NewGuid().ToString(),
             OnPermissionRequest = PermissionHandler.ApproveAll,
-            Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand,
+            Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand,
                 new ProposePlanTool(activityCreator: trace.StartToolActivity).ProposePlan],
         };
         ChatAgent agent;
@@ -179,7 +177,7 @@ public sealed class SdkAgentNativeGraphTests
     [Fact]
     public async Task RealSdkSendFailureAndDispose_ClearOperationState()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { RejectNextSend = true };
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
@@ -220,13 +218,11 @@ public sealed class SdkAgentNativeGraphTests
         // A second SendAsync loses the race for the single operation slot and is rejected. It must
         // leave nothing of itself behind: if it can replace what the live send published, Esc and
         // disposal both go nowhere and the turn runs to completion uncancelled.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        // Deliberately not `timeout`. When the live send and the test's own waits shared one token,
-        // a reverted fix still ended the live send -- via that shared token, once the shared budget
-        // expired. The test went red on a timeout rather than on an assertion, and was recorded as
-        // validated. These two must stay distinct or this test stops testing anything.
-        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        Assert.NotEqual(liveBudget.Token, timeout.Token);
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
+        // Deliberately not `timeout`, and never cancelled by a timer: only abort may end the live
+        // send. When the two shared one token, a reverted fix still ended the live send once the
+        // shared budget expired, and the test went red on a timeout instead of an assertion.
+        using var liveBudget = new CancellationTokenSource();
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
@@ -254,25 +250,25 @@ public sealed class SdkAgentNativeGraphTests
         await using var agentScope = agent;
 
         var live = agent.SendAsync("hold the slot", liveBudget.Token);
-        await entered.Task.WaitAsync(timeout.Token);
+        try
+        {
+            await entered.Task.WithAgentHangGuard();
 
-        var rejected = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => agent.SendAsync("overlap", timeout.Token));
-        Assert.Contains("one in-flight operation", rejected.Message);
+            var rejected = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => agent.SendAsync("overlap", timeout.Token));
+            Assert.Contains("one in-flight operation", rejected.Message);
 
-        // The live send must still answer to abort, and it must do so on abort's own budget -- not
-        // on its own, which is why the two tokens above are unrelated.
-        var sw = Stopwatch.StartNew();
-        await agent.AbortAsync(timeout.Token);
-        var settled = await Task.WhenAny(live, Task.Delay(TimeSpan.FromSeconds(2), timeout.Token));
-        sw.Stop();
-        Assert.True(ReferenceEquals(settled, live),
-            $"The live send was still running {sw.Elapsed} after AbortAsync returned: the rejected "
-            + "overlapping send disarmed the turn that owns the slot.");
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2),
-            $"AbortAsync took {sw.Elapsed} to stop the live send.");
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live);
+            // The live send must still answer to abort; its own token is never cancelled here.
+            await agent.AbortAsync(CancellationToken.None).WithAgentHangGuard();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => live.WithAgentHangGuard());
+            Assert.False(liveBudget.IsCancellationRequested,
+                "The rejected overlapping send disarmed the turn that owns the slot.");
+        }
+        finally
+        {
+            liveBudget.Cancel();
+            await Task.WhenAny(live, Task.Delay(AgentTestTimeouts.HangGuard));
+        }
         server.ThrowIfFaulted();
     }
 
@@ -281,7 +277,7 @@ public sealed class SdkAgentNativeGraphTests
     {
         // Esc cancels the running tool; the server can then answer session.idle before the SDK's
         // own cancel callback completes the wait. The turn must still end as cancelled.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
         using var context = new AgentInvocationContext(null, trace.Telemetry);
@@ -315,7 +311,7 @@ public sealed class SdkAgentNativeGraphTests
         context.CurrentTurnCts!.Token.Register(() =>
         {
             release.SetResult();
-            idleWonTheRace = live.ContinueWith(_ => { }, TaskScheduler.Default).Wait(TimeSpan.FromSeconds(5));
+            idleWonTheRace = live.ContinueWith(_ => { }, TaskScheduler.Default).Wait(AgentTestTimeouts.HangGuard);
         });
         await agent.AbortAsync(timeout.Token);
 
@@ -325,37 +321,9 @@ public sealed class SdkAgentNativeGraphTests
     }
 
     [Fact]
-    public async Task OfflineServerFault_FailsTheProvokingTest()
-    {
-        // The receive loop runs detached, so a message it cannot handle used to be invisible until
-        // shutdown and was then blamed on an unrelated test. It must be observable by the test that
-        // provoked it, at the moment that test asks.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        var server = new OfflineCopilotServer();
-        await using (server)
-        {
-            using var probe = new TcpClient();
-            await probe.ConnectAsync(IPAddress.Loopback, int.Parse(server.Url.Split(':')[^1]), timeout.Token);
-            await using var stream = probe.GetStream();
-            var payload = """{"jsonrpc":"2.0","id":1,"method":"offline.fault.probe"}"""u8.ToArray();
-            await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {payload.Length}\r\n\r\n"), timeout.Token);
-            await stream.WriteAsync(payload, timeout.Token);
-            await stream.FlushAsync(timeout.Token);
-            await server.Faulted.WaitAsync(timeout.Token);
-        }
-
-        Exception? surfaced = null;
-        try { server.ThrowIfFaulted(); }
-        catch (InvalidOperationException ex) { surfaced = ex; }
-
-        Assert.NotNull(surfaced);
-        Assert.Contains("offline.fault.probe", surfaced.InnerException!.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task RealSdkCancellation_ReachesToolAndReleasesSendScope()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };

@@ -26,27 +26,12 @@ internal static class FailedCommandHelp
         var name = ExtractCommandName(failedCommand);
         if (name is null) return null;
 
-        try
-        {
-            // Same JSON the LLM's get_command returns. On a hit it's the parameter
-            // table — inject it. On any error payload (not_found, shell_out_timeout,
-            // shell_out_spawn_failed, missing_name, ...) skip injection: the verb
-            // we extracted wasn't a real command, or the shell-out to
-            // `az agent tool help` itself failed. Injecting an error blob as
-            // pre-fetched help would mislead the agent; let it use its tools
-            // instead — never worse than not pre-fetching.
-            var help = await helpTools.LookupCommandAsync(name, ct).ConfigureAwait(false);
-            if (IsErrorPayload(help))
-                return null;
-            return $"Help for the command you were triggered by (`{name}`), pre-fetched so you don't need to call get_command for it:\n{help}";
-        }
-        catch
-        {
-            // Pre-fetch is best-effort: if the shell-out throws / times out / the
-            // subprocess isn't there, fall back to no injection rather than
-            // killing agent startup. Never worse than not pre-fetching.
+        // Expected operational failures are already structured error payloads.
+        // Skip those, but let cancellation and unexpected defects reach the host.
+        var help = await helpTools.LookupCommandAsync(name, ct).ConfigureAwait(false);
+        if (IsErrorPayload(help))
             return null;
-        }
+        return $"Help for the command you were triggered by (`{name}`), pre-fetched so you don't need to call get_command for it:\n{help}";
     }
 
     // True when the get_command JSON carries any "error" field — whether the
@@ -64,15 +49,9 @@ internal static class FailedCommandHelp
                 && err.ValueKind == JsonValueKind.String
                 && !string.IsNullOrEmpty(err.GetString());
         }
-        catch
+        catch (JsonException)
         {
-            // Unparseable stdout — the shell-out crashed, emitted a log line,
-            // truncated mid-JSON, or wrote something else weird. A real help
-            // payload is always valid JSON, so if we can't parse it, we can't
-            // trust it as help either. Treat as error payload = skip injection;
-            // the agent will fall back to calling get_command itself. Never
-            // worse than not pre-fetching, and stops garbage from leaking into
-            // the model's context.
+            // Malformed help is not trustworthy context.
             return true;
         }
     }

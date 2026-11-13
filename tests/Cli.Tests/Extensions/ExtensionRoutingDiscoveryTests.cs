@@ -8,6 +8,7 @@ using Core.Cli;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Extensions;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -28,9 +29,9 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
     }
 
     private void Add(string package, string version, string[] verbs, string[] leaves,
-        Func<Assembly>? load = null, string? invalidSidecar = null, bool omitSidecar = false)
+        Func<Assembly>? load = null, string? invalidSidecar = null, bool omitSidecar = false, string tier = "")
     {
-        var folder = Path.Combine(_root, package, version);
+        var folder = Path.Combine(_root, tier, package, version);
         Directory.CreateDirectory(folder);
         var location = Path.Combine(folder, $"{package}.dll");
         if (!omitSidecar)
@@ -45,11 +46,15 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
             load ?? (() => throw new InvalidOperationException($"Unexpected assembly load: {package}"))));
     }
 
-    private ServiceProvider CreateProvider(ExtensionRegistry? registry = null)
+    private ServiceProvider CreateProvider(ExtensionRegistry? registry = null, CommandTimingRecorder? performance = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton(_loader.Object);
         services.AddSingleton(_logger.Object);
+        if (performance is not null)
+        {
+            services.AddSingleton(performance);
+        }
         services.AddCliExtensionDispatch();
         var store = new Mock<IExtensionRegistryStore>();
         store.Setup(value => value.Load()).Returns(registry ?? new ExtensionRegistry());
@@ -57,12 +62,15 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         return services.BuildServiceProvider();
     }
 
-    [Fact]
-    public void DispatchBuildsRoutingFromSidecarsWithoutLoadingAnyExtension()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DispatchBuildsRoutingFromSidecarsWithoutLoadingAnyExtension(bool timingEnabled)
     {
         Add(Compute, "1.0.0", ["vm"], ["vm create"]);
         Add("Microsoft.Azure.Azclips.Extensions.Network", "1.0.0", ["network"], ["network show"]);
-        using var provider = CreateProvider();
+        var performance = timingEnabled ? new CommandTimingRecorder() : null;
+        using var provider = CreateProvider(performance: performance);
         var invocation = provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]);
         Assert.Equal("Compute", invocation.ModuleName);
         Assert.Equal("1.0.0", invocation.ModuleVersion);
@@ -70,6 +78,12 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         _logger.Verify(log => log.Warn(It.IsAny<string>()), Times.Never);
         _logger.Verify(log => log.Debug(It.Is<string>(text => text.Contains("sidecars=2, DLL fallbacks=0"))), Times.Once);
         _logger.Verify(log => log.Debug(It.Is<string>(text => text.Contains("Built routing index"))), Times.Once);
+        if (performance is not null)
+        {
+            var routing = Assert.Single(performance.Capture().Measurements);
+            Assert.Equal("Routing discovery/selection/index", routing.Name);
+            Assert.True(routing.IsComplete);
+        }
     }
 
     [Theory]
@@ -197,6 +211,42 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
         _loader.Verify(service => service.LoadExtension("Compute", string.Empty), Times.Once);
         _logger.Verify(log => log.Debug(It.Is<string>(text =>
             text.Contains("DLL fallback") && text.Contains("no assembly location"))), Times.Once);
+    }
+
+    [Fact]
+    public void FallbackLoadsTheEnumeratedLocation_WhenALocationLoaderIsAvailable()
+    {
+        Add(Compute, "1.0.0", ["vm"], ["vm create"], invalidSidecar: "{");
+        var location = _installations[0].Info.Location!;
+        var calls = new List<(string Name, string? Version, string Location)>();
+        var infos = new ExtensionRoutingDiscovery(_loader.Object, _logger.Object, (name, version, path) =>
+        {
+            calls.Add((name, version, path));
+            return typeof(Microsoft.Azure.Azclips.Extensions.Compute.ExtensionIndex).Assembly;
+        }).Discover();
+
+        var info = Assert.Single(infos);
+        Assert.Contains("vm create", info.Leaves);
+        Assert.Equal(location, info.Location);
+        Assert.Equal((Compute, (string?)"1.0.0", location), Assert.Single(calls));
+    }
+
+    [Fact]
+    public void EqualVersionsSelectTheFirstEnumeratedCopy_AndRecordItForExecutionHelpAndCompletions()
+    {
+        Add(Compute, "1.0.0", ["vm"], ["vm create"], tier: "bundled");
+        Add(Compute, "1.0.0", ["disk", "vm"], ["disk aaa-probe", "vm create"], tier: "installed");
+        using var provider = CreateProvider();
+        var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
+        var selected = provider.GetRequiredService<SelectedExtensionLocations>();
+
+        var packageIds = CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(dispatcher, selected);
+
+        Assert.Equal([Compute], packageIds);
+        Assert.True(selected.TryGet("Compute", "1.0.0", out var location));
+        Assert.Equal(_installations[0].Info.Location, location);
+        Assert.Equal("Compute", dispatcher.Parse(["vm", "create"]).ModuleName);
+        Assert.ThrowsAny<Exception>(() => dispatcher.Parse(["disk", "aaa-probe"]));
     }
 
     [Fact]

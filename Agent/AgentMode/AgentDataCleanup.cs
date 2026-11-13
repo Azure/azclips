@@ -9,8 +9,9 @@ namespace Core.Agent.AgentMode;
 /// Every directory it may delete is derived from <see cref="HomePaths"/>; state.json
 /// only holds timestamps and flags, never paths. All failures are silent.
 /// </summary>
-internal static class AgentDataCleanup
+internal sealed class AgentDataCleanup(IPersistenceStore persistence)
 {
+    private readonly string _telemetryQueue = persistence.GetFilePath(HomePaths.TraceDirectoryName);
     internal static readonly TimeSpan Retention = TimeSpan.FromDays(90);
     internal static readonly TimeSpan Interval = TimeSpan.FromDays(1);
     private static readonly TimeSpan StateWriteWait = TimeSpan.FromSeconds(1);
@@ -37,12 +38,12 @@ internal static class AgentDataCleanup
         ["session-store.db", "session-store.db-shm", "session-store.db-wal"];
 
     /// <summary>Starts the cleanup on a background thread; never throws and never waits.</summary>
-    public static void StartInBackground(string configuredTracePath)
+    public void StartInBackground(string configuredTracePath)
     {
-        _ = Task.Run(() => Run(configuredTracePath, HomePaths.GetDefaultAgentRoot(), HomePaths.GetDefaultHomeRoot(), DateTime.UtcNow));
+        _ = Task.Run(() => Run(configuredTracePath, HomePaths.GetDefaultAgentRoot(), HomePaths.GetDefaultHomeRoot(), _telemetryQueue, DateTime.UtcNow));
     }
 
-    internal static void Run(string configuredTracePath, string agentRoot, string oldHomeRoot, DateTime nowUtc)
+    internal static void Run(string configuredTracePath, string agentRoot, string oldHomeRoot, string telemetryQueue, DateTime nowUtc)
     {
         try
         {
@@ -53,7 +54,7 @@ internal static class AgentDataCleanup
             if (gate is null)
                 return;
 
-            RunCore(configuredTracePath, agentRoot, oldHomeRoot, nowUtc);
+            RunCore(configuredTracePath, agentRoot, oldHomeRoot, telemetryQueue, nowUtc);
         }
         catch
         {
@@ -61,7 +62,7 @@ internal static class AgentDataCleanup
         }
     }
 
-    private static void RunCore(string configuredTracePath, string agentRoot, string oldHomeRoot, DateTime nowUtc)
+    private static void RunCore(string configuredTracePath, string agentRoot, string oldHomeRoot, string telemetryQueue, DateTime nowUtc)
     {
         var statePath = Path.Combine(agentRoot, HomePaths.AgentStateFileName);
         var state = FileLock.ReadJson(statePath);
@@ -90,7 +91,6 @@ internal static class AgentDataCleanup
             var allRemoved = true;
             // An Agent from the previous version may still be running on the old session store.
             var oldSessionsInUse = OldCopilotSessionNames.Any(name => AnyChildInUse(Path.Combine(oldHomeRoot, name)));
-            var telemetry = Path.Combine(Path.GetDirectoryName(agentRoot)!, HomePaths.TraceDirectoryName);
             foreach (var name in OldLocationNames)
             {
                 var target = Path.Combine(oldHomeRoot, name);
@@ -100,7 +100,7 @@ internal static class AgentDataCleanup
                     continue;
                 }
                 // With AZCLIPS_HOME both roots coincide and "traces" is the telemetry queue.
-                if (SamePath(telemetry, target))
+                if (SamePath(telemetryQueue, target))
                     continue;
                 allRemoved &= TryDelete(target);
             }

@@ -18,28 +18,28 @@ public class TroubleshootRecoveryTests
     [InlineData("manual", "interactive")]
     [InlineData("auto", "oneshot")]
     [InlineData("auto", "interactive")]
-    public void Analysis_UsesTheNewTriggerAndSharedStyle(string trigger, string style)
+    public void Recovery_UsesTheNewTriggerAndSharedStyle(string trigger, string style)
     {
         var options = new AgentOptions { Recovery = new() { Trigger = trigger, Style = style } };
-        TroubleshootAnalyzeProcessor.RequireAnalysis(options, null, false, false, false);
-        TroubleshootAnalyzeProcessor.RequireAnalysis(options, "oneshot", false, true, true);
+        TroubleshootRecoverProcessor.RequireRecovery(options, null, false, false, false);
+        TroubleshootRecoverProcessor.RequireRecovery(options, "oneshot", false, true, true);
         Assert.Equal(style, options.Recovery.Style);
     }
 
     [Fact]
-    public void Analysis_RejectsOffRecursionAndInteractiveRedirection()
+    public void Recovery_RejectsOffRecursionAndInteractiveRedirection()
     {
         var off = Assert.Throws<AzclipsErrorException>(() =>
-            TroubleshootAnalyzeProcessor.RequireAnalysis(new() { Recovery = new() { Trigger = "off" } }, null, false, false, false));
+            TroubleshootRecoverProcessor.RequireRecovery(new() { Recovery = new() { Trigger = "off" } }, null, false, false, false));
         Assert.Equal("AgentDisabled", off.Code);
         Assert.Contains("agent.recovery.trigger --value manual", off.Message);
         Assert.DoesNotContain("agent.enabled", off.Message);
         Assert.Equal("RecursiveRecovery", Assert.Throws<AzclipsErrorException>(() =>
-            TroubleshootAnalyzeProcessor.RequireAnalysis(Manual(), null, true, false, false)).Code);
+            TroubleshootRecoverProcessor.RequireRecovery(Manual(), null, true, false, false)).Code);
         Assert.Throws<UsageErrorException>(() =>
-            TroubleshootAnalyzeProcessor.RequireAnalysis(Manual(), "interactive", false, true, false));
+            TroubleshootRecoverProcessor.RequireRecovery(Manual(), "interactive", false, true, false));
         Assert.Throws<UsageErrorException>(() =>
-            TroubleshootAnalyzeProcessor.RequireAnalysis(Manual(), "interactive", false, false, true));
+            TroubleshootRecoverProcessor.RequireRecovery(Manual(), "interactive", false, false, true));
     }
 
     [Theory]
@@ -68,9 +68,9 @@ public class TroubleshootRecoveryTests
         var options = new AgentOptions { Provider = "github", Recovery = new() { Style = configured } };
         var captured = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true,
             ActivityTraceId.CreateRandom().ToHexString(), ActivitySpanId.CreateRandom().ToHexString(),
-            "troubleshoot analyze", TenantId: "test-tenant", DataBoundary: "EU");
+            "troubleshoot recover", TenantId: "test-tenant", UploadRegion: UploadRegion.EU);
 
-        var exit = await TroubleshootAnalyzeProcessor.RunAttemptAsync(
+        var exit = await TroubleshootRecoverProcessor.RunAttemptAsync(
             failure, options, new Telemetry(source), captured with
             {
                 CommandTraceParent = $"00-{captured.CommandTraceId}-{captured.CommandSpanId}-01",
@@ -81,9 +81,10 @@ public class TroubleshootRecoveryTests
                 Assert.Equal(failure.Id, request.FailureId);
                 Assert.Equal(effective, request.SessionStyle);
                 Assert.Equal(RecoveryTrigger.Manual, request.Trigger);
+                Assert.Equal("recover-command-profile", request.ModelProfileName);
                 Assert.Equal(captured.InvocationId, context.InvocationId);
                 Assert.Equal("test-tenant", context.TenantId);
-                Assert.Equal("EU", context.DataBoundary);
+                Assert.Equal(UploadRegion.EU, context.UploadRegion);
                 Assert.Equal(failure.CommandTraceId, context.CommandTraceId);
                 Assert.Equal(failure.CommandSpanId, context.CommandSpanId);
                 var activity = Assert.IsType<Activity>(Activity.Current);
@@ -97,7 +98,7 @@ public class TroubleshootRecoveryTests
                 Assert.Equal("test-tenant", activity.GetTagItem(TelemetryTags.TenantId));
                 Assert.Equal(failure.CommandTraceId, activity.GetTagItem(TelemetryTags.CommandTraceId));
                 return Task.FromResult(17);
-            }, CancellationToken.None, styleOverride);
+            }, CancellationToken.None, styleOverride, modelProfileName: "recover-command-profile");
 
         Assert.Equal(17, exit);
         Assert.Equal(configured, options.Recovery.Style);
@@ -107,13 +108,13 @@ public class TroubleshootRecoveryTests
     }
 
     [Fact]
-    public async Task ManualRecovery_KeepsTheAnalyzeCommandParent_WhenTheFailureHasNoValidIds()
+    public async Task ManualRecovery_KeepsTheRecoverCommandParent_WhenTheFailureHasNoValidIds()
     {
         var failure = MakeRecord() with { CommandTraceId = "private-command", CommandSpanId = "private-error" };
         var captured = new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), false);
         using var cancellation = new CancellationTokenSource();
         Activity.Current = null;
-        var exit = await TroubleshootAnalyzeProcessor.RunAttemptAsync(
+        var exit = await TroubleshootRecoverProcessor.RunAttemptAsync(
             failure, new(), new Telemetry(null), captured, (_, context, token) =>
             {
                 Assert.Equal(captured, context);
@@ -136,7 +137,7 @@ public class TroubleshootRecoveryTests
         };
         ActivitySource.AddActivityListener(listener);
         Activity.Current = null;
-        await Assert.ThrowsAsync<TaskCanceledException>(() => TroubleshootAnalyzeProcessor.RunAttemptAsync(
+        await Assert.ThrowsAsync<TaskCanceledException>(() => TroubleshootRecoverProcessor.RunAttemptAsync(
             MakeRecord(), new(), new Telemetry(source), new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), true),
             (_, _, _) => Task.FromException<int>(new TaskCanceledException("HTTP request timed out.")),
             CancellationToken.None));
@@ -155,10 +156,35 @@ public class TroubleshootRecoveryTests
     public async Task Manual_ReturnsTheAgentExitCodeForBothStyles(string style, int agentExit, int expected)
     {
         var options = new AgentOptions { Recovery = new RecoveryOptions { Trigger = "manual", Style = style } };
-        var exit = await TroubleshootAnalyzeProcessor.RunAttemptAsync(
+        var exit = await TroubleshootRecoverProcessor.RunAttemptAsync(
             MakeRecord(), options, new Telemetry(null), new TelemetryInvocationContext(Guid.NewGuid().ToString("N"), false),
             (_, _, _) => Task.FromResult(agentExit), CancellationToken.None);
         Assert.Equal(expected, exit);
+    }
+
+    [Fact]
+    public async Task UnavailableKey_WritesTheKeyErrorAtDebugBeforeUsingThePlainRecord()
+    {
+        var plain = MakeRecord(sequence: 3);
+        var unavailable = new FailureHistoryException("failure_history_key_unavailable", "Locked.",
+            new System.Security.Cryptography.CryptographicException("keychain locked"));
+        var logger = new DebugLog();
+
+        Assert.Same(plain, Assert.Single(await TroubleshootRecoverProcessor.ReadRecordsAsync(
+            new FakeHistory(unavailable, plain), null, CancellationToken.None, logger)));
+
+        Assert.Contains("keychain locked", Assert.Single(logger.Debugs));
+    }
+
+    private sealed class DebugLog : ILoggingService
+    {
+        internal List<string> Debugs { get; } = [];
+        public void Debug(string message) => Debugs.Add(message);
+        public void Log(string message) { }
+        public void Info(string message) { }
+        public void Verbose(string message) { }
+        public void Warn(string message) { }
+        public void Error(string message) { }
     }
 
     private sealed class Telemetry(ActivitySource? source) : ITelemetryService

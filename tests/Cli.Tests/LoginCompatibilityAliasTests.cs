@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +24,7 @@ public class LoginCompatibilityAliasTests
         new ServiceCollection()
             .AddSingleton<ILoggingService, ConsoleLoggingService>()
             .AddSingleton<PropertyParser>()
+            .AddSingleton<IPersistenceStore, FilePersistenceStore>()
             .AddSingleton<IProfileService, ProfileService>()
             .RegisterArgumentParsingServices()
             .AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>()
@@ -42,8 +44,7 @@ public class LoginCompatibilityAliasTests
         CreateBinder().BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { [flag] = new List<List<string>> { new() } },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = "profile-sub" });
 
         Assert.True(processor.Identity);
@@ -64,8 +65,7 @@ public class LoginCompatibilityAliasTests
                 ["client-id"] = Value("11111111-1111-1111-1111-111111111111"),
                 ["subscription-id"] = Value(ValidSubscriptionId),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = "profile-sub" });
 
         Assert.True(processor.Identity);
@@ -85,8 +85,7 @@ public class LoginCompatibilityAliasTests
         CreateBinder().BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { [flag] = Value("sub-1") },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.Equal("sub-1", processor.SubscriptionId);
@@ -104,8 +103,7 @@ public class LoginCompatibilityAliasTests
         CreateBinder().BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { [flag] = Value("tenant-1") },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = "profile-sub" });
 
         Assert.Equal("tenant-1", processor.TenantId);
@@ -126,8 +124,7 @@ public class LoginCompatibilityAliasTests
                 ["t"] = Value("tenant-1"),
                 ["subscription"] = Value("sub-1"),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile());
 
         Assert.True(processor.Identity);

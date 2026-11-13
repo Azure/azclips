@@ -56,13 +56,13 @@ public class SessionConfigTests
             Assert.Equal(options.Builtin.ModelId, config.Provider.WireModel);
             Assert.Equal("azure", config.Provider.Type);
             Assert.Equal("responses", config.Provider.WireApi);
-            Assert.Equal(1, auth.CallCount);
+            Assert.Equal(1, auth.AcquireCount);
         }
         else
         {
             Assert.Null(config.Model);
             Assert.Null(config.Provider);
-            Assert.Equal(0, auth.CallCount);
+            Assert.Equal(0, auth.AcquireCount);
         }
     }
 
@@ -130,7 +130,7 @@ public class SessionConfigTests
 
         Assert.Contains("agent.reasoningEffort", exception.Message);
         Assert.Contains("low | medium | high", exception.Message);
-        Assert.Equal(0, auth.CallCount);
+        Assert.Equal(0, auth.AcquireCount);
     }
 
     [Theory]
@@ -160,18 +160,18 @@ public class SessionConfigTests
             Assert.NotNull(config.Provider);
             Assert.Equal("custom-deployment", config.Provider.ModelId);
             Assert.Equal("custom-deployment", config.Provider.WireModel);
-            Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.PpeWestEurope, config.Provider.BaseUrl);
+            Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.ProdWestEurope, config.Provider.BaseUrl);
             Assert.Equal("test-api-version", config.Provider.Azure?.ApiVersion);
             Assert.Equal("test-access-token", config.Provider.BearerToken);
-            Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.Scopes);
-            Assert.False(auth.PromptOnError);
-            Assert.Equal(cts.Token, auth.Token);
+            Assert.Equal(new[] { BuiltinProviderOptions.ArmScope }, auth.LastScopes);
+            Assert.False(auth.LastPromptOnError);
+            Assert.Equal(cts.Token, auth.LastCancellationToken);
         }
         else
         {
             Assert.Null(config.Model);
             Assert.Null(config.Provider);
-            Assert.Equal(0, auth.CallCount);
+            Assert.Equal(0, auth.AcquireCount);
         }
     }
 
@@ -187,7 +187,10 @@ public class SessionConfigTests
         var config = await BuildAsync(options, new RecordingAuthService(), renderer, cts.Token);
 
         Assert.True(Guid.TryParse(config.SessionId, out _));
-        Assert.Equal(HomePaths.GetDefaultAgentCopilotDirectory(), config.ConfigDirectory);
+        // Pin Agent data to the home root while respecting AZCLIPS_HOME.
+        var expectedCopilot = Path.Combine(
+            HomePaths.GetDefaultHomeRoot(), HomePaths.AgentDirectoryName, HomePaths.AgentCopilotDirectoryName);
+        Assert.Equal(expectedCopilot, config.ConfigDirectory);
         Assert.True(config.Streaming);
         Assert.Null(config.AvailableTools);
         Assert.NotNull(config.SystemMessage);
@@ -244,9 +247,8 @@ public class SessionConfigTests
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             var pending = config.OnPermissionRequest!(
                 new PermissionRequestRead { Path = template, Intention = "Read the template" }, default!);
-            // A read that went to the approval prompt would wait there until the session ends.
-            Assert.True(pending == await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(10))),
-                "The read of the named file went to the approval prompt.");
+            // The handler approves the named file synchronously; a read sent to the approval prompt stays pending.
+            Assert.True(pending.IsCompletedSuccessfully, "The read of the named file went to the approval prompt.");
             Assert.Equal(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce().Kind, (await pending).Kind);
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
@@ -276,7 +278,7 @@ public class SessionConfigTests
             BuildAsync(new AgentOptions(), auth, ct: cts.Token));
 
         Assert.Equal(cts.Token, exception.CancellationToken);
-        Assert.Equal(1, auth.CallCount);
+        Assert.Equal(1, auth.AcquireCount);
     }
 
     [Fact]
@@ -288,7 +290,7 @@ public class SessionConfigTests
             BuildAsync(new AgentOptions { Provider = "unknown" }, auth));
 
         Assert.Contains("Unknown agent.provider value: 'unknown'. Expected: builtin | github.", exception.Message);
-        Assert.Equal(0, auth.CallCount);
+        Assert.Equal(0, auth.AcquireCount);
     }
 
     [Fact]
@@ -310,6 +312,8 @@ public class SessionConfigTests
         Assert.Equal("high", config.ReasoningEffort);
     }
 
+    private static readonly ConfigurationFixture s_configuration = new();
+
     private static Task<SessionConfig> BuildAsync(
         AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default,
         SessionState? state = null)
@@ -319,11 +323,12 @@ public class SessionConfigTests
         return ChatAgent.BuildSessionConfigAsync(
             options, auth, "test system prompt",
             new CachedResourceTools(new ArmDetailsClient(auth), profile),
-            new HelpTools(azExePath),
+            new HelpTools(azExePath, s_configuration.Service),
             new AvailableLocationsTool(auth, profile),
             new SubmitResponseTool(),
             new ProposePlanTool(),
             azExePath,
+            profile,
             new ConsoleApprovalPrompt(),
             renderer ?? new EventRenderer(),
             state ?? new SessionState { IsOneShot = !options.Recovery.IsInteractive },
@@ -333,21 +338,10 @@ public class SessionConfigTests
             ct);
     }
 
-    private sealed class RecordingAuthService : IAuthService
+    private sealed class RecordingAuthService : StubAuthService
     {
-        public int CallCount { get; private set; }
-        public string[]? Scopes { get; private set; }
-        public bool PromptOnError { get; private set; }
-        public CancellationToken Token { get; private set; }
-
-        public Task<AuthResult> AcquireTokenSilentlyAsync(
-            string[]? scopes, string? tenantId, bool promptOnError = false,
-            CancellationToken cancellationToken = default, Profile? profile = null)
+        protected override Task<AuthResult> AcquireTokenAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken)
         {
-            CallCount++;
-            Scopes = scopes;
-            PromptOnError = promptOnError;
-            Token = cancellationToken;
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(new AuthResult
             {
@@ -358,11 +352,7 @@ public class SessionConfigTests
             });
         }
 
-        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
+        public override Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }
 

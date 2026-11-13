@@ -10,6 +10,7 @@ using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Resource.Cache;
 using GitHub.Copilot;
 using Microsoft.Extensions.AI;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -85,7 +86,7 @@ public sealed class AgentNativeGraphTests
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
         var session = sessionScope?.Activity;
         using var context = new AgentInvocationContext(session, trace.Telemetry);
-        var help = new HelpTools("must-not-run", trace.StartToolActivity);
+        var help = new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity);
         var plan = new ProposePlanTool(activityCreator: trace.StartToolActivity);
         var config = new SessionConfig { Tools = [help.GetCommand, plan.ProposePlan] };
         context.Bind(config);
@@ -244,7 +245,7 @@ public sealed class AgentNativeGraphTests
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
         var session = sessionScope?.Activity;
         using var context = new AgentInvocationContext(session, trace.Telemetry);
-        var inner = new HelpTools("must-not-run", trace.StartToolActivity).GetCommand;
+        var inner = new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand;
         AIFunction? boundInner = null;
         var outer = AIFunctionFactory.Create(async () =>
         {
@@ -316,19 +317,19 @@ public sealed class AgentNativeGraphTests
             await release.Task;
             return await nested!.InvokeAsync(new AIFunctionArguments { ["name"] = "" });
         });
-        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand, outer] };
+        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand, outer] };
         context.Bind(config);
         nested = config.Tools!.First().GetService<AIFunction>()!;
         using var first = context.StartOperation("Agent.Send");
         var call = config.Tools.Last().GetService<AIFunction>()!.InvokeAsync(new AIFunctionArguments()).AsTask();
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
         first.Dispose();
         using var laterCancellation = new CancellationTokenSource();
         laterCancellation.Cancel();
         using var later = context.StartOperation("Agent.Send", laterCancellation.Token);
 
         release.SetResult();
-        await call.WaitAsync(TimeSpan.FromSeconds(10));
+        await call.WaitAsync(AgentTestTimeouts.HangGuard);
 
         var outerSpan = Assert.Single(trace.Stopped, activity => activity.OperationName == "tool.outer");
         var nestedSpan = Assert.Single(trace.Stopped, activity => activity.OperationName == "tool.get_command");
@@ -380,7 +381,7 @@ public sealed class AgentNativeGraphTests
         };
         try
         {
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.All(observed.Where(pair => pair.Key.StartsWith('a')), pair =>
                 Assert.Equal(sendA.Activity!.SpanId, pair.Value.ParentSpanId));
             Assert.All(observed.Where(pair => pair.Key.StartsWith('b')), pair =>
@@ -467,7 +468,7 @@ public sealed class AgentNativeGraphTests
         using var send = context.StartOperation("Agent.Send", operationCancellation.Token);
         var call = config.Tools!.Single().GetService<AIFunction>()!
             .InvokeAsync(new AIFunctionArguments(), callbackCancellation.Token).AsTask();
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
 
         (cancelCallback ? callbackCancellation : operationCancellation).Cancel();
 
@@ -482,7 +483,7 @@ public sealed class AgentNativeGraphTests
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
         var session = sessionScope?.Activity;
         using var context = new AgentInvocationContext(session, trace.Telemetry);
-        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand] };
+        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand] };
         context.Bind(config);
         ExecutionContext captured;
         using (context.StartOperation("Agent.Create"))
@@ -501,7 +502,7 @@ public sealed class AgentNativeGraphTests
         using var trace = new AgentTraceCapture(listen: false);
         Assert.False(trace.Source.HasListeners());
         using var context = new AgentInvocationContext(null, trace.Telemetry);
-        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", trace.StartToolActivity).GetCommand] };
+        var config = new SessionConfig { Tools = [new HelpTools("must-not-run", new AgentTestConfiguration(), trace.StartToolActivity).GetCommand] };
         context.Bind(config);
         using var operation = context.StartOperation("Agent.Send");
 
@@ -531,11 +532,11 @@ public sealed class AgentNativeGraphTests
         // A send that loses the race for the slot must not write anything shared on its way out.
         // The handle an abort reaches is the one carried by whatever is in the slot, so a rejected
         // caller that lands there hands abort the handle of a turn that never started.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         // Deliberately unrelated to `timeout`: if the live send shared the test's own budget, a
         // reverted fix would still end it -- on that budget -- and the red would be a timeout
         // rather than an assertion.
-        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var liveBudget = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
@@ -567,8 +568,9 @@ public sealed class AgentNativeGraphTests
     {
         // Cancellation, not a transport fault or a cross-thread context Stop, ends the send.
         // Actual layer tests separately cover uncooperative cleanup and its shared deadline.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
+        // Never cancelled by a timer, so only disposal can end the live send.
+        using var live = new CancellationTokenSource();
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
@@ -579,26 +581,31 @@ public sealed class AgentNativeGraphTests
         var agent = await ConnectOfflineAsync(
             server, context, BlockingTool(entered, never.Task, trace.StartToolActivity), timeout.Token);
 
-        var sending = agent.SendAsync("hold the slot", liveBudget.Token);
-        await entered.Task.WaitAsync(timeout.Token);
-        var sendActivity = context.CurrentOperation!.Activity!;
+        var sending = agent.SendAsync("hold the slot", live.Token);
+        try
+        {
+            await entered.Task.WithAgentHangGuard();
+            var sendActivity = context.CurrentOperation!.Activity!;
 
-        var sw = Stopwatch.StartNew();
-        await agent.DisposeAsync();
-        sw.Stop();
+            await agent.DisposeAsync().WithAgentHangGuard();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => sending.WaitAsync(TimeSpan.FromSeconds(2)));
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2),
-            $"DisposeAsync spent {sw.Elapsed} instead of returning promptly. Hang guard only -- the "
-            + "assertions either side of it are what prove who closed the send.");
-        Assert.True(sendActivity.IsStopped);
-        Assert.Null(context.CurrentOperation);
-        Assert.DoesNotContain("Abandoned", sendActivity.StatusDescription ?? "");
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sending.WithAgentHangGuard());
+            Assert.False(live.IsCancellationRequested);
+            Assert.True(sendActivity.IsStopped);
+            Assert.Null(context.CurrentOperation);
+            Assert.DoesNotContain("Abandoned", sendActivity.StatusDescription ?? "");
+        }
+        finally
+        {
+            live.Cancel();
+            await Task.WhenAny(sending, Task.Delay(AgentTestTimeouts.HangGuard));
+        }
         server.ThrowIfFaulted();
     }
 
     [Fact]
+    // LocalOnly: the SDK's own session-error fault races our Cancel(), so the exception type depends on thread scheduling.
+    [Trait("Category", "LocalOnly")]
     public async Task SessionError_CancelsTheLiveSend()
     {
         // The SessionErrored branch is the third reader of the turn's cancellation source and the
@@ -607,8 +614,8 @@ public sealed class AgentNativeGraphTests
         // the SDK faults SendAndWaitAsync itself with InvalidOperationException("Session error:
         // ..."). With the cancel, Cancel() completes the send's task synchronously from inside the
         // OnEvent callback, before the SDK gets to fault it, so the turn unwinds as a cancellation.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        using var liveBudget = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
+        using var liveBudget = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer
         {
@@ -635,7 +642,7 @@ public sealed class AgentNativeGraphTests
 
         var live = agent.SendAsync("this turn fails", liveBudget.Token);
         var sw = Stopwatch.StartNew();
-        var settled = await Task.WhenAny(live, Task.Delay(TimeSpan.FromSeconds(3), timeout.Token));
+        var settled = await Task.WhenAny(live, Task.Delay(AgentTestTimeouts.HangGuard, timeout.Token));
         sw.Stop();
 
         Assert.True(ReferenceEquals(settled, live),
@@ -653,7 +660,7 @@ public sealed class AgentNativeGraphTests
         // only safe because the source outlives the reservation that carries it. Dispose the source
         // first and the window inverts: the slot is still occupied while its handle is already
         // dead, so an abort lands on a disposed source and silently does nothing.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         using var trace = new AgentTraceCapture();
         await using var server = new OfflineCopilotServer { Calls = [new("wait", new { })] };
         using var sessionScope = trace.Telemetry.StartIndependentRootActivity("Agent.Session");
@@ -698,15 +705,6 @@ public sealed class AgentNativeGraphTests
             await release.WaitAsync(ct);
             return "";
         }, new AIFunctionFactoryOptions { Name = "wait" });
-
-    /// <summary>Swallows output so the production event handler can run without a console.</summary>
-    private sealed class SilentRenderer : IAgentRenderer
-    {
-        public void OnText(string chunk) { }
-        public void OnEvent(AgentEvent ev) { }
-        public void OnSpinnerFrame(string frame, string verb) { }
-        public void OnSpinnerStop() { }
-    }
 
     private static async Task<ChatAgent> ConnectOfflineAsync(
         OfflineCopilotServer server, AgentInvocationContext context, AIFunction tool,

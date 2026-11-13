@@ -92,9 +92,4 @@ When `-KeysOnly` is supplied, each key name is emitted as a string.
 
 ## NOTES
 
-Generated help for config.
-
 ## RELATED LINKS
-
-
-- [Online Version]()

@@ -4,17 +4,23 @@
 using System.Collections.Concurrent;
 using Core.Abstractions.Recovery;
 using Core.Runtime.Recovery;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests.Recovery;
 
 internal sealed class FailureHistoryTestScope : IDisposable
 {
+    // Lock wait that never expires in tests; a test that checks the limit passes its own.
+    internal static readonly TimeSpan DefaultLockTimeout = AgentTestTimeouts.HangGuard;
+
     internal FailureHistoryTestScope(
-        TimeSpan? lockTimeout = null, Action<string, string>? replace = null, Action<string>? delete = null)
+        TimeSpan? lockTimeout = null, Action<string, string>? replace = null, Action<string>? delete = null,
+        TimeProvider? timeProvider = null)
     {
         Root = Path.GetFullPath(Path.Combine(".test-artifacts", "failure-history", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(Root);
-        Files = new FailureHistoryFiles(Path.Combine(Root, "failure-history"), lockTimeout, replace, delete);
+        Files = new FailureHistoryFiles(Path.Combine(Root, "failure-history"), lockTimeout ?? DefaultLockTimeout,
+            replace, delete, timeProvider);
     }
 
     internal string Root { get; }
@@ -54,12 +60,19 @@ internal sealed class TestFailureHistoryKeys(byte[]? key = null) : IFailureHisto
     internal ConcurrentQueue<bool> CreateRequests { get; } = new();
     internal ConcurrentBag<byte[]> ReturnedKeys { get; } = [];
     internal Func<bool, CancellationToken, Task<byte[]>>? Read { get; init; }
+    internal bool ReplaceOnNextCreate { get; set; }
 
     internal static TestFailureHistoryKeys Unavailable() =>
         new() { Read = (_, _) => throw new FailureHistoryException("failure_history_key_unavailable", "Secure storage is unavailable.") };
 
-    public async Task<byte[]> GetKeyAsync(bool createIfMissing, CancellationToken cancellationToken = default)
+    public async Task<byte[]> GetKeyAsync(bool createIfMissing, Action? replaced = null, CancellationToken cancellationToken = default)
     {
+        if (createIfMissing && ReplaceOnNextCreate)
+        {
+            ReplaceOnNextCreate = false;
+            replaced?.Invoke();
+        }
+
         CreateRequests.Enqueue(createIfMissing);
         var result = Read is not null ? await Read(createIfMissing, cancellationToken) : Key.ToArray();
         ReturnedKeys.Add(result);

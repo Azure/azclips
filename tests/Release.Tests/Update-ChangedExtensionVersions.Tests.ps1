@@ -379,5 +379,6 @@ RequiredModules = @(
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "ModuleVersion = '0\.1\.3'"
         Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match "Accounts/Accounts\.psd1'; ModuleVersion = '0\.1\.1'"
         Get-Content -Raw (Join-Path $root 'CHANGELOG.md') | Should -Match '#### Az\.Accounts 0\.1\.1'
+        Get-Content -Raw (Join-Path $root 'src/PS/Az/Az.psd1') | Should -Match 'Az\.Accounts 0\.1\.1'
     }
 }

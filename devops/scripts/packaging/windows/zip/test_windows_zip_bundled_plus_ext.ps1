@@ -89,6 +89,76 @@ function Assert-UninstallFailure {
     }
 }
 
+function Assert-PublicInstallerDownload {
+        $fixture = @{ Scenario = 'valid'; DownloadRoot = $null; Downloaded = $false }
+        & {
+            function Invoke-RestMethod {
+                [CmdletBinding()]
+                param([string]$Uri)
+                if ($Uri -notlike 'https://api.github.com/repos/*/releases/latest') {
+                    throw "Unexpected metadata URL: $Uri"
+                }
+                if ($fixture.Scenario -eq 'metadata-failure') { throw 'Fixture HTTP 403 rate limit' }
+                $asset = @{ name = $archiveName; browser_download_url = 'https://example.invalid/pipeline-archive' }
+                $assets = @($asset, @{ name = "unrelated-$archiveName"; browser_download_url = 'https://example.invalid/wrong-asset' })
+                if ($fixture.Scenario -eq 'missing') { $assets = @() }
+                if ($fixture.Scenario -eq 'duplicate') { $assets = @($asset, $asset) }
+                $tag = if ($fixture.Scenario -eq 'malformed') { '' } else { 'v-fixture.timestamp' }
+                @{ tag_name = $tag; assets = $assets }
+            }
+            function Invoke-WebRequest {
+                [CmdletBinding()]
+                param([string]$Uri, [string]$OutFile)
+                if ($Uri -ne 'https://example.invalid/pipeline-archive') { throw "Wrong asset selected: $Uri" }
+                $fixture.DownloadRoot = Split-Path $OutFile
+                if ($fixture.Scenario -eq 'download-failure') { throw 'Fixture HTTP 503 download failure' }
+                Copy-Item -LiteralPath $CliZipPath -Destination $OutFile
+                $fixture.Downloaded = $true
+            }
+
+            $before = (Get-FileHash -LiteralPath (Join-Path $installRoot 'az.exe')).Hash
+            foreach ($scenario in 'missing', 'duplicate', 'malformed', 'metadata-failure', 'download-failure') {
+                $fixture.Scenario = $scenario
+                $expected = switch ($scenario) {
+                    'missing' { 'Expected exactly one' }
+                    'duplicate' { 'Expected exactly one' }
+                    'malformed' { 'valid tag_name' }
+                    'metadata-failure' { 'Fixture HTTP 403' }
+                    'download-failure' { 'Fixture HTTP 503' }
+                }
+                Assert-InstallFailure -Description "download $scenario" -ExpectedPattern $expected -Arguments @{ Package = $packageProfile }
+                if ((Get-FileHash -LiteralPath (Join-Path $installRoot 'az.exe')).Hash -ne $before) {
+                    throw "FAIL: $scenario changed the existing installation."
+                }
+                if ($fixture.DownloadRoot -and (Test-Path -LiteralPath $fixture.DownloadRoot)) {
+                    throw "FAIL: $scenario left temporary download files."
+                }
+            }
+
+            $originalPackage = $env:AZCLI_PACKAGE
+            try {
+                $env:AZCLI_PACKAGE = $packageProfile
+                $fixture.Scenario = 'valid'
+                $beforePath = $env:PATH
+                $ErrorActionPreference = 'Continue'
+                Get-Content -Raw $installerPath | Invoke-Expression
+                if ($ErrorActionPreference -ne 'Continue' -or $env:PATH -ne $beforePath -or
+                    (Get-Command Remove-DirectoryWithRetry -ErrorAction SilentlyContinue) -or
+                    (Get-Variable Repo -Scope Local -ErrorAction SilentlyContinue)) {
+                    throw 'FAIL: Piped installation leaked state into the caller.'
+                }
+                $ErrorActionPreference = 'Stop'
+                if (-not $fixture.Downloaded -or (Test-Path -LiteralPath $fixture.DownloadRoot)) {
+                    throw 'FAIL: Public installation did not download and clean up the pipeline archive.'
+                }
+            }
+            finally {
+                $env:AZCLI_PACKAGE = $originalPackage
+            }
+        }
+        Write-Host 'PASS: Download selection, failure handling, and piped installation using the pipeline archive.'
+}
+
 function Get-ArtifactConfigValue {
     param(
         [Parameter(Mandatory = $true)]
@@ -388,7 +458,8 @@ $wrongRidName = $archiveName -replace "-$([regex]::Escape($currentAssetRid))\.zi
     $classicAz = Join-Path $classicBinRoot 'az.cmd'
     Set-Content -Path $classicAz -Value '@echo classic az sentinel'
 
-    & $installerPath -Package $packageProfile -ArchivePath $CliZipPath
+    & (Join-Path $packagingRoot 'common/test_extensions_download.ps1') -ExtensionsDirectory $ExtPackDir
+    Assert-PublicInstallerDownload
     if ($LASTEXITCODE -ne 0) {
         throw "FAIL: installer exited with code $LASTEXITCODE."
     }
@@ -404,6 +475,30 @@ if (-not (Test-Path -Path $copilotExe -PathType Leaf)) {
     throw "FAIL: Bundled Copilot CLI not found at the agent resolver path: $copilotExe"
 }
 Write-Host 'PASS: Bundled Copilot CLI found at the agent resolver path'
+
+# `az agent tool ...` loads through the CLI extension loader, which resolves
+# dependencies from the extension directory, then the CLI root. It does not
+# probe deps/ (that layout is for the azclips-agent subprocess only).
+$agentExtDir = Join-Path $installRoot 'Extensions/Microsoft.Azure.Azclips.Extensions.Agent'
+$agentDepsJson = Join-Path $agentExtDir 'Microsoft.Azure.Azclips.Extensions.Agent.deps.json'
+$agentDeps = Get-Content -Raw -Path $agentDepsJson | ConvertFrom-Json
+$missingAgentDlls = @()
+foreach ($target in $agentDeps.targets.PSObject.Properties) {
+    foreach ($lib in $target.Value.PSObject.Properties) {
+        if ($lib.Value.PSObject.Properties.Match('runtime').Count -eq 0) { continue }
+        foreach ($asset in $lib.Value.runtime.PSObject.Properties) {
+            $dllName = [System.IO.Path]::GetFileName($asset.Name)
+            if (-not (Test-Path -Path (Join-Path $agentExtDir $dllName) -PathType Leaf) -and
+                -not (Test-Path -Path (Join-Path $installRoot $dllName) -PathType Leaf)) {
+                $missingAgentDlls += "$dllName ($($lib.Name))"
+            }
+        }
+    }
+}
+if ($missingAgentDlls.Count -gt 0) {
+    throw "FAIL: Agent extension dependencies not resolvable from the extension directory or the CLI root: $($missingAgentDlls -join ', ')"
+}
+Write-Host 'PASS: every Agent extension runtime dependency is resolvable by the CLI extension loader'
 
 foreach ($legalFile in @('NOTICE', 'LICENSE')) {
     $legalPath = Join-Path $installRoot $legalFile
@@ -562,16 +657,14 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
 
     Write-Host ''
     Write-Host '[6/17] Verify built-in extension manager is available'
-    $extensionOutput = & $azExe extension add 2>&1
+    $extensionOutput = & $azExe extension add --help
+    $extensionExitCode = $LASTEXITCODE
     $extensionText = $extensionOutput | Out-String
     $extensionText.Trim() | Out-Host
-    if ($extensionText -match 'Extension.*could not be found') {
-        throw 'FAIL: Extension manager not loaded.'
+    if ($extensionExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($extensionText)) {
+        throw "FAIL: extension add --help must succeed and return nonempty help (exit code: $extensionExitCode)."
     }
-    if ($extensionText -notmatch 'Either Name or Path must be provided|Required option.*(name|path)') {
-        throw 'FAIL: Extension command response was unexpected.'
-    }
-    Write-Host 'PASS: Extension manager loaded'
+    Write-Host 'PASS: Extension manager command help is available'
     $global:LASTEXITCODE = 0
 
     Write-Host ''
@@ -660,25 +753,15 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: extension show reports Resources and its location'
 
     Write-Host ''
-    Write-Host '[13/17] Verify Resources command resolves'
-    $groupOut = & $azExe group list 2>&1
+    Write-Host '[13/17] Verify Resources command help resolves'
+    $groupOut = & $azExe group list --help
     $groupExitCode = $LASTEXITCODE
     $groupText = $groupOut | Out-String
     $groupText.Trim() | Out-Host
-    if ($groupText -match 'could not be found') {
-        throw 'FAIL: Resources command not resolved after install.'
-    } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided|SubscriptionId cannot be resolved") {
-        Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
-    } elseif ($groupText -match "Missing required argument 'SubscriptionId' and no value found in profile.") {
-        Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
-    } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
-        Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'
-    } else {
-        if ($groupExitCode -ne 0) {
-            throw "FAIL: group list exited with code $groupExitCode."
-        }
-        Write-Host 'PASS: Resources command resolved'
+    if ($groupExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($groupText)) {
+        throw "FAIL: group list --help must succeed and return nonempty help (exit code: $groupExitCode)."
     }
+    Write-Host 'PASS: Resources command help resolved without executing an Azure operation'
 
     Write-Host ''
     Write-Host '[14/17] Remove Resources extension'
@@ -706,25 +789,27 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
     Write-Host 'PASS: Resources files and registry entry are gone'
 
     Write-Host ''
-    Write-Host '[16/17] Verify Resources command no longer resolves'
-    $removedCommandOutput = & $azExe group list 2>&1
+    Write-Host '[16/17] Verify Resources command help after removal'
+    $removedCommandOutput = & $azExe group list --help
+    $removedCommandExitCode = $LASTEXITCODE
     $removedCommandText = $removedCommandOutput | Out-String
     $removedCommandText.Trim() | Out-Host
-    if ($packageProfile -eq 'lean' -and $removedCommandText -match '\[ExtensionNotFound\]') {
-        Write-Host 'PASS: Removed Resources command reports the extension installation path'
+    if ($packageProfile -eq 'lean' -and $removedCommandExitCode -eq 4) {
+        Write-Host 'PASS: Removed Resources command help is unavailable (exit code 4)'
     }
     elseif ($packageProfile -eq 'full' -and
-        $removedCommandText -match "\[BundledExtensionLoader\] Loaded 'Resources'" -and
-        $removedCommandText -notmatch '\[ExtensionNotFound\]') {
-        Write-Host 'PASS: Resources command fell back to the bundled full-package extension'
+        $removedCommandExitCode -eq 0 -and
+        -not [string]::IsNullOrWhiteSpace($removedCommandText)) {
+        Write-Host 'PASS: Resources command help fell back to the bundled full-package extension'
     }
     else {
-        throw "FAIL: az group list did not match the expected $packageProfile profile behavior after removal."
+        throw "FAIL: group list --help did not match the expected $packageProfile profile behavior after removal (exit code: $removedCommandExitCode)."
     }
+    $global:LASTEXITCODE = 0
 
     Write-Host ''
     Write-Host '[17/17] Uninstall isolated azcli and preserve classic az'
-    & $uninstallerPath
+    Get-Content -Raw $uninstallerPath | Invoke-Expression
     if (Test-Path $installRoot) {
         throw 'FAIL: azcli install root remains after uninstall.'
     }

@@ -39,7 +39,7 @@ const assertionRunners = {
 
 const subscription = '11111111-1111-4111-8111-111111111111';
 const groupFor = (scenario) => scenario.assert[0].config.expectedCommandSet[0].argumentValues['--resource-group'];
-const vmCommand = `az vm create --name test-vm --resource-group ${groupFor(vm)} --location eastus --vm-size Standard_D2s_v5 --admin-username azureuser --admin-password <admin-password> --network-interface-name test-vm-nic --virtual-network-name test-vm-vnet --network-security-group-name test-vm-nsg`;
+const vmCommand = `az vm create --name test-vm --resource-group ${groupFor(vm)} --location eastus --size Standard_D2s_v5 --admin-username azureuser --admin-password <admin-password> --virtual-network-name test-vm-vnet`;
 const deploymentCommand = `az deployment group create --resource-group ${groupFor(deployment)} --name azclips-eval-web --template-file fixtures/web-app.bicep`;
 const groupCommand = 'az group create --name azclips-eval-rg --location eastus';
 const vnetCommand = `az network vnet create --name azclips-eval-vnet --resource-group ${groupFor(vnet)} --address-prefixes 10.42.0.0/16 --dns-servers 10.42.0.4 --location eastus`;
@@ -141,9 +141,8 @@ test('resource-group prerequisites reject unsupported consumer configuration exp
 
 test('VM reference rejects missing values, changed user input, short flags, and invented secrets', () => {
   for (const command of [
-    vmCommand.replace('--vm-size Standard_D2s_v5', '--vm-size'),
-    vmCommand.replace('--vm-size Standard_D2s_v5', '--size Standard_D2s_v5'),
-    `${vmCommand} --size Standard_D2s_v5`,
+    vmCommand.replace('--size Standard_D2s_v5', '--size'),
+    vmCommand.replace(' --size Standard_D2s_v5', ''),
     vmCommand.replace('--name test-vm', '--name another-vm'),
     vmCommand.replace('--name test-vm', '-n test-vm'),
     vmCommand.replace('<admin-password>', 'invented-value'),

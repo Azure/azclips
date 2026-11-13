@@ -1,57 +1,54 @@
 ---
-title: Install the Azure CLI private preview
-description: Learn how to install the Azure CLI private preview.
+title: Install the Azure CLI public preview
+description: Learn how to install the Azure CLI public preview.
 ---
 
-# Install the Azure CLI private preview
+# Install the Azure CLI public preview
 
-The Azure CLI private preview ships as **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). It ships in two flavours:
+The Azure CLI public preview ships as **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). It ships in two flavours:
 
 - **full** — built-in + add-on extensions bundled.
 - **lean** — built-in extensions only.
 
 > [!NOTE]
-> For the Az PowerShell modules, see the [Azure PowerShell private preview install overview](../../azure-powershell/docs-conceptual/install-overview.md).
+> For the Az PowerShell modules, see the [Azure PowerShell public preview install overview](../../azure-powershell/docs-conceptual/install-overview.md).
 
 ## Install azcli (one command)
 
-Private-preview artifacts live in a **private** GitHub repo; your account has **read** access. The installer uses your authenticated GitHub CLI (`gh`) session — no personal access tokens or manual asset URLs.
+The installer downloads the latest release from [GitHub Releases](https://github.com/Azure/azclips/releases).
 
-**Prerequisites** — install the [GitHub CLI](https://cli.github.com/) and sign in once:
+- **Linux / macOS / WSL:** Bash, `curl`, `tar`, and standard system text utilities.
+- **Windows:** PowerShell 7+.
 
-```bash
-gh auth login    # verify with: gh auth status
-```
-
-**Linux / macOS:**
+**Linux / macOS / WSL:**
 
 ```bash
-gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' | bash
+# Linux / macOS / WSL
+curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.sh | bash
 ```
 
 **Windows (PowerShell 7+):**
 
 ```powershell
-gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1 && ./azcli-install.ps1
+# Windows (PowerShell 7+)
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.ps1 -ErrorAction Stop | iex
 ```
 
-Pass installer options after `--` (bash) or as parameters (PowerShell) — for example the lean package:
+### Install the lean package
+
+To install only the built-in extensions, use:
 
 ```bash
-gh api repos/Azure/azclips/contents/install/azcli-install.sh -H 'Accept: application/vnd.github.raw' | bash -s -- --package lean
+# Linux / macOS / WSL
+curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.sh | AZCLI_PACKAGE=lean bash
 ```
 
 ```powershell
-gh api repos/Azure/azclips/contents/install/azcli-install.ps1 -H 'Accept: application/vnd.github.raw' > azcli-install.ps1 && ./azcli-install.ps1 -Package lean
+# Windows (PowerShell 7+)
+$env:AZCLI_PACKAGE='lean'; irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-install.ps1 -ErrorAction Stop | iex
 ```
 
-### Installer options
-
-| Option (bash) | Option (PowerShell) | Default | Purpose |
-| --- | --- | --- | --- |
-| `--package lean\|full` | `-Package lean\|full` | `full` | Full = built-in + add-on extensions bundled; lean = built-in extensions only. |
-
-Environment variable equivalent (bash and PowerShell): `AZCLI_PACKAGE`.
+The Bash assignment applies only to the installer process. The PowerShell variable persists for the current session; run `Remove-Item Env:AZCLI_PACKAGE` afterward to restore the default full-package selection.
 
 ## Run azcli
 
@@ -63,10 +60,10 @@ By default the installer does **not** modify your `PATH`, so azcli (`az`) instal
   ~/.local/share/azcli/az --help
   ```
 
-- **Add to `PATH` for this session** (recommended during preview; does not persist or shadow classic `az` in new shells):
+- **Add to `PATH` for this session** (recommended during public preview; does not persist or shadow classic `az` in new shells):
 
   ```bash
-  export PATH="$HOME/.local/share/azcli:$PATH"     # Linux / macOS — current shell only
+  export PATH="$HOME/.local/share/azcli:$PATH"     # Linux / macOS / WSL — current shell only
   ```
 
   ```powershell
@@ -81,22 +78,28 @@ By default the installer does **not** modify your `PATH`, so azcli (`az`) instal
 ## Uninstall
 
 ```bash
-# Linux / macOS
-gh api repos/Azure/azclips/contents/install/azcli-uninstall.sh -H 'Accept: application/vnd.github.raw' | bash
+# Linux / macOS / WSL
+curl -fsSL https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-uninstall.sh | bash
 ```
 
 ```powershell
 # Windows
-gh api repos/Azure/azclips/contents/install/azcli-uninstall.ps1 -H 'Accept: application/vnd.github.raw' > azcli-uninstall.ps1 && ./azcli-uninstall.ps1
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azcli-uninstall.ps1 -ErrorAction Stop | iex
 ```
 
-Removes the install directory. Pass `--force` / `-Force` to remove a folder that doesn't look like an azcli install.
+Removes the install directory. Download and review the uninstall script first if preferred. To remove a folder that doesn't look like an azcli install, pass `--force` with `bash -s -- --force`, or download the PowerShell script and run `./azcli-uninstall.ps1 -Force`.
+
+## Download troubleshooting
+
+The installer reports failed downloads and missing or ambiguous release assets. GitHub's API is rate-limited; if a release lookup returns HTTP 403 or 429, check GitHub's response and retry after the rate limit resets. You can also download the archive from [GitHub Releases](https://github.com/Azure/azclips/releases) and follow the [manual guide](./install-cli-manual.md).
+
+Piped Bash execution may not report the downloader's exit status. If the bootstrap download fails, do not assume installation succeeded; check the error output or use the [manual guide](./install-cli-manual.md).
 
 ## Other install scenarios
 
 | You want to… | Guide |
 | --- | --- |
-| Install azcli manually / offline (no `gh`, or you already have the archive) | [install-cli-manual.md](./install-cli-manual.md) |
+| Install azcli manually / offline (you already have the archive, or prefer not to use the installer) | [install-cli-manual.md](./install-cli-manual.md) |
 | Add an add-on azcli extension (lean installs, or a specific version) | [install-cli-extensions.md](./install-cli-extensions.md) |
 | Enable `az` tab completion (bash / zsh / PowerShell) | [install-cli-completions.md](./install-cli-completions.md) |
 | Enable AI-based error recovery in Azure CLI | [ai-based-error-recovery.md](./ai-based-error-recovery.md) |

@@ -11,12 +11,14 @@ using Core.Cli.Parser;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Config.Commands;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
+using Microsoft.Azure.Azclips.Extensions.Config;
 
 namespace Cli.Tests;
 
@@ -78,6 +80,30 @@ public class ConfigCliTests
         Assert.Contains("off", fixture.ExecuteCli(["config", "get", "--key", "agent.recovery.trigger"]).Single());
     }
 
+    [Fact]
+    public void ConfigSet_HandlerFailureWritesTheCauseChainOnlyAsDebug()
+    {
+        var failure = new InvalidOperationException("clear failed",
+            new Core.Abstractions.Recovery.FailureHistoryException("failure_history_clear_incomplete", "not cleared",
+                new IOException("locked", unchecked((int)0x80070020))));
+        var handler = new RecordingChangeHandler { Failure = failure };
+        var logger = new Moq.Mock<ILoggingService>();
+        using var fixture = new ConfigCommandFixture(services =>
+        {
+            services.AddKeyedSingleton<IConfigurationChangeHandler>("agent.recovery.trigger", handler);
+            services.AddSingleton(logger.Object);
+        });
+
+        fixture.ExecuteCli(["config", "set", "--key", "agent.recovery.trigger", "--value", "off"]);
+
+        logger.Verify(log => log.Warn("clear failed"), Moq.Times.Once);
+        logger.Verify(log => log.Debug(Moq.It.Is<string>(line =>
+            line.StartsWith("error cause: System.InvalidOperationException: clear failed") &&
+            line.Contains("---> Core.Abstractions.Recovery.FailureHistoryException: not cleared") &&
+            line.Contains("---> System.IO.IOException: locked") &&
+            line.Contains($"{Environment.NewLine}   at "))), Moq.Times.Once);
+    }
+
     private sealed class RecordingChangeHandler : IConfigurationChangeHandler
     {
         internal List<(string Key, object? Value)> Calls { get; } = [];
@@ -95,17 +121,14 @@ public class ConfigCliTests
     {
         var loggingService = new ConsoleLoggingService();
         var provider = new Core.Cli.CLIArgumentParsingProvider(new Core.Cli.PropertyParser(loggingService), loggingService);
-        var parser = new Core.ArgumentParsing.ArgumentParsingService(provider, new ProfileService(new ScopedLoggingService()));
+        var parser = new Core.ArgumentParsing.ArgumentParsingService(provider, new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
         var processor = new BoolFlagProcessor();
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("config list", ClientType.CLI);
 
         parser.BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object> { ["all"] = new List<List<string>> { new() } },
-            new Dictionary<string, ParameterMetadata>
-            {
-                ["all"] = new("All", "all", typeof(bool), "Include defaults.", false, [], [])
-            },
-            parameterAliases: null,
+            metadata,
             profile: null);
 
         Assert.True(processor.All);
@@ -599,7 +622,7 @@ public class ConfigCliTests
             var simpleFormat = globalArgs.Output ?? OutputFormat.Tsv;
 
             var streams = new OutputStreams(
-                WriteOutput: (value, _) =>
+                WriteOutput: (value, cancellationToken) =>
                 {
                     _outputs.Add(CliOutputFormatter.FormatValue(
                         value,
@@ -607,6 +630,7 @@ public class ConfigCliTests
                         simpleFormat,
                         colorPolicyAllowsColor: false,
                         globalArgs.Query,
+                        out _,
                         terminalWidth));
                     return Task.CompletedTask;
                 },

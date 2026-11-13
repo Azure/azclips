@@ -28,6 +28,8 @@ jobs:
       chmod +x "${{ parameters.PackagingScriptsRoot }}/common/build_common.sh"
       OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" "${{ parameters.PackagingScriptsRoot }}/common/build_common.sh"
     displayName: Build CLI Common
+    env:
+      AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
 
   - task: PublishPipelineArtifact@1
     displayName: Publish CLI Common

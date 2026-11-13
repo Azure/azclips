@@ -2,15 +2,15 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Core.Agent.Tools.Help;
 using Core.Cli.Help;
-using Microsoft.Azure.Azclips.Extensions.Agent.Processors;
 using Xunit;
 
 namespace Core.Agent.Tests;
 
 /// <summary>
 /// Unit coverage for <see cref="HelpLookup"/> — the name-matching backbone of
-/// <c>az agent tool help --name &lt;x&gt;</c>. Pure over an in-memory manifest set,
+/// <c>az agent tool docs show --name &lt;x&gt;</c>. Pure over an in-memory manifest set,
 /// so no assembly loading / installed extensions required.
 /// </summary>
 public sealed class HelpLookupTests

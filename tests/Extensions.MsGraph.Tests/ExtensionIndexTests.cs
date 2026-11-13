@@ -63,17 +63,39 @@ public class ExtensionIndexTests
     }
 
     [Fact]
-    public void CliTable_ListParameters_ShouldMatchAzAdUserList()
+    public void CliTable_UserShow_ShouldExposeProjectionSurface()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph user show", ClientType.CLI);
+
+        Assert.Equal(typeof(string[]), metadata.Parameters["select"].ParameterType);
+        Assert.Equal(typeof(string[]), metadata.Parameters["expand"].ParameterType);
+        Assert.Equal(typeof(bool), metadata.Parameters["append-selected"].ParameterType);
+        Assert.False(metadata.Parameters["select"].IsRequired);
+        Assert.False(metadata.Parameters["expand"].IsRequired);
+        Assert.False(metadata.Parameters["append-selected"].IsRequired);
+    }
+
+    [Fact]
+    public void CliTable_ListParameters_ShouldExposeUserParitySurface()
     {
         var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
 
-        Assert.Equal(3, metadata.Parameters.Count);
-        foreach (var expected in new[] { "display-name", "filter", "upn" })
+        Assert.Equal(9, metadata.Parameters.Count);
+        foreach (var expected in new[] { "display-name", "filter", "upn", "search", "consistency-level" })
         {
             Assert.True(metadata.Parameters.ContainsKey(expected), $"missing '{expected}' parameter");
             Assert.False(metadata.Parameters[expected].IsRequired, $"'{expected}' should be optional");
             Assert.Equal(typeof(string), metadata.Parameters[expected].ParameterType);
         }
+        foreach (var expected in new[] { "select", "expand", "orderby" })
+        {
+            Assert.True(metadata.Parameters.ContainsKey(expected), $"missing '{expected}' parameter");
+            Assert.False(metadata.Parameters[expected].IsRequired, $"'{expected}' should be optional");
+            Assert.Equal(typeof(string[]), metadata.Parameters[expected].ParameterType);
+        }
+        Assert.True(metadata.Parameters.ContainsKey("append-selected"));
+        Assert.False(metadata.Parameters["append-selected"].IsRequired);
+        Assert.Equal(typeof(bool), metadata.Parameters["append-selected"].ParameterType);
     }
 
     [Fact]
@@ -82,6 +104,14 @@ public class ExtensionIndexTests
         var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
 
         Assert.Equal("DisplayNamePrefix", metadata.Parameters["display-name"].Name);
+    }
+
+    [Fact]
+    public void CliTable_ListConsistencyLevel_ShouldMapToProcessorConsistencyLevel()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph user list", ClientType.CLI);
+
+        Assert.Equal("ConsistencyLevel", metadata.Parameters["consistency-level"].Name);
     }
 
     [Theory]
@@ -186,17 +216,39 @@ public class ExtensionIndexTests
     }
 
     [Fact]
-    public void CliTable_GroupListParameters_ShouldMatchAzAdGroupList()
+    public void CliTable_GroupShow_ShouldExposeProjectionSurface()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph group show", ClientType.CLI);
+
+        Assert.Equal(typeof(string[]), metadata.Parameters["select"].ParameterType);
+        Assert.Equal(typeof(string[]), metadata.Parameters["expand"].ParameterType);
+        Assert.Equal(typeof(bool), metadata.Parameters["append-selected"].ParameterType);
+        Assert.False(metadata.Parameters["select"].IsRequired);
+        Assert.False(metadata.Parameters["expand"].IsRequired);
+        Assert.False(metadata.Parameters["append-selected"].IsRequired);
+    }
+
+    [Fact]
+    public void CliTable_GroupListParameters_ShouldExposeGroupParitySurface()
     {
         var metadata = s_index.GetCommandMetadata("msgraph group list", ClientType.CLI);
 
-        Assert.Equal(2, metadata.Parameters.Count);
-        foreach (var expected in new[] { "display-name", "filter" })
+        Assert.Equal(8, metadata.Parameters.Count);
+        foreach (var expected in new[] { "display-name", "filter", "search", "consistency-level" })
         {
             Assert.True(metadata.Parameters.ContainsKey(expected), $"missing '{expected}' parameter");
             Assert.False(metadata.Parameters[expected].IsRequired, $"'{expected}' should be optional");
             Assert.Equal(typeof(string), metadata.Parameters[expected].ParameterType);
         }
+        foreach (var expected in new[] { "select", "expand", "orderby" })
+        {
+            Assert.True(metadata.Parameters.ContainsKey(expected), $"missing '{expected}' parameter");
+            Assert.False(metadata.Parameters[expected].IsRequired, $"'{expected}' should be optional");
+            Assert.Equal(typeof(string[]), metadata.Parameters[expected].ParameterType);
+        }
+        Assert.True(metadata.Parameters.ContainsKey("append-selected"));
+        Assert.False(metadata.Parameters["append-selected"].IsRequired);
+        Assert.Equal(typeof(bool), metadata.Parameters["append-selected"].ParameterType);
     }
 
     [Fact]
@@ -208,15 +260,34 @@ public class ExtensionIndexTests
     }
 
     [Fact]
-    public void CliTable_GroupMemberList_ShouldExposeGroupParamWithGAlias()
+    public void CliTable_GroupListConsistencyLevel_ShouldMapToProcessorConsistencyLevel()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph group list", ClientType.CLI);
+
+        Assert.Equal("ConsistencyLevel", metadata.Parameters["consistency-level"].Name);
+    }
+
+    [Fact]
+    public void CliTable_GroupMemberList_ShouldExposeParityParametersAndAlternateGroupSelectors()
     {
         var metadata = s_index.GetCommandMetadata("msgraph group member list", ClientType.CLI);
 
         Assert.True(metadata.Parameters.ContainsKey("group"));
+        Assert.True(metadata.Parameters.ContainsKey("display-name"));
+        Assert.True(metadata.Parameters.ContainsKey("filter"));
+        Assert.True(metadata.Parameters.ContainsKey("select"));
+        Assert.True(metadata.Parameters.ContainsKey("expand"));
+        Assert.True(metadata.Parameters.ContainsKey("orderby"));
+        Assert.True(metadata.Parameters.ContainsKey("search"));
+        Assert.True(metadata.Parameters.ContainsKey("consistency-level"));
+
         ParameterMetadata group = metadata.Parameters["group"];
         Assert.Equal("Group", group.Name);
-        Assert.True(group.IsRequired);
+        Assert.False(group.IsRequired);
         Assert.Contains("g", group.Aliases);
+        Assert.Equal(typeof(string), metadata.Parameters["display-name"].ParameterType);
+        Assert.Equal("GroupDisplayName", metadata.Parameters["display-name"].Name);
+        Assert.Null(metadata.ParameterSets);
     }
 
     [Fact]
@@ -295,5 +366,13 @@ public class ExtensionIndexTests
 
         Assert.True(table.ContainsKey(key), $"missing PS dispatch key '{key}'");
         Assert.Equal(expectedProcessor, table[key].ProcessorType);
+    }
+
+    [Fact]
+    public void CliTable_AppListDisplayName_ShouldMapToExactSemantics()
+    {
+        var metadata = s_index.GetCommandMetadata("msgraph app list", ClientType.CLI);
+
+        Assert.Equal("DisplayName", metadata.Parameters["display-name"].Name);
     }
 }

@@ -4,6 +4,8 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.AssemblyLoading;
+using Tests.Common.Utilities;
 
 namespace Core.Telemetry.Tests;
 
@@ -13,7 +15,7 @@ internal sealed class TelemetryLayerTestEnvironment : IAsyncDisposable
     internal static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
 
     internal TelemetryLayerTestEnvironment(
-        Func<TelemetryLayerManualTimeProvider, TelemetryLayerScopeOptions>? options = null,
+        Func<SignalingFakeTimeProvider, TelemetryLayerScopeOptions>? options = null,
         TelemetryLayer? layer = null)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -29,7 +31,7 @@ internal sealed class TelemetryLayerTestEnvironment : IAsyncDisposable
     }
 
     internal string Root { get; }
-    internal TelemetryLayerManualTimeProvider Clock { get; } = new();
+    internal SignalingFakeTimeProvider Clock { get; } = new();
     internal TelemetryLayer Layer { get; }
     internal TelemetryLayerScopeOptions Options { get; }
     internal TelemetryLayerConfiguration Configuration { get; } = new();
@@ -37,10 +39,12 @@ internal sealed class TelemetryLayerTestEnvironment : IAsyncDisposable
     internal TelemetryInvocationContext Context(bool enabled = true) => new(
         Guid.NewGuid().ToString("N"), enabled,
         "11111111111111111111111111111111", "2222222222222222",
-        "resource show", "tenant-test", "subscription-test", "EU");
+        "resource show", "tenant-test", "subscription-test", UploadRegion.EU);
 
     internal TelemetryLayerScopeFactory NewFactory(TelemetryLayer layer) => new(
-        new FixedDirectory(Root), Configuration, new TelemetryLayerCatalog([layer]), Options);
+        new FixedDirectory(Root), Configuration,
+        new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()),
+        new TelemetryLayerCatalog([layer]), Options);
 
     internal LayerTelemetryScope Create(
         TelemetryInvocationContext? context = null,
@@ -122,109 +126,6 @@ internal sealed class TelemetryLayerBarrier : IDisposable
     {
         Release();
         // A just-released writer may still be returning from Wait.
-    }
-}
-
-internal sealed class TelemetryLayerManualTimeProvider : TimeProvider
-{
-    private readonly object _gate = new();
-    private readonly DateTimeOffset _origin = DateTimeOffset.UtcNow;
-    private readonly HashSet<ManualTimer> _timers = [];
-    private TaskCompletionSource _timerChanged = NewSignal();
-    private long _ticks;
-
-    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
-    public override long GetTimestamp() { lock (_gate) return _ticks; }
-    public override DateTimeOffset GetUtcNow() { lock (_gate) return _origin.AddTicks(_ticks); }
-    public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
-
-    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
-    {
-        var timer = new ManualTimer(this, callback, state);
-        timer.Change(dueTime, period);
-        return timer;
-    }
-
-    internal void Advance(TimeSpan duration)
-    {
-        List<ManualTimer> due;
-        lock (_gate)
-        {
-            _ticks += duration.Ticks;
-            due = _timers.Where(timer => timer.Due <= _ticks).ToList();
-            foreach (var timer in due)
-            {
-                if (timer.Period == Timeout.InfiniteTimeSpan)
-                    _timers.Remove(timer);
-                else
-                    timer.Due = _ticks + timer.Period.Ticks;
-            }
-        }
-        foreach (var timer in due)
-            timer.Fire();
-    }
-
-    internal async Task WaitForDelayAsync(TimeSpan delay)
-    {
-        while (true)
-        {
-            Task changed;
-            lock (_gate)
-            {
-                if (_timers.Any(timer => timer.Due - _ticks == delay.Ticks))
-                    return;
-                changed = _timerChanged.Task;
-            }
-            await changed.WaitAsync(TelemetryLayerTestEnvironment.TestTimeout);
-        }
-    }
-
-    private static TaskCompletionSource NewSignal() =>
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-    private sealed class ManualTimer(
-        TelemetryLayerManualTimeProvider owner, TimerCallback callback, object? state) : ITimer
-    {
-        private bool _disposed;
-        internal long Due { get; set; }
-        internal TimeSpan Period { get; private set; }
-
-        public bool Change(TimeSpan dueTime, TimeSpan period)
-        {
-            lock (owner._gate)
-            {
-                if (_disposed)
-                    return false;
-                owner._timers.Remove(this);
-                Period = period;
-                if (dueTime != Timeout.InfiniteTimeSpan)
-                {
-                    Due = owner._ticks + dueTime.Ticks;
-                    owner._timers.Add(this);
-                }
-                var changed = owner._timerChanged;
-                owner._timerChanged = NewSignal();
-                changed.TrySetResult();
-                return true;
-            }
-        }
-
-        internal void Fire() => callback(state);
-
-        public void Dispose()
-        {
-            lock (owner._gate)
-            {
-                _disposed = true;
-                owner._timers.Remove(this);
-            }
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            Dispose();
-            return ValueTask.CompletedTask;
-        }
     }
 }
 

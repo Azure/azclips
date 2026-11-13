@@ -50,7 +50,7 @@ command contract: `--subscription-id` is optional for these VM/deployment comman
 because the active profile supplies it.
 
 The target package must also expose the Network, managed-identity, and MsGraph
-creation commands used below. Check their metadata with `az agent tool help`
+creation commands used below. Check their metadata with `az agent tool docs show --name`
 before a model baseline run. A command present in source but absent from the
 installed catalog is a package prerequisite failure, not an Agent quality score.
 Do not replace it with a similarly named classic Azure CLI command.
@@ -211,8 +211,8 @@ the suite identity; a real judge result must include its rubric, reason and mode
 configuration, with original target responses and timings preserved when replayed.
 
 The latency baseline uses single concurrency and a five-minute provider timeout.
-Use `-RecoveryMode manual` with a package supporting `az troubleshoot analyze`. The
-provider captures the precise failure ID and requests oneshot analysis for that
+Use `-RecoveryMode manual` with a package supporting `az troubleshoot recover`. The
+provider captures the precise failure ID and requests oneshot recovery for that
 ID, so a different process's latest failure cannot be selected. Missing IDs and
 unexpectedly successful stimuli are execution errors, not quality scores.
 Duration includes failure recording and troubleshooting, not just model inference. One pass

@@ -20,6 +20,7 @@ public sealed record RecoveryRequest
     public required string ErrorText { get; init; }
     public string? SessionStyle { get; init; }
     public string? FailureId { get; init; }
+    public string? ModelProfileName { get; init; }
 }
 
 public sealed record RecoverySessionSettings

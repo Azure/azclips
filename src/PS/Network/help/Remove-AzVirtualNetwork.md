@@ -94,7 +94,8 @@ The name of the virtual network.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- ResourceName
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -234,9 +235,4 @@ Returned only when `-PassThru` is specified: `$true` once the virtual network ha
 
 ## NOTES
 
-Generated help for network.
-
 ## RELATED LINKS
-
-
-- [Online Version]()

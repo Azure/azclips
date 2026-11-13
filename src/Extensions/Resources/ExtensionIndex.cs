@@ -244,7 +244,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ResourceGroupName"] = new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group to validate the deployment against.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateUri"]       = new("TemplateUri", "TemplateUri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateFile"]      = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM template file to validate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["TemplateSpecId"]    = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -338,6 +338,151 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
                 ["Id"]                = new("Id", "Id", typeof(string), "The fully qualified resource id of the deployment. Provide either -Id or -ResourceGroupName and -Name.", IsRequired: false, Aliases: ["DeploymentId", "ResourceId"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name", ["DeploymentId"] = "Id", ["ResourceId"] = "Id" }
+        );
+        private static readonly CommandMetadata s_newSubscriptionDeployment_PS = new(
+            Name: "NewSubscriptionDeploymentProcessor_Orchestrator",
+            InvocationName: "New-AzSubDeployment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewSubscriptionDeploymentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]  = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]            = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Location"]        = new("Location", "Location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Mode"]            = new("Mode", "Mode", typeof(string), "The mode that is used to deploy resources.", IsRequired: true, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["TemplateUri"]     = new("TemplateLinkUri", "TemplateUri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateFile"]    = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateSpecId"]  = new("TemplateLinkId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateObject"]  = new("Template", "TemplateObject", typeof(Hashtable), "A hash table holding the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["QueryString"]     = new("TemplateLinkQueryString", "QueryString", typeof(string), "The query string (such as a SAS token) to use with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersUri"]   = new("ParametersLinkUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
+                ["ParametersFile"]  = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
+                ["Parameter"]       = new("Parameter", "Parameter", typeof(string[]), "A string array of template parameters: KEY=VALUE, a raw JSON object, or a JSON parameters file path (optionally prefixed with '@'). Specify Parameter once with all values. Values are parsed as JSON when possible, otherwise as strings. Later values override earlier values and same-named keys from ParametersFile. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["DeploymentName"] = "Name",
+                ["TemplateParameterUri"] = "ParametersUri",
+                ["TemplateParameterFile"] = "ParametersFile",
+            }
+        );
+        private static readonly CommandMetadata s_testSubscriptionDeployment_PS = new(
+            Name: "TestSubscriptionDeploymentProcessor_Orchestrator",
+            InvocationName: "Test-AzSubDeployment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestSubscriptionDeploymentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.TestSubscriptionDeploymentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]  = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]            = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Location"]        = new("Location", "Location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Mode"]            = new("Mode", "Mode", typeof(string), "The mode that is used to deploy resources.", IsRequired: true, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["TemplateUri"]     = new("TemplateLinkUri", "TemplateUri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateFile"]    = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateSpecId"]  = new("TemplateLinkId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateObject"]  = new("Template", "TemplateObject", typeof(Hashtable), "A hash table holding the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["QueryString"]     = new("TemplateLinkQueryString", "QueryString", typeof(string), "The query string (such as a SAS token) to use with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersUri"]   = new("ParametersLinkUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
+                ["ParametersFile"]  = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
+                ["Parameter"]       = new("Parameter", "Parameter", typeof(string[]), "A string array of template parameters: KEY=VALUE, a raw JSON object, or a JSON parameters file path (optionally prefixed with '@'). Specify Parameter once with all values. Values are parsed as JSON when possible, otherwise as strings. Later values override earlier values and same-named keys from ParametersFile. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["DeploymentName"] = "Name",
+                ["TemplateParameterUri"] = "ParametersUri",
+                ["TemplateParameterFile"] = "ParametersFile",
+            }
+        );
+        private static readonly CommandMetadata s_newSubscriptionDeploymentWhatIf_PS = new(
+            Name: "NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
+            InvocationName: "Get-AzSubDeploymentWhatIfResult",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewSubscriptionDeploymentWhatIfProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]  = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]            = new("DeploymentName", "Name", typeof(string), "The name of the deployment. Defaults to the template file or URI name.", IsRequired: false, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Location"]        = new("Location", "Location", typeof(string), "The location to store the deployment what-if operation metadata.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["TemplateUri"]     = new("TemplateLinkUri", "TemplateUri", typeof(string), "The URI of the ARM template to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateFile"]    = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateSpecId"]  = new("TemplateLinkId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateObject"]  = new("Template", "TemplateObject", typeof(Hashtable), "A hash table holding the ARM template to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["QueryString"]     = new("TemplateLinkQueryString", "QueryString", typeof(string), "The query string (such as a SAS token) to use with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersUri"]   = new("ParametersLinkUri", "ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
+                ["ParametersFile"]  = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: ["TemplateParameterFile"], AllowedValues: []),
+                ["Parameter"]       = new("Parameter", "Parameter", typeof(string[]), "A string array of template parameters: KEY=VALUE, a raw JSON object, or a JSON parameters file path (optionally prefixed with '@'). Specify Parameter once with all values. Values are parsed as JSON when possible, otherwise as strings. Later values override earlier values and same-named keys from ParametersFile. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level of the what-if operation.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["ResultFormat"]    = new("WhatIfSettingsResultFormat", "ResultFormat", typeof(string), "The format of the what-if results.", IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
+                ["DeploymentName"] = "Name",
+                ["TemplateParameterUri"] = "ParametersUri",
+                ["TemplateParameterFile"] = "ParametersFile",
+            }
+        );
+        private static readonly CommandMetadata s_getSubscriptionDeployment_PS = new(
+            Name: "GetSubscriptionDeploymentProcessor",
+            InvocationName: "Get-AzSubDeployment_Get",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
+        );
+        private static readonly CommandMetadata s_listSubscriptionDeployment_PS = new(
+            Name: "ListSubscriptionDeploymentProcessor",
+            InvocationName: "Get-AzSubDeployment_List",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListSubscriptionDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ListSubscriptionDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_stopSubscriptionDeployment_PS = new(
+            Name: "StopSubscriptionDeploymentProcessor",
+            InvocationName: "Stop-AzSubDeployment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopSubscriptionDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.StopSubscriptionDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to cancel.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
+        );
+        private static readonly CommandMetadata s_removeSubscriptionDeployment_PS = new(
+            Name: "RemoveSubscriptionDeploymentProcessor",
+            InvocationName: "Remove-AzSubDeployment",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.RemoveSubscriptionDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["DeploymentName"] = "Name" }
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(
@@ -526,7 +671,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-group"]   = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group to deploy into.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to deploy inline.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -575,7 +720,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-group"]   = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group to run the what-if against.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to evaluate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -589,6 +734,103 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        // ── Deployment operation commands (PS) ──
+        // Each cmdlet maps one entry per parameter set; the cmdlet appends "_{ParameterSetName}"
+        // to its own name, so Get/List dispatch without a separate orchestrator per set.
+        // PS entries route to the PowerShell-only "_PSOutput" processors, which output PSDeploymentOperation;
+        // the CLI entries below keep the full DeploymentOperation.
+        private static CommandMetadata DeploymentPS(string invocationName, string processorName, Type processorType, Dictionary<string, ParameterMetadata> parameters, Dictionary<string, string>? aliases = null) => new(
+            Name: processorName,
+            InvocationName: invocationName,
+            Aliases: [],
+            FullName: $"Microsoft.Azure.Azclips.Extensions.Resources.Processors.{processorName}",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: processorType,
+            Parameters: parameters,
+            ParameterAliases: aliases ?? new Dictionary<string, string>()
+        );
+
+        private static ParameterMetadata PsSubscriptionId() => new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []);
+        private static ParameterMetadata PsResourceGroupName() => new("ResourceGroupName", "ResourceGroupName", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: [], AllowedValues: []);
+        private static ParameterMetadata PsManagementGroupId() => new("ManagementGroupId", "ManagementGroupId", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []);
+        private static ParameterMetadata PsDeploymentName() => new("DeploymentName", "DeploymentName", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["Name"], AllowedValues: []);
+        private static ParameterMetadata PsOperationIds() => new("OperationIds", "OperationIds", typeof(List<string>), "One or more deployment operation Ids to get.", IsRequired: true, Aliases: ["OperationId"], AllowedValues: []);
+        private static Dictionary<string, string> PsDeploymentNameAliases() => new() { ["Name"] = "DeploymentName" };
+        private static Dictionary<string, string> PsOperationAliases() => new() { ["Name"] = "DeploymentName", ["OperationId"] = "OperationIds" };
+
+        private static readonly CommandMetadata s_getResourceGroupDeploymentOperation_PS = DeploymentPS("Get-AzResourceGroupDeploymentOperation_Get", "GetResourceGroupDeploymentOperationProcessor_PSOutput", typeof(Processors.GetResourceGroupDeploymentOperationProcessor_PSOutput),
+            new() { ["SubscriptionId"] = PsSubscriptionId(), ["ResourceGroupName"] = PsResourceGroupName(), ["DeploymentName"] = PsDeploymentName(), ["OperationIds"] = PsOperationIds() }, PsOperationAliases());
+        private static readonly CommandMetadata s_listResourceGroupDeploymentOperation_PS = DeploymentPS("Get-AzResourceGroupDeploymentOperation_List", "ListResourceGroupDeploymentOperationProcessor_PSOutput", typeof(Processors.ListResourceGroupDeploymentOperationProcessor_PSOutput),
+            new() { ["SubscriptionId"] = PsSubscriptionId(), ["ResourceGroupName"] = PsResourceGroupName(), ["DeploymentName"] = PsDeploymentName() }, PsDeploymentNameAliases());
+
+        private static readonly CommandMetadata s_getSubscriptionDeploymentOperation_PS = DeploymentPS("Get-AzDeploymentOperation_Get", "GetSubscriptionDeploymentOperationProcessor_PSOutput", typeof(Processors.GetSubscriptionDeploymentOperationProcessor_PSOutput),
+            new() { ["SubscriptionId"] = PsSubscriptionId(), ["DeploymentName"] = PsDeploymentName(), ["OperationIds"] = PsOperationIds() }, PsOperationAliases());
+        private static readonly CommandMetadata s_listSubscriptionDeploymentOperation_PS = DeploymentPS("Get-AzDeploymentOperation_List", "ListSubscriptionDeploymentOperationProcessor_PSOutput", typeof(Processors.ListSubscriptionDeploymentOperationProcessor_PSOutput),
+            new() { ["SubscriptionId"] = PsSubscriptionId(), ["DeploymentName"] = PsDeploymentName() }, PsDeploymentNameAliases());
+
+        private static readonly CommandMetadata s_getManagementGroupDeploymentOperation_PS = DeploymentPS("Get-AzManagementGroupDeploymentOperation_Get", "GetManagementGroupDeploymentOperationProcessor_PSOutput", typeof(Processors.GetManagementGroupDeploymentOperationProcessor_PSOutput),
+            new() { ["ManagementGroupId"] = PsManagementGroupId(), ["DeploymentName"] = PsDeploymentName(), ["OperationIds"] = PsOperationIds() }, PsOperationAliases());
+        private static readonly CommandMetadata s_listManagementGroupDeploymentOperation_PS = DeploymentPS("Get-AzManagementGroupDeploymentOperation_List", "ListManagementGroupDeploymentOperationProcessor_PSOutput", typeof(Processors.ListManagementGroupDeploymentOperationProcessor_PSOutput),
+            new() { ["ManagementGroupId"] = PsManagementGroupId(), ["DeploymentName"] = PsDeploymentName() }, PsDeploymentNameAliases());
+
+        private static readonly CommandMetadata s_getTenantDeploymentOperation_PS = DeploymentPS("Get-AzTenantDeploymentOperation_Get", "GetTenantDeploymentOperationProcessor_PSOutput", typeof(Processors.GetTenantDeploymentOperationProcessor_PSOutput),
+            new() { ["DeploymentName"] = PsDeploymentName(), ["OperationIds"] = PsOperationIds() }, PsOperationAliases());
+        private static readonly CommandMetadata s_listTenantDeploymentOperation_PS = DeploymentPS("Get-AzTenantDeploymentOperation_List", "ListTenantDeploymentOperationProcessor_PSOutput", typeof(Processors.ListTenantDeploymentOperationProcessor_PSOutput),
+            new() { ["DeploymentName"] = PsDeploymentName() }, PsDeploymentNameAliases());
+
+        // The DeploymentObject parameter set lists the operations of a piped deployment. The cmdlet resolves the
+        // deployment name (and the management group id) from the object; the subscription comes from the active profile.
+        private static readonly CommandMetadata s_listSubscriptionDeploymentOperationByObject_PS = DeploymentPS("Get-AzDeploymentOperation_DeploymentObject", "ListSubscriptionDeploymentOperationProcessor_PSOutput", typeof(Processors.ListSubscriptionDeploymentOperationProcessor_PSOutput),
+            new() { ["DeploymentName"] = PsDeploymentName() }, PsDeploymentNameAliases());
+        private static readonly CommandMetadata s_listManagementGroupDeploymentOperationByObject_PS = DeploymentPS("Get-AzManagementGroupDeploymentOperation_DeploymentObject", "ListManagementGroupDeploymentOperationProcessor_PSOutput", typeof(Processors.ListManagementGroupDeploymentOperationProcessor_PSOutput),
+            new() { ["ManagementGroupId"] = PsManagementGroupId(), ["DeploymentName"] = PsDeploymentName() }, PsDeploymentNameAliases());
+        private static readonly CommandMetadata s_listTenantDeploymentOperationByObject_PS = DeploymentPS("Get-AzTenantDeploymentOperation_DeploymentObject", "ListTenantDeploymentOperationProcessor_PSOutput", typeof(Processors.ListTenantDeploymentOperationProcessor_PSOutput),
+            new() { ["DeploymentName"] = PsDeploymentName() }, PsDeploymentNameAliases());
+
+        // ── Deployment operation commands (CLI) ──
+        private static CommandMetadata DeploymentCli(string invocationName, string processorName, Type processorType, Dictionary<string, ParameterMetadata> parameters, Dictionary<string, string>? aliases = null) => new(
+            Name: processorName,
+            InvocationName: invocationName,
+            Aliases: [],
+            FullName: $"Microsoft.Azure.Azclips.Extensions.Resources.Processors.{processorName}",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: processorType,
+            Parameters: parameters,
+            ParameterAliases: aliases ?? new Dictionary<string, string>()
+        );
+
+        private static ParameterMetadata CliSubscriptionId() => new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []);
+        private static ParameterMetadata CliResourceGroup() => new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: ["g"], AllowedValues: []);
+        private static ParameterMetadata CliManagementGroupId() => new("ManagementGroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: ["m"], AllowedValues: []);
+        private static ParameterMetadata CliDeploymentName() => new("DeploymentName", "name", typeof(string), "The deployment name.", IsRequired: true, Aliases: ["n"], AllowedValues: []);
+        private static ParameterMetadata CliOperationIds() => new("OperationIds", "operation-ids", typeof(List<string>), "A space-separated list of operation ids to show.", IsRequired: true, Aliases: [], AllowedValues: []);
+        private static Dictionary<string, string> CliAliases(params string[] pairs)
+        {
+            var map = new Dictionary<string, string>();
+            for (int i = 0; i < pairs.Length; i += 2) { map[pairs[i]] = pairs[i + 1]; }
+            return map;
+        }
+
+        private static readonly CommandMetadata s_getResourceGroupDeploymentOperation_CLI = DeploymentCli("deployment operation group show", "GetResourceGroupDeploymentOperationProcessor_Orchestrator", typeof(Processors.GetResourceGroupDeploymentOperationProcessor_Orchestrator),
+            new() { ["subscription-id"] = CliSubscriptionId(), ["resource-group"] = CliResourceGroup(), ["name"] = CliDeploymentName(), ["operation-ids"] = CliOperationIds() }, CliAliases("g", "resource-group", "n", "name"));
+        private static readonly CommandMetadata s_listResourceGroupDeploymentOperation_CLI = DeploymentCli("deployment operation group list", "ListResourceGroupDeploymentOperationProcessor", typeof(Processors.ListResourceGroupDeploymentOperationProcessor),
+            new() { ["subscription-id"] = CliSubscriptionId(), ["resource-group"] = CliResourceGroup(), ["name"] = CliDeploymentName() }, CliAliases("g", "resource-group", "n", "name"));
+
+        private static readonly CommandMetadata s_getSubscriptionDeploymentOperation_CLI = DeploymentCli("deployment operation sub show", "GetSubscriptionDeploymentOperationProcessor_Orchestrator", typeof(Processors.GetSubscriptionDeploymentOperationProcessor_Orchestrator),
+            new() { ["subscription-id"] = CliSubscriptionId(), ["name"] = CliDeploymentName(), ["operation-ids"] = CliOperationIds() }, CliAliases("n", "name"));
+        private static readonly CommandMetadata s_listSubscriptionDeploymentOperation_CLI = DeploymentCli("deployment operation sub list", "ListSubscriptionDeploymentOperationProcessor", typeof(Processors.ListSubscriptionDeploymentOperationProcessor),
+            new() { ["subscription-id"] = CliSubscriptionId(), ["name"] = CliDeploymentName() }, CliAliases("n", "name"));
+
+        private static readonly CommandMetadata s_getManagementGroupDeploymentOperation_CLI = DeploymentCli("deployment operation mg show", "GetManagementGroupDeploymentOperationProcessor_Orchestrator", typeof(Processors.GetManagementGroupDeploymentOperationProcessor_Orchestrator),
+            new() { ["management-group-id"] = CliManagementGroupId(), ["name"] = CliDeploymentName(), ["operation-ids"] = CliOperationIds() }, CliAliases("m", "management-group-id", "n", "name"));
+        private static readonly CommandMetadata s_listManagementGroupDeploymentOperation_CLI = DeploymentCli("deployment operation mg list", "ListManagementGroupDeploymentOperationProcessor", typeof(Processors.ListManagementGroupDeploymentOperationProcessor),
+            new() { ["management-group-id"] = CliManagementGroupId(), ["name"] = CliDeploymentName() }, CliAliases("m", "management-group-id", "n", "name"));
+
+        private static readonly CommandMetadata s_getTenantDeploymentOperation_CLI = DeploymentCli("deployment operation tenant show", "GetTenantDeploymentOperationProcessor_Orchestrator", typeof(Processors.GetTenantDeploymentOperationProcessor_Orchestrator),
+            new() { ["name"] = CliDeploymentName(), ["operation-ids"] = CliOperationIds() }, CliAliases("n", "name"));
+        private static readonly CommandMetadata s_listTenantDeploymentOperation_CLI = DeploymentCli("deployment operation tenant list", "ListTenantDeploymentOperationProcessor", typeof(Processors.ListTenantDeploymentOperationProcessor),
+            new() { ["name"] = CliDeploymentName() }, CliAliases("n", "name"));
+
         // ── Management-group deployments (az deployment mg * / *-AzManagementGroupDeployment) ──
         private static CommandMetadata ManagementGroupCommand(string invocationName, Type processorType, Dictionary<string, ParameterMetadata> parameters, Dictionary<string, string>? aliases = null) => new(
             Name: processorType.Name,
@@ -622,7 +864,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static Dictionary<string, ParameterMetadata> ManagementGroupDeploymentParameters_CLI() => new()
         {
             ["management-group-id"] = new("ManagementGroupId", "management-group-id", typeof(string), "The management group id.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["name"]                = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["name"]                = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["location"]            = new("Location", "location", typeof(string), "The location to store the deployment data.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["template-uri"]        = new("TemplateUri", "template-uri", typeof(string), "The URI of a remote ARM JSON template. Supply one template source unless --parameters-file is a .bicepparam file that supplies its own template.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["template-file"]       = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -656,11 +898,11 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         };
 
         private static readonly CommandMetadata s_newManagementGroupDeployment_PS = ManagementGroupCommand("New-AzManagementGroupDeployment", typeof(Processors.CreateManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentParameters_PS());
-        // Like Test-AzResourceGroupDeployment: Name is optional (GUID), TemplateObject is accepted, and the legacy parameter file names are aliases.
+        // Like Test-AzResourceGroupDeployment: Name is optional (defaults from the template), TemplateObject is accepted, and the legacy parameter file names are aliases.
         private static readonly CommandMetadata s_testManagementGroupDeployment_PS = ManagementGroupCommand("Test-AzManagementGroupDeployment", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
             new(ManagementGroupDeploymentParameters_PS())
             {
-                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["Mode"]           = new("Mode", "Mode", typeof(string), "Accepted for compatibility with New. Does not change validation mode: validation always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
                 ["TemplateObject"] = new("TemplateObject", "TemplateObject", typeof(Hashtable), "A nonempty hash table holding the ARM template to validate. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ParametersUri"]  = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with ParametersFile or Parameter.", IsRequired: false, Aliases: ["TemplateParameterUri"], AllowedValues: []),
@@ -683,7 +925,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_validateManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg validate", typeof(Processors.ValidateManagementGroupDeploymentProcessor_Orchestrator),
             new(ManagementGroupDeploymentParameters_CLI())
             {
-                ["name"] = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"] = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["mode"] = new("Mode", "mode", typeof(string), "Accepted for compatibility with create. Does not change validation mode: validation always uses Incremental, even when Complete is supplied.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
             });
         private static readonly CommandMetadata s_whatIfManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg what-if", typeof(Processors.WhatIfManagementGroupDeploymentProcessor_Orchestrator),
@@ -702,6 +944,119 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
         private static readonly CommandMetadata s_deleteManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg delete", typeof(Processors.DeleteManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
         private static readonly CommandMetadata s_exportManagementGroupDeployment_CLI = ManagementGroupCommand("deployment mg export", typeof(Processors.ExportManagementGroupDeploymentProcessor_Orchestrator), ManagementGroupDeploymentName_CLI());
 
+        // ── Tenant deployment commands (deployment tenant …, *-AzTenantDeployment*) ──
+        private static CommandMetadata TenantDeploymentCommand(string invocationName, Type processorType, Dictionary<string, ParameterMetadata> parameters) => new(
+            Name: processorType.Name,
+            InvocationName: invocationName,
+            Aliases: [],
+            FullName: processorType.FullName!,
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: processorType,
+            Parameters: parameters,
+            ParameterAliases: new Dictionary<string, string>()
+        );
+
+        // New-/Test-AzTenantDeployment and Get-AzTenantDeploymentWhatIfResult: the shared deployment inputs plus Location.
+        // Tenant deployments are always Incremental, so there is no Mode.
+        private static Dictionary<string, ParameterMetadata> TenantDeploymentParameters_PS() => new()
+        {
+            ["Name"]            = new("Name", "Name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Location"]        = new("Location", "Location", typeof(string), "The location to store the deployment data.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["TemplateUri"]     = new("TemplateUri", "TemplateUri", typeof(string), "The URI of a remote ARM JSON template. Supply one template source unless ParametersFile is a .bicepparam file that supplies its own template.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["TemplateFile"]    = new("TemplateFile", "TemplateFile", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["TemplateSpecId"]  = new("TemplateSpecId", "TemplateSpecId", typeof(string), "The resource id of a Template Spec version. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["QueryString"]     = new("QueryString", "QueryString", typeof(string), "A query string or SAS token for TemplateUri only. Requires TemplateUri; does not modify ParametersUri. A leading '?' or '&' is removed.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ParametersUri"]   = new("ParametersUri", "ParametersUri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with ParametersFile or Parameter.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ParametersFile"]  = new("ParametersFile", "ParametersFile", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Parameter"]       = new("Parameter", "Parameter", typeof(string[]), "A string array of template parameters: KEY=VALUE, a raw JSON object, or a JSON parameters file path (optionally prefixed with '@'). Specify Parameter once with all values. Values are parsed as JSON when possible, otherwise as strings. Later values override earlier values and same-named keys from ParametersFile. Cannot be combined with ParametersUri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ValidationLevel"] = new("ValidationLevel", "ValidationLevel", typeof(string), "The validation level sent to ARM. When omitted, ARM applies its default.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+        };
+
+        // deployment tenant create/validate/what-if: the shared deployment inputs plus location.
+        private static Dictionary<string, ParameterMetadata> TenantDeploymentParameters_CLI() => new()
+        {
+            ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment data.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of a remote ARM JSON template. Supply one template source unless --parameters-file is a .bicepparam file that supplies its own template.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec version. Use instead of another template source.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["query-string"]     = new("QueryString", "query-string", typeof(string), "A query string or SAS token for --template-uri only. Requires --template-uri; does not modify --parameters-uri. A leading '?' or '&' is removed.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["parameters-uri"]   = new("ParametersUri", "parameters-uri", typeof(string), "The URI of a remote ARM JSON parameters file, including any required SAS token. Cannot be combined with --parameters-file or --parameter.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["parameters-file"]  = new("ParametersFile", "parameters-file", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with --parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level sent to ARM. When omitted, ARM applies its default.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+        };
+
+        private static Dictionary<string, ParameterMetadata> TenantDeploymentName_PS() => new()
+        {
+            ["Name"] = new("DeploymentName", "Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+        };
+
+        private static Dictionary<string, ParameterMetadata> TenantDeploymentName_CLI() => new()
+        {
+            ["name"] = new("DeploymentName", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+        };
+
+        private const string TenantWhatIfResultFormatHelp = "The format of the what-if results. FullResourcePayloads (default) or ResourceIdOnly.";
+        private const string TenantListFilterHelp = "An OData filter sent to the tenant deployment list API, for example \"provisioningState eq 'Succeeded'\".";
+
+        private static readonly CommandMetadata s_newTenantDeployment_PS = TenantDeploymentCommand("New-AzTenantDeployment", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator),
+            new(TenantDeploymentParameters_PS())
+            {
+                ["NoWait"] = new("NoWait", "NoWait", typeof(bool), "Return once the deployment is submitted and output its initial state, instead of waiting for it to finish. Validation still runs first. Does not create a PowerShell job.", IsRequired: false, Aliases: [], AllowedValues: []),
+            });
+        private static readonly CommandMetadata s_testTenantDeployment_PS = TenantDeploymentCommand("Test-AzTenantDeployment", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator), TenantDeploymentParameters_PS());
+        private static readonly CommandMetadata s_whatIfTenantDeployment_PS = TenantDeploymentCommand("Get-AzTenantDeploymentWhatIfResult", typeof(Processors.WhatIfTenantDeploymentProcessor_Orchestrator),
+            new(TenantDeploymentParameters_PS())
+            {
+                ["ResultFormat"] = new("ResultFormat", "ResultFormat", typeof(string), TenantWhatIfResultFormatHelp, IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+            });
+        private static readonly CommandMetadata s_listTenantDeployment_PS = TenantDeploymentCommand("Get-AzTenantDeployment_List", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new()
+        {
+            ["Filter"] = new("Filter", "Filter", typeof(string), TenantListFilterHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+        });
+        private static readonly CommandMetadata s_getTenantDeployment_PS = TenantDeploymentCommand("Get-AzTenantDeployment_Get", typeof(Processors.GetAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
+        private static readonly CommandMetadata s_stopTenantDeployment_PS = TenantDeploymentCommand("Stop-AzTenantDeployment", typeof(Processors.CancelAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
+        private static readonly CommandMetadata s_removeTenantDeployment_PS = TenantDeploymentCommand("Remove-AzTenantDeployment", typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor), TenantDeploymentName_PS());
+        // The cmdlet resolves Path against the PowerShell session's current location before invoking.
+        private static readonly CommandMetadata s_saveTenantDeploymentTemplate_PS = TenantDeploymentCommand("Save-AzTenantDeploymentTemplate", typeof(Processors.SaveTenantDeploymentTemplateProcessor_Orchestrator), new()
+        {
+            ["DeploymentName"] = new("DeploymentName", "DeploymentName", typeof(string), "The name of the deployment whose template to save.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["Path"]           = new("Path", "Path", typeof(string), "The file or folder to write the template to. A folder receives '<DeploymentName>.json'; a file path gains '.json' when it lacks it. Defaults to the current location.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Force"]          = new("Force", "Force", typeof(bool), "Overwrite the template file when it already exists.", IsRequired: false, Aliases: [], AllowedValues: []),
+        });
+
+        private static readonly CommandMetadata s_createTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant create", typeof(Processors.CreateTenantDeploymentProcessor_Orchestrator),
+            new(TenantDeploymentParameters_CLI())
+            {
+                ["no-wait"] = new("NoWait", "no-wait", typeof(bool), "Return once the deployment is submitted and output its initial state, instead of waiting for it to finish. Validation still runs first.", IsRequired: false, Aliases: [], AllowedValues: []),
+            });
+        private static readonly CommandMetadata s_validateTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant validate", typeof(Processors.ValidateTenantDeploymentProcessor_Orchestrator), TenantDeploymentParameters_CLI());
+        private static readonly CommandMetadata s_whatIfTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant what-if", typeof(Processors.WhatIfTenantDeploymentProcessor_Orchestrator),
+            new(TenantDeploymentParameters_CLI())
+            {
+                ["result-format"] = new("ResultFormat", "result-format", typeof(string), TenantWhatIfResultFormatHelp, IsRequired: false, Aliases: [], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+            });
+        private static readonly CommandMetadata s_listTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant list", typeof(Processors.ListAtTenantScopeDeploymentsProcessor), new()
+        {
+            ["filter"] = new("Filter", "filter", typeof(string), TenantListFilterHelp, IsRequired: false, Aliases: [], AllowedValues: []),
+        });
+        private static readonly CommandMetadata s_showTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant show", typeof(Processors.GetAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_cancelTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant cancel", typeof(Processors.CancelAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_deleteTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant delete", typeof(Processors.DeleteAtTenantScopeDeploymentsProcessor), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_exportTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant export", typeof(Processors.ExportTenantDeploymentProcessor_Orchestrator), TenantDeploymentName_CLI());
+        private static readonly CommandMetadata s_waitTenantDeployment_CLI = TenantDeploymentCommand("deployment tenant wait", typeof(Processors.WaitTenantDeploymentProcessor_Orchestrator),
+            new(TenantDeploymentName_CLI())
+            {
+                ["created"]  = new("Created", "created", typeof(bool), "Wait until the deployment's provisioningState is Succeeded. A missing deployment keeps waiting.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["updated"]  = new("Updated", "updated", typeof(bool), "Wait until the deployment's provisioningState is Succeeded. A missing deployment is an error.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["deleted"]  = new("Deleted", "deleted", typeof(bool), "Wait until the deployment is deleted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["exists"]   = new("Exists", "exists", typeof(bool), "Wait until the deployment exists, whatever its provisioningState.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["custom"]   = new("Custom", "custom", typeof(string), "Wait until this JMESPath condition is true for the deployment's ARM JSON, for example \"properties.provisioningState=='Canceled'\".", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["interval"] = new("Interval", "interval", typeof(int), "Polling interval in seconds. Default: 30.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["timeout"]  = new("Timeout", "timeout", typeof(int), "Maximum wait in seconds. Default: 3600.", IsRequired: false, Aliases: [], AllowedValues: []),
+            });
+
         private static readonly CommandMetadata s_testResourceGroupDeployment_CLI = new(
             Name: "TestResourceGroupDeploymentProcessor_Orchestrator",
             InvocationName: "deployment group validate",
@@ -713,7 +1068,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             {
                 ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["resource-group"]   = new("ResourceGroupName", "resource-group", typeof(string), "The name of the resource group to validate the deployment against.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to a generated GUID when omitted.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", "name", typeof(string), "The name of the deployment. Defaults to the template file or URI name without its extension, or a generated GUID when no valid name can be derived.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-uri"]     = new("TemplateUri", "template-uri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM template file to validate inline.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["template-spec-id"] = new("TemplateSpecId", "template-spec-id", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -803,6 +1158,149 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_newSubscriptionDeployment_CLI = new(
+            Name: "NewSubscriptionDeploymentProcessor_Orchestrator",
+            InvocationName: "deployment sub create",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewSubscriptionDeploymentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("DeploymentName", "name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
+                ["mode"]             = new("Mode", "mode", typeof(string), "The mode that is used to deploy resources.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["template-uri"]     = new("TemplateLinkUri", "template-uri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-spec-id"] = new("TemplateLinkId", "template-spec-id", typeof(string), "The resource id of a Template Spec to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["query-string"]     = new("TemplateLinkQueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameters-uri"]   = new("ParametersLinkUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameters-file"]  = new("ParametersFile", "parameters-file", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with --parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter" }
+        );
+        private static readonly CommandMetadata s_testSubscriptionDeployment_CLI = new(
+            Name: "TestSubscriptionDeploymentProcessor_Orchestrator",
+            InvocationName: "deployment sub validate",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.TestSubscriptionDeploymentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.TestSubscriptionDeploymentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("DeploymentName", "name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
+                ["mode"]             = new("Mode", "mode", typeof(string), "The mode that is used to deploy resources.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["template-uri"]     = new("TemplateLinkUri", "template-uri", typeof(string), "The URI of the ARM template to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-spec-id"] = new("TemplateLinkId", "template-spec-id", typeof(string), "The resource id of a Template Spec to validate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["query-string"]     = new("TemplateLinkQueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameters-uri"]   = new("ParametersLinkUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameters-file"]  = new("ParametersFile", "parameters-file", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with --parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter" }
+        );
+        private static readonly CommandMetadata s_newSubscriptionDeploymentWhatIf_CLI = new(
+            Name: "NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
+            InvocationName: "deployment sub what-if",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewSubscriptionDeploymentWhatIfProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewSubscriptionDeploymentWhatIfProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]  = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]             = new("DeploymentName", "name", typeof(string), "The name of the deployment.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["location"]         = new("Location", "location", typeof(string), "The location to store the deployment what-if operation metadata.", IsRequired: true, Aliases: ["l"], AllowedValues: []),
+                ["mode"]             = new("Mode", "mode", typeof(string), "The mode that is used to deploy resources.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+                ["template-uri"]     = new("TemplateLinkUri", "template-uri", typeof(string), "The URI of the ARM template to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-file"]    = new("TemplateFile", "template-file", typeof(string), "The path to a local ARM JSON or Bicep template. Bicep files require the Bicep CLI for local compilation.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-spec-id"] = new("TemplateLinkId", "template-spec-id", typeof(string), "The resource id of a Template Spec to evaluate.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["query-string"]     = new("TemplateLinkQueryString", "query-string", typeof(string), "The query string (such as a SAS token) to use with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameters-uri"]   = new("ParametersLinkUri", "parameters-uri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameters-file"]  = new("ParametersFile", "parameters-file", typeof(string), "The path to a local ARM JSON or .bicepparam parameters file. A .bicepparam file can supply its own template and requires the Bicep CLI. Cannot be combined with --parameters-uri.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameter"]        = new("Parameter", "parameter", typeof(string[]), "Deployment parameter(s) (repeatable): KEY=VALUE, a raw JSON object, or a path to a JSON parameters file (optionally prefixed with '@'). Values are parsed as JSON when possible (count=3 a number, flag=true a bool), else treated as strings; quote to force a string (e.g. zip=\"01234\"). Overlay same-named keys from a parameters file. Cannot be combined with parameters-uri.", IsRequired: false, Aliases: ["p"], AllowedValues: []),
+                ["validation-level"] = new("ValidationLevel", "validation-level", typeof(string), "The validation level of the what-if operation.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["result-format"]    = new("WhatIfSettingsResultFormat", "result-format", typeof(string), "The format of the what-if results.", IsRequired: false, Aliases: ["r"], AllowedValues: ["FullResourcePayloads", "ResourceIdOnly"]),
+            },
+            ParameterAliases: new Dictionary<string, string> { ["l"] = "location", ["p"] = "parameter", ["r"] = "result-format" }
+        );
+        private static readonly CommandMetadata s_getSubscriptionDeployment_CLI = new(
+            Name: "GetSubscriptionDeploymentProcessor",
+            InvocationName: "deployment sub show",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.GetSubscriptionDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.GetSubscriptionDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listSubscriptionDeployment_CLI = new(
+            Name: "ListSubscriptionDeploymentProcessor",
+            InvocationName: "deployment sub list",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ListSubscriptionDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ListSubscriptionDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["filter"]          = new("Filter", "filter", typeof(string), "Filter expression using OData notation, e.g. \"provisioningState eq 'Failed'\".", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_stopSubscriptionDeployment_CLI = new(
+            Name: "StopSubscriptionDeploymentProcessor",
+            InvocationName: "deployment sub cancel",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.StopSubscriptionDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.StopSubscriptionDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to cancel.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_removeSubscriptionDeployment_CLI = new(
+            Name: "RemoveSubscriptionDeploymentProcessor",
+            InvocationName: "deployment sub delete",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.RemoveSubscriptionDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.RemoveSubscriptionDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", "name", typeof(string), "The name of the deployment to delete.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_exportSubscriptionDeploymentTemplate_CLI = new(
+            Name: "ExportSubscriptionDeploymentProcessor_Orchestrator",
+            InvocationName: "deployment sub export",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.ExportSubscriptionDeploymentProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.ExportSubscriptionDeploymentProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("DeploymentName", "name", typeof(string), "The name of the deployment whose template to export.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_saveResourceGroupDeploymentTemplate_PS = new(
             Name: "SaveResourceGroupDeploymentTemplateProcessor_Orchestrator",
             InvocationName: "Save-AzResourceGroupDeploymentTemplate",
@@ -821,6 +1319,25 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>
             {
                 ["ResourceGroup"] = "ResourceGroupName",
+                ["DeploymentName"] = "Name",
+            }
+        );
+        private static readonly CommandMetadata s_saveSubscriptionDeploymentTemplate_PS = new(
+            Name: "SaveSubscriptionDeploymentTemplateProcessor_Orchestrator",
+            InvocationName: "Save-AzSubDeploymentTemplate",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Azclips.Extensions.Resources.Processors.SaveSubscriptionDeploymentTemplateProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Resources",
+            ProcessorType: typeof(Processors.SaveSubscriptionDeploymentTemplateProcessor_Orchestrator),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("DeploymentName", "Name", typeof(string), "The name of the deployment whose template to save.", IsRequired: true, Aliases: ["DeploymentName"], AllowedValues: []),
+                ["Path"]           = new("Path", "Path", typeof(string), "The output path of the template file. A directory receives '<deployment name>.json'; any other path is used as the file name and gains a '.json' extension when it lacks one. Defaults to the current directory.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Force"]          = new("Force", "Force", typeof(bool), "Overwrite the destination file when it already exists.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>
+            {
                 ["DeploymentName"] = "Name",
             }
         );
@@ -851,13 +1368,40 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["Stop-AzResourceGroupDeployment"] = s_stopResourceGroupDeployment_PS,
             ["Remove-AzResourceGroupDeployment"] = s_removeResourceGroupDeployment_PS,
             ["Save-AzResourceGroupDeploymentTemplate"] = s_saveResourceGroupDeploymentTemplate_PS,
+            ["New-AzSubDeployment"]         = s_newSubscriptionDeployment_PS,
+            ["Test-AzSubDeployment"]        = s_testSubscriptionDeployment_PS,
+            ["Get-AzSubDeploymentWhatIfResult"] = s_newSubscriptionDeploymentWhatIf_PS,
+            ["Get-AzSubDeployment_Get"]     = s_getSubscriptionDeployment_PS,
+            ["Get-AzSubDeployment_List"]    = s_listSubscriptionDeployment_PS,
+            ["Stop-AzSubDeployment"]        = s_stopSubscriptionDeployment_PS,
+            ["Remove-AzSubDeployment"]      = s_removeSubscriptionDeployment_PS,
+            ["Save-AzSubDeploymentTemplate"] = s_saveSubscriptionDeploymentTemplate_PS,
             ["Invoke-AzRestMethod"] = s_rest_PS,
+            ["Get-AzResourceGroupDeploymentOperation_Get"]  = s_getResourceGroupDeploymentOperation_PS,
+            ["Get-AzResourceGroupDeploymentOperation_List"] = s_listResourceGroupDeploymentOperation_PS,
+            ["Get-AzDeploymentOperation_Get"]  = s_getSubscriptionDeploymentOperation_PS,
+            ["Get-AzDeploymentOperation_List"] = s_listSubscriptionDeploymentOperation_PS,
+            ["Get-AzDeploymentOperation_DeploymentObject"] = s_listSubscriptionDeploymentOperationByObject_PS,
+            ["Get-AzManagementGroupDeploymentOperation_Get"]  = s_getManagementGroupDeploymentOperation_PS,
+            ["Get-AzManagementGroupDeploymentOperation_List"] = s_listManagementGroupDeploymentOperation_PS,
+            ["Get-AzManagementGroupDeploymentOperation_DeploymentObject"] = s_listManagementGroupDeploymentOperationByObject_PS,
+            ["Get-AzTenantDeploymentOperation_Get"]  = s_getTenantDeploymentOperation_PS,
+            ["Get-AzTenantDeploymentOperation_List"] = s_listTenantDeploymentOperation_PS,
+            ["Get-AzTenantDeploymentOperation_DeploymentObject"] = s_listTenantDeploymentOperationByObject_PS,
+            ["New-AzTenantDeployment"] = s_newTenantDeployment_PS,
+            ["Test-AzTenantDeployment"] = s_testTenantDeployment_PS,
+            ["Get-AzTenantDeploymentWhatIfResult"] = s_whatIfTenantDeployment_PS,
+            ["Get-AzTenantDeployment_List"] = s_listTenantDeployment_PS,
+            ["Get-AzTenantDeployment_Get"] = s_getTenantDeployment_PS,
+            ["Stop-AzTenantDeployment"] = s_stopTenantDeployment_PS,
+            ["Remove-AzTenantDeployment"] = s_removeTenantDeployment_PS,
+            ["Save-AzTenantDeploymentTemplate"] = s_saveTenantDeploymentTemplate_PS,
         };
         // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
         // (verb, path) tuple via Core.Extensions.LeafIndex. Resources contributes both the
-        // "group" verb (resource group CRUD) and the "deployment" verb (resource-group-scoped
-        // ARM/Bicep deployments).
+        // "group" verb (resource group CRUD) and the "deployment" verb (resource-group- and
+        // subscription-scoped ARM/Bicep deployments).
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["group create"]              = s_newResourceGroup_CLI,
@@ -871,6 +1415,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["role assignment delete"]    = s_deleteRoleAssignment_CLI,
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
+            ["deployment operation group show"]  = s_getResourceGroupDeploymentOperation_CLI,
+            ["deployment operation group list"]  = s_listResourceGroupDeploymentOperation_CLI,
+            ["deployment operation sub show"]    = s_getSubscriptionDeploymentOperation_CLI,
+            ["deployment operation sub list"]    = s_listSubscriptionDeploymentOperation_CLI,
+            ["deployment operation mg show"]     = s_getManagementGroupDeploymentOperation_CLI,
+            ["deployment operation mg list"]     = s_listManagementGroupDeploymentOperation_CLI,
+            ["deployment operation tenant show"] = s_getTenantDeploymentOperation_CLI,
+            ["deployment operation tenant list"] = s_listTenantDeploymentOperation_CLI,
             ["deployment mg create"]      = s_createManagementGroupDeployment_CLI,
             ["deployment mg list"]        = s_listManagementGroupDeployment_CLI,
             ["deployment mg show"]        = s_showManagementGroupDeployment_CLI,
@@ -879,12 +1431,29 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources
             ["deployment mg export"]      = s_exportManagementGroupDeployment_CLI,
             ["deployment mg validate"]    = s_validateManagementGroupDeployment_CLI,
             ["deployment mg what-if"]     = s_whatIfManagementGroupDeployment_CLI,
+            ["deployment tenant create"]   = s_createTenantDeployment_CLI,
+            ["deployment tenant validate"] = s_validateTenantDeployment_CLI,
+            ["deployment tenant what-if"]  = s_whatIfTenantDeployment_CLI,
+            ["deployment tenant list"]     = s_listTenantDeployment_CLI,
+            ["deployment tenant show"]     = s_showTenantDeployment_CLI,
+            ["deployment tenant cancel"]   = s_cancelTenantDeployment_CLI,
+            ["deployment tenant delete"]   = s_deleteTenantDeployment_CLI,
+            ["deployment tenant export"]   = s_exportTenantDeployment_CLI,
+            ["deployment tenant wait"]     = s_waitTenantDeployment_CLI,
             ["deployment group validate"] = s_testResourceGroupDeployment_CLI,
             ["deployment group show"]     = s_getResourceGroupDeployment_CLI,
             ["deployment group list"]     = s_listResourceGroupDeployment_CLI,
             ["deployment group cancel"]   = s_stopResourceGroupDeployment_CLI,
             ["deployment group delete"]   = s_removeResourceGroupDeployment_CLI,
             ["deployment group export"]   = s_exportResourceGroupDeploymentTemplate_CLI,
+            ["deployment sub create"]     = s_newSubscriptionDeployment_CLI,
+            ["deployment sub what-if"]    = s_newSubscriptionDeploymentWhatIf_CLI,
+            ["deployment sub validate"]   = s_testSubscriptionDeployment_CLI,
+            ["deployment sub show"]       = s_getSubscriptionDeployment_CLI,
+            ["deployment sub list"]       = s_listSubscriptionDeployment_CLI,
+            ["deployment sub cancel"]     = s_stopSubscriptionDeployment_CLI,
+            ["deployment sub delete"]     = s_removeSubscriptionDeployment_CLI,
+            ["deployment sub export"]     = s_exportSubscriptionDeploymentTemplate_CLI,
             // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };

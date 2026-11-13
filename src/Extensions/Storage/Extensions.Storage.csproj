@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Microsoft.Azure.Azclips.Extensions.Storage</AssemblyName>
-        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
         <RootNamespace>Microsoft.Azure.Azclips.Extensions.Storage</RootNamespace>
         <ExtName>Microsoft.Azure.Azclips.Extensions.Storage</ExtName>
 
@@ -10,7 +10,7 @@
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
         <PackageId>Microsoft.Azure.Azclips.Extensions.Storage</PackageId>
-        <Version>0.1.0</Version>
+        <Version>0.1.1</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -18,6 +18,13 @@
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <!-- Hand-maintained wrapper: Management, Blob and File are per-service folders (own namespace, base and
+         aceconfig.yaml) compiled into this single assembly. Exclude stale per-service build output. -->
+    <ItemGroup>
+        <Compile Remove="*\bin\**;*\obj\**" />
+        <None Remove="*\bin\**;*\obj\**" />
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >

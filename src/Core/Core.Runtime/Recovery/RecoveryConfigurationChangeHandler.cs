@@ -21,10 +21,10 @@ public sealed class RecoveryConfigurationChangeHandler(IFailureHistoryStore stor
         {
             await store.ClearAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (FailureHistoryException)
+        catch (FailureHistoryException exception)
         {
             throw new InvalidOperationException(
-                $"Failure history could not be cleared. Run 'az config set --key {TriggerKey} --value off' again.");
+                $"Failure history could not be cleared. Run 'az config set --key {TriggerKey} --value off' again.", exception);
         }
     }
 }

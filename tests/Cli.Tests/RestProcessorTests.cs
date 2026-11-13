@@ -70,6 +70,23 @@ public class RestProcessorTests
     }
 
     [Fact]
+    public async Task ProcessAsync_RejectsMicrosoftGraphHost_BeforeSending()
+    {
+        // Agent/prompts/*.md tell the agent that rest cannot call Microsoft Graph.
+        // If Graph becomes an allowed host, update that rule in the prompts.
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK));
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.Uri = "https://graph.microsoft.com/v1.0/applications";
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Contains("not an allowed Azure Resource Manager endpoint", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
     public async Task ProcessAsync_PrefixesRelativePath_WithArmEndpoint_AndSubstitutesSubscriptionId()
     {
         Uri? sentUri = null;

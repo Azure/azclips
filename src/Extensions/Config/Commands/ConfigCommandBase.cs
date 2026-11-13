@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Abstractions.Recovery;
 using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Extensions.Config.Models;
@@ -84,7 +85,9 @@ public abstract class ConfigCommandBase : IProcessor
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                AzclipsServiceProvider.GetRequiredService<ILoggingService>().Warn(ex.Message);
+                var logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
+                logger.Warn(ex.Message);
+                FailureHistoryDiagnostics.EmitCauseChain(ex, logger);
             }
         }
     }

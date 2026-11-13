@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Tests.Recording;
 
@@ -189,6 +190,32 @@ public class RecordingSanitizerTests
         Assert.Equal(ResourceGroupName, resourceGroup.Name);
     }
 
+    [Fact]
+    public async Task Playback_KeepsContentLength_OfBodylessResponse()
+    {
+        // A HEAD response has no body, so its Content-Length is the resource's size, not a derived value.
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var request = new HttpRequestMessage(HttpMethod.Head, "https://account.file.core.windows.net/share/file.txt"))
+        using (await recorder.SendAsync(request, null!, new HeadNext(29367))) { }
+
+        var playback = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
+        using var replayRequest = new HttpRequestMessage(HttpMethod.Head, "https://account.file.core.windows.net/share/file.txt");
+        using var replayed = await playback.SendAsync(replayRequest, null!, null!);
+
+        Assert.Equal(29367, replayed.Content.Headers.ContentLength);
+    }
+
+    private sealed class HeadNext(long length) : ISendAsync
+    {
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback)
+        {
+            var content = new ByteArrayContent([]);
+            content.Headers.ContentLength = length;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        }
+    }
+
     [Theory]
     [InlineData("https://management.azure.com/subscriptions/3f2a91c4-7b6d-4e18-9a05-c1d83e77b204/rg", "/subscriptions/00000000-0000-0000-0000-000000000000/rg")]
     [InlineData("https://login.microsoftonline.com/8c41d0be-2f95-4a37-b6e1-59d7a0c42f18/oauth2", "login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2")]
@@ -297,6 +324,29 @@ public class RecordingSanitizerTests
         var trimmed = sanitizer.Sanitize(list);
 
         Assert.DoesNotContain("someoneelse", trimmed);
+        Assert.Contains("\"name\":\"mine\"", trimmed);
+        Assert.Equal(trimmed, sanitizer.Sanitize(trimmed));
+    }
+
+    [Theory]
+    [InlineData("/subscriptions/s/resourceGroups/scenario-rg")]
+    [InlineData("/subscriptions/s/resourcegroups/SCENARIO-RG/")]
+    public void ResourceGroupListSanitizer_KeepsGroupItself_WithoutKeepingNamePrefixes(string groupId)
+    {
+        string list = $$"""
+            {"value":[
+              {"id":"/subscriptions/s/resourceGroups/other-rg","name":"other-rg"},
+              {"id":"/subscriptions/s/resourceGroups/scenario-rg-other","name":"scenario-rg-other"},
+              {"id":"{{groupId}}","name":"mine"}
+            ]}
+            """;
+        var sanitizer = new ResourceGroupListSanitizer("scenario-rg");
+
+        string trimmed = sanitizer.Sanitize(list);
+
+        Assert.DoesNotContain("other-rg", trimmed);
+        Assert.DoesNotContain("scenario-rg-other", trimmed);
+        Assert.Contains(groupId, trimmed);
         Assert.Contains("\"name\":\"mine\"", trimmed);
         Assert.Equal(trimmed, sanitizer.Sanitize(trimmed));
     }

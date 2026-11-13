@@ -56,17 +56,17 @@ jobs:
         fi
 
         signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
-        if ! printf '%s\n' "$signature_details" | grep -q 'TeamIdentifier=UBF8T346G9'; then
+        if ! grep -q 'TeamIdentifier=UBF8T346G9' <<<"$signature_details"; then
           echo "ERROR: Microsoft TeamIdentifier missing: $candidate"
           printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
           failed=1
         fi
-        if ! printf '%s\n' "$signature_details" | grep -q 'flags=.*runtime'; then
+        if ! grep -q 'flags=.*runtime' <<<"$signature_details"; then
           echo "ERROR: Hardened runtime flag missing: $candidate"
           printf '%s\n' "$signature_details" | grep -E '^(CodeDirectory|Runtime Version) ' || true
           failed=1
         fi
-        if ! printf '%s\n' "$signature_details" | grep -q '^Timestamp='; then
+        if ! grep -q '^Timestamp=' <<<"$signature_details"; then
           echo "ERROR: Signing timestamp missing: $candidate"
           failed=1
         fi
@@ -84,7 +84,7 @@ jobs:
           'com.apple.security.cs.allow-jit' \
           'com.apple.security.cs.allow-unsigned-executable-memory' \
           'com.apple.security.cs.disable-library-validation'; do
-          if ! printf '%s\n' "$entitlements" | grep -q "$entitlement"; then
+          if ! grep -q "$entitlement" <<<"$entitlements"; then
             echo "ERROR: Required .NET entitlement '$entitlement' missing: $candidate"
             failed=1
           fi

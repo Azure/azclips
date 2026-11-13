@@ -1,12 +1,13 @@
 # Contributing to Azure CLI and PowerShell
 
-Thank you for your interest in Azure CLI and PowerShell. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from private preview to public release.
+Thank you for your interest in Azure CLI and PowerShell. This project is currently in preview and is being prepared for broader open source collaboration. Contribution expectations may evolve as the repository moves from public preview to GA release.
 
-During private preview, maintainers may limit pull request acceptance to scoped fixes, documentation updates, and changes aligned with preview goals.
+During public preview, maintainers may limit pull request acceptance to scoped fixes, documentation updates, and changes aligned with preview goals.
 
 ## Before You Start
 
 - Review [README.md](README.md) and [SECURITY.md](SECURITY.md).
+- Follow the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). See the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) for more information.
 - For substantial changes, open or link an issue before starting implementation so maintainers can align on scope.
 - Do not include secrets, customer data, internal-only information, or private service details in issues, pull requests, tests, logs, or documentation.
 
@@ -28,6 +29,72 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 ```
 
 Use the repository conventions in [AGENTS.md](AGENTS.md) for coding style, project layout, tests, and module boundaries.
+Specialized build, documentation, extension, and release workflows are documented under [eng-docs/howto](eng-docs/howto/).
+
+### Configuration Schema Validation
+
+A configuration value key must not also be a parent namespace of another value key.
+For example, `something.configkey` and `something.configkey.child` conflict; use
+`something.configkey.value` and `something.configkey.child` instead. Namespace-only
+parents and sibling keys are valid. Comparisons are case-insensitive and respect
+dot-separated segment boundaries.
+
+[ConfigurationSchemaLintTests](tests/Cli.Tests/Configuration/ConfigurationSchemaLintTests.cs)
+checks the complete generated schema in the existing CI unit-test suite. Failures
+identify both conflicting keys. This is a test-only check, not runtime validation;
+it does not inspect saved configuration or unknown keys written with `--force`.
+Run it locally before submitting new configuration keys:
+
+```bash
+dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter FullyQualifiedName~ConfigurationSchemaLintTests
+```
+
+### CLI Command-Tree Conventions
+
+Extension-contributed CLI paths must follow these rules:
+
+- A node is either executable or a command group, never both. For example,
+  registering both `az sample item` and `az sample item show` is invalid; put
+  the action at `az sample item show` instead. A standalone root executable
+  without descendants is valid. Comparisons are case-insensitive and use token
+  boundaries, so `sample bar` and `sample barcode` are distinct siblings.
+- No command/group segment may reuse a global argument name or alias. The
+  reserved names come from `KnownGlobalFlags.All`, with leading dashes removed
+  and internal hyphens preserved. This includes long names such as `help`,
+  `debug`, `output`, `query`, and `no-cache`, short aliases such as `h` and `o`,
+  and symbolic aliases such as `?`, at every depth including the root verb.
+  Normal global flags on invocations and intrinsic CLI help/version handling
+  are unchanged.
+
+The [CLI extension tests](tests/Cli.Tests/Extensions/CommandTreeConventionValidatorTests.cs)
+enforce these rules using a
+[test-only validator](tests/Cli.Tests/Extensions/CommandTreeConventionValidator.cs).
+The built-extension test checks the combined tree from the extension indexes in
+the test output, using both the CLI command table and `GetCommandKeys(ClientType.CLI)`,
+including keys contributed by extensions that share a verb. Metadata-only aliases
+are not routed paths; an alias exposed as a command key is validated like any other
+path. Synthetic cases verify the validator against collisions and every defined
+global name and alias. PowerShell cmdlet names are outside these CLI rules.
+
+The test project automatically references extension projects under
+`src/Extensions/*/*.csproj`, plus the Agent command project. New extensions in
+that layout do not need individual test-project references. Before linting, the
+test compares discovered indexes with assembly names declared by repository
+extension projects, excluding the command-free ExtensionRuntime infrastructure
+project. A missing extension fails the test instead of silently reducing coverage.
+
+Run locally after building:
+
+```powershell
+dotnet build azclips.slnx
+dotnet test tests\Cli.Tests\Cli.Tests.csproj --filter "FullyQualifiedName~CommandTreeConventionValidatorTests"
+```
+
+The CLI test suite runs these checks in CI. Violations fail the built-extension
+test with diagnostics identifying the command paths, extension owners, and
+reserved global names. The test also fails if no extension indexes are discovered.
+These are test-time extension rules: runtime dispatch, help validation, and docs
+export do not invoke this validator.
 
 ## Pull Requests
 
@@ -40,7 +107,7 @@ Use the repository conventions in [AGENTS.md](AGENTS.md) for coding style, proje
 
 ### Release Note Guidance
 
-Private preview releases ship weekly, and release notes are generated from pull request details during release preparation.
+Public preview releases ship every two weeks, and release notes are generated from pull request details during release preparation.
 
 - Start customer-facing PR titles with `[Component Name]`, for example `[CLI] Add resource group list output`.
 - Start non-customer-facing PR titles with `{Component Name}`, for example `{DevOps} Update release pipeline validation`.

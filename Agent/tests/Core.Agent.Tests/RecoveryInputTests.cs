@@ -10,6 +10,7 @@ using Core.Agent.AgentMode;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using GitHub.Copilot;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -21,7 +22,7 @@ public class RecoveryInputTests
     [InlineData(RecoveryTrigger.Manual)]
     public async Task Input_PreservesCompleteDiagnosticData(RecoveryTrigger trigger)
     {
-        var request = CreateRequest() with { Trigger = trigger };
+        var request = CreateRequest() with { Trigger = trigger, ModelProfileName = "command-eu-profile" };
         await using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(request));
 
         var actual = await RecoveryInput.ReadRequestAsync(stream, CancellationToken.None);
@@ -31,6 +32,7 @@ public class RecoveryInputTests
         Assert.Contains(request.FailedCommand, prompt);
         Assert.Contains(request.ErrorText, prompt);
         Assert.DoesNotContain(request.FailureId!, prompt);
+        Assert.DoesNotContain(request.ModelProfileName, prompt);
     }
 
     [Theory]
@@ -125,13 +127,12 @@ public class RecoveryInputTests
             input.DisposeLocalCopyOfClientHandle();
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try
             {
                 await JsonSerializer.SerializeAsync(input, CreateRequest(),
-                    cancellationToken: timeout.Token);
+                    cancellationToken: CancellationToken.None).WithAgentHangGuard();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync(timeout.Token);
+                await process.WaitForExitAsync().WithAgentHangGuard();
             }
             finally
             {
@@ -154,6 +155,90 @@ public class RecoveryInputTests
         }
     }
 
+    [Fact]
+    public async Task RealAgentProcess_TracesEffectiveSettingsBeforeStartupFails()
+    {
+        var root = FindRepositoryRoot();
+#if DEBUG
+        const string configuration = "Debug";
+#else
+        const string configuration = "Release";
+#endif
+        var agentDirectory = Path.Combine(root, "artifacts", configuration, "Core.Agent");
+        var agentExe = Path.Combine(agentDirectory, OperatingSystem.IsWindows() ? "azclips-agent.exe" : "azclips-agent");
+        Assert.True(File.Exists(agentExe), $"Build the Agent project first: {agentExe}");
+        var home = Path.Combine(Path.GetTempPath(), "azclips-agent-settings-" + Guid.NewGuid().ToString("N"));
+        var traceDirectory = Path.Combine(home, "trace");
+        Directory.CreateDirectory(home);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(home, "config.json"), JsonSerializer.Serialize(new
+            {
+                agent = new
+                {
+                    recovery = new { trigger = "manual", style = "interactive" },
+                    trace = new { enabled = true, path = traceDirectory },
+                },
+                telemetry = new { enabled = false },
+            }));
+            using var input = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.Inheritable);
+            var start = new ProcessStartInfo(agentExe)
+            {
+                WorkingDirectory = agentDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            start.Environment["AZCLIPS_HOME"] = home;
+            start.Environment["NO_COLOR"] = "1";
+            start.ArgumentList.Add("--agent-mode");
+            start.ArgumentList.Add(RecoveryRequest.InputPipeArgument);
+            start.ArgumentList.Add(input.GetClientHandleAsString());
+            using var process = Process.Start(start)!;
+            input.DisposeLocalCopyOfClientHandle();
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
+            try
+            {
+                await JsonSerializer.SerializeAsync(input,
+                    CreateRequest() with { Trigger = RecoveryTrigger.Manual, SessionStyle = "oneshot" },
+                    cancellationToken: CancellationToken.None).WithAgentHangGuard();
+                await input.DisposeAsync();
+                await process.WaitForExitAsync().WithAgentHangGuard();
+            }
+            finally
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                    await process.WaitForExitAsync(CancellationToken.None);
+                }
+            }
+
+            var text = await output + await error;
+            Assert.NotEqual(0, process.ExitCode);
+            var trace = Assert.Single(Directory.GetFiles(traceDirectory, "*.jsonl"));
+            var entries = File.ReadAllLines(trace).Select(line => JsonDocument.Parse(line).RootElement).ToList();
+            Assert.DoesNotContain(entries, entry => entry.GetProperty("kind").GetString() == "session_start");
+            var payload = Assert.Single(entries, entry => entry.GetProperty("kind").GetString() == "agent_settings")
+                .GetProperty("payload");
+            var options = payload.GetProperty("options");
+            var defaults = new AgentOptions();
+            Assert.Equal(defaults.Builtin.ModelId, options.GetProperty("Builtin").GetProperty("ModelId").GetString());
+            Assert.Equal(defaults.Builtin.ApiVersion, options.GetProperty("Builtin").GetProperty("ApiVersion").GetString());
+            Assert.Equal("manual", options.GetProperty("Recovery").GetProperty("Trigger").GetString());
+            Assert.Equal("interactive", options.GetProperty("Recovery").GetProperty("Style").GetString());
+            Assert.False(options.TryGetProperty("IsBuiltinProvider", out _), text);
+            var run = payload.GetProperty("run");
+            Assert.Equal((int)RecoveryTrigger.Manual, run.GetProperty("Trigger").GetInt32());
+            Assert.Equal("oneshot", run.GetProperty("SessionStyle").GetString());
+        }
+        finally
+        {
+            Directory.Delete(home, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData("oneshot", "bash")]
     [InlineData("oneshot", "powershell")]
@@ -169,7 +254,7 @@ public class RecoveryInputTests
             var state = new SessionState { IsOneShot = !settings.IsInteractive };
             var result = await PreToolUseHook.HandleAsync(
                 new PreToolUseHookInput { ToolName = tool, ToolArgs = JsonSerializer.SerializeToElement(new { command = "az vm show" }) },
-                "az", new ConsoleApprovalPrompt(), state, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2));
+                "az", new ConsoleApprovalPrompt(), state, CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("deny", result?.PermissionDecision);
         }

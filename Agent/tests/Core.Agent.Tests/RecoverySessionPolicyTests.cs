@@ -14,6 +14,7 @@ using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
 using Tests.Common.Stubs;
 using Xunit;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -47,7 +48,7 @@ public class RecoverySessionPolicyTests
     public async Task SessionConfig_UsesExistingReadOnlyAndUserApprovalPolicy(RecoveryTrigger trigger, string style)
     {
         using var http = new HttpClient();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         var approval = new ConsoleApprovalPrompt();
         var config = CreateConfig(trigger, style, approval, http, timeout.Token);
         var context = new PermissionInvocation { SessionId = "offline-policy-test" };
@@ -99,8 +100,8 @@ public class RecoverySessionPolicyTests
         options.Provider = "github";
         return ChatAgent.BuildSessionConfigAsync(
             options, auth, "offline test", new CachedResourceTools(new ArmDetailsClient(auth), profiles),
-            new HelpTools("unused-az"), new AvailableLocationsTool(auth, profiles, http),
-            new SubmitResponseTool(), new ProposePlanTool(), "unused-az", approval, new EventRenderer(),
+            new HelpTools("unused-az", new AgentTestConfiguration()), new AvailableLocationsTool(auth, profiles, http),
+            new SubmitResponseTool(), new ProposePlanTool(), "unused-az", profiles, approval, new EventRenderer(),
             new SessionState { IsOneShot = !settings.IsInteractive }, null,
             settings.IsInteractive ? "inline" : "oneshot",
             new AgentInvocationContext(session: null, new StubTelemetryService(), lifetime: null, lifetimeToken: ct),
