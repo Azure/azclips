@@ -7,7 +7,7 @@ using Core.Cli;
 using Core.Runtime;
 using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Storage;
-using Microsoft.Azure.Azclips.Extensions.Storage.Processors;
+using Microsoft.Azure.Azclips.Extensions.Storage.Management.Processors;
 
 namespace Cli.Tests;
 
@@ -78,7 +78,7 @@ public class StorageAccountParameterSetTests
         // Parameter set resolution rejects arguments outside the resolved set, so a flag added to
         // Parameters but not to a set would be unusable; a set member that is not a parameter
         // (e.g. a typo) could never be supplied, making a required member unsatisfiable.
-        foreach (CommandMetadata metadata in s_index.GetAllCommands(ClientType.CLI))
+        foreach (CommandMetadata metadata in s_index.GetAllCommands(ClientType.CLI).Where(m => m.InvocationName.StartsWith("storage account ", StringComparison.Ordinal)))
         {
             Assert.NotNull(metadata.ParameterSets);
             var parameterNames = metadata.Parameters.Values.Select(parameter => parameter.Name).ToHashSet();

@@ -1,5 +1,5 @@
 using Core.Abstractions;
-using Microsoft.Azure.Azclips.Extensions.Storage.Models;
+using Microsoft.Azure.Azclips.Extensions.Storage.Management.Models;
 using Tests.Recording;
 using Tests.Common.Recording;
 
