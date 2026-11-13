@@ -32,10 +32,14 @@ For module/version/scope options or manual/offline installation, see the [module
 
 ## Verify
 
+Start a fresh PowerShell 7.6+ session and explicitly load the preview:
+
 ```powershell
-Import-Module -Name Az
-Get-Module -Name Az.* -ListAvailable | Select-Object Name, Version
+Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
+Get-Module -Name Az | Select-Object Name, Version
 ```
+
+The loaded `Az` version should be in the `0.1.*` range. The preview installs side by side with classic Azure PowerShell. An unversioned `Import-Module Az` loads the highest installed version, which is classic Az when both are installed. Running a cmdlet before explicitly importing the preview can also autoload classic modules. To change versions, start a new session; see [Switch between classic and preview Azure PowerShell](./switch-azps-versions.md).
 
 ## Other install scenarios
 
