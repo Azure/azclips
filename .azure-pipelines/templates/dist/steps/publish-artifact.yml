@@ -1,15 +1,19 @@
 # Publishes a build artifact so that "Rerun failed jobs" does not fail with
 # "Artifact <name> already exists": artifact names are immutable within a build,
 # so a retried job cannot publish under the name its earlier attempt already used.
+# This covers publishes that also run after failures, which "Rerun failed jobs"
+# would otherwise always collide with. It does not protect success-only publishes
+# from "Rerun all jobs", which reruns jobs that already succeeded and published.
 #
 # retry_mode:
 #   suffix - Attempt 1 publishes <artifact_name>; retries publish
 #            <artifact_name>_attempt<N>, keeping every attempt's output. Use for
 #            diagnostics that nothing downloads by name.
 #   reuse  - Retries skip publishing when an earlier attempt already published
-#            <artifact_name>. Use only for artifacts that downstream jobs download by
-#            name and whose content is identical on every attempt. Supports only
-#            artifact_type 'pipeline' and requires bash on the agent.
+#            <artifact_name>, checked through the build artifacts REST API with the
+#            job's System.AccessToken. Use only for artifacts that downstream jobs
+#            download by name and whose content is identical on every attempt.
+#            Supports only artifact_type 'pipeline' and requires bash and curl.
 parameters:
 - name: display_name
   type: string
@@ -44,8 +48,10 @@ steps:
         exit 1
       fi
       url="${SYSTEM_COLLECTIONURI}${SYSTEM_TEAMPROJECTID}/_apis/build/builds/${BUILD_BUILDID}/artifacts?artifactName=${ARTIFACT_NAME}&api-version=7.1"
-      status="$(curl --silent --show-error --retry 3 --output /dev/null --write-out '%{http_code}' \
-        --header "Authorization: Bearer ${SYSTEM_ACCESSTOKEN}" "$url")"
+      # Bounded so a hung request fails this step instead of the whole job timing out.
+      status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+        --connect-timeout 10 --max-time 30 --retry 3 --retry-max-time 120 \
+        --header "Authorization: Bearer ${SYSTEM_ACCESSTOKEN}" "$url" || true)"
       case "$status" in
         200)
           echo "Artifact '$ARTIFACT_NAME' was published by an earlier attempt; reusing it."
@@ -65,6 +71,7 @@ steps:
     env:
       ARTIFACT_NAME: ${{ parameters.artifact_name }}
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+    timeoutInMinutes: 5
 
   - task: PublishPipelineArtifact@1
     displayName: ${{ parameters.display_name }}

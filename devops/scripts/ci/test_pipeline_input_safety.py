@@ -10,6 +10,87 @@ import textwrap
 import unittest
 
 
+_expression_token = re.compile(r"\s*(?:(?P<string>'(?:[^']|'')*')|(?P<name>[A-Za-z_][\w.]*)|(?P<punct>[(),\[\]]))")
+
+
+def evaluate_condition(expression, variables, job_status="Succeeded", parameters=None):
+    """Evaluates the subset of Azure Pipelines expressions used by publish templates."""
+    tokens = []
+    position = 0
+    expression = expression.strip()
+    while position < len(expression):
+        match = _expression_token.match(expression, position)
+        if not match or match.end() == position:
+            raise ValueError(f"Unsupported expression: {expression}")
+        tokens.append(match)
+        position = match.end()
+    tokens.reverse()
+
+    def expect(value):
+        token = tokens.pop()
+        if token.group("punct") != value:
+            raise ValueError(f"Expected '{value}' in: {expression}")
+
+    def parse():
+        token = tokens.pop()
+        if token.group("string") is not None:
+            return token.group("string")[1:-1].replace("''", "'")
+        name = token.group("name")
+        if name == "variables":
+            expect("[")
+            key = parse()
+            expect("]")
+            return variables.get(key, "")
+        if name.startswith("parameters."):
+            return (parameters or {})[name.split(".", 1)[1]]
+        if name in ("true", "false"):
+            return name == "true"
+        expect("(")
+        arguments = []
+        while tokens[-1].group("punct") != ")":
+            arguments.append(parse())
+            if tokens[-1].group("punct") == ",":
+                tokens.pop()
+        tokens.pop()
+        functions = {
+            "and": lambda *values: all(values),
+            "or": lambda *values: any(values),
+            "not": lambda value: not value,
+            "eq": lambda left, right: str(left).lower() == str(right).lower(),
+            "ne": lambda left, right: str(left).lower() != str(right).lower(),
+            "always": lambda: True,
+            "succeeded": lambda: job_status in ("Succeeded", "SucceededWithIssues"),
+            "succeededOrFailed": lambda: job_status != "Canceled",
+            "failed": lambda: job_status == "Failed",
+            "canceled": lambda: job_status == "Canceled",
+        }
+        return functions[name](*arguments)
+
+    result = parse()
+    if tokens:
+        raise ValueError(f"Unexpected trailing tokens in: {expression}")
+    return result
+
+
+def expand_publish_template(template, parameters):
+    """Expands publish-artifact.yml's top-level ${{ if }} blocks into the steps that would run."""
+    steps = []
+    for block in re.finditer(r"(?m)^- \$\{\{ if (?P<test>.+) \}\}:\n(?P<body>(?:  .*\n|\n)*)", template):
+        if not evaluate_condition(block.group("test"), {}, parameters=parameters):
+            continue
+        for step in re.finditer(r"(?m)^  - (?P<kind>bash|task): ?.*\n(?P<body>(?:    .*\n|\n)*)", block.group("body")):
+            body = re.sub(r"\$\{\{ parameters\.(\w+) \}\}", lambda match: parameters[match.group(1)], step.group("body"))
+            artifact = re.search(r"(?m)^      (?:artifact|ArtifactName): (.+)$", body)
+            steps.append(
+                {
+                    "kind": step.group("kind"),
+                    "condition": re.search(r"(?m)^    condition: (.+)$", body).group(1),
+                    "artifact": artifact.group(1) if artifact else None,
+                }
+            )
+    return steps
+
+
 class PipelineInputSafetyTests(unittest.TestCase):
     payloads = (
         "bad'; printf INJECTION_EXECUTED >&2; #",
@@ -338,7 +419,7 @@ class PipelineInputSafetyTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertNotIn(archive_option, arguments)
 
-    def run_existing_artifact_check(self, artifact_name, status):
+    def run_existing_artifact_check(self, artifact_name, status, curl_exit=0):
         script, environment = self.load_step(
             "templates/dist/steps/publish-artifact.yml",
             "${{ parameters.display_name }} (Check Earlier Attempt)",
@@ -349,13 +430,17 @@ class PipelineInputSafetyTests(unittest.TestCase):
             SYSTEM_TEAMPROJECTID="project",
             BUILD_BUILDID="42",
             STUB_STATUS=status,
+            STUB_EXIT=str(curl_exit),
         )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             bin_directory = root / "bin"
             bin_directory.mkdir()
             curl = bin_directory / "curl"
-            curl.write_text('#!/bin/bash\nprintf "%s\\n" "$@" > curl-args\nprintf "%s" "$STUB_STATUS"\n', encoding="utf-8")
+            curl.write_text(
+                '#!/bin/bash\nprintf "%s\\n" "$@" > curl-args\nprintf "%s" "$STUB_STATUS"\nexit "$STUB_EXIT"\n',
+                encoding="utf-8",
+            )
             curl.chmod(0o755)
             environment["PATH"] = f"{bin_directory}{os.pathsep}{os.defpath}"
             result = self.run_step(script, environment, root)
@@ -374,13 +459,18 @@ class PipelineInputSafetyTests(unittest.TestCase):
                     arguments,
                 )
                 self.assertIn("Authorization: Bearer token", arguments)
+                for option in ("--connect-timeout", "--max-time", "--retry-max-time"):
+                    self.assertIn(option, arguments.splitlines())
                 self.assert_logging_commands(
                     result.stdout, [f"##vso[task.setvariable variable=PublishArtifactAlreadyExists]{exists}"]
                 )
 
-        result, _ = self.run_existing_artifact_check(name, "500")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertNotIn("setvariable", result.stdout)
+        for status, curl_exit in (("500", 22), ("000", 28)):
+            with self.subTest(status=status, curl_exit=curl_exit):
+                result, _ = self.run_existing_artifact_check(name, status, curl_exit)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"(HTTP {status})", result.stdout)
+                self.assertNotIn("setvariable", result.stdout)
 
     def test_retry_artifact_check_rejects_unsafe_names(self):
         for payload in (*self.payloads, *self.logging_payloads, "name with spaces", "a&b=c"):
@@ -389,6 +479,62 @@ class PipelineInputSafetyTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(arguments, "")
                 self.assertNotIn("setvariable", result.stdout)
+
+    def run_publish_template(self, calls, attempt, job_status="Succeeded", statuses=None):
+        """Runs consecutive template calls the way the agent would: each expanded step's
+        condition is evaluated against shared job variables and status, and enabled
+        existence checks execute against the stubbed artifacts API."""
+        template = (self.pipeline_root / "templates/dist/steps/publish-artifact.yml").read_text(encoding="utf-8")
+        variables = {"System.JobAttempt": str(attempt)}
+        published = []
+        for parameters in calls:
+            parameters = {
+                "display_name": "Publish",
+                "condition": "succeeded()",
+                "retry_mode": "suffix",
+                "artifact_type": "pipeline",
+                "target_path": "/staging",
+                **parameters,
+            }
+            for step in expand_publish_template(template, parameters):
+                if not evaluate_condition(step["condition"], variables, job_status):
+                    continue
+                if step["kind"] == "bash":
+                    status = (statuses or {}).get(parameters["artifact_name"], "404")
+                    result, _ = self.run_existing_artifact_check(parameters["artifact_name"], status)
+                    for name, value in re.findall(r"##vso\[task\.setvariable variable=(\w+)\](\S*)", result.stdout):
+                        variables[name] = value
+                    if result.returncode != 0:
+                        job_status = "Failed"
+                else:
+                    published.append(step["artifact"].replace("$(System.JobAttempt)", str(attempt)))
+        return published
+
+    def test_suffix_mode_publishes_each_attempt_under_its_own_name(self):
+        for artifact_type in ("pipeline", "security_analysis_logs"):
+            call = {"artifact_name": "Diag", "condition": "always()", "artifact_type": artifact_type}
+            with self.subTest(artifact_type=artifact_type):
+                self.assertEqual(self.run_publish_template([call], 1, "Failed"), ["Diag"])
+                self.assertEqual(self.run_publish_template([call], 2, "Failed"), ["Diag_attempt2"])
+                self.assertEqual(self.run_publish_template([call], 3), ["Diag_attempt3"])
+                self.assertEqual(self.run_publish_template([{**call, "condition": "succeeded()"}], 2, "Failed"), [])
+
+    def test_reuse_mode_publishes_only_missing_artifacts_across_calls(self):
+        calls = [{"artifact_name": name, "retry_mode": "reuse"} for name in ("ImageA", "ImageB", "ImageC")]
+        self.assertEqual(self.run_publish_template(calls, 1, statuses={"ImageA": "500"}), ["ImageA", "ImageB", "ImageC"])
+        for existing, expected in (
+            ((), ["ImageA", "ImageB", "ImageC"]),
+            (("ImageA",), ["ImageB", "ImageC"]),
+            (("ImageA", "ImageC"), ["ImageB"]),
+            (("ImageB",), ["ImageA", "ImageC"]),
+            (("ImageA", "ImageB", "ImageC"), []),
+        ):
+            with self.subTest(existing=existing):
+                statuses = {name: "200" for name in existing}
+                self.assertEqual(self.run_publish_template(calls, 2, statuses=statuses), expected)
+
+        # A failed existence check fails the job instead of risking a collision or a skipped artifact.
+        self.assertEqual(self.run_publish_template(calls, 2, statuses={"ImageA": "200", "ImageB": "500"}), [])
 
 
 class PipelineArtifactRetryTests(unittest.TestCase):
