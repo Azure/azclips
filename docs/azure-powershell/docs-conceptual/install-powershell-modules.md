@@ -82,12 +82,18 @@ Replace `<version>` with the downloaded filename's version. The bundled helper a
 
 ## Verify
 
+After installing the roll-up, start a fresh PowerShell 7.6+ session and explicitly load the preview:
+
 ```powershell
-Import-Module Az
-Get-Module Az.* -ListAvailable | Select-Object Name, Version
+Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
+Get-Module -Name Az | Select-Object Name, Version
 ```
 
-The `Az.*` modules should be listed. Cmdlets that contact Azure require sign-in (`Connect-AzAccount`) and a subscription — being prompted to authenticate means the install itself is working.
+The loaded `Az` version should be in the `0.1.*` range. If you installed a single module instead, replace `Az` in both commands with that module's name, such as `Az.Compute`.
+
+The preview installs side by side with classic Azure PowerShell. An unversioned `Import-Module Az` loads the highest installed version, which is classic Az when both are installed. Running a cmdlet before explicitly importing the preview can also autoload classic modules. To change versions, start a new session; see [Switch between classic and preview Azure PowerShell](./switch-azps-versions.md).
+
+After importing the preview, cmdlets that contact Azure require sign-in (`Connect-AzAccount`) and a subscription.
 
 ## Troubleshooting
 
@@ -96,7 +102,7 @@ The `Az.*` modules should be listed. Cmdlets that contact Azure require sign-in 
 | Module fails to import / load error | Confirm PowerShell 7.6+ (`$PSVersionTable.PSVersion`). 7.5 and 5.1 cannot load these cmdlets. |
 | `Register-PSRepository` says the repo already exists | Run `Unregister-PSRepository -Name LocalAzclips`, then retry (the bundled script does this automatically). |
 | `Install-Module` cannot find the module | Run it from the extracted `azps-cmdlets` folder, or pass the correct `-Repository`/`SourceLocation` path. |
-| Command conflicts with an existing Az install | Open a fresh PowerShell session, or use `-AllowClobber`. |
+| Classic Az loads instead of the preview | Start a fresh PowerShell 7.6+ session and explicitly import the preview with the version constraint shown above before running any Az cmdlets. |
 | Need a machine-wide install | Use `-Scope AllUsers` from an elevated PowerShell session. |
 | Release lookup returns HTTP 403 or 429 | Check GitHub's response for an API rate limit; retry after it resets, or download the bundle manually from GitHub Releases. |
 | Bootstrap says the repository already exists | Choose a different `-RepositoryName`; the bootstrap does not replace existing repositories. |
