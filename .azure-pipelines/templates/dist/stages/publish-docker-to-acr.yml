@@ -9,22 +9,22 @@ parameters:
   type: string
 - name: cli_registry_name
   type: string
-  default: azurecli
+  default: azclips
 - name: cli_registry_server
   type: string
-  default: azurecli.azurecr.io
+  default: azclips.azurecr.io
 - name: cli_repository
   type: string
-  default: unlisted/azclips/cli-dev
+  default: public/azclips/cli
 - name: powershell_registry_name
   type: string
-  default: azureps
+  default: azclips
 - name: powershell_registry_server
   type: string
-  default: azureps.azurecr.io
+  default: azclips.azurecr.io
 - name: powershell_repository
   type: string
-  default: unlisted/azclips/powershell-dev
+  default: public/azclips/powershell
 - name: amd64_pool
   type: string
   default: pool-ubuntu-2404
