@@ -301,28 +301,33 @@ stages:
   - ValidateWindows
   - ValidateMacOS
   - ComponentGovernance
-  condition: always()
+  condition: |
+    and(
+      succeeded(),
+      eq(dependencies.Init.result, 'Succeeded'),
+      eq(dependencies.BuildCommon.result, 'Succeeded'),
+      eq(dependencies.BuildLinux.result, 'Succeeded'),
+      eq(dependencies.BuildWindows.result, 'Succeeded'),
+      eq(dependencies.BuildMacOS.result, 'Succeeded'),
+      eq(dependencies.Test.result, 'Succeeded'),
+      eq(dependencies.Benchmark.result, 'Succeeded'),
+      eq(dependencies.BuildPSModules.result, 'Succeeded'),
+      eq(dependencies.ValidatePSModules.result, 'Succeeded'),
+      eq(dependencies.ValidateLinux.result, 'Succeeded'),
+      in(dependencies.ValidatePS.result, 'Succeeded', 'SucceededWithIssues'),
+      eq(dependencies.ValidateWindows.result, 'Succeeded'),
+      eq(dependencies.ValidateMacOS.result, 'Succeeded'),
+      in(dependencies.ComponentGovernance.result, 'Succeeded', 'SucceededWithIssues'),
+      or(
+        not(${{ and(eq(parameters.build_docker_images, true), eq(parameters.include_docker_images_in_final_distribution, true), or(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true))) }}),
+        and(
+          eq(dependencies.BuildDockerAzureLinux3.result, 'Succeeded'),
+          eq(dependencies.ValidateDockerAzureLinux3.result, 'Succeeded')
+        )
+      )
+    )
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
-    BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
-    BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
-    ${{ if and(eq(parameters.build_docker_images, true), eq(parameters.include_docker_images_in_final_distribution, true), or(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true))) }}:
-      BuildDockerResult: $[ stageDependencies.BuildDockerAzureLinux3.BuildDockerImages.result ]
-      ValidateDockerResult: $[ stageDependencies.ValidateDockerAzureLinux3.DockerValidation.result ]
-    ${{ else }}:
-      BuildDockerResult: Succeeded
-      ValidateDockerResult: Succeeded
-    BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
-    BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
-    TestResult: $[ iif(eq(stageDependencies.Test.UnitTestsLinux.result, 'Succeeded'), iif(eq(stageDependencies.Test.UnitTestsWindows.result, 'Succeeded'), iif(eq(stageDependencies.Test.UnitTestsMacOS.result, 'Succeeded'), stageDependencies.Test.ScenarioTests.result, stageDependencies.Test.UnitTestsMacOS.result), stageDependencies.Test.UnitTestsWindows.result), stageDependencies.Test.UnitTestsLinux.result) ]
-    BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
-    BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
-    PSBinaryAnalysisResult: $[ stageDependencies.ValidatePSModules.PSBinaryAnalysis.result ]
-    ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
-    ValidatePSResult: $[ dependencies.ValidatePS.result ]
-    ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
-    ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
-    ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]
   jobs:
   - template: ../jobs/finalize-build-summary.yml
     parameters:
