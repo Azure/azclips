@@ -99,8 +99,9 @@ public sealed class SystemPromptFingerprintTests(ITestOutputHelper output)
         : OperatingSystem.IsMacOS() ? "macos"
         : "unknown";
 
+    // The "Git repository" line appears only for some origin remotes, so it is dropped.
     private static string Normalize(string content) =>
-        Regex.Replace(content.Replace("\r\n", "\n"),
-            @"^(\* (Current working directory|Git repository root|Git repository|Session folder|Available tools)):.*$", "$1: <dynamic>",
+        Regex.Replace(Regex.Replace(content.Replace("\r\n", "\n"), @"^\* Git repository: .*\n", "", RegexOptions.Multiline),
+            @"^(\* (Current working directory|Git repository root|Session folder|Available tools)):.*$", "$1: <dynamic>",
             RegexOptions.Multiline);
 }

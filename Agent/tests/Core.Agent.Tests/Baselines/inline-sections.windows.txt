@@ -2,7 +2,6 @@
 You are working in the following environment. You do not need to make additional tool calls to verify this.
 * Current working directory: <dynamic>
 * Git repository root: <dynamic>
-* Git repository: <dynamic>
 * Operating System: windows
 * Available tools: <dynamic>
 CRITICAL: Since you're running on Windows, always use Windows-style paths with backslashes (\) as the path separator. Do not attempt to use forward-slash-separated paths as it will not work.

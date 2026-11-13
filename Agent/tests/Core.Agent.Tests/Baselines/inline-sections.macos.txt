@@ -2,7 +2,6 @@
 You are working in the following environment. You do not need to make additional tool calls to verify this.
 * Current working directory: <dynamic>
 * Git repository root: <dynamic>
-* Git repository: <dynamic>
 * Operating System: macos
 * Available tools: <dynamic>
 === guidelines ===
