@@ -22,23 +22,10 @@ internal static class TelemetryExporters
     {
         foreach (var target in targets)
         {
-            AddTraceExporter(builder, target, uploadRegion);
+            AddTraceExporter(builder, target);
         }
 
-        builder.SetSampler(new AlwaysOnSampler());
-    }
-
-    internal static void AddTraceExporter(
-        TracerProviderBuilder builder,
-        TelemetryTarget target,
-        UploadRegion? uploadRegion = null)
-    {
-        TelemetryNetworkGuard.EnsureAllowed();
-        if (target == TelemetryTarget.Local)
-        {
-            builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());
-        }
-        else if (target == TelemetryTarget.Remote)
+        if (targets.Contains(TelemetryTarget.Remote))
         {
             // Replay groups have fixed routing metadata; live providers route each Activity.
             AriaActivityExporter exporter;
@@ -54,7 +41,18 @@ internal static class TelemetryExporters
 
             builder.AddProcessor(new SimpleActivityExportProcessor(exporter));
         }
-        else
+
+        builder.SetSampler(new AlwaysOnSampler());
+    }
+
+    internal static void AddTraceExporter(TracerProviderBuilder builder, TelemetryTarget target)
+    {
+        TelemetryNetworkGuard.EnsureAllowed();
+        if (target == TelemetryTarget.Local)
+        {
+            builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());
+        }
+        else if (target != TelemetryTarget.Remote)
         {
             throw new ArgumentOutOfRangeException(nameof(target), target, null);
         }
