@@ -92,10 +92,6 @@ Built on ripgrep, not standard grep. Key notes:
 * Use multiline: true for cross-line patterns
 * Choose the appropriate output_mode when applicable ("count", "content", "files_with_matches"). Defaults to "files_with_matches" for efficiency.
 </rg>
-<gh_cli_preference>
-For GitHub operations (issues, pull requests, repositories, workflow runs, etc.), prefer the `gh` CLI via bash over MCP tools.
-</gh_cli_preference>
-
 <code_search_tools>
 If code intelligence tools are available (semantic search, symbol lookup, call graphs, class hierarchies, summaries), prefer them over rg/glob when searching for code symbols, relationships, or concepts.
 
