@@ -16,6 +16,11 @@ replays them and runs the secret scan over the rewritten files. The run fails if
 still fails after a re-record, if a failing test class has no recording to refresh, or if the
 scan finds anything; the pull request is never opened over scan findings.
 
+If a runner error interrupts re-recording, the script still scans partial recording changes
+and writes a summary identifying the incomplete refresh, while keeping the error fatal.
+The workflow commits and pushes only after a completed, clean scan and written summary.
+Missing or failed scans prevent publishing, including when the refresh step fails.
+
 ## Runner
 
 The workflow needs a self-hosted runner labeled `live-recorder` on a VM with a system-assigned

@@ -113,22 +113,33 @@ def main():
         return 1
 
     still_failing = []
-    for name in stale:
-        if run_tests(repo_root, results_dir, name, record=True) or run_tests(repo_root, results_dir, name):
-            still_failing.append(name)
-
-    changed = changed_recordings(repo_root)
-    scan_clean = scan(repo_root, changed) if changed else True
-
-    refreshed = [name for name in stale if name not in still_failing]
-    write_summary(repo_root, [
-        "Recording refresh:",
-        *[f"- refreshed: {name}" for name in refreshed],
-        *[f"- still failing after re-record: {name}" for name in still_failing],
-        *[f"- failed without a recording, needs a human: {name}" for name in unrefreshable],
-        f"- rewritten files: {len(changed)}",
-        f"- secret scan: {'clean' if scan_clean else 'FINDINGS, do not merge'}",
-    ])
+    refreshed = []
+    refresh_completed = False
+    try:
+        for name in stale:
+            if run_tests(repo_root, results_dir, name, record=True) or run_tests(repo_root, results_dir, name):
+                still_failing.append(name)
+            else:
+                refreshed.append(name)
+        refresh_completed = True
+    finally:
+        changed = changed_recordings(repo_root)
+        scan_clean = scan(repo_root, changed) if changed else True
+        write_summary(repo_root, [
+            "Recording refresh:",
+            *[f"- refreshed: {name}" for name in refreshed],
+            *[f"- still failing after re-record: {name}" for name in still_failing],
+            *[f"- failed without a recording, needs a human: {name}" for name in unrefreshable],
+            *([] if refresh_completed else [
+                "- refresh interrupted; some rewritten recordings may not have been replay-verified",
+            ]),
+            f"- rewritten files: {len(changed)}",
+            f"- secret scan: {'clean' if scan_clean else 'FINDINGS, do not merge'}",
+        ])
+        github_output = os.environ.get("GITHUB_OUTPUT")
+        if github_output:
+            with open(github_output, "a", encoding="utf-8") as handle:
+                handle.write(f"scan_clean={str(scan_clean).lower()}\n")
 
     return 1 if still_failing or unrefreshable or not scan_clean else 0
 

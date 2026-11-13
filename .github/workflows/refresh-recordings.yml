@@ -34,10 +34,11 @@ jobs:
           ./artifacts/Debug/Core.Cli/az login --identity --subscription-id "${{ vars.LIVE_TEST_SUBSCRIPTION_ID }}"
 
       - name: Refresh stale recordings
+        id: refresh
         run: python3 devops/scripts/live/refresh_recordings.py --filter "${{ inputs.filter }}"
 
       - name: Open a pull request
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.refresh.outputs.scan_clean == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.LIVE_REFRESH_TOKEN || github.token }}
         run: |
