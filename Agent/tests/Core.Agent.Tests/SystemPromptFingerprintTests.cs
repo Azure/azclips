@@ -29,7 +29,7 @@ public sealed class SystemPromptFingerprintTests(ITestOutputHelper output)
     {
         var baseline = Path.Combine(TestDirectory(), "Baselines",
             $"{(style == "oneshot" ? "oneshot" : "inline")}-sections.{CurrentPlatform()}.txt");
-        if (!File.Exists(baseline))
+        if (!File.Exists(baseline) && Environment.GetEnvironmentVariable("FP_WRITE") != "1")
         {
             output.WriteLine($"SKIPPED: no baseline for this platform at {baseline}.");
             return;
@@ -87,6 +87,7 @@ public sealed class SystemPromptFingerprintTests(ITestOutputHelper output)
         var text = new StringBuilder();
         foreach (var section in kept.Select(s => s.Value).Order())
             text.Append("=== ").Append(section).Append(" ===\n").Append(Normalize(captured[section])).Append('\n');
+        if (Environment.GetEnvironmentVariable("FP_WRITE") == "1") { File.WriteAllText(baseline, text.ToString()); return; }
         Assert.Equal(File.ReadAllText(baseline).Replace("\r\n", "\n"), text.ToString());
     }
 
