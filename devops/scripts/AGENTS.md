@@ -87,6 +87,39 @@ runtime directories.
 Run the regression tests with Python and PowerShell 7 available:
 `python -m unittest discover -s devops/scripts/compliance -p test_verify_binskim_results.py -v`.
 
+PowerShell validation's `run_ps_validation_phase.ps1` dispatches the Install and
+Uninstall module phases. Install imports every packaged module with
+`-RequiredVersion` and fails when the loaded version differs, the exported cmdlets
+differ from manifest `CmdletsToExport`, or a cmdlet lacks a `Get-Help` example.
+Both the shared non-Windows bootstrap and the Windows bootstrap pass the source
+root's `NuGet.config` explicitly to `dotnet tool install`; PowerShell restores must
+use the approved CFS feed regardless of the working directory.
+The lifecycle fixtures resolve symbolic-link ancestors of the OS temporary
+directory before creating scratch files, including macOS's `/var` alias.
+Artifact capture still rejects symbolic links and reparse points.
+`invoke_ps_validation_step.ps1`
+publishes successful bootstrap/installation prerequisites so later phases
+can continue after failures without clearing their recorded outcomes.
+The shared `module_definitions.ps1` reader normalizes known bare source names and
+manifest-path dependencies to package identities for lifecycle validation;
+already-prefixed and unknown names are preserved.
+Remove owned intermediate dotfiles with `-Force`; PowerShell treats them as hidden
+on Unix even when the current user created them.
+The matrix generator reads `packaging/powershell/ps_validation_matrix.json`
+directly with jq; no Python environment or YAML parser is needed. PowerShell
+consumers can use the built-in `ConvertFrom-Json`. Keep versions as JSON strings
+and flags as booleans.
+The matrix generator accepts `latest` only for native Windows OS versions, not
+for container, PowerShell or .NET versions. Keep hosted-agent aliases out of
+numeric version comparisons. Matrix self-tests remain available locally;
+Azure DevOps retains generation and module validation without that self-test step.
+The repository matrix pins Windows 2022 and 2025; standalone fixtures cover
+`windows-latest` alias support without adding that moving image to production.
+The generator preserves `DistributionPool` and also emits routing fields:
+`DistributionPoolName` is the configured `pool-*` name with an empty
+`DistributionVmImage`, or `Azure Pipelines` with the hosted image label.
+Apply this routing after global and per-distribution overrides.
+
 ## Path Resolution Convention (Bash)
 
 
