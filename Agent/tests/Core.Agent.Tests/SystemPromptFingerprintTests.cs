@@ -7,18 +7,17 @@ using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Core.Agent.Providers;
 using GitHub.Copilot;
+using Core.Agent.Tests.SnapshotTesting;
 using Tests.Common.Stubs;
-using Xunit.Abstractions;
 
 namespace Core.Agent.Tests;
 
 /// <summary>
-/// Compares the text of the SDK sections we keep against the committed baselines in
-/// <c>Baselines/</c>, so a Copilot runtime upgrade that rewrites them fails here.
-/// Baselines are per platform; when the current platform has none, the test passes after
-/// writing a skip message, because xunit 2 has no runtime skip.
+/// Compares the text of the SDK sections we keep against the snapshots in <c>Snapshots/</c>,
+/// so a Copilot runtime upgrade that rewrites them fails here. The inline snapshot is per
+/// platform because the runtime renders shell instructions per OS; the oneshot one is shared.
 /// </summary>
-public sealed class SystemPromptFingerprintTests(ITestOutputHelper output)
+public sealed class SystemPromptFingerprintTests
 {
     // LocalOnly: starts the bundled Copilot runtime, which CI does not run.
     [Trait("Category", "LocalOnly")]
@@ -27,14 +26,6 @@ public sealed class SystemPromptFingerprintTests(ITestOutputHelper output)
     [InlineData("interactive")]
     public async Task KeptSdkSections_MatchBaseline(string style)
     {
-        var baseline = Path.Combine(TestDirectory(), "Baselines",
-            $"{(style == "oneshot" ? "oneshot" : "inline")}-sections.{CurrentPlatform()}.txt");
-        if (!File.Exists(baseline))
-        {
-            output.WriteLine($"SKIPPED: no baseline for this platform at {baseline}.");
-            return;
-        }
-
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var options = new AgentOptions { Provider = "github", Recovery = new() { Style = style } };
         var built = await SessionConfigTests.BuildAsync(options, new StubAuthService());
@@ -67,13 +58,13 @@ public sealed class SystemPromptFingerprintTests(ITestOutputHelper output)
         });
         // Same config directory and tools as ChatAgent, with the builtin provider: the section
         // text depends on the model and on GitHub sign-in, so the signed-in defaults must not apply.
-        // The system message is rendered before the first request, so the token is never used.
+        // The provider points at an unreachable local port, so no model request leaves the machine.
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = built.ConfigDirectory,
             Model = options.Builtin.ModelId,
-            Provider = BuiltinProviderConfig.Build(options.Builtin, BuiltinEndpointResolver.Choose(boundary: null).Url, "capture-only"),
+            Provider = BuiltinProviderConfig.Build(options.Builtin, "http://127.0.0.1:9", "capture-only"),
             Tools = built.Tools,
             AvailableTools = built.AvailableTools,
             SystemMessage = new SystemMessageConfig { Mode = SystemMessageMode.Customize, Sections = sections },
@@ -87,11 +78,10 @@ public sealed class SystemPromptFingerprintTests(ITestOutputHelper output)
         var text = new StringBuilder();
         foreach (var section in kept.Select(s => s.Value).Order())
             text.Append("=== ").Append(section).Append(" ===\n").Append(Normalize(captured[section])).Append('\n');
-        Assert.Equal(File.ReadAllText(baseline).Replace("\r\n", "\n"), text.ToString());
+        SnapshotAssert.Matches(
+            style == "oneshot" ? "prompt-sections-oneshot" : $"prompt-sections-inline.{CurrentPlatform()}",
+            text.ToString());
     }
-
-    private static string TestDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
-        Path.GetDirectoryName(path)!;
 
     private static string CurrentPlatform() =>
         OperatingSystem.IsWindows() ? "windows"
