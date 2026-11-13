@@ -227,6 +227,130 @@ Write-Host "Imported signed archive module: $ModuleName $ExpectedVersion"
     )
 
     Assert-NumericVersionInference -InstallerPath $installerPath -FixtureRoot $fixtureRoot
+
+    $bootstrapPath = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../../install/azps-install.ps1'))
+    $bootstrapValidationScript = Join-Path $testRoot 'ValidatePublicBootstrap.ps1'
+    @'
+param($BootstrapPath, $ArchivePath, $ModuleName, $ExpectedVersion)
+$ErrorActionPreference = 'Stop'
+Import-Module PowerShellGet -ErrorAction Stop
+$fixture = @{ Scenario = 'valid'; Stage = $null; Installed = $null }
+
+function Invoke-RestMethod {
+    [CmdletBinding()]
+    param([string]$Uri)
+    if ($Uri -ne 'https://api.github.com/repos/Azure/azclips/releases/latest') { throw "Unexpected metadata URL: $Uri" }
+    if ($fixture.Scenario -eq 'metadata-failure') { throw 'Fixture HTTP 403 rate limit' }
+    $asset = @{ name = (Split-Path -Leaf $ArchivePath); browser_download_url = 'https://example.invalid/pipeline-archive' }
+    $assets = @($asset)
+    if ($fixture.Scenario -eq 'missing') { $assets = @() }
+    if ($fixture.Scenario -eq 'duplicate') { $assets = @($asset, $asset) }
+    if ($fixture.Scenario -eq 'invalid-url') { $asset.browser_download_url = 'http://example.invalid/pipeline-archive' }
+    $tag = if ($fixture.Scenario -eq 'malformed') { '' } else { 'v-fixture.timestamp' }
+    @{ tag_name = $tag; assets = $assets }
+}
+function Invoke-WebRequest {
+    [CmdletBinding()]
+    param([string]$Uri, [string]$OutFile)
+    if ($Uri -ne 'https://example.invalid/pipeline-archive') { throw "Wrong asset selected: $Uri" }
+    $fixture.Stage = Split-Path $OutFile
+    if ($fixture.Scenario -eq 'download-failure') { throw 'Fixture HTTP 503 download failure' }
+    Copy-Item -LiteralPath $ArchivePath -Destination $OutFile
+}
+function Install-Module {
+    [CmdletBinding()]
+    param($Name, $RequiredVersion, $Repository, $Scope, [switch]$Force, [switch]$AllowClobber)
+    $fixture.Installed = @{ Name = $Name; Version = $RequiredVersion; Repository = $Repository; Scope = $Scope }
+    if ($fixture.Scenario -eq 'install-failure') { throw 'Fixture installation failed' }
+    PowerShellGet\Install-Module @PSBoundParameters
+}
+function Assert-Cleanup {
+    if ($fixture.Stage -and (Test-Path -LiteralPath $fixture.Stage)) { throw 'Bootstrap left temporary files.' }
+    if ($fixture.Installed -and (Get-PSRepository -Name $fixture.Installed.Repository -ErrorAction SilentlyContinue)) {
+        throw 'Bootstrap left its temporary repository.'
+    }
+}
+
+$repositoryName = "BootstrapFixture$PID"
+& $BootstrapPath -ModuleName $ModuleName -RequiredVersion $ExpectedVersion -Scope CurrentUser -RepositoryName $repositoryName
+if ($fixture.Installed.Name -ne $ModuleName -or $fixture.Installed.Version -ne $ExpectedVersion -or
+    $fixture.Installed.Repository -ne $repositoryName -or $fixture.Installed.Scope -ne 'CurrentUser') {
+    throw 'Bootstrap did not forward module/version/repository/scope options.'
+}
+Assert-Cleanup
+Import-Module -Name $ModuleName -RequiredVersion $ExpectedVersion -ErrorAction Stop
+
+$beforePath = $env:PATH
+$ErrorActionPreference = 'Continue'
+Get-Content -Raw $BootstrapPath | Invoke-Expression
+if ($ErrorActionPreference -ne 'Continue' -or $env:PATH -ne $beforePath -or
+    (Get-Variable options -Scope Local -ErrorAction SilentlyContinue)) {
+    throw 'Piped bootstrap leaked state into the caller.'
+}
+$ErrorActionPreference = 'Stop'
+if ($fixture.Installed.Name -ne 'Az' -or $fixture.Installed.Scope -ne 'CurrentUser') {
+    throw 'Piped bootstrap did not install the default Az rollup.'
+}
+Assert-Cleanup
+Import-Module Az -ErrorAction Stop
+
+foreach ($scenario in 'missing', 'duplicate', 'malformed', 'invalid-url', 'metadata-failure', 'download-failure', 'install-failure') {
+    $fixture.Scenario = $scenario
+    $fixture.Stage = $null
+    $fixture.Installed = $null
+    $expected = switch ($scenario) {
+        'missing' { 'Expected exactly one' }
+        'duplicate' { 'Expected exactly one' }
+        'malformed' { 'valid tag_name' }
+        'invalid-url' { 'HTTPS download URL' }
+        'metadata-failure' { 'Fixture HTTP 403' }
+        'download-failure' { 'Fixture HTTP 503' }
+        'install-failure' { 'Fixture installation failed' }
+    }
+    try {
+        if ($scenario -eq 'install-failure') {
+            # The proxy throws before writing to AllUsers; only forwarding is tested.
+            & $BootstrapPath -ModuleName $ModuleName -Scope AllUsers
+        }
+        else {
+            Get-Content -Raw $BootstrapPath | Invoke-Expression
+        }
+        throw "FAIL: $scenario unexpectedly succeeded."
+    }
+    catch {
+        if ($_.Exception.Message -notlike "*$expected*") { throw }
+    }
+    Assert-Cleanup
+    if ($scenario -eq 'install-failure' -and $fixture.Installed.Scope -ne 'AllUsers') {
+        throw 'Bootstrap did not forward the non-default scope.'
+    }
+}
+
+Register-PSRepository -Name $repositoryName -SourceLocation (Split-Path $ArchivePath) -InstallationPolicy Trusted
+try {
+    try {
+        & $BootstrapPath -RepositoryName $repositoryName
+        throw 'FAIL: Bootstrap replaced an existing repository.'
+    }
+    catch {
+        if ($_.Exception.Message -notlike '*already exists*') { throw }
+    }
+    if (-not (Get-PSRepository -Name $repositoryName -ErrorAction SilentlyContinue)) {
+        throw 'Bootstrap removed an existing repository.'
+    }
+}
+finally {
+    Unregister-PSRepository -Name $repositoryName
+}
+Write-Host 'Validated public PowerShell bootstrap: pipeline archive installation/import, options, piped scope, and failure cleanup.'
+'@ | Set-Content -Path $bootstrapValidationScript
+    Invoke-IsolatedPowerShell -PwshPath $PwshPath -HomeRoot $homeRoot -ModuleRoot $moduleRoot -Arguments @(
+        '-NoLogo', '-NoProfile', '-File', $bootstrapValidationScript,
+        '-BootstrapPath', $bootstrapPath,
+        '-ArchivePath', $resolvedArchivePath,
+        '-ModuleName', $candidate.Name,
+        '-ExpectedVersion', $candidate.Version.ToString()
+    )
     Write-Host "Validated signed PowerShell installer lifecycle: $($candidate.Name) $($candidate.Version) from $resolvedArchivePath"
 }
 finally

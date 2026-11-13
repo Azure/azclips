@@ -10,7 +10,7 @@ rg_name=$(printf '%s' "$rg_json" | sed -n 's/.*"name": *"\([^"]*\)".*/\1/p' | he
 vm_json=$("$az" vm create --subscription-id "$sub" --resource-group "$rg_name" --name scenario-vm --location westus2 \
   --size Standard_D2s_v3 --admin-username azadmin --admin-password 'PlaceholderP@ss1' \
   --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
-  --network-interface-name scenario-vm-nic --virtual-network-name scenario-vm-vnet \
+  --virtual-network-name scenario-vm-vnet \
   --subnet-names default --subnet-address-prefixes 10.0.0.0/24 --address-prefixes 10.0.0.0/16 --output json)
 
 printf '%s' "$vm_json" | grep -q '"provisioningState": "Succeeded"'

@@ -74,9 +74,6 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     public string[]? SshKeyValues { get; set; }
 
-    [Parameter(Mandatory = true, ParameterSetName = NewNetworkInterfaceParameterSet)]
-    public string NetworkInterfaceName { get; set; } = "";
-
     [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string VirtualNetworkName { get; set; } = "";
 
@@ -147,7 +144,6 @@ public class NewVMCmdlet : PSCmdlet
         {
             parameters.Add("SshKeyValues", SshKeyValues.Select(ResolveSshKeyValue).ToList());
         }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))           { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))             { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetName)))                     { parameters.Add("SubnetName", SubnetName!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceId)))             { parameters.Add("NetworkInterfaceIds", NetworkInterfaceId!.ToList()); }

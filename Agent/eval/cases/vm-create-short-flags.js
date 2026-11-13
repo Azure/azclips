@@ -29,7 +29,6 @@ module.exports = {
               '--size',
               '--admin-username',
               '--admin-password',
-              '--network-interface-name',
               '--virtual-network-name',
             ],
             forbiddenArguments: ['-n', '-g'],

@@ -7,6 +7,7 @@
 # Usage:
 #   ./azcli-uninstall.sh [--force]
 #
+main() {
 set -euo pipefail
 
 # INSTALL_ROOT is the fixed default; the AZCLI_INSTALL_ROOT env override is internal.
@@ -16,7 +17,11 @@ FORCE=0
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 usage() {
-  sed -n '3,8p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'HELP'
+azcli uninstaller (Linux / macOS / WSL)
+Usage: azcli-uninstall.sh [--force]
+Removes the installation folder. --force allows removing an unrecognized folder.
+HELP
   exit 0
 }
 
@@ -49,3 +54,6 @@ fi
 
 echo
 echo "Done."
+}
+
+main "$@"

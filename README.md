@@ -11,7 +11,7 @@
 
 ## What is Azure CLI & Azure PowerShell?
 
-This new generation of command line tools provide a lightweight, efficient and intelligent set of commands to manage Azure resources.
+This new generation of command line tools provides a lightweight, efficient and intelligent set of commands to manage Azure resources.
 Depending on preferences, scripting environment or other requirements, you can use the native command or its PowerShell equivalent to obtain identical outcomes.
 
 The architecture used for these commands allows execution in secure, constrained environments and provides faster execution or a smaller disk footprint.

@@ -11,7 +11,6 @@ namespace Core.Agent.Tests;
 [Collection("AgentTelemetry")]
 public class AgentLayerAsyncWriterTests
 {
-    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
 
     [Theory]
     [InlineData(0, true)]
@@ -20,8 +19,11 @@ public class AgentLayerAsyncWriterTests
     [InlineData(0, false)]
     [InlineData(1, false)]
     [InlineData(130, false)]
-    public async Task RunSessionAsync_ChildDisposeCannotBlockAdmissionToBoundedCompletion(
-        int expectedExit, bool expireBudget)
+    public Task RunSessionAsync_ChildDisposeCannotBlockAdmissionToBoundedCompletion(
+        int expectedExit, bool expireBudget) =>
+        AgentLayerTestHarness.WithCapturedConsoleAsync(() => ChildDisposeCannotBlockAdmissionAsync(expectedExit, expireBudget));
+
+    private static async Task ChildDisposeCannotBlockAdmissionAsync(int expectedExit, bool expireBudget)
     {
         var directory = Path.Combine(AppContext.BaseDirectory, "TestArtifacts",
             "AgentLayerAsyncWriter", Guid.NewGuid().ToString("N"));
@@ -59,18 +61,18 @@ public class AgentLayerAsyncWriterTests
 
         try
         {
-            await blockedDirectory.Entered.Task.WaitAsync(TestTimeout);
+            await blockedDirectory.Entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             try
             {
-                await businessReturned.Task.WaitAsync(TestTimeout);
+                await businessReturned.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             }
             catch (TimeoutException)
             {
                 Assert.Fail($"Child.Dispose prevented the actual Agent host from entering completion; state={scope.State}.");
             }
             await clock.WaitForTimerAsync(
-                dueTime => dueTime > TimeSpan.Zero && dueTime <= LayerTelemetryScope.FileCompletionBudget, TestTimeout);
-            await WaitForFileFenceAsync(scope).WaitAsync(TestTimeout);
+                dueTime => dueTime > TimeSpan.Zero && dueTime <= LayerTelemetryScope.FileCompletionBudget, AgentTestTimeouts.HangGuard);
+            await WaitForFileFenceAsync(scope).WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Equal(TelemetryLayerState.Fenced, scope.State);
             Assert.False(scope.FileSession.HasRecords);
             Assert.True(scope.TelemetryProvider.ActivitySource.HasListeners());
@@ -82,7 +84,7 @@ public class AgentLayerAsyncWriterTests
                 blockedDirectory.Release();
             }
 
-            Assert.Equal(expectedExit, await host.WaitAsync(TestTimeout));
+            Assert.Equal(expectedExit, await host.WaitAsync(AgentTestTimeouts.HangGuard));
             Assert.Equal(1, disposedServices);
             // Query only after the real host returned; this does not start completion from a side caller.
             Assert.Equal(expireBudget ? TelemetryLayerCompletion.NotPublished : TelemetryLayerCompletion.Published,
@@ -102,8 +104,8 @@ public class AgentLayerAsyncWriterTests
             blockedDirectory.Release();
             try
             {
-                await host.WaitAsync(TestTimeout);
-                await WaitForProviderReleaseAsync(scope).WaitAsync(TestTimeout);
+                await host.WaitAsync(AgentTestTimeouts.HangGuard);
+                await WaitForProviderReleaseAsync(scope).WaitAsync(AgentTestTimeouts.HangGuard);
                 await AgentLayerTestHarness.ReleaseAsync(scope);
                 publishedAfterRelease = scope.FileSession.Published || File.Exists(scope.FileSession.PublishedPath);
             }
@@ -136,7 +138,7 @@ public class AgentLayerAsyncWriterTests
         public string GetTraceDirectory()
         {
             Entered.TrySetResult();
-            if (!_released.Wait(TestTimeout))
+            if (!_released.Wait(AgentTestTimeouts.HangGuard))
                 throw new TimeoutException("The controlled directory seam was not released.");
             return path;
         }

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Tests.Recording;
 
@@ -187,6 +188,32 @@ public class RecordingSanitizerTests
 
         var resourceGroup = Assert.IsType<ResourceGroup>(Assert.Single(outputs));
         Assert.Equal(ResourceGroupName, resourceGroup.Name);
+    }
+
+    [Fact]
+    public async Task Playback_KeepsContentLength_OfBodylessResponse()
+    {
+        // A HEAD response has no body, so its Content-Length is the resource's size, not a derived value.
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using (var request = new HttpRequestMessage(HttpMethod.Head, "https://account.file.core.windows.net/share/file.txt"))
+        using (await recorder.SendAsync(request, null!, new HeadNext(29367))) { }
+
+        var playback = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
+        using var replayRequest = new HttpRequestMessage(HttpMethod.Head, "https://account.file.core.windows.net/share/file.txt");
+        using var replayed = await playback.SendAsync(replayRequest, null!, null!);
+
+        Assert.Equal(29367, replayed.Content.Headers.ContentLength);
+    }
+
+    private sealed class HeadNext(long length) : ISendAsync
+    {
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback)
+        {
+            var content = new ByteArrayContent([]);
+            content.Headers.ContentLength = length;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        }
     }
 
     [Theory]

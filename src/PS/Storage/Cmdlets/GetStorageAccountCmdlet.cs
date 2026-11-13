@@ -9,7 +9,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Common;
 namespace Microsoft.Azure.Azclips.Cmdlets.Storage;
 
 [Cmdlet(VerbsCommon.Get, "AzStorageAccount", DefaultParameterSetName = ResourceGroupParameterSet)]
-[OutputType("Microsoft.Azure.Azclips.Extensions.Storage.Models.StorageAccount")]
+[OutputType("Microsoft.Azure.Azclips.Extensions.Storage.Management.Models.StorageAccount")]
 public class GetStorageAccountCmdlet : PSCmdlet
 {
     // The parameter set decides which API operation runs, so the names are part of the contract:

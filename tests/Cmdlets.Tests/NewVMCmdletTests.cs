@@ -38,7 +38,6 @@ public class NewVMCmdletTests
     {
         foreach (string propertyName in new[]
         {
-            nameof(NewVMCmdlet.NetworkInterfaceName),
             nameof(NewVMCmdlet.VirtualNetworkName),
             nameof(NewVMCmdlet.SubnetName),
             nameof(NewVMCmdlet.SubnetNames),
@@ -176,8 +175,8 @@ public class NewVMCmdletTests
         Assert.Equal("FutureOption", Assert.IsType<string>(bound[nameof(NewVMCmdlet.OSDiskDeleteOption)]));
     }
 
-    private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass -NetworkInterfaceName nic";
-    private const string BaseInvocationWithoutAuthentication = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -NetworkInterfaceName nic";
+    private const string BaseInvocation = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user -AdminPassword pass";
+    private const string BaseInvocationWithoutAuthentication = "Target -Name vm -Location eastus -ResourceGroupName rg -VmSize size -AdminUsername user";
 
     private static CommandInvocation InvokeAndCapture(params (string Name, object? Value)[] additionalParameters)
     {
@@ -219,8 +218,7 @@ public class NewVMCmdletTests
                 .AddParameter("Location", "eastus")
                 .AddParameter("ResourceGroupName", "rg")
                 .AddParameter("VmSize", "Standard_D2s_v3")
-                .AddParameter("AdminUsername", "azadmin")
-                .AddParameter("NetworkInterfaceName", "nic");
+                .AddParameter("AdminUsername", "azadmin");
             foreach (var (name, value) in additionalParameters.Where(parameter => parameter.Name != "RunspaceLocation"))
             {
                 shell.AddParameter(name, value);

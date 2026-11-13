@@ -106,35 +106,76 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
                     : "Specify a virtual network name when selecting a subnet by name.");
         }
 
-        if (SubnetName is not null)
+        bool vnetExists = false;
+        using (HttpResponseMessage existingVnetResponse = await GetAllowingNotFoundAsync(
+            NetworkResourceUri(SubscriptionId, ResourceGroupName, "virtualNetworks", VirtualNetworkName)))
         {
-            using HttpResponseMessage existingVnetResponse = await GetAllowingNotFoundAsync(
-                NetworkResourceUri(SubscriptionId, ResourceGroupName, "virtualNetworks", VirtualNetworkName));
             if (existingVnetResponse.StatusCode != HttpStatusCode.NotFound)
             {
+                vnetExists = true;
                 VirtualNetwork existingVnet =
                     (await existingVnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
-                Subnet? existingSubnet = existingVnet.Properties.Subnets.FirstOrDefault(
-                    subnet => subnet.Name.Equals(SubnetName, StringComparison.OrdinalIgnoreCase));
-                if (existingSubnet is null)
+                if (SubnetName is not null)
                 {
-                    throw AzclipsErrorException.UsageError(
-                        $"Subnet '{SubnetName}' was not found in virtual network '{VirtualNetworkName}'.");
+                    Subnet? existingSubnet = existingVnet.Properties.Subnets.FirstOrDefault(
+                        subnet => subnet.Name.Equals(SubnetName, StringComparison.OrdinalIgnoreCase));
+                    if (existingSubnet is null)
+                    {
+                        throw AzclipsErrorException.UsageError(
+                            $"Subnet '{SubnetName}' was not found in virtual network '{VirtualNetworkName}'.");
+                    }
+                    return [existingSubnet.Id];
                 }
-                return [existingSubnet.Id];
+
+                // No explicit network settings: reuse the existing VNet instead of overwriting it.
+                if (SubnetNames.Count == 0 && AddressPrefixes.Count == 0 && SubnetAddressPrefixes.Count == 0)
+                {
+                    Subnet? reusedSubnet = existingVnet.Properties.Subnets.FirstOrDefault(
+                        subnet => subnet.Name.Equals("default", StringComparison.OrdinalIgnoreCase))
+                        ?? existingVnet.Properties.Subnets.FirstOrDefault();
+                    if (reusedSubnet is null)
+                    {
+                        throw AzclipsErrorException.UsageError(
+                            $"Virtual network '{VirtualNetworkName}' has no subnets. Specify a subnet name.");
+                    }
+                    return [reusedSubnet.Id];
+                }
             }
         }
 
         List<string> subnetNames = SubnetName is null ? SubnetNames : [SubnetName];
-        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
+        List<string> addressPrefixes = AddressPrefixes;
+        List<List<string>> subnetAddressPrefixes = [.. SubnetAddressPrefixes];
+
+        // Defaults only apply when creating a new VNet, matching legacy `az vm create`.
+        if (!vnetExists)
+        {
+            if (subnetNames.Count == 0)
+            {
+                subnetNames = ["default"];
+            }
+
+            if (AddressPrefixes.Count == 0)
+            {
+                addressPrefixes = ["10.0.0.0/16"];
+                if (subnetAddressPrefixes.Count == 0)
+                {
+                    subnetAddressPrefixes.Add(["10.0.0.0/24"]);
+                }
+                else if (subnetAddressPrefixes[0].Count == 0)
+                {
+                    subnetAddressPrefixes[0] = ["10.0.0.0/24"];
+                }
+            }
+        }        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
             p.SubscriptionId = SubscriptionId;
             p.Name = VirtualNetworkName;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
             p.SubnetNames = subnetNames;
-            p.SubnetAddressPrefixes = SubnetAddressPrefixes;
-            p.AddressPrefixes = AddressPrefixes;
+            p.SubnetAddressPrefixes = subnetAddressPrefixes;
+            p.AddressPrefixes = addressPrefixes;
             p.Tags = Tags;
         });
         using HttpResponseMessage vnetResponse = await vnetProcessor.SendAsync();

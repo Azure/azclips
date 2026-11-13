@@ -67,7 +67,6 @@ try
         -VmSize Standard_D2s_v3 `
         -AdminUsername Artemis `
         -AdminPassword $env:AZCLIPS_VM_ADMIN_PASSWORD `
-        -NetworkInterfaceName "azclips-vmstop-nic-$suffix" `
         -VirtualNetworkName "azclips-vmstop-vnet-$suffix" `
         -AddressPrefixes "10.0.0.0/16" `
         -SubnetNames "azclips-vmstop-subnet-$suffix" `
