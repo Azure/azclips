@@ -114,11 +114,12 @@ public sealed class FlatteningTests
 
         var ir = new TransformedIR
         {
-            SchemaVersion = "0.12.0",
+            SchemaVersion = "0.17.0",
             Sources = [new IRSource { Id = Module, Server = ServerId() }],
             Servers = [new IRServerDefinition { Id = ServerId(), Endpoint = new IRServerLiteral { Url = "https://example.com" } }],
             Models = [thing, thingProperties, Model("Sku", Prim("Sku", "Name", optional: false))],
             Operations = [],
+            Commands = [],
             Target = Targets.For("Contoso.Clients"),
         };
 

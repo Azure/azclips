@@ -37,6 +37,8 @@
  */
 
 import { z } from "zod";
+import { IRLiteralValueSchema, type IRLiteralValue } from "./literal.js";
+import { IRTypeRefSchema, type IRTypeRef } from "./type-ref.js";
 
 // ─── Shared base ────────────────────────────────────────────────────────
 
@@ -66,10 +68,55 @@ const clientDialectFields = {
 
 // ─── PowerShell ─────────────────────────────────────────────────────────
 
+/** PowerShell `ConfirmImpact` level. */
+export const ConfirmImpacts = ["None", "Low", "Medium", "High"] as const;
+export type ConfirmImpact = (typeof ConfirmImpacts)[number];
+
+/** Deprecation announcement emitted for a PowerShell command or parameter. */
+export type PSDeprecated = {
+  message: string;
+};
+
+export const PSDeprecatedSchema: z.ZodType<PSDeprecated> = z
+  .object({ message: z.string().min(1) })
+  .strict();
+
+/** Preview announcement emitted for a PowerShell command or parameter. */
+export type PSPreview = {
+  message: string;
+  estimatedGaDate?: string | undefined;
+};
+
+export const PSPreviewSchema: z.ZodType<PSPreview> = z
+  .object({
+    message: z.string().min(1),
+    estimatedGaDate: z.string().min(1).optional(),
+  })
+  .strict();
+
+/** PowerShell metadata shared by every command emitted into one module. */
+export type PsModuleDialect = {
+  name: string;
+  description?: string | undefined;
+  /** Module-owned noun prefix, for example `Az`. */
+  prefix?: string | undefined;
+  /** Service/subject prefix appended after `prefix`, for example `ApplicationInsights`. */
+  subjectPrefix?: string | undefined;
+};
+
+export const PsModuleDialectSchema: z.ZodType<PsModuleDialect> = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().optional(),
+    prefix: z.string().min(1).optional(),
+    subjectPrefix: z.string().min(1).optional(),
+  })
+  .strict();
+
 /**
  * A command as a PowerShell cmdlet.
  *
- * `verb` and `noun` are the cmdlet's identity, so sibling commands (same
+ * `verb` and `subject` are the cmdlet's identity, so sibling commands (same
  * `id.subject` and `id.action`, different `id.variant`) normally share them and fold
  * into one cmdlet — each sibling contributing the parameter sets its own parameters
  * declare.
@@ -77,8 +124,8 @@ const clientDialectFields = {
 export type PsCommandDialect = IRClientDialect & {
   /** Approved PowerShell verb (`Get`, `New`, `Set`, `Remove`, …). */
   verb: string;
-  /** Cmdlet noun, prefix included (`AzElasticSan`). */
-  noun: string;
+  /** Cmdlet subject, prefix included (`AzElasticSan`). */
+  subject: string;
   /**
    * Set chosen when an invocation does not identify one. A family-level fact, so
    * sibling commands folded into one cmdlet must agree on it — nothing in this
@@ -95,15 +142,34 @@ export type PsCommandDialect = IRClientDialect & {
   defaultParameterSet?: string | undefined;
   /** Emit `SupportsShouldProcess` (`-WhatIf` / `-Confirm`). */
   supportsShouldProcess?: boolean | undefined;
+  confirmImpact?: ConfirmImpact | undefined;
+  examples?: string[] | undefined;
+  deprecated?: PSDeprecated | undefined;
+  preview?: PSPreview | undefined;
+  helpUri?: string | undefined;
+  /** PowerShell output types when the cmdlet writes more than the canonical primary output. */
+  outputTypes?: IRTypeRef[] | undefined;
+  /** Runtime API-version metadata when the cmdlet must surface a dynamic version. */
+  httpPath?: { path: string; apiVersion: string } | undefined;
 };
 
 export const PsCommandDialectSchema: z.ZodType<PsCommandDialect> = z
   .object({
     ...clientDialectFields,
     verb: z.string().min(1),
-    noun: z.string().min(1),
+    subject: z.string().min(1),
     defaultParameterSet: z.string().min(1).optional(),
     supportsShouldProcess: z.boolean().optional(),
+    confirmImpact: z.enum(ConfirmImpacts).optional(),
+    examples: z.array(z.string().min(1)).optional(),
+    deprecated: PSDeprecatedSchema.optional(),
+    preview: PSPreviewSchema.optional(),
+    helpUri: z.string().url().optional(),
+    outputTypes: z.array(IRTypeRefSchema).min(1).optional(),
+    httpPath: z
+      .object({ path: z.string().min(1), apiVersion: z.string().min(1) })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -149,32 +215,74 @@ export type PsParameterDialect = IRClientDialect & {
    * that only renames a parameter need not restate its membership.
    */
   parameterSets?: PsParameterSetMembership[] | undefined;
+  /** Fixed completion values offered for this parameter. */
+  completer?: IRLiteralValue[] | undefined;
+  /** PowerShell-specific default value. */
+  defaultValue?: IRLiteralValue | undefined;
+  /** Closed set of valid string values, projected from a closed enum. */
+  validateSet?: string[] | undefined;
+  deprecated?: PSDeprecated | undefined;
+  preview?: PSPreview | undefined;
 };
 
 export const PsParameterDialectSchema: z.ZodType<PsParameterDialect> = z
   .object({
     ...clientDialectFields,
     parameterSets: z.array(PsParameterSetMembershipSchema).min(1).optional(),
+    completer: z.array(IRLiteralValueSchema).min(1).optional(),
+    defaultValue: IRLiteralValueSchema.optional(),
+    validateSet: z.array(z.string().min(1)).min(1).optional(),
+    deprecated: PSDeprecatedSchema.optional(),
+    preview: PSPreviewSchema.optional(),
   })
   .strict()
   .superRefine((dialect, ctx) => {
+    const completer = dialect.completer;
+    if (completer !== undefined) {
+      const values = new Set<string>();
+      completer.forEach((value, index) => {
+        const key = JSON.stringify(value);
+        if (values.has(key)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Completer value ${key} is declared more than once.`,
+            path: ["completer", index],
+          });
+        }
+        values.add(key);
+      });
+    }
+
+    const validateSet = dialect.validateSet;
+    if (validateSet !== undefined) {
+      const values = new Set<string>();
+      validateSet.forEach((value, index) => {
+        if (values.has(value)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `ValidateSet value '${value}' is declared more than once.`,
+            path: ["validateSet", index],
+          });
+        }
+        values.add(value);
+      });
+    }
+
     const memberships = dialect.parameterSets;
     if (memberships === undefined) return;
 
     const named = new Set<string>();
+    let hasFallback = false;
     memberships.forEach((membership, index) => {
       if (membership.set === undefined) {
-        // An unnamed membership already covers every set, so pairing it with a
-        // named one says two different things about the same set.
-        if (memberships.length > 1) {
+        if (hasFallback) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message:
-              "A parameter-set membership with no `set` covers every set, so it cannot " +
-              "appear alongside named memberships.",
+            message: "A parameter can declare at most one unnamed fallback membership.",
             path: ["parameterSets", index],
           });
         }
+        hasFallback = true;
         return;
       }
       if (named.has(membership.set)) {

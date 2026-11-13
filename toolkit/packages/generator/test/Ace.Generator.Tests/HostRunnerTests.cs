@@ -23,6 +23,7 @@ public sealed class HostRunnerTests
         [
             new IRModel { Name = "Widget", Source = "Test", Id = new IRId { Module = "Test", Name = "Widget" } },
         ],
+        Commands = [],
     };
 
     /// <summary>Serialize a request, run the host, and split stdout into frames.</summary>

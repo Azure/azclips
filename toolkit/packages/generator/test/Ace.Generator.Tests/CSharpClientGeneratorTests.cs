@@ -49,7 +49,7 @@ public sealed class CSharpClientGeneratorTests
         string[] names = [.. operations ?? []];
         return new TransformedIR
         {
-            SchemaVersion = "0.12.0",
+            SchemaVersion = "0.13.0",
             Servers =
             [
                 new IRServerDefinition

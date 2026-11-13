@@ -19,6 +19,7 @@
  */
 
 import { z } from "zod";
+import { PsModuleDialectSchema, type PsModuleDialect } from "./dialect.js";
 
 export type IRTarget = {
   /**
@@ -43,6 +44,8 @@ export type IRTarget = {
   serviceName?: string | undefined;
   /** Description of the generated extension. */
   description?: string | undefined;
+  /** Client-specific metadata that applies to the generated project as a whole. */
+  dialect?: { ps?: PsModuleDialect | undefined } | undefined;
 };
 
 export const IRTargetSchema: z.ZodType<IRTarget> = z
@@ -51,5 +54,11 @@ export const IRTargetSchema: z.ZodType<IRTarget> = z
     projectName: z.string().min(1),
     serviceName: z.string().min(1).optional(),
     description: z.string().optional(),
+    dialect: z
+      .object({
+        ps: PsModuleDialectSchema.optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();

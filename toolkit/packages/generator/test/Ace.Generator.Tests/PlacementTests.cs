@@ -21,7 +21,7 @@ public sealed class PlacementTests
     {
         var document = new TransformedIR
         {
-            SchemaVersion = "0.12.0",
+            SchemaVersion = "0.13.0",
             Models =
             [
                 new IRModel
@@ -33,6 +33,7 @@ public sealed class PlacementTests
                 },
             ],
             Operations = [],
+            Commands = [],
         };
         if (target is not null)
         {

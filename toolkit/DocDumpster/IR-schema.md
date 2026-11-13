@@ -249,12 +249,11 @@ in Zod.
 packages/ir/src/*.ts  ──emit-json-schema.mjs──▶  ir.schema.json  ──AceIrModelGen──▶  Ir.Generated.cs
 ```
 
-`ir.schema.json` is a **build artifact, not committed**. The C# POCOs are generated,
-never hand-edited. See `toolkit/README.md` for the commands.
-
-The emit script roots the JSON Schema at `TransformedIRSchema`, with `IR`'s types as
-shared definitions, because the generator only ever reads a transformed document.
-`IR` remains the TypeScript-side contract for the emitter and the early transforms.
+`ir.schema.json` is a **build artifact, not committed**. It is rooted at
+`TransformedIRSchema` because the generator consumes the transformed document;
+`IR` remains the TypeScript-side contract for the emitter and early transforms.
+The C# POCOs are generated from that schema, never hand-edited. See
+`toolkit/README.md` for the commands.
 
 ## Versioning
 
@@ -267,7 +266,7 @@ change. Producers stamp; consumers verify. Recent history:
 | 0.16.0 | `IREnum.valueType` carries the precise primitive kind (`string` or an integer or float kind) instead of collapsing every numeric enum to `number` |
 | 0.15.0 | `IRTarget` loses `directories` (the generator's own folders) and `version` (decided at release, not generation) |
 | 0.14.0 | optional `target` on `IR`; `IRTarget` gains optional `serviceName`, `version`, `description` |
-| 0.13.0 | `IRPropertyRef` (`property` + `via`) replaces id `path`s in flattening, body sources, and command pagination (`items`/`nextLink`) |
+| 0.13.0 | `IRPropertyRef` (`property` + `via`) replaces id `path`s in flattening, body sources, and command pagination (`items`/`nextLink`); PowerShell command and parameter dialect metadata |
 | 0.12.0 | flattening — `ModelHints.flattened`, `RequestBodyHints.parameters` |
 | 0.11.0 | `IRVisibility` moved to `primitives.ts` |
 | 0.9.0 | multipart metadata |

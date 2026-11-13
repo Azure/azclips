@@ -19,7 +19,8 @@ public sealed class ProjectStubTests
         await new CSharpClientGenerator().GenerateAsync(
             new TransformedIR
             {
-                SchemaVersion = "0.7.0",
+                SchemaVersion = "0.17.0",
+                Commands = [],
                 Models = [],
                 Operations = [],
                 Target = Targets.For(RootNamespace),

@@ -326,10 +326,10 @@ IRCommandDialect          = { ps?: PsCommandDialect,   cli?: CliCommandDialect }
 IRCommandParameterDialect = { ps?: PsParameterDialect, cli?: CliParameterDialect }
 ```
 
-**Dialects live on commands and their parameters, and nowhere else.** Models are
+**Surface dialects live on commands, their parameters, and the target.** Models are
 client-neutral: they are output shapes that serialize themselves. Hints on models and
-properties shape the emitted **C# type**; dialects shape the **client surface**. That
-bounds growth at `clients × {command, parameter}` rather than `clients × node kinds`.
+properties shape the emitted **C# type**; dialects shape the **client surface** and
+module output. That bounds growth to client-owned presentation metadata.
 
 Each client's type spreads `clientDialectFields` — the **intersection**
 (`name`, `aliases`, `hidden`, `description`), never the union. A field enters the
@@ -343,11 +343,12 @@ better C# POCOs than an open map.
 `dialect` is **absent** until a client transform runs. `create-command` writes none:
 it knows nothing about clients.
 
-> These are skeletons. `PsCommandDialect` carries `verb`, `noun`,
-> `defaultParameterSet`, `supportsShouldProcess`; `PsParameterDialect` carries
-> `parameterSets[]` of `PsParameterSetMembership` (per-set `mandatory`, `position`,
-> pipeline flags), mirroring one `[Parameter(...)]` attribute each. `CliCommandDialect`
-> carries `path[]`; `CliParameterDialect` carries `flag`, `shorthand`, `group`.
+`PsCommandDialect` carries naming, help, structured deprecation/preview lifecycle,
+additional output, HTTP-path, and parameter-family metadata. `PsParameterDialect`
+carries `parameterSets[]`, literal completion values, one literal default value,
+closed-enum `validateSet[]`, and structured deprecation/preview lifecycle.
+`CliCommandDialect` carries `path[]`;
+`CliParameterDialect` carries `flag`, `shorthand`, `group`.
 
 ## Target
 
@@ -357,6 +358,7 @@ IRTarget = {
   projectName:   string
   serviceName?:  string    // identity facts: temporary home, see below
   description?:  string
+  dialect?:      { ps?: PsModuleDialect }
 }
 ```
 
@@ -368,7 +370,8 @@ IR where a captured document can show them. Where files land inside the project
 
 Document-level rather than per-command because models, the processor base, and the
 project file all need placement. Anything that genuinely varies per command stays on
-the command.
+the command. PowerShell module naming (`name`, `description`, `prefix`, and
+`subjectPrefix`) therefore lives in `IRTarget.dialect.ps`.
 
 **Optional on `IR`, required here.** A field is required on `IR` only if the emitter
 produces it, and the emitter cannot produce a target. A transform writes it:
@@ -390,7 +393,6 @@ Per command (`IRCommandSchema.superRefine`):
 - parameter names are unique within the command;
 - every path/query/header hole resolves to a declared parameter — otherwise the
   generator would emit uncompilable code;
-- `dialect.ps.defaultParameterSet` names a set some parameter declares;
 - `surface.paginated` implies some step carries `pagination`.
 
 Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server rules:
@@ -398,7 +400,9 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - every `command.server` resolves into `IR.servers`;
 - every `steps[].operation` resolves into `IR.operations`;
 - `name` is unique document-wide (it is the generated C# type stem);
-- `commandKey(id)` is unique.
+- `commandKey(id)` is unique;
+- PowerShell sibling commands agree on one default parameter set, and that default
+  is covered by a visible parameter's named or all-set membership.
 
 ## Consuming it
 

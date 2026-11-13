@@ -18,7 +18,8 @@ public sealed class ProcessorBaseTests
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             new TransformedIR
             {
-                SchemaVersion = "0.7.0",
+                SchemaVersion = "0.17.0",
+                Commands = [],
                 Models = [],
                 Operations = [],
                 Target = Targets.For("Azure.ElasticSan"),
@@ -36,11 +37,12 @@ public sealed class ProcessorBaseTests
         GenerationResult result = await new CSharpClientGenerator().GenerateAsync(
             new TransformedIR
             {
-                SchemaVersion = "0.12.0",
+                SchemaVersion = "0.17.0",
                 Sources = [new IRSource { Id = "M", Server = server }],
                 Servers = [new IRServerDefinition { Id = server, Endpoint = endpoint }],
                 Models = [],
                 Operations = [],
+                Commands = [],
                 Target = Targets.For("Azure.ElasticSan"),
             },
             config: null,

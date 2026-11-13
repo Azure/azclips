@@ -158,7 +158,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
         {
             if (parameter.Source is not IRCommandParameterSourceBody && !inherited.Contains(parameter.Name))
             {
-                members.Add(ParameterProperty(parameter, context.Index));
+                members.AddRange(ParameterMembers(parameter, context.Index));
             }
         }
 
@@ -240,7 +240,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     /// transform marked <c>internal</c> (a protocol header the transport owns) leaves the public
     /// surface, which is what keeps it out of argument binding and help.
     /// </remarks>
-    private static PropertyDeclarationSyntax ParameterProperty(IRCommandParameter parameter, IrIndex index)
+    private static IEnumerable<MemberDeclarationSyntax> ParameterMembers(
+        IRCommandParameter parameter,
+        IrIndex index)
     {
         string type = ParameterType(parameter, index);
 
@@ -262,7 +264,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         }
 
-        return decl.WithLeadingXmlDoc(parameter.Docs ?? parameter.Summary, EnumValueDocs.For(parameter.Type, index));
+        yield return decl.WithLeadingXmlDoc(
+            parameter.Docs ?? parameter.Summary,
+            EnumValueDocs.For(parameter.Type, index));
     }
 
     /// <summary>A parameter's C# type: its own, made nullable when the command does not require it.</summary>

@@ -49,6 +49,112 @@ public sealed class IrModelDeserializationTests
     }
 
     [Fact]
+    public void PowerShellDialects_RoundTripAttributeMetadata()
+    {
+        PsCommandDialect command = Parse<PsCommandDialect>(
+            """
+            {
+              "verb": "Remove",
+              "subject": "AzWidget",
+              "defaultParameterSet": "ByName",
+              "supportsShouldProcess": true,
+              "confirmImpact": "High",
+              "examples": ["Remove-AzWidget -Name example"],
+              "deprecated": { "message": "Use Remove-AzWidgetV2 instead." },
+              "preview": {
+                "message": "This command is in preview.",
+                "estimatedGaDate": "2027-01-01"
+              },
+              "helpUri": "https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget",
+              "outputTypes": [
+                { "kind": "model", "id": { "module": "Widgets", "namespace": [], "name": "Widget" } }
+              ],
+              "httpPath": { "path": "/widgets/{name}", "apiVersion": "2025-01-01" }
+            }
+            """);
+
+        PsCommandDialect commandRoundTrip = Parse<PsCommandDialect>(
+            JsonSerializer.Serialize(command, IrJson.Options));
+
+        Assert.Equal("AzWidget", commandRoundTrip.Subject);
+        Assert.Equal(PsCommandDialectConfirmImpact.High, commandRoundTrip.ConfirmImpact);
+        Assert.Equal("Use Remove-AzWidgetV2 instead.", commandRoundTrip.Deprecated!.Message);
+        Assert.Equal("This command is in preview.", commandRoundTrip.Preview!.Message);
+        Assert.Equal("2027-01-01", commandRoundTrip.Preview.EstimatedGaDate);
+        Assert.Equal("ByName", commandRoundTrip.DefaultParameterSet);
+        Assert.Equal("Remove-AzWidget -Name example", Assert.Single(commandRoundTrip.Examples!));
+        Assert.Equal("https://learn.microsoft.com/powershell/module/az.widgets/remove-azwidget", commandRoundTrip.HelpUri);
+        Assert.IsType<IRTypeRefModel>(Assert.Single(commandRoundTrip.OutputTypes!));
+        Assert.Equal("/widgets/{name}", commandRoundTrip.HttpPath!.Path);
+        Assert.Equal("2025-01-01", commandRoundTrip.HttpPath.ApiVersion);
+
+        PsParameterDialect parameter = Parse<PsParameterDialect>(
+            """
+            {
+              "name": "ResourceGroupName",
+              "aliases": ["ResourceGroup"],
+              "parameterSets": [
+                { "set": "ByName", "mandatory": true, "position": 0, "valueFromPipeline": true },
+                { "set": "ById", "mandatory": false, "valueFromPipelineByPropertyName": true }
+              ],
+              "completer": [
+                { "kind": "string", "value": "eastus" },
+                { "kind": "string", "value": "westus" }
+              ],
+              "defaultValue": { "kind": "string", "value": "eastus" },
+              "validateSet": ["eastus", "westus"],
+              "deprecated": { "message": "Use Location instead." },
+              "preview": { "message": "This parameter is in preview." }
+            }
+            """);
+
+        PsParameterDialect parameterRoundTrip = Parse<PsParameterDialect>(
+            JsonSerializer.Serialize(parameter, IrJson.Options));
+
+        Assert.Equal("ResourceGroup", Assert.Single(parameterRoundTrip.Aliases!));
+        Assert.Equal(2, parameterRoundTrip.ParameterSets!.Count);
+        Assert.True(parameterRoundTrip.ParameterSets[0].ValueFromPipeline);
+        Assert.True(parameterRoundTrip.ParameterSets[1].ValueFromPipelineByPropertyName);
+        Assert.Equal(2, parameterRoundTrip.Completer!.Count);
+        Assert.Equal("eastus", Assert.IsType<IRLiteralValueString>(parameterRoundTrip.DefaultValue).Value);
+        Assert.Equal(new[] { "eastus", "westus" }, parameterRoundTrip.ValidateSet);
+        Assert.Equal("Use Location instead.", parameterRoundTrip.Deprecated!.Message);
+        Assert.Equal("This parameter is in preview.", parameterRoundTrip.Preview!.Message);
+    }
+
+    [Fact]
+    public void PowerShellModuleDialect_RoundTripsOnTarget()
+    {
+        IRTarget target = Parse<IRTarget>(
+            """
+            {
+              "rootNamespace": ["Microsoft", "Azure", "Widgets"],
+              "projectName": "Widgets",
+              "serviceName": "Widgets",
+              "description": "Widgets extension",
+              "dialect": {
+                "ps": {
+                  "name": "Widgets",
+                  "description": "Manages widgets.",
+                  "prefix": "Az",
+                  "subjectPrefix": "Widget"
+                }
+              }
+            }
+            """);
+
+        IRTarget roundTripped = Parse<IRTarget>(JsonSerializer.Serialize(target, IrJson.Options));
+
+        IRTargetDialectPs module = roundTripped.Dialect!.Ps!;
+        Assert.Equal("Widgets", roundTripped.ServiceName);
+        Assert.Equal("Widgets extension", roundTripped.Description);
+        Assert.Equal("Widgets", module.Name);
+        Assert.Equal("Manages widgets.", module.Description);
+        Assert.Equal("Az", module.Prefix);
+        Assert.Equal("Widget", module.SubjectPrefix);
+    }
+
+    [Fact]
     public void IRId_AbsentInterface_IsNotInferredFromNamespace()
     {
         IRId id = Parse<IRId>(
