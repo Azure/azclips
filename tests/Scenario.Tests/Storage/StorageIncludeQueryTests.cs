@@ -8,10 +8,19 @@ public class StorageIncludeQueryTests
 {
     public static IEnumerable<object?[]> IncludeCases()
     {
-        foreach (string service in new[] { "blob", "share", "file" })
+        foreach (string service in new[]
         {
-            string first = service == "file" ? "Timestamps" : "metadata";
-            string second = service == "file" ? "Etag" : "snapshots";
+            "blob", "share", "file", "containers", "hierarchy", "flat-arrow", "hierarchy-arrow",
+            "tags-container", "tags-service",
+        })
+        {
+            (string first, string second) = service switch
+            {
+                "file" => ("Timestamps", "Etag"),
+                "containers" => ("metadata", "deleted"),
+                "tags-container" or "tags-service" => ("none", "versions"),
+                _ => ("metadata", "snapshots"),
+            };
             yield return [service, null, null];
             yield return [service, Array.Empty<string>(), null];
             yield return [service, new[] { first }, first];
@@ -28,6 +37,12 @@ public class StorageIncludeQueryTests
             "blob" => new BlobListProbe { Url = "https://fixture.invalid/container", Include = include }.RequestUri(),
             "share" => new ShareListProbe { Url = "https://fixture.invalid", Include = include }.RequestUri(),
             "file" => new FileListProbe { Url = "https://fixture.invalid/share", Include = include }.RequestUri(),
+            "containers" => new BlobContainerListProbe { Url = "https://fixture.invalid", Include = include }.RequestUri(),
+            "hierarchy" => new BlobHierarchyListProbe { Url = "https://fixture.invalid/container", Include = include }.RequestUri(),
+            "flat-arrow" => new BlobFlatArrowListProbe { Url = "https://fixture.invalid/container", Include = include }.RequestUri(),
+            "hierarchy-arrow" => new BlobHierarchyArrowListProbe { Url = "https://fixture.invalid/container", Include = include }.RequestUri(),
+            "tags-container" => new BlobContainerTagsProbe { Url = "https://fixture.invalid/container", Include = include }.RequestUri(),
+            "tags-service" => new BlobServiceTagsProbe { Url = "https://fixture.invalid", Include = include }.RequestUri(),
             _ => throw new ArgumentOutOfRangeException(nameof(service), service, null),
         };
         string[] query = new Uri(uri).Query.TrimStart('?').Split('&');
@@ -40,7 +55,7 @@ public class StorageIncludeQueryTests
         {
             Assert.Equal($"include={expected}", Assert.Single(query, pair => pair.StartsWith("include=", StringComparison.Ordinal)));
         }
-        Assert.Contains("comp=list", query);
+        Assert.Contains(service.StartsWith("tags-", StringComparison.Ordinal) ? "comp=blobs" : "comp=list", query);
     }
 
     [Theory]
@@ -69,6 +84,36 @@ public class StorageIncludeQueryTests
     }
 
     private sealed class FileListProbe : FileService.ListFilesAndDirectoriesSegmentDirectoryProcessor
+    {
+        public string RequestUri() => CreateRequestUri();
+    }
+
+    private sealed class BlobContainerListProbe : Blob.ListContainersServiceProcessor
+    {
+        public string RequestUri() => CreateRequestUri();
+    }
+
+    private sealed class BlobHierarchyListProbe : Blob.ListBlobHierarchySegmentContainerProcessor
+    {
+        public string RequestUri() => CreateRequestUri();
+    }
+
+    private sealed class BlobFlatArrowListProbe : Blob.ListBlobFlatSegmentApacheArrowContainerProcessor
+    {
+        public string RequestUri() => CreateRequestUri();
+    }
+
+    private sealed class BlobHierarchyArrowListProbe : Blob.ListBlobHierarchySegmentApacheArrowContainerProcessor
+    {
+        public string RequestUri() => CreateRequestUri();
+    }
+
+    private sealed class BlobContainerTagsProbe : Blob.FindBlobsByTagsContainerProcessor
+    {
+        public string RequestUri() => CreateRequestUri();
+    }
+
+    private sealed class BlobServiceTagsProbe : Blob.FindBlobsByTagsServiceProcessor
     {
         public string RequestUri() => CreateRequestUri();
     }

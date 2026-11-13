@@ -34,7 +34,7 @@ public partial class FindBlobsByTagsContainerProcessor : ProcessorBase<object, F
     internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}?restype=container&comp=blobs".WithQuery("timeout", Timeout).WithQuery("where", FilterExpression).WithQuery("marker", Marker).WithQuery("maxresults", Maxresults).WithQuery("include", Include);
+    protected override string CreateRequestUri() => $"{Endpoint}?restype=container&comp=blobs".WithQuery("timeout", Timeout).WithQuery("where", FilterExpression).WithQuery("marker", Marker).WithQuery("maxresults", Maxresults).WithQuery("include", Include, ",");
     protected override void CreateRequestHeaders(HttpRequestMessage request)
     {
         request.Headers.TryAddWithoutValidation("x-ms-version", "2027-03-07");
