@@ -21,6 +21,7 @@ namespace Core.Engine
     /// <para><b>Output Routing:</b> Each invocation gets its own Channel for worker-to-caller
     /// communication. The worker thread writes to the channel, and the caller's thread reads
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
+    /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
     public partial class Engine(
         ClientMetadata clientMetadata,
