@@ -71,6 +71,45 @@ public class DataBoundaryResolverTests
     }
 
     [Theory]
+    [InlineData("none")]
+    [InlineData("default")]
+    [InlineData("verbose")]
+    public async Task ResolveAsync_InvalidToken_ReportsOnlyToVerbose(string logging)
+    {
+        using var home = new TestHome(logging == "none" ? null : new ScopedLoggingService());
+        using var error = new StringWriter();
+        var originalError = Console.Error;
+        DataBoundaryResolution result;
+        try
+        {
+            Console.SetError(error);
+            using var scope = logging == "verbose"
+                ? ScopedLoggingService.UseScope(new ConsoleLoggingService())
+                : null;
+            result = await home.Resolver.ResolveAsync("tenant-1",
+                _ => Task.FromResult<string?>("non-matching-recording-token"),
+                (_, _) => throw new InvalidOperationException("Boundary must not be requested."),
+                TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+
+        Assert.Equal(DataBoundaryOutcome.AuthenticationUnavailable, result.Outcome);
+        Assert.Null(result.Boundary);
+        if (logging == "verbose")
+        {
+            Assert.Contains("VERBOSE: [DataBoundaryResolver] AuthenticationUnavailable: Missing or non-matching token.", error.ToString());
+            Assert.DoesNotContain("DEBUG:", error.ToString());
+        }
+        else
+        {
+            Assert.Empty(error.ToString());
+        }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ResolveAsync_TokenFailureOrTimeout_IsAuthenticationUnavailable(bool timeout)
@@ -318,7 +357,7 @@ public class DataBoundaryResolverTests
 
     private sealed class TestHome : IDisposable
     {
-        public TestHome()
+        public TestHome(ILoggingService? loggingService = null)
         {
             Path = System.IO.Path.Combine(
                 System.IO.Path.GetTempPath(),
@@ -326,7 +365,8 @@ public class DataBoundaryResolverTests
             Directory.CreateDirectory(Path);
             var persistence = new FilePersistenceStore(Path);
             Cache = new DataBoundaryCache(persistence);
-            Resolver = new DataBoundaryResolver(persistence, new ProfileService(new NullLoggingService(), persistence));
+            Resolver = new DataBoundaryResolver(
+                persistence, new ProfileService(new NullLoggingService(), persistence), loggingService);
         }
 
         public string Path { get; }

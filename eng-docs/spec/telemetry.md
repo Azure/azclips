@@ -411,6 +411,8 @@ using the original ROW/ROW/EU defaults; unclassified unknown records retain EU r
 Exporters never read active-profile files to fill in missing routing metadata.
 Failure diagnostics contain classifications, not tokens or response bodies. Caller cancellation
 propagates rather than selecting a fallback.
+Resolver fallback diagnostics use the verbose logging stream without a raw Console fallback,
+so default recording output does not contain boundary lookup warnings.
 Standalone routing reads the existing cache without an extra authentication call.
 Without a tenant it selects the tenant-unavailable default; a known tenant without a
 confirmed cached boundary uses the boundary-unavailable default because authentication

@@ -105,10 +105,7 @@ public static class TelemetryRoutingResolver
             try
             {
                 var profileLabel = string.IsNullOrWhiteSpace(profileNameOverride) ? "active" : profileNameOverride;
-                if (loggingService is not null)
-                    loggingService.Debug($"[{nameof(TelemetryRoutingResolver)}] Failed to resolve telemetry routing for profile '{profileLabel}': {ex.Message}");
-                else
-                    Console.Error.WriteLine($"[{nameof(TelemetryRoutingResolver)}] Profile resolution failed: {ex.GetType().Name}.");
+                loggingService?.Verbose($"[{nameof(TelemetryRoutingResolver)}] Failed to resolve telemetry routing for profile '{profileLabel}': {ex.Message}");
             }
             catch
             {

@@ -9,7 +9,10 @@ namespace Core.Telemetry;
 /// <summary>
 /// Resolves confirmed tenant boundaries or unavailable lookup outcomes, using the cache first.
 /// </summary>
-public sealed class DataBoundaryResolver(IPersistenceStore persistence, IProfileService profileService)
+public sealed class DataBoundaryResolver(
+    IPersistenceStore persistence,
+    IProfileService profileService,
+    ILoggingService? loggingService = null)
 {
     private readonly DataBoundaryCache _cache = new(persistence);
 
@@ -121,8 +124,8 @@ public sealed class DataBoundaryResolver(IPersistenceStore persistence, IProfile
         }
     }
 
-    private static void ReportFailure(DataBoundaryOutcome outcome, string reason) =>
-        Console.Error.WriteLine($"[{nameof(DataBoundaryResolver)}] {outcome}: {reason}.");
+    private void ReportFailure(DataBoundaryOutcome outcome, string reason) =>
+        loggingService?.Verbose($"[{nameof(DataBoundaryResolver)}] {outcome}: {reason}.");
 
     internal async Task<(string? TenantId, UploadRegion UploadRegion)> ResolveCachedUploadRegionAsync()
     {
@@ -133,7 +136,7 @@ public sealed class DataBoundaryResolver(IPersistenceStore persistence, IProfile
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[{nameof(DataBoundaryResolver)}] Profile read failed: {ex.GetType().Name}.");
+            loggingService?.Verbose($"[{nameof(DataBoundaryResolver)}] Profile read failed: {ex.GetType().Name}.");
             tenant = null;
         }
         var boundary = string.IsNullOrWhiteSpace(tenant) ? null : await _cache.GetAsync(tenant).ConfigureAwait(false);
