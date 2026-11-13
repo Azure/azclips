@@ -79,10 +79,14 @@ public sealed class CliTelemetryProviderTests : IDisposable
             var endpoint = (IPEndPoint)listener.LocalEndpoint;
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
 
-            var acceptTask = listener.AcceptTcpClientAsync();
+            var acceptTask = listener.AcceptSocketAsync();
             var requestTask = client.GetAsync($"http://127.0.0.1:{endpoint.Port}/private/path");
             using var connection = await acceptTask;
             listener.Stop();
+            // Cut the connection instantly rather than closing it politely. A polite close can make
+            // HttpClient retry the request, and on Windows that retry takes about 2 seconds to fail,
+            // which is enough for slow machines to hit the timeout.
+            connection.LingerState = new LingerOption(true, 0);
             connection.Close();
 
             await Assert.ThrowsAsync<HttpRequestException>(() => requestTask);
