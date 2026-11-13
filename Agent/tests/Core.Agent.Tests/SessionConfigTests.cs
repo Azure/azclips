@@ -192,17 +192,38 @@ public class SessionConfigTests
             HomePaths.GetDefaultHomeRoot(), HomePaths.AgentDirectoryName, HomePaths.AgentCopilotDirectoryName);
         Assert.Equal(expectedCopilot, config.ConfigDirectory);
         Assert.True(config.Streaming);
-        Assert.Null(config.AvailableTools);
+        Assert.Equal(
+            new[]
+            {
+                "custom:*",
+                "powershell", "read_powershell", "stop_powershell", "list_powershell",
+                "bash", "read_bash", "stop_bash", "list_bash",
+                "view", "rg", "web_fetch",
+            },
+            config.AvailableTools);
         Assert.NotNull(config.SystemMessage);
         Assert.Equal(SystemMessageMode.Customize, config.SystemMessage.Mode);
         var sections = config.SystemMessage.Sections!;
         Assert.Equal(SectionOverrideAction.Replace, sections[SystemMessageSection.Identity].Action);
         Assert.Equal("test system prompt", sections[SystemMessageSection.Identity].Content);
-        Assert.Equal(SectionOverrideAction.Remove, sections[SystemMessageSection.Tone].Action);
-        Assert.Equal(SectionOverrideAction.Remove, sections[SystemMessageSection.CodeChangeRules].Action);
-        Assert.Equal(SectionOverrideAction.Remove, sections[SystemMessageSection.CustomInstructions].Action);
-        Assert.Equal(oneShot, sections.ContainsKey(SystemMessageSection.ToolInstructions));
-        Assert.Equal(oneShot, sections.ContainsKey(SystemMessageSection.RuntimeInstructions));
+        var removed = new List<string>
+        {
+            SystemMessageSection.Tone.Value,
+            SystemMessageSection.CodeChangeRules.Value,
+            SystemMessageSection.CustomInstructions.Value,
+            SystemMessageSection.RuntimeInstructions.Value,
+            SystemMessageSection.LastInstructions.Value,
+        };
+        if (oneShot)
+        {
+            removed.Add(SystemMessageSection.ToolInstructions.Value);
+            removed.Add(SystemMessageSection.Guidelines.Value);
+            removed.Add(SystemMessageSection.EnvironmentContext.Value);
+        }
+        Assert.Equal(
+            removed.Order(),
+            sections.Where(s => s.Value.Action == SectionOverrideAction.Remove).Select(s => s.Key.Value).Order());
+        Assert.Equal(removed.Count + 1, sections.Count);
         Assert.Contains(config.Tools!, tool => tool.Name == "get_command");
         Assert.Contains(config.Tools!, tool => tool.Name == "propose_plan");
         Assert.Contains(config.Tools!, tool => tool.Name == "submit_response");
@@ -225,6 +246,25 @@ public class SessionConfigTests
                 ToolName = "mutating_tool",
                 ToolDescription = "Test mutation requiring approval",
             }, default!));
+    }
+
+    [Fact]
+    public void SdkSectionList_IsPinned()
+    {
+        var sections = typeof(SystemMessageSection)
+            .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(p => p.PropertyType == typeof(SystemMessageSection))
+            .Select(p => ((SystemMessageSection)p.GetValue(null)!).Value)
+            .Order();
+
+        Assert.Equal(
+            new[]
+            {
+                "code_change_rules", "custom_instructions", "environment_context", "guidelines", "identity",
+                "last_instructions", "preamble", "runtime_instructions", "safety", "tone", "tool_efficiency",
+                "tool_instructions",
+            },
+            sections);
     }
 
     [Fact]
@@ -314,7 +354,7 @@ public class SessionConfigTests
 
     private static readonly ConfigurationFixture s_configuration = new();
 
-    private static Task<SessionConfig> BuildAsync(
+    internal static Task<SessionConfig> BuildAsync(
         AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default,
         SessionState? state = null)
     {

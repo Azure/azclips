@@ -31,8 +31,8 @@ public class RecoverySessionPolicyTests
         var automatic = CreateConfig(RecoveryTrigger.Automatic, style, new(), http, CancellationToken.None);
         var manual = CreateConfig(RecoveryTrigger.Manual, style, new(), http, CancellationToken.None);
 
-        Assert.Null(automatic.AvailableTools);
-        Assert.Null(manual.AvailableTools);
+        Assert.NotNull(automatic.AvailableTools);
+        Assert.Equal(automatic.AvailableTools, manual.AvailableTools);
         Assert.Equal(automatic.Tools!.Select(t => t.Name), manual.Tools!.Select(t => t.Name));
         Assert.Contains(manual.Tools!, t => t.Name == "get_command");
         Assert.Contains(manual.Tools!, t => t.Name == "find_resources");
