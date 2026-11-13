@@ -92,7 +92,7 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
     {
         var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
 
-        var hits = cache.FindResources("zhoxing", kind: null, scope: null, top: 10);
+        var hits = cache.FindResources(namePattern: null, kind: null, scope: null, top: 50);
 
         Assert.Contains(hits, h => h.Resource.Name == "zhoxing-test"
                                 && h.Resource.Type == "Microsoft.Resources/resourceGroups");
@@ -189,6 +189,100 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         Assert.NotEmpty(hitsInB);
     }
 
+    // ── Match tiers: exact > unique substring > typo ──
+
+    [Fact]
+    public void FindResources_UniqueSubstring_ReturnsThatResource()
+    {
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("domain", kind: "resourceGroup", scope: null, top: 5);
+
+        var top = Assert.Single(hits);
+        Assert.Equal("zhwen-domain", top.Resource.Name);
+        Assert.Equal("substring", top.Match);
+    }
+
+    [Fact]
+    public void FindResources_AmbiguousSubstring_FallsThroughAndReturnsNoSubstringMatches()
+    {
+        // "zh" is a substring of both zhoxing-test and zhwen-domain, and no name is
+        // within one edit of it.
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("zh", kind: "resourceGroup", scope: null, top: 5);
+
+        Assert.Empty(hits);
+    }
+
+    [Fact]
+    public void FindResources_UniqueSubstring_TopZero_ReturnsNothing()
+    {
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("domain", kind: "resourceGroup", scope: null, top: 0);
+
+        Assert.Empty(hits);
+    }
+
+    [Fact]
+    public void FindResources_WithoutKind_SubstringHitsInTwoKinds_ReturnsNoSubstringMatch()
+    {
+        // "prod" is a unique substring among resource groups (prod-rg) and among
+        // resources (prod-vm-01), so it is not unique across kinds.
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("prod", kind: null, scope: null, top: 10);
+
+        Assert.DoesNotContain(hits, h => h.Match == "substring");
+    }
+
+    [Theory]
+    [InlineData("prxd-rg")]   // distance 1
+    [InlineData("pxxd-rg")]   // distance 2
+    public void FindResources_TypoWithinTwoEdits_ReturnsFuzzyMatch(string pattern)
+    {
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources(pattern, kind: "resourceGroup", scope: null, top: 5);
+
+        var top = Assert.Single(hits);
+        Assert.Equal("prod-rg", top.Resource.Name);
+        Assert.Equal("fuzzy", top.Match);
+    }
+
+    [Fact]
+    public void FindResources_TypoOfThreeEdits_ReturnsNothing()
+    {
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("pxxx-rg", kind: "resourceGroup", scope: null, top: 5);
+
+        Assert.Empty(hits);
+    }
+
+    [Fact]
+    public void FindResources_ShortPatternOneEdit_ReturnsFuzzyMatch()
+    {
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("wab1", kind: "resourceGroup", scope: null, top: 5);
+
+        var top = Assert.Single(hits);
+        Assert.Equal("web1", top.Resource.Name);
+        Assert.Equal("fuzzy", top.Match);
+    }
+
+    [Fact]
+    public void FindResources_ShortPatternTwoEdits_ReturnsNothing()
+    {
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("waa1", kind: "resourceGroup", scope: null, top: 5);
+
+        Assert.Empty(hits);
+    }
+
     // ── Cache miss is not a panic signal ──
 
     [Fact]
@@ -239,6 +333,8 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
                   name = "zhwen-domain", location = "westus", subscriptionId = SubA, tenantId = TenantId, tags = (object?)null },
             new { id = $"/subscriptions/{SubB}/resourceGroups/prod-rg",
                   name = "prod-rg", location = "eastus", subscriptionId = SubB, tenantId = TenantId, tags = (object?)null },
+            new { id = $"/subscriptions/{SubB}/resourceGroups/web1",
+                  name = "web1", location = "eastus", subscriptionId = SubB, tenantId = TenantId, tags = (object?)null },
         }, TenantId);
 
         WriteEnvelope("resources.json", new object[]

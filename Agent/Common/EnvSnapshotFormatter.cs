@@ -50,6 +50,21 @@ internal static class EnvSnapshotFormatter
             sb.Append("  version: ").Append(GetString(root, "azclipsVersion", "unknown")).Append('\n');
             sb.Append("  flavor: ").Append(GetString(root, "flavor", "unknown")).Append('\n');
 
+            var groups = GetStrings(root, "commandGroups");
+            if (groups.Count > 0)
+            {
+                sb.Append("command-groups (installed; not runnable by themselves)\n");
+                sb.Append("  ").Append(string.Join(", ", groups)).Append('\n');
+            }
+
+            if (root.TryGetProperty("installableGroups", out var installableElement)
+                && installableElement.ValueKind == JsonValueKind.Array)
+            {
+                var installable = GetInstallableGroups(root);
+                sb.Append("installable-command-groups (not installed, not runnable by themselves; group (extension package))\n");
+                sb.Append("  ").Append(installable.Count > 0 ? string.Join(", ", installable) : "none").Append('\n');
+            }
+
             sb.Append("</environment>");
             return sb.ToString();
         }
@@ -84,6 +99,29 @@ internal static class EnvSnapshotFormatter
         if (!root.TryGetProperty(name, out var el)) return fallback;
         if (el.ValueKind == JsonValueKind.Null) return fallback;
         return el.ValueKind == JsonValueKind.String ? (el.GetString() ?? fallback) : fallback;
+    }
+
+    private static List<string> GetStrings(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Array) return [];
+        return el.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.String)
+            .Select(e => e.GetString())
+            .OfType<string>()
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+    }
+
+    // Entries of installableGroups as "group (package)".
+    private static List<string> GetInstallableGroups(JsonElement root)
+    {
+        if (!root.TryGetProperty("installableGroups", out var el) || el.ValueKind != JsonValueKind.Array) return [];
+        return el.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.Object)
+            .Select(e => (Group: GetString(e, "group", ""), Package: GetString(e, "packageId", "")))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Group) && !string.IsNullOrWhiteSpace(x.Package))
+            .Select(x => $"{x.Group} ({x.Package})")
+            .ToList();
     }
 
     private static bool GetBool(JsonElement root, string name) =>

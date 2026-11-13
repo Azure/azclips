@@ -66,11 +66,12 @@ public sealed class HelpTools
     public Task<string> LookupCommandAsync(string name, CancellationToken ct = default) =>
         GetCommandAsync(name, ct);
 
-    // Host-side entry to the same catalog the LLM's list_commands returns. The plan
-    // hook reads it to recognize azclips commands (PlanCommandNormalizer), so a new
-    // command group or extension counts without a code change.
-    public Task<string> ReadCatalogAsync(CancellationToken ct = default) =>
-        ListCommandsAsync(ct);
+    // Host-side entry to the same catalog the LLM's list_commands returns, without the
+    // list_commands tool span. The plan hook reads it to recognize azclips commands
+    // (PlanCommandNormalizer), so a new command group or extension counts without a
+    // code change; the environment hook reads its command groups.
+    public async Task<string> ReadCatalogAsync(CancellationToken ct = default) =>
+        (await _catalog.ListAsync(ct).ConfigureAwait(false)).Json;
 
     [Description("Return the full HelpIndex catalog.")]
     private async Task<string> ListCommandsAsync(CancellationToken ct = default)

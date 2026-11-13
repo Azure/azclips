@@ -287,7 +287,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var sessionConfig = await BuildSessionConfigAsync(
             options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
             azExePath, profileService, approvalSink, eventRenderer, state, failedHelp, entrypoint, invocationContext, ct, preAcquiredAuth,
-            builtinEndpoint?.Url).ConfigureAwait(false);
+            builtinEndpoint?.Url, renderer is TraceAgentRenderer traceRenderer ? traceRenderer.Note : null).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
         {
@@ -355,7 +355,9 @@ public sealed class ChatAgent : IAsyncDisposable
         CancellationToken ct,
         AuthResult? preAcquiredAuth = null,
         // The resolved gateway URL; null uses the West Europe gateway (unknown boundary).
-        string? builtinBaseUrl = null)
+        string? builtinBaseUrl = null,
+        // Records a diagnostics event in the trace; null when tracing is off.
+        Action<string, object?>? traceNote = null)
     {
         var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
         if (reasoningEffort is not ("low" or "medium" or "high"))
@@ -413,7 +415,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnSessionStart = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct).ConfigureAwait(false);
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct, helpTools.ReadCatalogAsync).ConfigureAwait(false);
                     var ctx = EnvSnapshotFormatter.Format(envJson);
                     ctx = string.IsNullOrEmpty(ctx) ? AzclipsBoundary : $"{ctx}\n\n{AzclipsBoundary}";
                     // Append the pre-fetched help for the failed command (if any) so
@@ -430,13 +432,16 @@ public sealed class ChatAgent : IAsyncDisposable
                         if (!string.IsNullOrEmpty(loginHelp))
                             ctx = $"{ctx}\n\n{loginHelp}";
                     }
+                    traceNote?.Invoke("session_start_context", new { context = ctx });
                     return new SessionStartHookOutput { AdditionalContext = ctx };
                 },
                 OnUserPromptSubmitted = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct).ConfigureAwait(false);
-                    return new UserPromptSubmittedHookOutput { AdditionalContext = EnvSnapshotFormatter.Format(envJson) };
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct, helpTools.ReadCatalogAsync).ConfigureAwait(false);
+                    var promptCtx = EnvSnapshotFormatter.Format(envJson);
+                    traceNote?.Invoke("prompt_context", new { context = promptCtx });
+                    return new UserPromptSubmittedHookOutput { AdditionalContext = promptCtx };
                 },
             },
             OnPermissionRequest = async (req, invocation) =>
