@@ -1,4 +1,5 @@
 using Core.Agent.Hosting;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -14,8 +15,9 @@ namespace Core.Agent.Tests;
 public class ConsoleCollection { }
 
 /// <summary>
-/// Contract: y/yes → approve; n/no/empty → reject; anything else → reject with
-/// the typed text returned as FeedbackPrompt for the next chat turn.
+/// Contract: y/yes → approve; n/no/empty, Esc and EOF → reject; Ctrl+C → reject and
+/// interrupt the turn; anything else → reject with the typed text returned as
+/// FeedbackPrompt for the next chat turn.
 /// </summary>
 [Collection("Console")]
 public class ConsoleApprovalPromptTests
@@ -80,5 +82,116 @@ public class ConsoleApprovalPromptTests
         Assert.False(outcome.Approved);
         Assert.Equal(expectedFeedback, outcome.FeedbackPrompt);
         Assert.False(approved);
+    }
+
+    [Fact]
+    public async Task Eof_OnLineInput_Denies()
+    {
+        var prompt = new ConsoleApprovalPrompt();
+        var prevIn = Console.In;
+        var prevOut = Console.Out;
+        Console.SetIn(new StringReader(""));
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var outcome = await prompt.PumpOneAsync(CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.No, outcome);
+            Assert.False(await toolTask);
+        }
+        finally
+        {
+            Console.SetIn(prevIn);
+            Console.SetOut(prevOut);
+        }
+    }
+
+    private static async Task<(ConsoleApprovalPrompt.ApprovalOutcome outcome, bool toolApproved)>
+        DriveKeysAsync(Action<FakeKeySource> type)
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        type(source);
+        keys.Start();
+        var prompt = new ConsoleApprovalPrompt(keys: keys);
+        var prevOut = Console.Out;
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var outcome = await prompt.PumpOneAsync(CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
+            return (outcome, await toolTask.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Theory]
+    [InlineData("y", true)]
+    [InlineData("yes", true)]
+    [InlineData("n", false)]
+    [InlineData("no", false)]
+    public async Task KeyInput_YApproves_NDenies(string typed, bool expected)
+    {
+        var (outcome, approved) = await DriveKeysAsync(s => { s.Type(typed); s.Type(Keys.Enter); });
+        Assert.Equal(expected, outcome.Approved);
+        Assert.Equal(expected, approved);
+        Assert.Null(outcome.FeedbackPrompt);
+    }
+
+    [Fact]
+    public async Task KeyInput_FreeText_IsRedirect()
+    {
+        var (outcome, approved) = await DriveKeysAsync(s => { s.Type("use rg2"); s.Type(Keys.Enter); });
+        Assert.False(approved);
+        Assert.Equal("use rg2", outcome.FeedbackPrompt);
+    }
+
+    [Fact]
+    public async Task KeyInput_BackspaceEdit_IsAppliedBeforeTheAnswer()
+    {
+        var (outcome, approved) = await DriveKeysAsync(s => { s.Type("n"); s.Type(Keys.Backspace); s.Type("y"); s.Type(Keys.Enter); });
+        Assert.True(approved);
+        Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.Yes, outcome);
+    }
+
+    [Fact]
+    public async Task KeyInput_Esc_IsNo()
+    {
+        var (outcome, approved) = await DriveKeysAsync(s => { s.Type("redirect text"); s.Type(Keys.Esc); });
+        Assert.False(approved);
+        Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.No, outcome);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task KeyInput_Eof_Denies(bool ctrlD)
+    {
+        var (outcome, approved) = await DriveKeysAsync(s => { if (ctrlD) s.Type(Keys.CtrlD); else s.End(); });
+        Assert.False(approved);
+        Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.No, outcome);
+    }
+
+    [Fact]
+    public async Task KeyInput_CtrlC_DeniesAndInterruptsTheTurn()
+    {
+        var (outcome, approved) = await DriveKeysAsync(s => { s.Type("y"); s.Type(Keys.CtrlC); });
+        Assert.False(approved);
+        Assert.True(outcome.InterruptTurn);
+    }
+
+    [Fact]
+    public async Task CancelledRequest_IsNotPrompted()
+    {
+        var prompt = new ConsoleApprovalPrompt();
+        using var turn = new CancellationTokenSource();
+        var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", turn.Token);
+        turn.Cancel();
+        var outcome = await prompt.PumpOneAsync(CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
+        Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.NotHandled, outcome);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => toolTask);
     }
 }
