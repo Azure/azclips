@@ -405,8 +405,8 @@ public sealed class ChatAgent : IAsyncDisposable
             AvailableTools =
             [
                 "custom:*",
-                "powershell", "read_powershell", "write_powershell", "stop_powershell", "list_powershell",
-                "bash", "read_bash", "write_bash", "stop_bash", "list_bash",
+                "powershell", "read_powershell", "stop_powershell", "list_powershell",
+                "bash", "read_bash", "stop_bash", "list_bash",
                 "view", "rg", "web_fetch",
             ],
             Hooks = new SessionHooks
