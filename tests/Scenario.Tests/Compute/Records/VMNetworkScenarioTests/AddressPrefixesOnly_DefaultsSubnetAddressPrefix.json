@@ -7,16 +7,16 @@
     {
       "request": {
         "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scen-vmnet-a-rg-t2c9de745?api-version=2025-04-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-vmnet-a-rg?api-version=2025-04-01",
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
           ],
           "x-ms-client-request-id": [
-            "96f19c64-cae4-4009-bf39-2682ebd35457"
+            "c6c78b42-99e2-4068-a82a-f12311426468"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scen-vmnet-a-rg-t2c9de745\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-vmnet-a-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
       },
       "response": {
         "statusCode": 201,
@@ -34,13 +34,13 @@
             "2999"
           ],
           "x-ms-request-id": [
-            "259ca914-d3bd-443e-8419-5bb332f01c73"
+            "7014d091-b2ec-4a9d-adba-751c776f2462"
           ],
           "x-ms-correlation-request-id": [
-            "259ca914-d3bd-443e-8419-5bb332f01c73"
+            "7014d091-b2ec-4a9d-adba-751c776f2462"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011645Z:259ca914-d3bd-443e-8419-5bb332f01c73"
+            "SOUTHEASTASIA:20261113T020123Z:7014d091-b2ec-4a9d-adba-751c776f2462"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -52,10 +52,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: B973FE2E595144BDB69EA78FD1BE7F8C Ref B: SG2AA1070306036 Ref C: 2026-11-13T01:16:43Z"
+            "Ref A: A0B010F54E194762ACD4F45746547343 Ref B: SG2AA1070302042 Ref C: 2026-11-13T02:01:20Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:16:44 GMT"
+            "Fri, 13 Nov 2026 02:01:23 GMT"
           ]
         },
         "contentHeaders": {
@@ -66,16 +66,16 @@
             "-1"
           ]
         },
-        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745\u0022,\u0022name\u0022:\u0022scen-vmnet-a-rg-t2c9de745\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg\u0022,\u0022name\u0022:\u0022scenario-vmnet-a-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet?api-version=2025-05-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet?api-version=2025-05-01",
         "headers": {
           "x-ms-client-request-id": [
-            "d010b893-09af-4988-8ddd-69372d71d0e0"
+            "00cb9ec2-5d91-4ead-adf3-c04d399da7eb"
           ]
         }
       },
@@ -92,13 +92,13 @@
             "gateway"
           ],
           "x-ms-request-id": [
-            "829e2fe7-af2d-4da3-8422-890f7de29b45"
+            "b5421644-52cf-4ed0-a6fc-4082b5074d67"
           ],
           "x-ms-correlation-request-id": [
-            "829e2fe7-af2d-4da3-8422-890f7de29b45"
+            "b5421644-52cf-4ed0-a6fc-4082b5074d67"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011645Z:829e2fe7-af2d-4da3-8422-890f7de29b45"
+            "AUSTRALIAEAST:20261113T020123Z:b5421644-52cf-4ed0-a6fc-4082b5074d67"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -110,10 +110,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 771213C8041C461DAFF5B1C5215F2120 Ref B: SG2AA1070306036 Ref C: 2026-11-13T01:16:45Z"
+            "Ref A: 2D16653DB4CE48968FC46D7111DAABE1 Ref B: SG2AA1070302042 Ref C: 2026-11-13T02:01:23Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:16:45 GMT"
+            "Fri, 13 Nov 2026 02:01:23 GMT"
           ]
         },
         "contentHeaders": {
@@ -124,19 +124,19 @@
             "-1"
           ]
         },
-        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022ResourceNotFound\u0022,\u0022message\u0022:\u0022The Resource \u0027Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet\u0027 under resource group \u0027scen-vmnet-a-rg-t2c9de745\u0027 was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix\u0022}}"
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022ResourceNotFound\u0022,\u0022message\u0022:\u0022The Resource \u0027Microsoft.Network/virtualNetworks/vmnet-a-vnet\u0027 under resource group \u0027scenario-vmnet-a-rg\u0027 was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix\u0022}}"
       }
     },
     {
       "request": {
         "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet?api-version=2025-05-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet?api-version=2025-05-01",
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
           ],
           "x-ms-client-request-id": [
-            "c0ac7dee-7ce8-4e0b-8b1e-3b705f851fc9"
+            "331134e4-7403-4c30-a419-efc640a2bba8"
           ]
         },
         "body": "{\u0022properties\u0022:{\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022],\u0022ipamPoolPrefixAllocations\u0022:[]},\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:null,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022addressPrefixes\u0022:[\u002210.0.0.0/24\u0022],\u0022serviceEndpoints\u0022:[],\u0022serviceEndpointPolicies\u0022:[],\u0022ipAllocations\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022applicationGatewayIPConfigurations\u0022:[],\u0022ipamPoolPrefixAllocations\u0022:[]}}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false,\u0022ipAllocations\u0022:[]},\u0022location\u0022:\u0022australiaeast\u0022}"
@@ -154,22 +154,22 @@
             "3"
           ],
           "x-ms-request-id": [
-            "134cec20-1a0b-4e2f-8301-c02f091d85ec"
+            "6e3346ff-69e4-43e3-adeb-70eb56b0b368"
           ],
           "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/134cec20-1a0b-4e2f-8301-c02f091d85ec?api-version=2025-05-01\u0026t=639301294064746229\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/6e3346ff-69e4-43e3-adeb-70eb56b0b368?api-version=2025-05-01\u0026t=639301320843780587\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "x-ms-throttle-levels": [
             "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.6, etc"
           ],
           "x-ms-correlation-request-id": [
-            "34158bee-d181-46a7-907d-f6d6f729f328"
+            "3dbd8ff5-9472-4fbc-80eb-2c6e7bca5c7b"
           ],
           "azure-asyncnotification": [
             "Enabled"
           ],
           "x-ms-arm-service-request-id": [
-            "e109efc0-f7b6-49e5-a488-466def5fea99"
+            "e7cd27a1-82e7-48d5-a1a9-6894841fd6c9"
           ],
           "x-ms-ratelimit-remaining-subscription-writes": [
             "199"
@@ -178,7 +178,7 @@
             "2999"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011646Z:34158bee-d181-46a7-907d-f6d6f729f328"
+            "AUSTRALIAEAST:20261113T020124Z:3dbd8ff5-9472-4fbc-80eb-2c6e7bca5c7b"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -190,10 +190,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 5326A3B2E154476095A84FEA3CE30B1C Ref B: SG2AA1070306036 Ref C: 2026-11-13T01:16:46Z"
+            "Ref A: 9BEDFB28B9954BC3BFAB60CE265CD37B Ref B: SG2AA1070302042 Ref C: 2026-11-13T02:01:24Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:16:45 GMT"
+            "Fri, 13 Nov 2026 02:01:24 GMT"
           ]
         },
         "contentHeaders": {
@@ -204,99 +204,19 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-a-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u002232d7f4c6-1cf6-48fb-8c0e-5b41863761de\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00225cd91142-04d1-4080-8aa3-261bb2a78ec4\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet/subnets/default\u0022,\u0022etag\u0022:\u0022W/\\\u002232d7f4c6-1cf6-48fb-8c0e-5b41863761de\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022serviceEndpoints\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+        "body": "{\u0022name\u0022:\u0022vmnet-a-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u00223a177761-0830-41e1-980c-94e9b65bee70\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022a36cf12d-cdef-40e5-88ed-f7cf70739240\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet/subnets/default\u0022,\u0022etag\u0022:\u0022W/\\\u00223a177761-0830-41e1-980c-94e9b65bee70\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022serviceEndpoints\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
       }
     },
     {
       "request": {
         "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG?api-version=2025-05-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP?api-version=2025-05-01",
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
           ],
           "x-ms-client-request-id": [
-            "14764501-b50c-43e4-b193-dc477b6f8e57"
-          ]
-        },
-        "body": "{\u0022id\u0022:null,\u0022location\u0022:\u0022australiaeast\u0022,\u0022tags\u0022:null,\u0022properties\u0022:{\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[{\u0022name\u0022:\u0022rdp\u0022,\u0022properties\u0022:{\u0022protocol\u0022:\u0022Tcp\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u00223389\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:1000,\u0022direction\u0022:\u0022Inbound\u0022}}]}}"
-      },
-      "response": {
-        "statusCode": 201,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "Retry-After": [
-            "1"
-          ],
-          "x-ms-request-id": [
-            "b2125cd2-fcce-43fd-a464-3a60723f4c18"
-          ],
-          "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/b2125cd2-fcce-43fd-a464-3a60723f4c18?api-version=2025-05-01\u0026t=639301294081421899\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
-          ],
-          "x-ms-throttle-levels": [
-            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.7, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "3c281fb2-6a31-4cc5-8e64-1c3c22eaa3bc"
-          ],
-          "azure-asyncnotification": [
-            "Enabled"
-          ],
-          "x-ms-arm-service-request-id": [
-            "554e1838-fe1e-4f7b-ba6d-15f492be6adf"
-          ],
-          "x-ms-ratelimit-remaining-subscription-writes": [
-            "199"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-writes": [
-            "2999"
-          ],
-          "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011648Z:3c281fb2-6a31-4cc5-8e64-1c3c22eaa3bc"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: B983E82295DF4446B2825D94C74ADD50 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:16:46Z"
-          ],
-          "Date": [
-            "Fri, 13 Nov 2026 01:16:47 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-aNSG\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG\u0022,\u0022etag\u0022:\u0022W/\\\u0022c1d8c39b-5461-45e6-a061-1cd60159b0bc\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u002260fa5b7c-21ec-47b1-92c0-8cd7bfc55f24\u0022,\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[{\u0022name\u0022:\u0022rdp\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/securityRules/rdp\u0022,\u0022etag\u0022:\u0022W/\\\u0022c1d8c39b-5461-45e6-a061-1cd60159b0bc\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/securityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u00223389\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:1000,\u0022protocol\u0022:\u0022Tcp\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022c1d8c39b-5461-45e6-a061-1cd60159b0bc\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022c1d8c39b-5461-45e6-a061-1cd60159b0bc\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022c1d8c39b-5461-45e6-a061-1cd60159b0bc\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022c1d8c39b-5461-45e6-a061-1cd60159b0bc\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022c1d8c39b-5461-45e6-a061-1cd60159b0bc\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022c1d8c39b-5461-45e6-a061-1cd60159b0bc\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
-      }
-    },
-    {
-      "request": {
-        "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP?api-version=2025-05-01",
-        "headers": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "x-ms-client-request-id": [
-            "20502a45-3c86-4954-b525-05db4cb1c90b"
+            "04ab6b0e-1d3d-4065-b73f-888b7b181831"
           ]
         },
         "body": "{\u0022location\u0022:\u0022australiaeast\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022},\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022}}"
@@ -314,22 +234,22 @@
             "1"
           ],
           "x-ms-request-id": [
-            "85a911d3-d51a-448b-ba79-4e3bac69e62c"
+            "6eb527d4-9c31-4258-af6d-12502e58931d"
           ],
           "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/85a911d3-d51a-448b-ba79-4e3bac69e62c?api-version=2025-05-01\u0026t=639301294084147641\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/6eb527d4-9c31-4258-af6d-12502e58931d?api-version=2025-05-01\u0026t=639301320856723974\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "x-ms-throttle-levels": [
             "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.8, etc"
           ],
           "x-ms-correlation-request-id": [
-            "09c448bc-e517-43e8-96f0-6982b1741e29"
+            "b54d199f-f27d-4507-b903-a7f6b8d7cf14"
           ],
           "azure-asyncnotification": [
             "Enabled"
           ],
           "x-ms-arm-service-request-id": [
-            "31c39e25-f2eb-47a4-a287-e1c9588d062c"
+            "1b908dbe-77c9-4ce7-8d67-dcc598d2379b"
           ],
           "x-ms-ratelimit-remaining-subscription-writes": [
             "199"
@@ -338,7 +258,7 @@
             "2999"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011648Z:09c448bc-e517-43e8-96f0-6982b1741e29"
+            "SOUTHEASTASIA:20261113T020125Z:b54d199f-f27d-4507-b903-a7f6b8d7cf14"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -350,10 +270,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: EE2A6DC4E13041C192FA8C0F337E80A8 Ref B: SG2AA1040513052 Ref C: 2026-11-13T01:16:46Z"
+            "Ref A: C804236CF7D84DA38D070C077D2D86C2 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:01:24Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:16:48 GMT"
+            "Fri, 13 Nov 2026 02:01:25 GMT"
           ]
         },
         "contentHeaders": {
@@ -364,430 +284,22 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-aPublicIP\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP\u0022,\u0022etag\u0022:\u0022W/\\\u00226f07590d-0876-43f0-be0c-b9d34f2b97d7\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u002228d63e1d-f5bc-424d-bb7d-430e5ebf64b1\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/b2125cd2-fcce-43fd-a464-3a60723f4c18?api-version=2025-05-01\u0026t=639301294081421899\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
-        "headers": {
-          "x-ms-client-request-id": [
-            "c16670f0-9d15-41d0-ac8d-e523bac4c2b6"
-          ]
-        }
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-request-id": [
-            "cf73c581-080c-4048-809b-e972bb6c7189"
-          ],
-          "x-ms-throttle-levels": [
-            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.6, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "ae340f90-d913-45b9-8cf9-5b7ce6169599"
-          ],
-          "x-ms-arm-service-request-id": [
-            "b4f92dd8-5916-4bee-88d7-ef627ac94ae8"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-reads": [
-            "3749"
-          ],
-          "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011649Z:ae340f90-d913-45b9-8cf9-5b7ce6169599"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: 00DD4B37140445F3ABC8C8DD9EE5162A Ref B: SG2AA1040513052 Ref C: 2026-11-13T01:16:49Z"
-          ],
-          "Date": [
-            "Fri, 13 Nov 2026 01:16:49 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG?api-version=2025-05-01",
-        "headers": {
-          "x-ms-client-request-id": [
-            "9cafcad6-f7ca-42a6-b9b5-c04575454aed"
-          ]
-        }
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "ETag": [
-            "W/\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\u0022"
-          ],
-          "x-ms-request-id": [
-            "d2023e7f-d016-432d-94b1-8f07cb345b11"
-          ],
-          "x-ms-throttle-levels": [
-            "operationRatePct=0.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.6, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "95c6146f-82ea-468c-ab06-bc1a3dbc787d"
-          ],
-          "x-ms-arm-service-request-id": [
-            "2c994dac-3123-4390-b954-e505feb9522c"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-reads": [
-            "3749"
-          ],
-          "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011649Z:95c6146f-82ea-468c-ab06-bc1a3dbc787d"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: 064F5E2FD0ED465D8F6B326B617929CB Ref B: SG2AA1040513052 Ref C: 2026-11-13T01:16:49Z"
-          ],
-          "Date": [
-            "Fri, 13 Nov 2026 01:16:49 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-aNSG\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG\u0022,\u0022etag\u0022:\u0022W/\\\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002260fa5b7c-21ec-47b1-92c0-8cd7bfc55f24\u0022,\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[{\u0022name\u0022:\u0022rdp\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/securityRules/rdp\u0022,\u0022etag\u0022:\u0022W/\\\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/securityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u00223389\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:1000,\u0022protocol\u0022:\u0022Tcp\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002294ed062b-d962-4b6d-a319-fd97c990ca1d\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/134cec20-1a0b-4e2f-8301-c02f091d85ec?api-version=2025-05-01\u0026t=639301294064746229\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
-        "headers": {
-          "x-ms-client-request-id": [
-            "700fbc56-bf26-4a82-b135-cb9f390483b0"
-          ]
-        }
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-request-id": [
-            "a9442753-99b9-4267-b527-f9901cb02e63"
-          ],
-          "x-ms-throttle-levels": [
-            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.6, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "1df03ae8-c40d-422c-820a-ba372de26535"
-          ],
-          "x-ms-arm-service-request-id": [
-            "355d3ef7-13f1-446d-8b69-61e652b56435"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-reads": [
-            "3749"
-          ],
-          "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011650Z:1df03ae8-c40d-422c-820a-ba372de26535"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: 5D790EA091D24BF388691A06C547AF91 Ref B: SG2AA1070306036 Ref C: 2026-11-13T01:16:49Z"
-          ],
-          "Date": [
-            "Fri, 13 Nov 2026 01:16:49 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet?api-version=2025-05-01",
-        "headers": {
-          "x-ms-client-request-id": [
-            "f028e0bf-1d8a-4555-8767-f93d254b1fc4"
-          ]
-        }
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-request-id": [
-            "90847e50-33a8-4d6a-be2e-c9758af47e01"
-          ],
-          "x-ms-throttle-levels": [
-            "operationRatePct=0.2, operationConcurrencyPct=2.0, subscriptionReadRatePct=0.6, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "825e7f74-c42f-4ba5-9b54-ff8a03725c56"
-          ],
-          "x-ms-arm-service-request-id": [
-            "3f4a29d9-ae21-4bbb-ba32-efc3cbff1cf2"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-reads": [
-            "3749"
-          ],
-          "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011650Z:825e7f74-c42f-4ba5-9b54-ff8a03725c56"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: C13747A351B1497DA7638DB51A1A6CA2 Ref B: SG2AA1070306036 Ref C: 2026-11-13T01:16:50Z"
-          ],
-          "Date": [
-            "Fri, 13 Nov 2026 01:16:49 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-a-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022c87e59cd-34c0-4cdf-843f-6dd9f084fa08\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00225cd91142-04d1-4080-8aa3-261bb2a78ec4\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet/subnets/default\u0022,\u0022etag\u0022:\u0022W/\\\u0022c87e59cd-34c0-4cdf-843f-6dd9f084fa08\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022serviceEndpoints\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/85a911d3-d51a-448b-ba79-4e3bac69e62c?api-version=2025-05-01\u0026t=639301294084147641\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
-        "headers": {
-          "x-ms-client-request-id": [
-            "27083028-dbfe-4c23-8982-b3ee7041a000"
-          ]
-        }
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-request-id": [
-            "68acc4e7-8d95-4bc6-ba2b-df5e6eb567bc"
-          ],
-          "x-ms-throttle-levels": [
-            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.6, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "76961cbc-ae86-4cac-a695-a477a5e384f4"
-          ],
-          "x-ms-arm-service-request-id": [
-            "38fa2357-90fc-47b9-8b95-74b1aad68108"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-reads": [
-            "3749"
-          ],
-          "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011650Z:76961cbc-ae86-4cac-a695-a477a5e384f4"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: 190E4B5E738446799C3B44680D32EA1C Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:16:49Z"
-          ],
-          "Date": [
-            "Fri, 13 Nov 2026 01:16:49 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP?api-version=2025-05-01",
-        "headers": {
-          "x-ms-client-request-id": [
-            "6944827b-0c85-4abe-a9b6-ad7a7ae8f9f8"
-          ]
-        }
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "ETag": [
-            "W/\u00225645f38e-bffa-4871-8104-efb2c81f21e3\u0022"
-          ],
-          "x-ms-request-id": [
-            "f5991a7c-55be-43cc-aedd-699b2843a66d"
-          ],
-          "x-ms-throttle-levels": [
-            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.7, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "4b013fd6-a5e9-4490-a6ac-d026c5d95b9b"
-          ],
-          "x-ms-arm-service-request-id": [
-            "13218ad7-0f60-46fb-abc0-5dfa21874f7d"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-reads": [
-            "3749"
-          ],
-          "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011650Z:4b013fd6-a5e9-4490-a6ac-d026c5d95b9b"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: CEA3A5F8163141A9A718F3BBBA039C1A Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:16:50Z"
-          ],
-          "Date": [
-            "Fri, 13 Nov 2026 01:16:50 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-aPublicIP\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP\u0022,\u0022etag\u0022:\u0022W/\\\u00225645f38e-bffa-4871-8104-efb2c81f21e3\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002228d63e1d-f5bc-424d-bb7d-430e5ebf64b1\u0022,\u0022ipAddress\u0022:\u002220.193.80.250\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+        "body": "{\u0022name\u0022:\u0022vmnet-aPublicIP\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP\u0022,\u0022etag\u0022:\u0022W/\\\u0022c55a79d3-c053-49f9-9b45-736f098699cd\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022a2985876-8e73-46c2-bb43-86e400cb07aa\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
       }
     },
     {
       "request": {
         "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic?api-version=2025-05-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG?api-version=2025-05-01",
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
           ],
           "x-ms-client-request-id": [
-            "9b86b81c-f030-4796-839f-6db09467daeb"
+            "0820ddd6-1536-42e9-8b82-f011933e7371"
           ]
         },
-        "body": "{\u0022id\u0022:null,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG\u0022,\u0022location\u0022:null,\u0022tags\u0022:null,\u0022properties\u0022:{\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[]}},\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022properties\u0022:{\u0022subnet\u0022:{\u0022name\u0022:null,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet/subnets/default\u0022,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u0022\u0022,\u0022addressPrefixes\u0022:[],\u0022serviceEndpoints\u0022:[],\u0022serviceEndpointPolicies\u0022:[],\u0022ipAllocations\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022applicationGatewayIPConfigurations\u0022:[],\u0022ipamPoolPrefixAllocations\u0022:[]}},\u0022virtualNetworkTaps\u0022:[],\u0022applicationGatewayBackendAddressPools\u0022:[],\u0022loadBalancerBackendAddressPools\u0022:[],\u0022loadBalancerInboundNatRules\u0022:[],\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022primary\u0022:true,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP\u0022}}}],\u0022enableAcceleratedNetworking\u0022:false,\u0022enableIPForwarding\u0022:false}}"
+        "body": "{\u0022id\u0022:null,\u0022location\u0022:\u0022australiaeast\u0022,\u0022tags\u0022:null,\u0022properties\u0022:{\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[{\u0022name\u0022:\u0022rdp\u0022,\u0022properties\u0022:{\u0022protocol\u0022:\u0022Tcp\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u00223389\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022priority\u0022:1000,\u0022direction\u0022:\u0022Inbound\u0022}}]}}"
       },
       "response": {
         "statusCode": 201,
@@ -802,22 +314,22 @@
             "1"
           ],
           "x-ms-request-id": [
-            "ae5e2e49-7559-4aaa-9bd0-5cfc913921b1"
+            "589583d9-df7f-4ce1-91fe-ad271409684c"
           ],
           "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/ae5e2e49-7559-4aaa-9bd0-5cfc913921b1?api-version=2025-05-01\u0026t=639301294114814660\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/589583d9-df7f-4ce1-91fe-ad271409684c?api-version=2025-05-01\u0026t=639301320857884778\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "x-ms-throttle-levels": [
-            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.9, etc"
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.7, etc"
           ],
           "x-ms-correlation-request-id": [
-            "51f1ec82-9cb5-4295-9ff8-7f0f3a0affd8"
+            "3743ecba-4c38-423b-9dd3-3bde6884c9d3"
           ],
           "azure-asyncnotification": [
             "Enabled"
           ],
           "x-ms-arm-service-request-id": [
-            "505ef37a-b2cf-4cb0-9f65-3f0beb53ccfd"
+            "b7cf413e-0a04-4688-87f1-a454cd37f69a"
           ],
           "x-ms-ratelimit-remaining-subscription-writes": [
             "199"
@@ -826,7 +338,7 @@
             "2999"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011651Z:51f1ec82-9cb5-4295-9ff8-7f0f3a0affd8"
+            "SOUTHEASTASIA:20261113T020125Z:3743ecba-4c38-423b-9dd3-3bde6884c9d3"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -838,10 +350,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 6B1C3C38AA43487BB69005FBFBB55D28 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:16:51Z"
+            "Ref A: 08375F7DA7FD40038BE3362249395DAF Ref B: SG2AA1070304062 Ref C: 2026-11-13T02:01:23Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:16:50 GMT"
+            "Fri, 13 Nov 2026 02:01:25 GMT"
           ]
         },
         "contentHeaders": {
@@ -852,16 +364,16 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-aVMNic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic\u0022,\u0022etag\u0022:\u0022W/\\\u0022eb370920-610b-4e97-b340-d0a008bd82bd\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00224322aa0c-646f-4815-b2d3-7e02c0e14018\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022eb370920-610b-4e97-b340-d0a008bd82bd\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022iii3sxgrasaebcvdeyn1fj2oye.px.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+        "body": "{\u0022name\u0022:\u0022vmnet-aNSG\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG\u0022,\u0022etag\u0022:\u0022W/\\\u0022dd00cb53-69c0-4926-b6cb-f379120cf71a\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u002265c955c2-0b40-477d-bcd1-2db881561e31\u0022,\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[{\u0022name\u0022:\u0022rdp\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/securityRules/rdp\u0022,\u0022etag\u0022:\u0022W/\\\u0022dd00cb53-69c0-4926-b6cb-f379120cf71a\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/securityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u00223389\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:1000,\u0022protocol\u0022:\u0022Tcp\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022dd00cb53-69c0-4926-b6cb-f379120cf71a\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022dd00cb53-69c0-4926-b6cb-f379120cf71a\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022dd00cb53-69c0-4926-b6cb-f379120cf71a\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022dd00cb53-69c0-4926-b6cb-f379120cf71a\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022dd00cb53-69c0-4926-b6cb-f379120cf71a\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022dd00cb53-69c0-4926-b6cb-f379120cf71a\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/ae5e2e49-7559-4aaa-9bd0-5cfc913921b1?api-version=2025-05-01\u0026t=639301294114814660\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/589583d9-df7f-4ce1-91fe-ad271409684c?api-version=2025-05-01\u0026t=639301320857884778\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {
           "x-ms-client-request-id": [
-            "9c04e234-c559-488a-9da5-dc8293ba2227"
+            "8cf199d4-f2f5-4f90-9d6c-c2a70c317df1"
           ]
         }
       },
@@ -875,16 +387,16 @@
             "no-cache"
           ],
           "x-ms-request-id": [
-            "ae23e571-54f4-4e0d-a532-6addfdc682db"
+            "26524839-8d29-4e37-bc3c-b23ec35dffdb"
           ],
           "x-ms-throttle-levels": [
-            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.7, etc"
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
           ],
           "x-ms-correlation-request-id": [
-            "8f89f4d9-9ac9-4c2f-a321-3cef9e520102"
+            "bc423727-762a-409a-910f-4c9e9702c628"
           ],
           "x-ms-arm-service-request-id": [
-            "677d7626-22a4-45b9-90f9-69e5ab89f102"
+            "20cabf3b-c923-431a-b25a-41121446585c"
           ],
           "x-ms-ratelimit-remaining-subscription-reads": [
             "249"
@@ -893,7 +405,7 @@
             "3749"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011653Z:8f89f4d9-9ac9-4c2f-a321-3cef9e520102"
+            "SOUTHEASTASIA:20261113T020127Z:bc423727-762a-409a-910f-4c9e9702c628"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -905,10 +417,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 7759EDDE312E40A99DF1006988645CEE Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:16:52Z"
+            "Ref A: 4DEDFE7B74874C889F62467AD552BC83 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:01:27Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:16:52 GMT"
+            "Fri, 13 Nov 2026 02:01:26 GMT"
           ]
         },
         "contentHeaders": {
@@ -925,10 +437,10 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic?api-version=2025-05-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG?api-version=2025-05-01",
         "headers": {
           "x-ms-client-request-id": [
-            "fd5009bc-0715-416f-a537-703153bc9ba1"
+            "b0f0eead-3662-4445-ad67-d96ef2e0bae8"
           ]
         }
       },
@@ -942,19 +454,19 @@
             "no-cache"
           ],
           "ETag": [
-            "W/\u0022c6d60b4b-f623-426e-a340-35498c44b41f\u0022"
+            "W/\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\u0022"
           ],
           "x-ms-request-id": [
-            "5ed6963f-6142-4867-8051-7abba88ccce4"
+            "a9b2eb82-7677-470d-84e3-ecd542151865"
           ],
           "x-ms-throttle-levels": [
-            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.7, etc"
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
           ],
           "x-ms-correlation-request-id": [
-            "cd2ee8b9-0c8f-4651-a853-7f9bf1d98140"
+            "eff6333a-aa61-47ce-bdcf-d0b47fc67b2a"
           ],
           "x-ms-arm-service-request-id": [
-            "48cc3c0d-cef2-4b70-93b5-ae43b19c80f8"
+            "c5bb3998-14a5-49bd-9951-7d60a8d606e9"
           ],
           "x-ms-ratelimit-remaining-subscription-reads": [
             "249"
@@ -963,7 +475,7 @@
             "3749"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011653Z:cd2ee8b9-0c8f-4651-a853-7f9bf1d98140"
+            "AUSTRALIAEAST:20261113T020127Z:eff6333a-aa61-47ce-bdcf-d0b47fc67b2a"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -975,10 +487,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 8F611138487C4CB38C4256F098472B98 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:16:53Z"
+            "Ref A: 127042FE0AFB45BE9881CC484143E053 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:01:27Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:16:52 GMT"
+            "Fri, 13 Nov 2026 02:01:26 GMT"
           ]
         },
         "contentHeaders": {
@@ -989,22 +501,510 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-aVMNic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic\u0022,\u0022etag\u0022:\u0022W/\\\u0022c6d60b4b-f623-426e-a340-35498c44b41f\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00224322aa0c-646f-4815-b2d3-7e02c0e14018\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022c6d60b4b-f623-426e-a340-35498c44b41f\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022iii3sxgrasaebcvdeyn1fj2oye.px.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+        "body": "{\u0022name\u0022:\u0022vmnet-aNSG\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG\u0022,\u0022etag\u0022:\u0022W/\\\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002265c955c2-0b40-477d-bcd1-2db881561e31\u0022,\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[{\u0022name\u0022:\u0022rdp\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/securityRules/rdp\u0022,\u0022etag\u0022:\u0022W/\\\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/securityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u00223389\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:1000,\u0022protocol\u0022:\u0022Tcp\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002205e00bd3-9bd3-48fc-b835-0b76f4dd06a4\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/6eb527d4-9c31-4258-af6d-12502e58931d?api-version=2025-05-01\u0026t=639301320856723974\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "75657016-a2c9-4d80-a11c-bbef5b7d27d8"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "b716674e-9211-4db4-92e8-2c0d5177922f"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "1b12d204-ac98-4ee3-89a7-d697e492409d"
+          ],
+          "x-ms-arm-service-request-id": [
+            "f6f06fb6-9a32-4bd7-b23a-921bf78875a9"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261113T020127Z:1b12d204-ac98-4ee3-89a7-d697e492409d"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 13EED879FD524158B5E01F55D9B3FEC4 Ref B: SG2AA1070304062 Ref C: 2026-11-13T02:01:26Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:01:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/6e3346ff-69e4-43e3-adeb-70eb56b0b368?api-version=2025-05-01\u0026t=639301320843780587\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "a9ad6c53-14b0-4265-9e1c-cbac076ebc0f"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "1ebd9304-14a8-4469-be3a-7bb47f978c3f"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "ce810989-1553-4ed3-8b9b-041c68b4ac86"
+          ],
+          "x-ms-arm-service-request-id": [
+            "da3cb6ad-3c06-48fa-805d-daa9ee760190"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261113T020127Z:ce810989-1553-4ed3-8b9b-041c68b4ac86"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: AE34F316400D4BBAA4422598C714F7C1 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:01:27Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:01:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet?api-version=2025-05-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "f7a18526-bc08-4f81-b4e6-3c142be3fecf"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "b1b82beb-34b1-451e-89cf-286922cdb3b6"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=2.0, subscriptionReadRatePct=0.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "6546b90f-f2a6-441b-98a2-98e31c3d3259"
+          ],
+          "x-ms-arm-service-request-id": [
+            "9d0e69cf-32b2-4961-9197-ee63a488493a"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261113T020128Z:6546b90f-f2a6-441b-98a2-98e31c3d3259"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 4763682CD75648F2A74A081F9D0FA653 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:01:27Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:01:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022vmnet-a-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022c3197786-5ec4-4d74-a6c5-5c204d40ec81\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022a36cf12d-cdef-40e5-88ed-f7cf70739240\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet/subnets/default\u0022,\u0022etag\u0022:\u0022W/\\\u0022c3197786-5ec4-4d74-a6c5-5c204d40ec81\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022serviceEndpoints\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP?api-version=2025-05-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "a3607d36-02d8-45d2-b9ba-6297b0eb8e6f"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022e660b251-fb07-41a1-84d1-9ca4f2fb6669\u0022"
+          ],
+          "x-ms-request-id": [
+            "ac9ade6e-e2b2-4144-bf7e-6af4172171b7"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "d33a84a2-8f47-460d-92ae-7c99dfbdd396"
+          ],
+          "x-ms-arm-service-request-id": [
+            "f536df2d-7768-46cd-9dc1-e25c17d7bfdf"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261113T020128Z:d33a84a2-8f47-460d-92ae-7c99dfbdd396"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: BF0006C34FE64A41A659F5B55C7FAC05 Ref B: SG2AA1070304062 Ref C: 2026-11-13T02:01:28Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:01:28 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022vmnet-aPublicIP\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP\u0022,\u0022etag\u0022:\u0022W/\\\u0022e660b251-fb07-41a1-84d1-9ca4f2fb6669\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022a2985876-8e73-46c2-bb43-86e400cb07aa\u0022,\u0022ipAddress\u0022:\u00224.196.233.250\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
       }
     },
     {
       "request": {
         "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/virtualMachines/scen-vmnet-a?api-version=2025-11-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic?api-version=2025-05-01",
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
           ],
           "x-ms-client-request-id": [
-            "d1a4bcbf-7bde-460c-8e57-574b842ab391"
+            "357dbdde-27e9-4048-8d8c-61456edc9073"
           ]
         },
-        "body": "{\u0022id\u0022:null,\u0022name\u0022:null,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022hardwareProfile\u0022:{\u0022vmSize\u0022:\u0022Standard_D2ds_v6\u0022},\u0022storageProfile\u0022:{\u0022osDisk\u0022:null,\u0022imageReference\u0022:{\u0022publisher\u0022:\u0022MicrosoftWindowsServer\u0022,\u0022offer\u0022:\u0022WindowsServer\u0022,\u0022sku\u0022:\u00222022-datacenter-azure-edition\u0022,\u0022version\u0022:\u0022latest\u0022}},\u0022osProfile\u0022:{\u0022computerName\u0022:\u0022scen-vmnet-a\u0022,\u0022adminUsername\u0022:\u0022azadmin\u0022,\u0022adminPassword\u0022:\u0022[redacted]\u0022,\u0022windowsConfiguration\u0022:{}},\u0022networkProfile\u0022:{\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic\u0022}]},\u0022securityProfile\u0022:{\u0022uefiSettings\u0022:{\u0022secureBootEnabled\u0022:true,\u0022vTpmEnabled\u0022:true},\u0022securityType\u0022:\u0022TrustedLaunch\u0022},\u0022diagnosticsProfile\u0022:{\u0022bootDiagnostics\u0022:{\u0022enabled\u0022:false}}}}"
+        "body": "{\u0022id\u0022:null,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG\u0022,\u0022location\u0022:null,\u0022tags\u0022:null,\u0022properties\u0022:{\u0022flushConnection\u0022:false,\u0022securityRules\u0022:[]}},\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022properties\u0022:{\u0022subnet\u0022:{\u0022name\u0022:null,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet/subnets/default\u0022,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u0022\u0022,\u0022addressPrefixes\u0022:[],\u0022serviceEndpoints\u0022:[],\u0022serviceEndpointPolicies\u0022:[],\u0022ipAllocations\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022applicationGatewayIPConfigurations\u0022:[],\u0022ipamPoolPrefixAllocations\u0022:[]}},\u0022virtualNetworkTaps\u0022:[],\u0022applicationGatewayBackendAddressPools\u0022:[],\u0022loadBalancerBackendAddressPools\u0022:[],\u0022loadBalancerInboundNatRules\u0022:[],\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022primary\u0022:true,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP\u0022}}}],\u0022enableAcceleratedNetworking\u0022:false,\u0022enableIPForwarding\u0022:false}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "55b746e8-f76a-4f07-8c79-9577bc5ff9ba"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/55b746e8-f76a-4f07-8c79-9577bc5ff9ba?api-version=2025-05-01\u0026t=639301320891636305\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.9, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "6a3ee938-4033-45c5-95e1-70bd41cbd5cf"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "af938eac-091f-41ab-beff-0f8ae85ef058"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261113T020129Z:6a3ee938-4033-45c5-95e1-70bd41cbd5cf"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 2298819A387F4ECFACF5B9E9060784A3 Ref B: SG2AA1070304062 Ref C: 2026-11-13T02:01:28Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:01:29 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022vmnet-aVMNic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic\u0022,\u0022etag\u0022:\u0022W/\\\u0022c6d632df-a083-4d48-beb7-3628ce760bef\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00227650c5ac-311c-482e-a8ed-48dade444c08\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022c6d632df-a083-4d48-beb7-3628ce760bef\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022fxywzi5pzxsubchn45hxa22sia.px.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/55b746e8-f76a-4f07-8c79-9577bc5ff9ba?api-version=2025-05-01\u0026t=639301320891636305\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "709f52b0-ff5f-4830-8c76-9603dcbfaef0"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "43016918-b69e-4df6-b7cf-054e88d4e6be"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.7, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "23dd3cdc-436e-4960-97da-c42d90de37c3"
+          ],
+          "x-ms-arm-service-request-id": [
+            "30f8282d-4458-44d6-aee0-08b18d4ff063"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261113T020130Z:23dd3cdc-436e-4960-97da-c42d90de37c3"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 839AE27A794D47BC8E9EE9C635ACCCF4 Ref B: SG2AA1070304062 Ref C: 2026-11-13T02:01:30Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:01:30 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic?api-version=2025-05-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "c4181204-6c93-439c-9943-e140d18a062f"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022efe39db4-7999-44c7-b933-d10702fdfc44\u0022"
+          ],
+          "x-ms-request-id": [
+            "626ada4e-f831-484b-8f02-b4de5a312bbf"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.7, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "a03667c0-eac8-49b1-accc-09b1cdcdafae"
+          ],
+          "x-ms-arm-service-request-id": [
+            "205e3787-e564-40a4-bfba-362a8f031969"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261113T020130Z:a03667c0-eac8-49b1-accc-09b1cdcdafae"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: A94B2CB489914B75A28DE8A23B820EE4 Ref B: SG2AA1070304062 Ref C: 2026-11-13T02:01:30Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:01:30 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022vmnet-aVMNic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic\u0022,\u0022etag\u0022:\u0022W/\\\u0022efe39db4-7999-44c7-b933-d10702fdfc44\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00227650c5ac-311c-482e-a8ed-48dade444c08\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022efe39db4-7999-44c7-b933-d10702fdfc44\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022fxywzi5pzxsubchn45hxa22sia.px.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/virtualMachines/vmnet-a?api-version=2025-11-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "31f13b19-86b7-46a2-a3dd-9de0f206b3de"
+          ]
+        },
+        "body": "{\u0022id\u0022:null,\u0022name\u0022:null,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022hardwareProfile\u0022:{\u0022vmSize\u0022:\u0022Standard_D2ds_v6\u0022},\u0022storageProfile\u0022:{\u0022osDisk\u0022:null,\u0022imageReference\u0022:{\u0022publisher\u0022:\u0022MicrosoftWindowsServer\u0022,\u0022offer\u0022:\u0022WindowsServer\u0022,\u0022sku\u0022:\u00222022-datacenter-azure-edition\u0022,\u0022version\u0022:\u0022latest\u0022}},\u0022osProfile\u0022:{\u0022computerName\u0022:\u0022vmnet-a\u0022,\u0022adminUsername\u0022:\u0022azadmin\u0022,\u0022adminPassword\u0022:\u0022[redacted]\u0022,\u0022windowsConfiguration\u0022:{}},\u0022networkProfile\u0022:{\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic\u0022}]},\u0022securityProfile\u0022:{\u0022uefiSettings\u0022:{\u0022secureBootEnabled\u0022:true,\u0022vTpmEnabled\u0022:true},\u0022securityType\u0022:\u0022TrustedLaunch\u0022},\u0022diagnosticsProfile\u0022:{\u0022bootDiagnostics\u0022:{\u0022enabled\u0022:false}}}}"
       },
       "response": {
         "statusCode": 201,
@@ -1022,7 +1022,7 @@
             "10"
           ],
           "Azure-AsyncOperation": [
-            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/australiaeast/operations/311ae021-444e-415f-8b46-f4f0995bb50c?p=73ace3ec-c609-4335-be20-a0f4a2e0a9a4\u0026api-version=2025-11-01\u0026t=639301294150901149\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/australiaeast/operations/98d99f97-f1eb-4790-ba3d-3349529e60f9?p=73ace3ec-c609-4335-be20-a0f4a2e0a9a4\u0026api-version=2025-11-01\u0026t=639301320920922924\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
           ],
           "azure-asyncnotification": [
             "Enabled"
@@ -1037,7 +1037,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "311ae021-444e-415f-8b46-f4f0995bb50c"
+            "98d99f97-f1eb-4790-ba3d-3349529e60f9"
           ],
           "x-ms-ratelimit-remaining-subscription-writes": [
             "199"
@@ -1046,10 +1046,10 @@
             "2999"
           ],
           "x-ms-correlation-request-id": [
-            "c5884bbc-5255-4720-b1f3-c9f155bbd8fc"
+            "2450844d-d120-4ab2-946b-0327c6db9544"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011655Z:c5884bbc-5255-4720-b1f3-c9f155bbd8fc"
+            "AUSTRALIAEAST:20261113T020132Z:2450844d-d120-4ab2-946b-0327c6db9544"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -1058,10 +1058,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 7D9250F1DAD34CBC86D0CC8F999B9680 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:16:53Z"
+            "Ref A: FA6CAFBA038E4D5F9B7CC8BD3A371C45 Ref B: SG2AA1070304062 Ref C: 2026-11-13T02:01:31Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:16:54 GMT"
+            "Fri, 13 Nov 2026 02:01:32 GMT"
           ]
         },
         "contentHeaders": {
@@ -1072,16 +1072,16 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022name\u0022: \u0022scen-vmnet-a\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/virtualMachines/scen-vmnet-a\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022australiaeast\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2ds_v6\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Creating\u0022,\r\n    \u0022vmId\u0022: \u0022bbd21aa1-71e1-440b-b9ae-2cf260923bf4\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5773.261025\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022NVMe\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022scen-vmnet-a\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-11-13T01:16:53.992535\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00221\\\u0022\u0022\r\n}"
+        "body": "{\r\n  \u0022name\u0022: \u0022vmnet-a\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/virtualMachines/vmnet-a\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022australiaeast\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2ds_v6\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Creating\u0022,\r\n    \u0022vmId\u0022: \u00225deff160-c053-4dd6-ac62-7836a7ffcd44\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5773.261025\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022NVMe\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022vmnet-a\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-11-13T02:01:31.295404\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00221\\\u0022\u0022\r\n}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/australiaeast/operations/311ae021-444e-415f-8b46-f4f0995bb50c?p=73ace3ec-c609-4335-be20-a0f4a2e0a9a4\u0026api-version=2025-11-01\u0026t=639301294150901149\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/australiaeast/operations/98d99f97-f1eb-4790-ba3d-3349529e60f9?p=73ace3ec-c609-4335-be20-a0f4a2e0a9a4\u0026api-version=2025-11-01\u0026t=639301320920922924\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {
           "x-ms-client-request-id": [
-            "711e17fb-820a-4021-ae48-78211a38da98"
+            "1ff29b27-9b31-4de3-b80b-53a02069d01e"
           ]
         }
       },
@@ -1107,7 +1107,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "cb53f41d-5119-4aa2-a571-c91d24cf722e"
+            "17998b79-d6e6-4e63-8bdd-d12a583d4015"
           ],
           "x-ms-ratelimit-remaining-subscription-reads": [
             "249"
@@ -1116,10 +1116,10 @@
             "3749"
           ],
           "x-ms-correlation-request-id": [
-            "facd3292-3555-439b-a4cd-d2fd291614a1"
+            "d59e1096-5f6c-426f-8b11-25b47e10cf81"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011706Z:facd3292-3555-439b-a4cd-d2fd291614a1"
+            "SOUTHEASTASIA:20261113T020142Z:d59e1096-5f6c-426f-8b11-25b47e10cf81"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -1128,10 +1128,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 4EFFD858B8E54F5793E3470319C5AE7E Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:17:05Z"
+            "Ref A: 85EE528D3E2B46549D0DAEFEC3BE304E Ref B: SG2AA1070304062 Ref C: 2026-11-13T02:01:42Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:17:05 GMT"
+            "Fri, 13 Nov 2026 02:01:42 GMT"
           ]
         },
         "contentHeaders": {
@@ -1142,16 +1142,16 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022startTime\u0022: \u00222026-11-13T01:16:53.992535\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022InProgress\u0022,\r\n  \u0022name\u0022: \u0022311ae021-444e-415f-8b46-f4f0995bb50c\u0022\r\n}"
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-11-13T02:01:31.295404\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022InProgress\u0022,\r\n  \u0022name\u0022: \u002298d99f97-f1eb-4790-ba3d-3349529e60f9\u0022\r\n}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/australiaeast/operations/311ae021-444e-415f-8b46-f4f0995bb50c?p=73ace3ec-c609-4335-be20-a0f4a2e0a9a4\u0026api-version=2025-11-01\u0026t=639301294150901149\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/locations/australiaeast/operations/98d99f97-f1eb-4790-ba3d-3349529e60f9?p=73ace3ec-c609-4335-be20-a0f4a2e0a9a4\u0026api-version=2025-11-01\u0026t=639301320920922924\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
         "headers": {
           "x-ms-client-request-id": [
-            "ec282911-2b51-4a2d-bb2c-4098404a7ef5"
+            "ff3b3eca-95e4-481b-a764-eb8520f05879"
           ]
         }
       },
@@ -1165,7 +1165,7 @@
             "no-cache"
           ],
           "x-ms-ratelimit-remaining-resource": [
-            "Microsoft.Compute/GetOperationResource;43,Microsoft.Compute/GetOperationSubscriptionMaximum;14999"
+            "Microsoft.Compute/GetOperationResource;43,Microsoft.Compute/GetOperationSubscriptionMaximum;14998"
           ],
           "x-ms-need-to-refresh-epl-cache": [
             "False"
@@ -1174,7 +1174,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "8468bdd9-ab87-4faa-bcb4-ae2cb3c6a54b"
+            "3dfa8a48-29da-4273-8b6e-136b7af43caf"
           ],
           "x-ms-ratelimit-remaining-subscription-reads": [
             "249"
@@ -1183,10 +1183,10 @@
             "3749"
           ],
           "x-ms-correlation-request-id": [
-            "f54399e0-a5e4-4c3a-a84f-33c4e7bfb9b7"
+            "62001a96-4bde-452f-8eaf-224820a0cb70"
           ],
           "x-ms-routing-request-id": [
-            "SOUTHEASTASIA:20261113T011756Z:f54399e0-a5e4-4c3a-a84f-33c4e7bfb9b7"
+            "SOUTHEASTASIA:20261113T020232Z:62001a96-4bde-452f-8eaf-224820a0cb70"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -1195,10 +1195,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: C641117EB52B4E4A8B45060F9EC6A5A6 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:17:56Z"
+            "Ref A: 4C6D4840D06948AD9602B254BC8C2553 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:02:32Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:17:55 GMT"
+            "Fri, 13 Nov 2026 02:02:32 GMT"
           ]
         },
         "contentHeaders": {
@@ -1209,16 +1209,16 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022startTime\u0022: \u00222026-11-13T01:16:53.992535\u002B00:00\u0022,\r\n  \u0022endTime\u0022: \u00222026-11-13T01:17:41.4858815\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022Succeeded\u0022,\r\n  \u0022name\u0022: \u0022311ae021-444e-415f-8b46-f4f0995bb50c\u0022\r\n}"
+        "body": "{\r\n  \u0022startTime\u0022: \u00222026-11-13T02:01:31.295404\u002B00:00\u0022,\r\n  \u0022endTime\u0022: \u00222026-11-13T02:02:11.6053081\u002B00:00\u0022,\r\n  \u0022status\u0022: \u0022Succeeded\u0022,\r\n  \u0022name\u0022: \u002298d99f97-f1eb-4790-ba3d-3349529e60f9\u0022\r\n}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/virtualMachines/scen-vmnet-a?api-version=2025-11-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/virtualMachines/vmnet-a?api-version=2025-11-01",
         "headers": {
           "x-ms-client-request-id": [
-            "4fd45925-c3ff-4e49-92c6-96ef63b88cd0"
+            "8b4806b6-80c9-430a-b18b-c03ef56117db"
           ]
         }
       },
@@ -1244,7 +1244,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "2f8bf5ac-2406-4f07-bd9a-3ccd5d5d9455"
+            "9a6a52c1-83c8-4a20-81da-ba361ca80e1d"
           ],
           "x-ms-ratelimit-remaining-subscription-reads": [
             "249"
@@ -1253,10 +1253,10 @@
             "3749"
           ],
           "x-ms-correlation-request-id": [
-            "84590db3-9c45-4f02-843e-655956450124"
+            "47eadec1-a24a-4af2-b05a-fdfcee048349"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011756Z:84590db3-9c45-4f02-843e-655956450124"
+            "AUSTRALIAEAST:20261113T020233Z:47eadec1-a24a-4af2-b05a-fdfcee048349"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -1265,10 +1265,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 90A8458608EA4858A3F7BD9D8D8C5058 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:17:56Z"
+            "Ref A: 4A01F14A19DF426A821CEE868D053B7B Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:02:33Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:17:55 GMT"
+            "Fri, 13 Nov 2026 02:02:32 GMT"
           ]
         },
         "contentHeaders": {
@@ -1279,16 +1279,16 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022name\u0022: \u0022scen-vmnet-a\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/virtualMachines/scen-vmnet-a\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022australiaeast\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2ds_v6\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022vmId\u0022: \u0022bbd21aa1-71e1-440b-b9ae-2cf260923bf4\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5773.261025\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022scen-vmnet-a_OsDisk_1_92e30739aa17493b99ff8fda11679329\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/disks/scen-vmnet-a_OsDisk_1_92e30739aa17493b99ff8fda11679329\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022NVMe\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022scen-vmnet-a\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-11-13T01:16:53.992535\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00222\\\u0022\u0022\r\n}"
+        "body": "{\r\n  \u0022name\u0022: \u0022vmnet-a\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/virtualMachines/vmnet-a\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022australiaeast\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2ds_v6\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022vmId\u0022: \u00225deff160-c053-4dd6-ac62-7836a7ffcd44\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5773.261025\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022vmnet-a_OsDisk_1_6f787078c00f4b2a97658b16e02eaccd\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/disks/vmnet-a_OsDisk_1_6f787078c00f4b2a97658b16e02eaccd\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022NVMe\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022vmnet-a\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-11-13T02:01:31.295404\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00222\\\u0022\u0022\r\n}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/virtualMachines/scen-vmnet-a?api-version=2025-11-01\u0026$expand=instanceView",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/virtualMachines/vmnet-a?api-version=2025-11-01\u0026$expand=instanceView",
         "headers": {
           "x-ms-client-request-id": [
-            "2bd840c0-9222-432e-8843-512e0bc1a400"
+            "d4a6664d-6f7c-4d03-bd50-8c09b527ec12"
           ]
         }
       },
@@ -1311,7 +1311,7 @@
             "max-age=31536000; includeSubDomains"
           ],
           "x-ms-request-id": [
-            "603d9a7b-5159-4d61-aefa-55fbf942b39d"
+            "1f47424f-856c-4151-aa24-c330a797d476"
           ],
           "x-ms-ratelimit-remaining-subscription-reads": [
             "249"
@@ -1320,10 +1320,10 @@
             "3749"
           ],
           "x-ms-correlation-request-id": [
-            "60b95ede-6b26-425e-9cc0-4bfb1e497408"
+            "cbb0fc12-dce8-499d-a5ad-f410bb503740"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011757Z:60b95ede-6b26-425e-9cc0-4bfb1e497408"
+            "AUSTRALIAEAST:20261113T020233Z:cbb0fc12-dce8-499d-a5ad-f410bb503740"
           ],
           "X-Content-Type-Options": [
             "nosniff"
@@ -1332,10 +1332,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: E5DD4D3A58794ED7BC4E6D3182D93240 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:17:57Z"
+            "Ref A: A579DC0A582845338D1085EE15FD26B8 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:02:33Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:17:56 GMT"
+            "Fri, 13 Nov 2026 02:02:32 GMT"
           ]
         },
         "contentHeaders": {
@@ -1346,16 +1346,16 @@
             "-1"
           ]
         },
-        "body": "{\r\n  \u0022name\u0022: \u0022scen-vmnet-a\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/virtualMachines/scen-vmnet-a\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022australiaeast\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2ds_v6\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022vmId\u0022: \u0022bbd21aa1-71e1-440b-b9ae-2cf260923bf4\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5773.261025\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022scen-vmnet-a_OsDisk_1_92e30739aa17493b99ff8fda11679329\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/disks/scen-vmnet-a_OsDisk_1_92e30739aa17493b99ff8fda11679329\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022NVMe\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022scen-vmnet-a\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022instanceView\u0022: {\r\n      \u0022vmAgent\u0022: {\r\n        \u0022vmAgentVersion\u0022: \u0022Unknown\u0022,\r\n        \u0022statuses\u0022: [\r\n          {\r\n            \u0022code\u0022: \u0022ProvisioningState/Unavailable\u0022,\r\n            \u0022level\u0022: \u0022Warning\u0022,\r\n            \u0022displayStatus\u0022: \u0022Not Ready\u0022,\r\n            \u0022message\u0022: \u0022VM status blob is found but not yet populated.\u0022,\r\n            \u0022time\u0022: \u00222026-11-13T01:17:57\u002B00:00\u0022\r\n          }\r\n        ]\r\n      },\r\n      \u0022disks\u0022: [\r\n        {\r\n          \u0022name\u0022: \u0022scen-vmnet-a_OsDisk_1_92e30739aa17493b99ff8fda11679329\u0022,\r\n          \u0022statuses\u0022: [\r\n            {\r\n              \u0022code\u0022: \u0022ProvisioningState/succeeded\u0022,\r\n              \u0022level\u0022: \u0022Info\u0022,\r\n              \u0022displayStatus\u0022: \u0022Provisioning succeeded\u0022,\r\n              \u0022time\u0022: \u00222026-11-13T01:16:58.0140017\u002B00:00\u0022\r\n            }\r\n          ]\r\n        }\r\n      ],\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022capacityReservationType\u0022: \u0022NotEligible\u0022,\r\n      \u0022statuses\u0022: [\r\n        {\r\n          \u0022code\u0022: \u0022ProvisioningState/succeeded\u0022,\r\n          \u0022level\u0022: \u0022Info\u0022,\r\n          \u0022displayStatus\u0022: \u0022Provisioning succeeded\u0022,\r\n          \u0022time\u0022: \u00222026-11-13T01:17:41.3307349\u002B00:00\u0022\r\n        },\r\n        {\r\n          \u0022code\u0022: \u0022PowerState/running\u0022,\r\n          \u0022level\u0022: \u0022Info\u0022,\r\n          \u0022displayStatus\u0022: \u0022VM running\u0022\r\n        }\r\n      ]\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-11-13T01:16:53.992535\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00222\\\u0022\u0022\r\n}"
+        "body": "{\r\n  \u0022name\u0022: \u0022vmnet-a\u0022,\r\n  \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/virtualMachines/vmnet-a\u0022,\r\n  \u0022type\u0022: \u0022Microsoft.Compute/virtualMachines\u0022,\r\n  \u0022location\u0022: \u0022australiaeast\u0022,\r\n  \u0022properties\u0022: {\r\n    \u0022hardwareProfile\u0022: {\r\n      \u0022vmSize\u0022: \u0022Standard_D2ds_v6\u0022\r\n    },\r\n    \u0022provisioningState\u0022: \u0022Succeeded\u0022,\r\n    \u0022vmId\u0022: \u00225deff160-c053-4dd6-ac62-7836a7ffcd44\u0022,\r\n    \u0022storageProfile\u0022: {\r\n      \u0022imageReference\u0022: {\r\n        \u0022publisher\u0022: \u0022MicrosoftWindowsServer\u0022,\r\n        \u0022offer\u0022: \u0022WindowsServer\u0022,\r\n        \u0022sku\u0022: \u00222022-datacenter-azure-edition\u0022,\r\n        \u0022version\u0022: \u0022latest\u0022,\r\n        \u0022exactVersion\u0022: \u002220348.5773.261025\u0022\r\n      },\r\n      \u0022osDisk\u0022: {\r\n        \u0022osType\u0022: \u0022Windows\u0022,\r\n        \u0022name\u0022: \u0022vmnet-a_OsDisk_1_6f787078c00f4b2a97658b16e02eaccd\u0022,\r\n        \u0022createOption\u0022: \u0022FromImage\u0022,\r\n        \u0022caching\u0022: \u0022ReadWrite\u0022,\r\n        \u0022managedDisk\u0022: {\r\n          \u0022storageAccountType\u0022: \u0022Premium_LRS\u0022,\r\n          \u0022id\u0022: \u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/disks/vmnet-a_OsDisk_1_6f787078c00f4b2a97658b16e02eaccd\u0022\r\n        },\r\n        \u0022deleteOption\u0022: \u0022Detach\u0022,\r\n        \u0022diskSizeGB\u0022: 127\r\n      },\r\n      \u0022dataDisks\u0022: [],\r\n      \u0022diskControllerType\u0022: \u0022NVMe\u0022\r\n    },\r\n    \u0022osProfile\u0022: {\r\n      \u0022computerName\u0022: \u0022vmnet-a\u0022,\r\n      \u0022windowsConfiguration\u0022: {\r\n        \u0022provisionVMAgent\u0022: true,\r\n        \u0022enableAutomaticUpdates\u0022: true,\r\n        \u0022patchSettings\u0022: {\r\n          \u0022patchMode\u0022: \u0022AutomaticByOS\u0022,\r\n          \u0022assessmentMode\u0022: \u0022ImageDefault\u0022\r\n        },\r\n        \u0022enableVMAgentPlatformUpdates\u0022: true\r\n      },\r\n      \u0022secrets\u0022: [],\r\n      \u0022allowExtensionOperations\u0022: true,\r\n      \u0022requireGuestProvisionSignal\u0022: true,\r\n      \u0022adminUsername\u0022: \u0022azadmin\u0022\r\n    },\r\n    \u0022securityProfile\u0022: {\r\n      \u0022uefiSettings\u0022: {\r\n        \u0022secureBootEnabled\u0022: true,\r\n        \u0022vTpmEnabled\u0022: true\r\n      },\r\n      \u0022securityType\u0022: \u0022TrustedLaunch\u0022\r\n    },\r\n    \u0022networkProfile\u0022: {\u0022networkInterfaces\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic\u0022}]},\r\n    \u0022diagnosticsProfile\u0022: {\r\n      \u0022bootDiagnostics\u0022: {\r\n        \u0022enabled\u0022: false\r\n      }\r\n    },\r\n    \u0022instanceView\u0022: {\r\n      \u0022vmAgent\u0022: {\r\n        \u0022vmAgentVersion\u0022: \u0022Unknown\u0022,\r\n        \u0022statuses\u0022: [\r\n          {\r\n            \u0022code\u0022: \u0022ProvisioningState/Unavailable\u0022,\r\n            \u0022level\u0022: \u0022Warning\u0022,\r\n            \u0022displayStatus\u0022: \u0022Not Ready\u0022,\r\n            \u0022message\u0022: \u0022VM status blob is found but not yet populated.\u0022,\r\n            \u0022time\u0022: \u00222026-11-13T02:02:33\u002B00:00\u0022\r\n          }\r\n        ]\r\n      },\r\n      \u0022disks\u0022: [\r\n        {\r\n          \u0022name\u0022: \u0022vmnet-a_OsDisk_1_6f787078c00f4b2a97658b16e02eaccd\u0022,\r\n          \u0022statuses\u0022: [\r\n            {\r\n              \u0022code\u0022: \u0022ProvisioningState/succeeded\u0022,\r\n              \u0022level\u0022: \u0022Info\u0022,\r\n              \u0022displayStatus\u0022: \u0022Provisioning succeeded\u0022,\r\n              \u0022time\u0022: \u00222026-11-13T02:01:34.2658173\u002B00:00\u0022\r\n            }\r\n          ]\r\n        }\r\n      ],\r\n      \u0022hyperVGeneration\u0022: \u0022V2\u0022,\r\n      \u0022capacityReservationType\u0022: \u0022NotEligible\u0022,\r\n      \u0022statuses\u0022: [\r\n        {\r\n          \u0022code\u0022: \u0022ProvisioningState/succeeded\u0022,\r\n          \u0022level\u0022: \u0022Info\u0022,\r\n          \u0022displayStatus\u0022: \u0022Provisioning succeeded\u0022,\r\n          \u0022time\u0022: \u00222026-11-13T02:02:11.4474228\u002B00:00\u0022\r\n        },\r\n        {\r\n          \u0022code\u0022: \u0022PowerState/running\u0022,\r\n          \u0022level\u0022: \u0022Info\u0022,\r\n          \u0022displayStatus\u0022: \u0022VM running\u0022\r\n        }\r\n      ]\r\n    },\r\n    \u0022timeCreated\u0022: \u00222026-11-13T02:01:31.295404\u002B00:00\u0022\r\n  },\r\n  \u0022etag\u0022: \u0022\\\u00222\\\u0022\u0022\r\n}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic?api-version=2025-05-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic?api-version=2025-05-01",
         "headers": {
           "x-ms-client-request-id": [
-            "54f125dc-4ddf-4e8a-8ad9-a19fad10a553"
+            "c58b3033-e6cf-426e-a5d2-1cb211d0168d"
           ]
         }
       },
@@ -1369,19 +1369,19 @@
             "no-cache"
           ],
           "ETag": [
-            "W/\u0022d0c0b7a0-4658-40be-8dc8-7c8a23f14b0e\u0022"
+            "W/\u00222462e860-24b0-43da-aed3-633e18770567\u0022"
           ],
           "x-ms-request-id": [
-            "4fcbe68a-49ed-45c1-a755-d9d65f7c2da2"
+            "817f828d-ae18-4105-a1c5-8711a8ad272c"
           ],
           "x-ms-throttle-levels": [
-            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.4, etc"
           ],
           "x-ms-correlation-request-id": [
-            "92d7fc1d-dee0-4728-9841-2f5fcb87aa12"
+            "47c42cc5-a950-489f-b617-4b61ded50901"
           ],
           "x-ms-arm-service-request-id": [
-            "2b0c41db-79a2-4df2-a576-fa9e8ee19ef1"
+            "4844c5b7-2ae5-48a6-ad9a-cf4720a736b9"
           ],
           "x-ms-ratelimit-remaining-subscription-reads": [
             "249"
@@ -1390,7 +1390,7 @@
             "3749"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011757Z:92d7fc1d-dee0-4728-9841-2f5fcb87aa12"
+            "AUSTRALIAEAST:20261113T020233Z:47c42cc5-a950-489f-b617-4b61ded50901"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -1402,10 +1402,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: 2B182F07CB5447BF8515689973242D72 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:17:57Z"
+            "Ref A: 38F6306F59C14E1BB0416E1DD0BB69F5 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:02:33Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:17:56 GMT"
+            "Fri, 13 Nov 2026 02:02:33 GMT"
           ]
         },
         "contentHeaders": {
@@ -1416,16 +1416,16 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-aVMNic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic\u0022,\u0022etag\u0022:\u0022W/\\\u0022d0c0b7a0-4658-40be-8dc8-7c8a23f14b0e\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00224322aa0c-646f-4815-b2d3-7e02c0e14018\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u0022d0c0b7a0-4658-40be-8dc8-7c8a23f14b0e\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022iii3sxgrasaebcvdeyn1fj2oye.px.internal.cloudapp.net\u0022},\u0022macAddress\u0022:\u00227C-1E-52-2B-59-CB\u0022,\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkSecurityGroups/scen-vmnet-aNSG\u0022},\u0022primary\u0022:true,\u0022virtualMachine\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Compute/virtualMachines/scen-vmnet-a\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+        "body": "{\u0022name\u0022:\u0022vmnet-aVMNic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic\u0022,\u0022etag\u0022:\u0022W/\\\u00222462e860-24b0-43da-aed3-633e18770567\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00227650c5ac-311c-482e-a8ed-48dade444c08\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig0\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic/ipConfigurations/ipconfig0\u0022,\u0022etag\u0022:\u0022W/\\\u00222462e860-24b0-43da-aed3-633e18770567\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet/subnets/default\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022fxywzi5pzxsubchn45hxa22sia.px.internal.cloudapp.net\u0022},\u0022macAddress\u0022:\u002200-22-48-10-14-62\u0022,\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkSecurityGroups/vmnet-aNSG\u0022},\u0022primary\u0022:true,\u0022virtualMachine\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Compute/virtualMachines/vmnet-a\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
       }
     },
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP?api-version=2025-05-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP?api-version=2025-05-01",
         "headers": {
           "x-ms-client-request-id": [
-            "bf4c9448-f5d8-48d9-9104-b1e1635f84c1"
+            "00a0f7af-59f7-4fbd-b756-041741d01c4f"
           ]
         }
       },
@@ -1439,86 +1439,19 @@
             "no-cache"
           ],
           "ETag": [
-            "W/\u0022e38530f4-872a-47bd-ade2-27bda8345948\u0022"
+            "W/\u0022fe293433-097e-44a9-8e6a-0437a32e3d39\u0022"
           ],
           "x-ms-request-id": [
-            "27b82592-6091-46bf-a6a7-39c820c06f0a"
+            "1e376868-7f11-4c7d-a84b-afa4f45e9060"
           ],
           "x-ms-throttle-levels": [
             "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
           ],
           "x-ms-correlation-request-id": [
-            "1892771d-ba69-4b2f-873c-3da6960ea438"
+            "eea8ef00-42a6-458e-ae5a-a091dc1aade4"
           ],
           "x-ms-arm-service-request-id": [
-            "242b1ea6-7738-4113-b756-3fb03dd00a28"
-          ],
-          "x-ms-ratelimit-remaining-subscription-reads": [
-            "249"
-          ],
-          "x-ms-ratelimit-remaining-subscription-global-reads": [
-            "3749"
-          ],
-          "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011757Z:1892771d-ba69-4b2f-873c-3da6960ea438"
-          ],
-          "Strict-Transport-Security": [
-            "max-age=31536000; includeSubDomains"
-          ],
-          "X-Content-Type-Options": [
-            "nosniff"
-          ],
-          "X-Cache": [
-            "CONFIG_NOCACHE"
-          ],
-          "X-MSEdge-Ref": [
-            "Ref A: DD60B11BD54C488B9E59490890CE3D6B Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:17:57Z"
-          ],
-          "Date": [
-            "Fri, 13 Nov 2026 01:17:56 GMT"
-          ]
-        },
-        "contentHeaders": {
-          "Content-Type": [
-            "application/json; charset=utf-8"
-          ],
-          "Expires": [
-            "-1"
-          ]
-        },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-aPublicIP\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/publicIPAddresses/scen-vmnet-aPublicIP\u0022,\u0022etag\u0022:\u0022W/\\\u0022e38530f4-872a-47bd-ade2-27bda8345948\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002228d63e1d-f5bc-424d-bb7d-430e5ebf64b1\u0022,\u0022ipAddress\u0022:\u002220.193.80.250\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ipConfiguration\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/networkInterfaces/scen-vmnet-aVMNic/ipConfigurations/ipconfig0\u0022},\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet?api-version=2025-07-01",
-        "headers": {
-          "x-ms-client-request-id": [
-            "d6b823cc-b7cc-4111-a46d-f14b7aec47ba"
-          ]
-        }
-      },
-      "response": {
-        "statusCode": 200,
-        "headers": {
-          "Cache-Control": [
-            "no-cache"
-          ],
-          "Pragma": [
-            "no-cache"
-          ],
-          "x-ms-request-id": [
-            "5884fd94-fece-4925-8eb7-1241e31dd44a"
-          ],
-          "x-ms-throttle-levels": [
-            "operationConcurrencyPct=2.0, subscriptionReadRatePct=0.5, etc"
-          ],
-          "x-ms-correlation-request-id": [
-            "cf408ac0-ec3e-4b6e-9bbc-5d6d2f387b64"
-          ],
-          "x-ms-arm-service-request-id": [
-            "970edc23-4dc0-4500-a341-c9caa260724a"
+            "dbb396fc-0c3e-4829-afb7-56f9991a616b"
           ],
           "x-ms-ratelimit-remaining-subscription-reads": [
             "248"
@@ -1527,7 +1460,7 @@
             "3748"
           ],
           "x-ms-routing-request-id": [
-            "AUSTRALIAEAST:20261113T011758Z:cf408ac0-ec3e-4b6e-9bbc-5d6d2f387b64"
+            "AUSTRALIAEAST:20261113T020234Z:eea8ef00-42a6-458e-ae5a-a091dc1aade4"
           ],
           "Strict-Transport-Security": [
             "max-age=31536000; includeSubDomains"
@@ -1539,10 +1472,10 @@
             "CONFIG_NOCACHE"
           ],
           "X-MSEdge-Ref": [
-            "Ref A: EF2E2858846746B6BF92EAED8E3C1A16 Ref B: SG2AA1040516036 Ref C: 2026-11-13T01:17:58Z"
+            "Ref A: 016E31D32ADF499FA8A18C41FBE91E2F Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:02:34Z"
           ],
           "Date": [
-            "Fri, 13 Nov 2026 01:17:57 GMT"
+            "Fri, 13 Nov 2026 02:02:33 GMT"
           ]
         },
         "contentHeaders": {
@@ -1553,7 +1486,74 @@
             "-1"
           ]
         },
-        "body": "{\u0022name\u0022:\u0022scen-vmnet-a-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022c87e59cd-34c0-4cdf-843f-6dd9f084fa08\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00225cd91142-04d1-4080-8aa3-261bb2a78ec4\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scen-vmnet-a-rg-t2c9de745/providers/Microsoft.Network/virtualNetworks/scen-vmnet-a-vnet/subnets/default\u0022,\u0022etag\u0022:\u0022W/\\\u0022c87e59cd-34c0-4cdf-843f-6dd9f084fa08\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022ipConfigurations\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SCEN-VMNET-A-RG-T2C9DE745/providers/Microsoft.Network/networkInterfaces/SCEN-VMNET-AVMNIC/ipConfigurations/IPCONFIG0\u0022}],\u0022serviceEndpoints\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+        "body": "{\u0022name\u0022:\u0022vmnet-aPublicIP\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/publicIPAddresses/vmnet-aPublicIP\u0022,\u0022etag\u0022:\u0022W/\\\u0022fe293433-097e-44a9-8e6a-0437a32e3d39\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022a2985876-8e73-46c2-bb43-86e400cb07aa\u0022,\u0022ipAddress\u0022:\u00224.196.233.250\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ipConfiguration\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/networkInterfaces/vmnet-aVMNic/ipConfigurations/ipconfig0\u0022},\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet?api-version=2025-07-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "ebf5e25a-5c2d-40f7-b465-8fe0dadc5c84"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "893f4deb-8d08-401c-aae6-ebf3c7cc11df"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=2.0, subscriptionReadRatePct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "54fd44ea-2fe7-4c51-9c16-1aa38785441e"
+          ],
+          "x-ms-arm-service-request-id": [
+            "1b828c4f-f848-414b-a53c-6d72e704ad6c"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261113T020234Z:54fd44ea-2fe7-4c51-9c16-1aa38785441e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3C2FFB6DDFED46D48996A8A1E77672D0 Ref B: SG2AA1040520054 Ref C: 2026-11-13T02:02:34Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:02:33 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022vmnet-a-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022c3197786-5ec4-4d74-a6c5-5c204d40ec81\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022a36cf12d-cdef-40e5-88ed-f7cf70739240\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-a-rg/providers/Microsoft.Network/virtualNetworks/vmnet-a-vnet/subnets/default\u0022,\u0022etag\u0022:\u0022W/\\\u0022c3197786-5ec4-4d74-a6c5-5c204d40ec81\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022ipConfigurations\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SCENARIO-VMNET-A-RG/providers/Microsoft.Network/networkInterfaces/VMNET-AVMNIC/ipConfigurations/IPCONFIG0\u0022}],\u0022serviceEndpoints\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
       }
     }
   ]

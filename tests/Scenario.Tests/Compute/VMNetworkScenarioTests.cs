@@ -24,7 +24,7 @@ public class VMNetworkScenarioTests
     [Fact]
     public void AddressPrefixesOnly_DefaultsSubnetAddressPrefix()
     {
-        RunScenario(nameof(AddressPrefixesOnly_DefaultsSubnetAddressPrefix), "scen-vmnet-a",
+        RunScenario(nameof(AddressPrefixesOnly_DefaultsSubnetAddressPrefix), "vmnet-a",
             (host, subscriptionId, groupName, vmName) =>
             {
                 host.RunCli(VmCreateArgs(subscriptionId, groupName, vmName, "--address-prefixes", "10.0.0.0/16"));
@@ -35,7 +35,7 @@ public class VMNetworkScenarioTests
     [Fact]
     public void SubnetAddressPrefixesOnly_DefaultsAddressPrefixes()
     {
-        RunScenario(nameof(SubnetAddressPrefixesOnly_DefaultsAddressPrefixes), "scen-vmnet-s",
+        RunScenario(nameof(SubnetAddressPrefixesOnly_DefaultsAddressPrefixes), "vmnet-s",
             (host, subscriptionId, groupName, vmName) =>
             {
                 host.RunCli(VmCreateArgs(subscriptionId, groupName, vmName, "--subnet-address-prefixes", "10.0.0.0/24"));
@@ -46,7 +46,7 @@ public class VMNetworkScenarioTests
     [Fact]
     public void SubnetOutsideAddressPrefixes_IsRejectedByArm()
     {
-        RunScenario(nameof(SubnetOutsideAddressPrefixes_IsRejectedByArm), "scen-vmnet-x",
+        RunScenario(nameof(SubnetOutsideAddressPrefixes_IsRejectedByArm), "vmnet-x",
             (host, subscriptionId, groupName, vmName) =>
             {
                 // The default subnet, 10.0.0.0/24, is not inside 192.168.0.0/16.
@@ -61,7 +61,7 @@ public class VMNetworkScenarioTests
 
         if (recording.Mode == RecorderMode.Record)
         {
-            var groupName = TestRun.ScopedName(baseName + "-rg", recording.Mode);
+            var groupName = TestRun.ScopedName("scenario-" + baseName + "-rg", recording.Mode);
             using var host = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), useLiveAuth: true, extensions: s_extensions);
             var subscriptionId = host.LiveSubscriptionId();
             try
@@ -79,8 +79,8 @@ public class VMNetworkScenarioTests
         }
 
         using var cli = new ScenarioHost(ClientType.CLI, recording.CreateInterceptor(), extensions: s_extensions);
-        cli.RunCli("group", "create", "--subscription-id", SubscriptionId, "--name", baseName + "-rg", "--location", Location);
-        scenario(cli, SubscriptionId, baseName + "-rg", baseName);
+        cli.RunCli("group", "create", "--subscription-id", SubscriptionId, "--name", "scenario-" + baseName + "-rg", "--location", Location);
+        scenario(cli, SubscriptionId, "scenario-" + baseName + "-rg", baseName);
     }
 
     private static string[] VmCreateArgs(string subscriptionId, string groupName, string vmName, params string[] networkArgs) =>
