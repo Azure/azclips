@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "VMNetworkScenarioTests/SubnetOutsideAddressPrefixes_IsRejectedByArm"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-vmnet-x-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "1b68195d-ec62-4b1e-b581-79a6a722d02b"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-vmnet-x-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "944290b1-6264-494e-ae76-e99e9ff60449"
+          ],
+          "x-ms-correlation-request-id": [
+            "944290b1-6264-494e-ae76-e99e9ff60449"
+          ],
+          "x-ms-routing-request-id": [
+            "MALAYSIASOUTH:20261113T020547Z:944290b1-6264-494e-ae76-e99e9ff60449"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 699942CB03444A56A5889C7AAEEB1A01 Ref B: SG2AA1070301025 Ref C: 2026-11-13T02:05:43Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:05:47 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-x-rg\u0022,\u0022name\u0022:\u0022scenario-vmnet-x-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-x-rg/providers/Microsoft.Network/virtualNetworks/vmnet-x-vnet?api-version=2025-05-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "c847c39a-f1d9-4248-86ef-43f1ded86375"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-request-id": [
+            "016ebecf-9658-42d2-8314-04be520d5e5f"
+          ],
+          "x-ms-correlation-request-id": [
+            "016ebecf-9658-42d2-8314-04be520d5e5f"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261113T020548Z:016ebecf-9658-42d2-8314-04be520d5e5f"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 5F0E7954FD1849CDA0C65CB79B5141C6 Ref B: SG2AA1070301025 Ref C: 2026-11-13T02:05:48Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:05:48 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022ResourceNotFound\u0022,\u0022message\u0022:\u0022The Resource \u0027Microsoft.Network/virtualNetworks/vmnet-x-vnet\u0027 under resource group \u0027scenario-vmnet-x-rg\u0027 was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-x-rg/providers/Microsoft.Network/virtualNetworks/vmnet-x-vnet?api-version=2025-05-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "98e54205-d180-458f-bff4-5475634b666d"
+          ]
+        },
+        "body": "{\u0022properties\u0022:{\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u0022192.168.0.0/16\u0022],\u0022ipamPoolPrefixAllocations\u0022:[]},\u0022subnets\u0022:[{\u0022name\u0022:\u0022default\u0022,\u0022id\u0022:null,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022addressPrefixes\u0022:[\u002210.0.0.0/24\u0022],\u0022serviceEndpoints\u0022:[],\u0022serviceEndpointPolicies\u0022:[],\u0022ipAllocations\u0022:[],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022applicationGatewayIPConfigurations\u0022:[],\u0022ipamPoolPrefixAllocations\u0022:[]}}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false,\u0022ipAllocations\u0022:[]},\u0022location\u0022:\u0022australiaeast\u0022}"
+      },
+      "response": {
+        "statusCode": 400,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "b8f7aed5-3683-4e28-b002-9c688d6681e0"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "d02f5a1f-9ced-4a6e-b58c-3f6f1ea9c859"
+          ],
+          "x-ms-arm-service-request-id": [
+            "e62cafb9-ba0c-4539-9e1d-e1b621ce89ee"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261113T020548Z:d02f5a1f-9ced-4a6e-b58c-3f6f1ea9c859"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3F79D051A26D44D3BF71BF363DDA9430 Ref B: SG2AA1070301025 Ref C: 2026-11-13T02:05:48Z"
+          ],
+          "Date": [
+            "Fri, 13 Nov 2026 02:05:48 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022NetcfgSubnetRangeOutsideVnet\u0022,\u0022message\u0022:\u0022Subnet \u0027default\u0027 is not valid because its IP address range is outside the IP address range of virtual network \u0027vmnet-x-vnet\u0027.\u0022,\u0022details\u0022:[]}}"
+      }
+    }
+  ]
+}

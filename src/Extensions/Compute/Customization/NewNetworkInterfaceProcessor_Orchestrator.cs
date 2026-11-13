@@ -158,16 +158,19 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
             if (AddressPrefixes.Count == 0)
             {
                 addressPrefixes = ["10.0.0.0/16"];
-                if (subnetAddressPrefixes.Count == 0)
-                {
-                    subnetAddressPrefixes.Add(["10.0.0.0/24"]);
-                }
-                else if (subnetAddressPrefixes[0].Count == 0)
-                {
-                    subnetAddressPrefixes[0] = ["10.0.0.0/24"];
-                }
             }
-        }        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
+
+            if (subnetAddressPrefixes.Count == 0)
+            {
+                subnetAddressPrefixes.Add(["10.0.0.0/24"]);
+            }
+            else if (subnetAddressPrefixes[0].Count == 0)
+            {
+                subnetAddressPrefixes[0] = ["10.0.0.0/24"];
+            }
+        }
+
+        NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
             p.SubscriptionId = SubscriptionId;
             p.Name = VirtualNetworkName;
