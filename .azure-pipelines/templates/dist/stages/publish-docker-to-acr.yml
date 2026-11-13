@@ -378,42 +378,42 @@ stages:
         POWERSHELL_REGISTRY_SERVER: ${{ parameters.powershell_registry_server }}
         POWERSHELL_REPOSITORY: ${{ parameters.powershell_repository }}
 
-    - task: PublishPipelineArtifact@1
-      displayName: Publish CLI Lean Amd64 Verification Image
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Lean_Amd64
-        artifact: Docker_Verification_CLI_AzureLinux3_Lean_Amd64
-        publishLocation: pipeline
-    - task: PublishPipelineArtifact@1
-      displayName: Publish CLI Lean Arm64 Verification Image
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Lean_Arm64
-        artifact: Docker_Verification_CLI_AzureLinux3_Lean_Arm64
-        publishLocation: pipeline
-    - task: PublishPipelineArtifact@1
-      displayName: Publish CLI Full Amd64 Verification Image
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Full_Amd64
-        artifact: Docker_Verification_CLI_AzureLinux3_Full_Amd64
-        publishLocation: pipeline
-    - task: PublishPipelineArtifact@1
-      displayName: Publish CLI Full Arm64 Verification Image
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Full_Arm64
-        artifact: Docker_Verification_CLI_AzureLinux3_Full_Arm64
-        publishLocation: pipeline
-    - task: PublishPipelineArtifact@1
-      displayName: Publish PowerShell Amd64 Verification Image
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_PowerShell_AzureLinux3_Amd64
-        artifact: Docker_Verification_PowerShell_AzureLinux3_Amd64
-        publishLocation: pipeline
-    - task: PublishPipelineArtifact@1
-      displayName: Publish PowerShell Arm64 Verification Image
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_PowerShell_AzureLinux3_Arm64
-        artifact: Docker_Verification_PowerShell_AzureLinux3_Arm64
-        publishLocation: pipeline
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish CLI Lean Amd64 Verification Image
+        retry_mode: reuse
+        target_path: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Lean_Amd64
+        artifact_name: Docker_Verification_CLI_AzureLinux3_Lean_Amd64
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish CLI Lean Arm64 Verification Image
+        retry_mode: reuse
+        target_path: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Lean_Arm64
+        artifact_name: Docker_Verification_CLI_AzureLinux3_Lean_Arm64
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish CLI Full Amd64 Verification Image
+        retry_mode: reuse
+        target_path: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Full_Amd64
+        artifact_name: Docker_Verification_CLI_AzureLinux3_Full_Amd64
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish CLI Full Arm64 Verification Image
+        retry_mode: reuse
+        target_path: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_CLI_AzureLinux3_Full_Arm64
+        artifact_name: Docker_Verification_CLI_AzureLinux3_Full_Arm64
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish PowerShell Amd64 Verification Image
+        retry_mode: reuse
+        target_path: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_PowerShell_AzureLinux3_Amd64
+        artifact_name: Docker_Verification_PowerShell_AzureLinux3_Amd64
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish PowerShell Arm64 Verification Image
+        retry_mode: reuse
+        target_path: $(Build.ArtifactStagingDirectory)/docker-verification-images/Docker_Verification_PowerShell_AzureLinux3_Arm64
+        artifact_name: Docker_Verification_PowerShell_AzureLinux3_Arm64
 
   - job: VerifyPublishedDockerImages
     displayName: ACR Docker Image Validation

@@ -225,10 +225,9 @@ jobs:
       script: |
         New-Item -ItemType Directory -Path "$(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext" -Force | Out-Null
 
-  - task: PublishPipelineArtifact@1
-    displayName: Publish CLI Windows Sim
-    condition: always()
-    inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
-      artifact: ${{ parameters.simulation_artifact_prefix }}_Windows_Sim_$(Rid)_$(BuildProfile)
-      publishLocation: pipeline
+  - template: ../steps/publish-artifact.yml
+    parameters:
+      display_name: Publish CLI Windows Sim
+      condition: always()
+      target_path: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
+      artifact_name: ${{ parameters.simulation_artifact_prefix }}_Windows_Sim_$(Rid)_$(BuildProfile)

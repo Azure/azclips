@@ -791,12 +791,13 @@ exit $LASTEXITCODE
     Assert-Contains $job 'bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh' 'Azure Pipelines still generates the validation matrix'
     Assert-Contains $job 'PSModuleLifecycleFixtures.ps1' 'Module fixtures are wired into CI'
     Assert-Contains $job 'PSValidationPipelineFixtures.ps1' 'Pipeline fixtures are wired into CI'
-    Assert-Contains $job 'artifact: Validate_PS_Sim_$(ValidationKey)' 'Each matrix leg has a unique validation artifact'
-    Assert-Equal $true ([regex]::IsMatch($job, '(?s)displayName: Publish PS Validation Artifacts\s+condition: always\(\)')) 'Artifacts publish after validation failures'
+    Assert-Contains $job 'artifact_name: Validate_PS_Sim_$(ValidationKey)' 'Each matrix leg has a unique validation artifact'
+    Assert-Contains $job 'template: ../steps/publish-artifact.yml' 'Validation artifacts use the retry-safe publish template'
+    Assert-Equal $true ([regex]::IsMatch($job, '(?s)display_name: Publish PS Validation Artifacts\s+condition: always\(\)')) 'Artifacts publish after validation failures'
     Assert-Equal $true ([regex]::IsMatch($job, '(?s)condition: always\(\)\s+displayName: Finalize PS Validation Artifacts')) 'Finalization also runs after failures'
-    Assert-Equal $true ($job.IndexOf('complete_ps_validation_artifacts.ps1') -lt $job.IndexOf('artifact: Validate_PS_Sim_')) 'Results are finalized before publication'
+    Assert-Equal $true ($job.IndexOf('complete_ps_validation_artifacts.ps1') -lt $job.IndexOf('artifact_name: Validate_PS_Sim_')) 'Results are finalized before publication'
     Assert-Contains $template '-ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY "azclips-ps-validation-reports-$env:SYSTEM_JOBID")' 'Reports stay out of source and package directories'
-    Assert-Contains $job 'targetPath: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)' 'Published root matches the host report mount'
+    Assert-Contains $job 'target_path: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)' 'Published root matches the host report mount'
     Write-Host 'PASS: task shape, ordering, cleanup and fixture wiring'
     $count++
 

@@ -119,10 +119,9 @@ jobs:
       ARTIFACT_VERSION="$(ArtifactVersion)" CLI_TAR_PATH="$(CliArchivePath)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
     displayName: Validate CLI macOS Tarball
 
-  - task: PublishPipelineArtifact@1
-    displayName: Publish CLI macOS Sim
-    condition: always()
-    inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
-      artifact: ${{ parameters.simulation_artifact_prefix }}_MacOS_Sim_$(Rid)_$(BuildProfile)
-      publishLocation: pipeline
+  - template: ../steps/publish-artifact.yml
+    parameters:
+      display_name: Publish CLI macOS Sim
+      condition: always()
+      target_path: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
+      artifact_name: ${{ parameters.simulation_artifact_prefix }}_MacOS_Sim_$(Rid)_$(BuildProfile)
