@@ -112,6 +112,7 @@ typeset -g _az_query_result=""
 typeset -g _az_not_azclips=""
 
 _az() {
+    _az_debug "------ TRIGGERED ------"
     # Resolve the actual exe from what the user typed
     local exe=""
     local typed_cmd="${words[1]}"
@@ -122,6 +123,7 @@ _az() {
     elif [[ -x "./$typed_cmd" ]]; then
         exe="./$typed_cmd"
     fi
+    _az_debug "exe=$exe"
     if [[ -z "$exe" ]]; then
         _default
         return
@@ -129,6 +131,7 @@ _az() {
 
     # If we already determined this specific exe is not azclips, fall back to default.
     if [[ "${_az_not_azclips:-}" == "$exe" ]]; then
+        _az_debug "this specific exe is not azclips; falling back to default"
         _default
         return
     fi
