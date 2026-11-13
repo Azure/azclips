@@ -184,10 +184,9 @@ jobs:
     displayName: Ensure CLI Linux Sim Directory
     condition: always()
 
-  - task: PublishPipelineArtifact@1
-    displayName: Publish CLI Linux Sim
-    condition: always()
-    inputs:
-      targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
-      artifact: ${{ parameters.simulation_artifact_prefix }}_Linux_Sim_$(Rid)_$(BuildProfile)
-      publishLocation: pipeline
+  - template: ../steps/publish-artifact.yml
+    parameters:
+      display_name: Publish CLI Linux Sim
+      condition: always()
+      target_path: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
+      artifact_name: ${{ parameters.simulation_artifact_prefix }}_Linux_Sim_$(Rid)_$(BuildProfile)

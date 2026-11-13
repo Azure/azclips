@@ -48,14 +48,12 @@ stages:
         scanFolder: ${{ parameters.scan_root }}
         suppressionsFile: $(Build.SourcesDirectory)/devops/scripts/compliance/CredScanSuppressions.json
 
-    - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@3
-      displayName: Publish Security Analysis Logs
-      condition: succeededOrFailed()
-      inputs:
-        ArtifactName: CodeAnalysisLogs
-        ArtifactType: Container
-        PublishProcessedResults: false
-        AllTools: true
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish Security Analysis Logs
+        condition: succeededOrFailed()
+        artifact_type: security_analysis_logs
+        artifact_name: CodeAnalysisLogs
 
     - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
       displayName: Analyze Security Results
@@ -66,10 +64,9 @@ stages:
         GdnBreakGdnToolPoliCheck: true
         GdnBreakGdnToolPoliCheckSeverity: Error
 
-    - task: PublishPipelineArtifact@1
-      displayName: Publish Compliance Results
-      condition: succeededOrFailed()
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/security
-        artifact: Compliance_Results_${{ parameters.stage_name }}
-        publishLocation: pipeline
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish Compliance Results
+        condition: succeededOrFailed()
+        target_path: $(Build.ArtifactStagingDirectory)/security
+        artifact_name: Compliance_Results_${{ parameters.stage_name }}

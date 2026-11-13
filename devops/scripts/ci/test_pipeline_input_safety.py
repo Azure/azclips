@@ -338,6 +338,84 @@ class PipelineInputSafetyTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertNotIn(archive_option, arguments)
 
+    def run_existing_artifact_check(self, artifact_name, status):
+        script, environment = self.load_step(
+            "templates/dist/steps/publish-artifact.yml",
+            "${{ parameters.display_name }} (Check Earlier Attempt)",
+            {"${{ parameters.artifact_name }}": artifact_name, "$(System.AccessToken)": "token"},
+        )
+        environment.update(
+            SYSTEM_COLLECTIONURI="https://dev.azure.com/org/",
+            SYSTEM_TEAMPROJECTID="project",
+            BUILD_BUILDID="42",
+            STUB_STATUS=status,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bin_directory = root / "bin"
+            bin_directory.mkdir()
+            curl = bin_directory / "curl"
+            curl.write_text('#!/bin/bash\nprintf "%s\\n" "$@" > curl-args\nprintf "%s" "$STUB_STATUS"\n', encoding="utf-8")
+            curl.chmod(0o755)
+            environment["PATH"] = f"{bin_directory}{os.pathsep}{os.defpath}"
+            result = self.run_step(script, environment, root)
+            arguments_file = root / "curl-args"
+            arguments = arguments_file.read_text(encoding="utf-8") if arguments_file.exists() else ""
+            return result, arguments
+
+    def test_retry_reuses_only_existing_artifacts(self):
+        name = "Docker_Verification_CLI_AzureLinux3_Lean_Amd64"
+        for status, exists in (("200", "true"), ("404", "false")):
+            with self.subTest(status=status):
+                result, arguments = self.run_existing_artifact_check(name, status)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(
+                    f"https://dev.azure.com/org/project/_apis/build/builds/42/artifacts?artifactName={name}&api-version=7.1",
+                    arguments,
+                )
+                self.assertIn("Authorization: Bearer token", arguments)
+                self.assert_logging_commands(
+                    result.stdout, [f"##vso[task.setvariable variable=PublishArtifactAlreadyExists]{exists}"]
+                )
+
+        result, _ = self.run_existing_artifact_check(name, "500")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("setvariable", result.stdout)
+
+    def test_retry_artifact_check_rejects_unsafe_names(self):
+        for payload in (*self.payloads, *self.logging_payloads, "name with spaces", "a&b=c"):
+            with self.subTest(payload=payload):
+                result, arguments = self.run_existing_artifact_check(payload, "200")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(arguments, "")
+                self.assertNotIn("setvariable", result.stdout)
+
+
+class PipelineArtifactRetryTests(unittest.TestCase):
+    # Artifact names are immutable within a build, so a publish that also runs after
+    # failures would make "Rerun failed jobs" fail with "Artifact ... already exists".
+    publish_task = re.compile(
+        r"(?m)^(?P<indent> *)- task: (?:PublishPipelineArtifact@\d+|PublishBuildArtifacts@\d+|\S*PublishSecurityAnalysisLogs@\d+)\n"
+        r"(?P<body>(?:(?P=indent)  [^\n]*\n|\s*\n)*)"
+    )
+    failure_condition = re.compile(r"condition:[^\n]*\b(?:always|succeededOrFailed|failed)\(\)")
+
+    def test_failure_path_publishes_use_retry_safe_template(self):
+        pipeline_root = Path(__file__).resolve().parents[3] / ".azure-pipelines"
+        template = pipeline_root / "templates/dist/steps/publish-artifact.yml"
+        offenders = []
+        for path in sorted(pipeline_root.rglob("*.yml")):
+            if path == template:
+                continue
+            for match in self.publish_task.finditer(path.read_text(encoding="utf-8")):
+                if self.failure_condition.search(match.group("body")):
+                    offenders.append(f"{path.relative_to(pipeline_root)}: {match.group(0).splitlines()[0].strip()}")
+        self.assertEqual(
+            offenders,
+            [],
+            "Artifacts published after failures must use templates/dist/steps/publish-artifact.yml so job retries do not collide.",
+        )
+
 
 class ShellPipelineSafetyTests(unittest.TestCase):
     @classmethod
