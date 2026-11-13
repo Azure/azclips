@@ -39,7 +39,7 @@ features:
     details: Browser, device-code, managed-identity, federated, and client-secret login with protected credential stores and named profiles.
   - icon: 📊
     title: Telemetry & Observability
-    details: System.Diagnostics activities with a privacy-preserving filter model and a detached background uploader to Azure Monitor.
+    details: System.Diagnostics activities with a privacy-preserving filter model and a detached background uploader to Aria.
 ---
 
 ## Quick Navigation
