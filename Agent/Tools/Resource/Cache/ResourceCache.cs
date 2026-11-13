@@ -256,9 +256,12 @@ public sealed class ResourceCache
         // Single-kind path: already correctly capped, return as-is.
         if (perKind.Count == 1) return perKind[0];
 
-        // Multi-kind: re-merge across kinds and re-cap to `top`.
-        return perKind
-            .SelectMany(x => x)
+        // Multi-kind: re-merge across kinds and re-cap to `top`. A substring hit counts
+        // only when it is the single substring hit across all kinds.
+        var merged = perKind.SelectMany(x => x).ToList();
+        if (merged.Count(m => m.Match == "substring") > 1)
+            merged = merged.Where(m => m.Match != "substring").ToList();
+        return merged
             .OrderByDescending(m => m.Score)
             .Take(top)
             .ToList();
@@ -296,7 +299,9 @@ public sealed class ResourceCache
             .ToList();
         if (substr.Count == 1)
         {
-            return [new MatchResult(substr[0], "substring", SubstringScore(substr[0].Name, patLower))];
+            return new[] { new MatchResult(substr[0], "substring", SubstringScore(substr[0].Name, patLower)) }
+                .Take(top)
+                .ToList();
         }
 
         // Typo tier: edit distance <= 2, or <= 1 for patterns of 4 chars or fewer.

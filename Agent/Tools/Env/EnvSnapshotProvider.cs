@@ -3,6 +3,7 @@
 
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Extensions;
 
 namespace Core.Agent.Tools.Env;
 
@@ -15,12 +16,13 @@ public static class EnvSnapshotProvider
         IProfileService profileService,
         string azExePath,
         CancellationToken ct = default,
-        Func<CancellationToken, Task<string>>? readCommandCatalog = null)
+        Func<CancellationToken, Task<string>>? readCommandCatalog = null,
+        ExtensionHintTable? extensionHints = null)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            var prober = new EnvironmentProber(profileService, flavor: "cli", CliInstallation.GetVersion(azExePath), readCommandCatalog);
+            var prober = new EnvironmentProber(profileService, flavor: "cli", CliInstallation.GetVersion(azExePath), readCommandCatalog, extensionHints);
             var snapshot = await prober.ProbeAsync(ct).ConfigureAwait(false);
             return JsonSerializer.Serialize(snapshot, s_json);
         }

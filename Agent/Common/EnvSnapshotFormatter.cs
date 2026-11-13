@@ -53,8 +53,15 @@ internal static class EnvSnapshotFormatter
             var groups = GetStrings(root, "commandGroups");
             if (groups.Count > 0)
             {
-                sb.Append("command-groups (installed; the only ones available, no other extension can be installed)\n");
+                sb.Append("command-groups (installed)\n");
                 sb.Append("  ").Append(string.Join(", ", groups)).Append('\n');
+            }
+
+            var installable = GetInstallableGroups(root);
+            if (installable.Count > 0)
+            {
+                sb.Append("installable-command-groups (not installed; group (extension package))\n");
+                sb.Append("  ").Append(string.Join(", ", installable)).Append('\n');
             }
 
             sb.Append("</environment>");
@@ -101,6 +108,18 @@ internal static class EnvSnapshotFormatter
             .Select(e => e.GetString())
             .OfType<string>()
             .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+    }
+
+    // Entries of installableGroups as "group (package)".
+    private static List<string> GetInstallableGroups(JsonElement root)
+    {
+        if (!root.TryGetProperty("installableGroups", out var el) || el.ValueKind != JsonValueKind.Array) return [];
+        return el.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.Object)
+            .Select(e => (Group: GetString(e, "group", ""), Package: GetString(e, "packageId", "")))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Group) && !string.IsNullOrWhiteSpace(x.Package))
+            .Select(x => $"{x.Group} ({x.Package})")
             .ToList();
     }
 

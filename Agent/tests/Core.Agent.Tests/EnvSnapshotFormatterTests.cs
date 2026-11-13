@@ -124,4 +124,29 @@ public class EnvSnapshotFormatterTests
         Assert.Contains("<environment>", block);
         Assert.DoesNotContain("command-groups", block);
     }
+
+    [Fact]
+    public void InstallableGroups_ShowPackageIds()
+    {
+        const string json = """
+            { "signedIn": true, "commandGroups": ["vm"],
+              "installableGroups": [ { "group": "aks", "packageId": "azclips.aks" }, { "group": "sql", "packageId": "azclips.sql" } ] }
+            """;
+
+        var block = EnvSnapshotFormatter.Format(json);
+
+        Assert.Contains("installable-command-groups", block);
+        Assert.Contains("aks (azclips.aks), sql (azclips.sql)", block);
+    }
+
+    [Theory]
+    [InlineData("""{ "signedIn": true, "commandGroups": ["vm"], "installableGroups": [] }""")]
+    [InlineData("""{ "signedIn": true, "commandGroups": ["vm"] }""")]
+    public void InstallableGroups_EmptyOrMissing_OmitsLine(string json)
+    {
+        var block = EnvSnapshotFormatter.Format(json);
+
+        Assert.Contains("command-groups", block);
+        Assert.DoesNotContain("installable-command-groups", block);
+    }
 }

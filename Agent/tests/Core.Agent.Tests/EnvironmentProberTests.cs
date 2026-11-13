@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.Agent.Tools.Env;
+using Core.Extensions;
 using Tests.Common.Stubs;
 using Xunit;
 
@@ -41,6 +42,53 @@ public class EnvironmentProberTests
         var snapshot = await prober.ProbeAsync();
 
         Assert.Empty(snapshot.CommandGroups);
+    }
+
+    [Fact]
+    public async Task InstallableGroups_ExcludeInstalledGroups()
+    {
+        const string catalog = """
+            { "groups": [ { "verb": "vm", "summary": "" } ], "commands": [] }
+            """;
+        var hints = Hints(("vm", "azclips.compute"), ("vm create", "azclips.compute"),
+            ("aks", "azclips.aks"), ("aks nodepool add", "azclips.aks"));
+        var prober = new EnvironmentProber(new StubProfileService(), flavor: "cli", azclipsVersion: "1",
+            readCommandCatalog: _ => Task.FromResult(catalog), extensionHints: hints);
+
+        var snapshot = await prober.ProbeAsync();
+
+        Assert.Equal([new InstallableGroup("aks", "azclips.aks")], snapshot.InstallableGroups);
+    }
+
+    [Fact]
+    public async Task InstallableGroups_EmptyHintTable_IsEmpty()
+    {
+        var prober = new EnvironmentProber(new StubProfileService(), flavor: "cli", azclipsVersion: "1",
+            readCommandCatalog: _ => Task.FromResult("""{ "groups": [], "commands": [] }"""),
+            extensionHints: new ExtensionHintTable());
+
+        var snapshot = await prober.ProbeAsync();
+
+        Assert.NotNull(snapshot.InstallableGroups);
+        Assert.Empty(snapshot.InstallableGroups);
+    }
+
+    [Fact]
+    public async Task CatalogReaderThrows_ExceptionPropagates()
+    {
+        var prober = new EnvironmentProber(new StubProfileService(), flavor: "cli", azclipsVersion: "1",
+            readCommandCatalog: _ => throw new InvalidOperationException("reader bug"),
+            extensionHints: new ExtensionHintTable());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => prober.ProbeAsync());
+    }
+
+    private static ExtensionHintTable Hints(params (string Key, string PackageId)[] entries)
+    {
+        var table = new ExtensionHintTable();
+        foreach (var (key, packageId) in entries)
+            table.Leaves[key] = new ExtensionHint { PackageId = packageId };
+        return table;
     }
 
     private sealed class ThrowingProfileService : StubProfileService

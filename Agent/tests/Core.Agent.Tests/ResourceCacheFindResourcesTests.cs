@@ -92,7 +92,7 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
     {
         var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
 
-        var hits = cache.FindResources("zhoxing", kind: null, scope: null, top: 10);
+        var hits = cache.FindResources(namePattern: null, kind: null, scope: null, top: 50);
 
         Assert.Contains(hits, h => h.Resource.Name == "zhoxing-test"
                                 && h.Resource.Type == "Microsoft.Resources/resourceGroups");
@@ -213,6 +213,28 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         var hits = cache.FindResources("zh", kind: "resourceGroup", scope: null, top: 5);
 
         Assert.Empty(hits);
+    }
+
+    [Fact]
+    public void FindResources_UniqueSubstring_TopZero_ReturnsNothing()
+    {
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("domain", kind: "resourceGroup", scope: null, top: 0);
+
+        Assert.Empty(hits);
+    }
+
+    [Fact]
+    public void FindResources_WithoutKind_SubstringHitsInTwoKinds_ReturnsNoSubstringMatch()
+    {
+        // "prod" is a unique substring among resource groups (prod-rg) and among
+        // resources (prod-vm-01), so it is not unique across kinds.
+        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+
+        var hits = cache.FindResources("prod", kind: null, scope: null, top: 10);
+
+        Assert.DoesNotContain(hits, h => h.Match == "substring");
     }
 
     [Theory]

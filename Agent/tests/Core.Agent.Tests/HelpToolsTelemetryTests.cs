@@ -135,6 +135,19 @@ public sealed class HelpToolsTelemetryTests
         Assert.Equal("ok", span.GetTagItem(TelemetryTags.AgentToolResponse));
     }
 
+    [Fact]
+    public async Task ReadCatalog_RecordsNoToolSpan()
+    {
+        using var fixture = new HelpCatalogFixture();
+        fixture.WriteCatalog(manifests: VmCreateCatalog());
+        using var trace = new AgentTraceCapture();
+
+        var json = await new HelpTools(fixture.Provider, trace.StartToolActivity).ReadCatalogAsync();
+
+        Assert.Contains("vm create", json);
+        Assert.DoesNotContain(trace.Stopped, activity => activity.OperationName == "tool.list_commands");
+    }
+
     [Theory]
     [InlineData("completed", "status=completed")]
     [InlineData("OUT_OF_SCOPE_secret-value", "status=invalid")]
