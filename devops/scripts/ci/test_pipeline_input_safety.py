@@ -451,11 +451,9 @@ class PipelineInputSafetyTests(unittest.TestCase):
 
     def test_retry_reuses_only_existing_artifacts(self):
         name = "Docker_Verification_CLI_AzureLinux3_Lean_Amd64"
-        reset = "##vso[task.setvariable variable=PublishArtifactAlreadyExists]false"
-        for status, commands in (
-            ("200", [reset, "##vso[task.setvariable variable=PublishArtifactAlreadyExists]true"]),
-            ("404", [reset]),
-        ):
+        flag = "##vso[task.setvariable variable=PublishArtifactAlreadyExists]"
+        reset = f"{flag}unknown"
+        for status, commands in (("200", [reset, f"{flag}true"]), ("404", [reset, f"{flag}false"])):
             with self.subTest(status=status):
                 result, arguments = self.run_existing_artifact_check(name, status)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -468,18 +466,21 @@ class PipelineInputSafetyTests(unittest.TestCase):
                     self.assertIn(option, arguments.splitlines())
                 self.assert_logging_commands(result.stdout, commands)
 
-        for status, curl_exit in (("500", 22), ("000", 28)):
+        # HTTP errors, connection failures, and curl errors after a 200/404 status line (for
+        # example a --max-time cutoff) are all unconfirmed results.
+        for status, curl_exit in (("500", 0), ("000", 28), ("200", 28), ("404", 56)):
             with self.subTest(status=status, curl_exit=curl_exit):
+                detail = f"exists (HTTP {status}, curl exit {curl_exit})"
                 result, _ = self.run_existing_artifact_check(name, status, curl_exit)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn(f"##[error]Could not check whether artifact '{name}' exists (HTTP {status})", result.stdout)
+                self.assertIn(f"##[error]Could not check whether artifact '{name}' {detail}", result.stdout)
                 self.assert_logging_commands(result.stdout, [reset])
 
                 # Attempt 1 cannot collide with an earlier attempt, so access problems only warn.
                 result, _ = self.run_existing_artifact_check(name, status, curl_exit, attempt=1)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                self.assertIn(f"##[warning]Could not check whether artifact '{name}' exists (HTTP {status})", result.stdout)
-                self.assert_logging_commands(result.stdout, [reset])
+                self.assertIn(f"##[warning]Could not check whether artifact '{name}' {detail}", result.stdout)
+                self.assert_logging_commands(result.stdout, [reset, f"{flag}false"])
 
     def test_retry_artifact_check_rejects_unsafe_names(self):
         for payload in (*self.payloads, *self.logging_payloads, "name with spaces", "a&b=c"):
@@ -488,7 +489,7 @@ class PipelineInputSafetyTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(arguments, "")
                 self.assert_logging_commands(
-                    result.stdout, ["##vso[task.setvariable variable=PublishArtifactAlreadyExists]false"]
+                    result.stdout, ["##vso[task.setvariable variable=PublishArtifactAlreadyExists]unknown"]
                 )
 
     def run_publish_template(self, calls, attempt, job_status="Succeeded", statuses=None):
@@ -544,12 +545,15 @@ class PipelineInputSafetyTests(unittest.TestCase):
         # A failed existence check fails the job instead of risking a collision or a skipped artifact.
         self.assertEqual(self.run_publish_template(calls, 2, statuses={"ImageA": "200", "ImageB": "500"}), [])
 
-        # Each check resets the shared flag, so a failed check under always() never inherits an
-        # earlier call's "exists" result and silently skips its own artifact.
+        # Publishing requires this call's own successful check. Under always(), a failed check on a
+        # retry must neither publish (risking a collision) nor reuse an earlier call's result.
         always_calls = [{**call, "condition": "always()"} for call in calls[:2]]
-        self.assertEqual(
-            self.run_publish_template(always_calls, 2, statuses={"ImageA": "200", "ImageB": "500"}), ["ImageB"]
-        )
+        for statuses, expected in (
+            ({"ImageA": "200", "ImageB": "500"}, []),
+            ({"ImageB": "500"}, ["ImageA"]),
+        ):
+            with self.subTest(always=statuses):
+                self.assertEqual(self.run_publish_template(always_calls, 2, statuses=statuses), expected)
 
 
 class PipelineArtifactRetryTests(unittest.TestCase):

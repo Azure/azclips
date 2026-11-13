@@ -42,35 +42,35 @@ steps:
 - ${{ if eq(parameters.retry_mode, 'reuse') }}:
   - bash: |
       set -euo pipefail
-      # Reset first so a failed check never inherits an earlier call's result.
-      echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]false"
+      # Start unknown so publishing needs a successful check from this call, never an
+      # earlier call's result.
+      echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]unknown"
       if [[ ! "$ARTIFACT_NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
         echo "##[error]Artifact name must contain only letters, digits, '.', '_' or '-'."
         exit 1
       fi
       url="${SYSTEM_COLLECTIONURI}${SYSTEM_TEAMPROJECTID}/_apis/build/builds/${BUILD_BUILDID}/artifacts?artifactName=${ARTIFACT_NAME}&api-version=7.1"
       # Bounded so a hung request fails this step instead of the whole job timing out.
+      curl_exit=0
       status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
         --connect-timeout 10 --max-time 30 --retry 3 --retry-max-time 120 \
-        --header "Authorization: Bearer ${SYSTEM_ACCESSTOKEN}" "$url" || true)"
-      case "$status" in
-        200)
-          echo "Artifact '$ARTIFACT_NAME' was already published in this build; reusing it."
-          echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]true"
-          ;;
-        404)
-          ;;
-        *)
-          message="Could not check whether artifact '$ARTIFACT_NAME' exists (HTTP $status)."
-          if [[ "$SYSTEM_JOBATTEMPT" == "1" ]]; then
-            # Nothing can have been published by an earlier attempt yet, so publish anyway.
-            echo "##[warning]$message Job reruns will fail until this is fixed."
-          else
-            echo "##[error]$message"
-            exit 1
-          fi
-          ;;
-      esac
+        --header "Authorization: Bearer ${SYSTEM_ACCESSTOKEN}" "$url")" || curl_exit=$?
+      if [[ "$curl_exit" == "0" && "$status" == "200" ]]; then
+        echo "Artifact '$ARTIFACT_NAME' was already published in this build; reusing it."
+        echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]true"
+      elif [[ "$curl_exit" == "0" && "$status" == "404" ]]; then
+        echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]false"
+      else
+        message="Could not check whether artifact '$ARTIFACT_NAME' exists (HTTP $status, curl exit $curl_exit)."
+        if [[ "$SYSTEM_JOBATTEMPT" == "1" ]]; then
+          # Nothing can have been published by an earlier attempt yet, so publish anyway.
+          echo "##[warning]$message Job reruns will fail until this is fixed."
+          echo "##vso[task.setvariable variable=PublishArtifactAlreadyExists]false"
+        else
+          echo "##[error]$message"
+          exit 1
+        fi
+      fi
     displayName: ${{ parameters.display_name }} (Check Earlier Attempt)
     condition: ${{ parameters.condition }}
     env:
@@ -80,7 +80,7 @@ steps:
 
   - task: PublishPipelineArtifact@1
     displayName: ${{ parameters.display_name }}
-    condition: and(${{ parameters.condition }}, ne(variables['PublishArtifactAlreadyExists'], 'true'))
+    condition: and(${{ parameters.condition }}, eq(variables['PublishArtifactAlreadyExists'], 'false'))
     inputs:
       targetPath: ${{ parameters.target_path }}
       artifact: ${{ parameters.artifact_name }}
