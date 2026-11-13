@@ -141,12 +141,19 @@ public class EnvSnapshotFormatterTests
         Assert.Contains("aks (azclips.aks), sql (azclips.sql)", block);
     }
 
-    [Theory]
-    [InlineData("""{ "signedIn": true, "commandGroups": ["vm"], "installableGroups": [] }""")]
-    [InlineData("""{ "signedIn": true, "commandGroups": ["vm"] }""")]
-    public void InstallableGroups_EmptyOrMissing_OmitsLine(string json)
+    [Fact]
+    public void InstallableGroups_Empty_ShowsNone()
     {
-        var block = EnvSnapshotFormatter.Format(json);
+        var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": ["vm"], "installableGroups": [] }""");
+
+        Assert.Contains("installable-command-groups (not installed, not runnable by themselves;", block);
+        Assert.Contains("extension package))\n  none\n", block);
+    }
+
+    [Fact]
+    public void InstallableGroups_Missing_OmitsLine()
+    {
+        var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": ["vm"] }""");
 
         Assert.Contains("command-groups", block);
         Assert.DoesNotContain("installable-command-groups", block);
