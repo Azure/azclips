@@ -184,6 +184,10 @@ export function bodyFrom(
     ...(irType !== undefined ? { type: irType } : {}),
     contentType,
     ...(multipart !== undefined ? { multipart } : {}),
+    // Both are non-optional on TCGC's parameter: it always names the body, synthesizing one
+    // when the spec gives it nothing, and this flag says which.
+    name: b.name,
+    isGeneratedName: b.isGeneratedName,
     ...(b.doc !== undefined ? { docs: b.doc } : {}),
     ...(b.summary !== undefined ? { summary: b.summary } : {}),
   };

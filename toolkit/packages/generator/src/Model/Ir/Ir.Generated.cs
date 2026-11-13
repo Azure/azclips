@@ -1851,6 +1851,12 @@ public partial class IRRequestBody
     [JsonPropertyName("multipart")]
     public IRMultipartBody? Multipart { get; set; }
 
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("isGeneratedName")]
+    public bool? IsGeneratedName { get; set; }
+
     [JsonPropertyName("docs")]
     public string? Docs { get; set; }
 
