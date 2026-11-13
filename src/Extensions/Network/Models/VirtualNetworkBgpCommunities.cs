@@ -10,7 +10,7 @@ public partial class VirtualNetworkBgpCommunities
 {
     /// <summary>The BGP community associated with the virtual network.</summary>
     [JsonPropertyName("virtualNetworkCommunity")]
-    public string VirtualNetworkCommunity { get; set; }
+    public string VirtualNetworkCommunity { get; set; } = null !;
 
     /// <summary>The BGP community associated with the region of the virtual network.</summary>
     [JsonPropertyName("regionalCommunity")]

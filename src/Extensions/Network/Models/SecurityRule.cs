@@ -14,7 +14,7 @@ public partial class SecurityRule
 
     /// <summary>The name of the security rule.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]

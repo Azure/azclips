@@ -10,5 +10,5 @@ public partial class RouteNextHopEcmp
 {
     /// <summary>List of next hop IP addresses for ECMP routing. Must contain between 2 and 64 IP addresses.</summary>
     [JsonPropertyName("nextHopIpAddresses")]
-    public IList<string> NextHopIpAddresses { get; set; }
+    public IList<string> NextHopIpAddresses { get; set; } = null !;
 }

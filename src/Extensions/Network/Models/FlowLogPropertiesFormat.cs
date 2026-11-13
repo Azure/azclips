@@ -10,7 +10,7 @@ public partial class FlowLogPropertiesFormat
 {
     /// <summary>ID of network security group to which flow log will be applied.</summary>
     [JsonPropertyName("targetResourceId")]
-    public string TargetResourceId { get; set; }
+    public string TargetResourceId { get; set; } = null !;
 
     /// <summary>Guid of network security group to which flow log will be applied.</summary>
     [JsonPropertyName("targetResourceGuid")]
@@ -18,7 +18,7 @@ public partial class FlowLogPropertiesFormat
 
     /// <summary>ID of the storage account which is used to store the flow log.</summary>
     [JsonPropertyName("storageId")]
-    public string StorageId { get; set; }
+    public string StorageId { get; set; } = null !;
 
     /// <summary>Optional field to filter network traffic logs based on SrcIP, SrcPort, DstIP, DstPort, Protocol, Encryption, Direction and Action. If not specified, all network traffic will be logged.</summary>
     [JsonPropertyName("enabledFilteringCriteria")]
