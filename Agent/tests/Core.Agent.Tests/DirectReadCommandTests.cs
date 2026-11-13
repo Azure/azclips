@@ -88,13 +88,19 @@ public sealed class DirectReadCommandTests
         var profile = new ProfileService(new NullLoggingService(), new FilePersistenceStore(home));
         await RunCliAsync(cli, home, ["agent", "tool", "docs", "list"], fixture.Root);
         var index = Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName, HelpCatalogProvider.IndexFileName);
+        var catalog = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(index))!;
+        var groups = catalog["index"]!["groups"]!.AsArray();
+        var marker = groups[0]!.DeepClone();
+        marker["verb"] = "warmcachemarker";
+        groups.Add(marker);
+        await File.WriteAllTextAsync(index, catalog.ToJsonString());
         var written = File.GetLastWriteTimeUtc(index);
 
         using var command = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "env", "show"], fixture.Root));
         using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli, default, WarmCatalog(fixture, cli, home).ListJsonAsync));
 
         Assert.Equal(written, File.GetLastWriteTimeUtc(index));
-        Assert.NotEmpty(command.RootElement.GetProperty("commandGroups").EnumerateArray());
+        Assert.Contains("warmcachemarker", command.RootElement.GetProperty("commandGroups").EnumerateArray().Select(g => g.GetString()));
         foreach (var field in new[] { "commandGroups", "installableGroups" })
             Assert.True(JsonElement.DeepEquals(command.RootElement.GetProperty(field), direct.RootElement.GetProperty(field)), field);
     }
