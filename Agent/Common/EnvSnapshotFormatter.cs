@@ -50,6 +50,13 @@ internal static class EnvSnapshotFormatter
             sb.Append("  version: ").Append(GetString(root, "azclipsVersion", "unknown")).Append('\n');
             sb.Append("  flavor: ").Append(GetString(root, "flavor", "unknown")).Append('\n');
 
+            var groups = GetStrings(root, "commandGroups");
+            if (groups.Count > 0)
+            {
+                sb.Append("command-groups (installed; the only ones available, no other extension can be installed)\n");
+                sb.Append("  ").Append(string.Join(", ", groups)).Append('\n');
+            }
+
             sb.Append("</environment>");
             return sb.ToString();
         }
@@ -84,6 +91,17 @@ internal static class EnvSnapshotFormatter
         if (!root.TryGetProperty(name, out var el)) return fallback;
         if (el.ValueKind == JsonValueKind.Null) return fallback;
         return el.ValueKind == JsonValueKind.String ? (el.GetString() ?? fallback) : fallback;
+    }
+
+    private static List<string> GetStrings(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Array) return [];
+        return el.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.String)
+            .Select(e => e.GetString())
+            .OfType<string>()
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
     }
 
     private static bool GetBool(JsonElement root, string name) =>

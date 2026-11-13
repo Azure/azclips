@@ -12,12 +12,15 @@ public static class EnvSnapshotProvider
     private static readonly JsonSerializerOptions s_json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     public static async Task<string> GetJsonAsync(
-        IProfileService profileService, string azExePath, CancellationToken ct = default)
+        IProfileService profileService,
+        string azExePath,
+        CancellationToken ct = default,
+        Func<CancellationToken, Task<string>>? readCommandCatalog = null)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            var prober = new EnvironmentProber(profileService, flavor: "cli", CliInstallation.GetVersion(azExePath));
+            var prober = new EnvironmentProber(profileService, flavor: "cli", CliInstallation.GetVersion(azExePath), readCommandCatalog);
             var snapshot = await prober.ProbeAsync(ct).ConfigureAwait(false);
             return JsonSerializer.Serialize(snapshot, s_json);
         }

@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Core.Abstractions;
 
 namespace Core.Agent.Tools.Env;
@@ -10,12 +11,20 @@ public sealed class EnvironmentProber
     private readonly IProfileService _profileService;
     private readonly string _flavor;
     private readonly string? _azclipsVersion;
+    private readonly Func<CancellationToken, Task<string>>? _readCommandCatalog;
 
-    public EnvironmentProber(IProfileService profileService, string flavor, string? azclipsVersion = null)
+    /// <param name="readCommandCatalog">Returns the HelpIndex catalog JSON of the installed
+    /// CLI and extensions; its root groups become <see cref="EnvironmentSnapshot.CommandGroups"/>.</param>
+    public EnvironmentProber(
+        IProfileService profileService,
+        string flavor,
+        string? azclipsVersion = null,
+        Func<CancellationToken, Task<string>>? readCommandCatalog = null)
     {
         _profileService = profileService;
         _flavor = flavor;
         _azclipsVersion = azclipsVersion;
+        _readCommandCatalog = readCommandCatalog;
     }
 
     public async Task<EnvironmentSnapshot> ProbeAsync(CancellationToken ct = default)
@@ -43,6 +52,8 @@ public sealed class EnvironmentProber
         var ctx = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
 
+        var commandGroups = await ReadCommandGroupsAsync(ct).ConfigureAwait(false);
+
         var signedIn = !string.IsNullOrEmpty(ctx?.SubscriptionId);
         return new EnvironmentSnapshot(
             Os: os,
@@ -55,7 +66,43 @@ public sealed class EnvironmentProber
             SubscriptionId: string.IsNullOrEmpty(ctx?.SubscriptionId) ? null : ctx!.SubscriptionId,
             TenantId: string.IsNullOrEmpty(ctx?.TenantId) ? null : ctx!.TenantId,
             Flavor: _flavor,
-            AzclipsVersion: _azclipsVersion ?? Safe(GetAzclipsVersion, "unknown"));
+            AzclipsVersion: _azclipsVersion ?? Safe(GetAzclipsVersion, "unknown"),
+            CommandGroups: commandGroups);
+    }
+
+    // Root group verbs from the help catalog; null without a reader. An error payload
+    // or an unreadable catalog yields an empty list.
+    private async Task<IReadOnlyList<string>?> ReadCommandGroupsAsync(CancellationToken ct)
+    {
+        if (_readCommandCatalog is null) return null;
+        string json;
+        try
+        {
+            json = await _readCommandCatalog(ct).ConfigureAwait(false);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return [];
+        }
+        ct.ThrowIfCancellationRequested();
+        return Safe(() => ParseGroupVerbs(json), []);
+    }
+
+    private static IReadOnlyList<string> ParseGroupVerbs(string catalogJson)
+    {
+        using var doc = JsonDocument.Parse(catalogJson);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object ||
+            !doc.RootElement.TryGetProperty("groups", out var groups) ||
+            groups.ValueKind != JsonValueKind.Array)
+            return [];
+        return groups.EnumerateArray()
+            .Where(g => g.ValueKind == JsonValueKind.Object)
+            .Select(g => g.TryGetProperty("verb", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null)
+            .OfType<string>()
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static string GetAzclipsVersion()

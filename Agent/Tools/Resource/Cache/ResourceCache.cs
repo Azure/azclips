@@ -288,19 +288,24 @@ public sealed class ResourceCache
             return exact.Take(top).Select(c => new MatchResult(c, "exact", 1.0)).ToList();
         }
 
+        // A substring hit counts only when it identifies one resource; an ambiguous
+        // fragment falls through to the typo tier.
         var substr = materialized
             .Where(c => c.Name.Contains(pat, StringComparison.OrdinalIgnoreCase))
-            .Select(c => new MatchResult(c, "substring", SubstringScore(c.Name, patLower)))
-            .OrderByDescending(m => m.Score)
-            .Take(top)
+            .Take(2)
             .ToList();
-        if (substr.Count > 0) return substr;
+        if (substr.Count == 1)
+        {
+            return [new MatchResult(substr[0], "substring", SubstringScore(substr[0].Name, patLower))];
+        }
 
+        // Typo tier: edit distance <= 2, or <= 1 for patterns of 4 chars or fewer.
+        var maxDistance = patLower.Length <= 4 ? 1 : 2;
         return materialized
-            .Select(c => new MatchResult(c, "fuzzy",
-                1.0 - (Lev(c.Name.ToLowerInvariant(), patLower) /
-                       (double)Math.Max(c.Name.Length, patLower.Length))))
-            .Where(m => m.Score >= 0.55)
+            .Select(c => (Resource: c, Distance: Lev(c.Name.ToLowerInvariant(), patLower)))
+            .Where(x => x.Distance <= maxDistance)
+            .Select(x => new MatchResult(x.Resource, "fuzzy",
+                1.0 - (x.Distance / (double)Math.Max(x.Resource.Name.Length, patLower.Length))))
             .OrderByDescending(m => m.Score)
             .Take(top)
             .ToList();

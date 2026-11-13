@@ -98,4 +98,30 @@ public class EnvSnapshotFormatterTests
         var block = EnvSnapshotFormatter.Format("[1, 2, 3]");
         Assert.Equal(string.Empty, block);
     }
+
+    [Fact]
+    public void CommandGroups_AppearInEnvironmentBlock()
+    {
+        const string json = """
+            { "signedIn": true, "commandGroups": ["group", "network", "vm"] }
+            """;
+
+        var block = EnvSnapshotFormatter.Format(json);
+
+        Assert.Contains("command-groups", block);
+        Assert.Contains("group, network, vm", block);
+        Assert.True(block.IndexOf("group, network, vm", StringComparison.Ordinal)
+                    < block.IndexOf("</environment>", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("""{ "signedIn": true, "commandGroups": [] }""")]
+    [InlineData("""{ "signedIn": true }""")]
+    public void CommandGroups_EmptyOrMissing_OmitsSection(string json)
+    {
+        var block = EnvSnapshotFormatter.Format(json);
+
+        Assert.Contains("<environment>", block);
+        Assert.DoesNotContain("command-groups", block);
+    }
 }

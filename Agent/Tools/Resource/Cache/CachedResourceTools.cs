@@ -9,7 +9,7 @@ namespace Core.Agent.Tools.Resource.Cache;
 /// <summary>
 /// Three AI agent tools that READ the local ARM cache (built and
 /// refreshed by another component — we never write to it):
-///   • find_resources       — fuzzy / substring search by name (cache-only)
+///   • find_resources       — exact / unique-substring / typo search by name (cache-only)
 ///   • get_resource_tree    — hierarchical subtree from a node (cache-only)
 ///   • get_resource_details — exact identity from cache + live ARM properties
 /// </summary>
@@ -43,7 +43,9 @@ public sealed class CachedResourceTools
                 "Use when the user mentions a name and you need to locate it (or " +
                 "get suggestions when an exact name doesn't exist — e.g. 'rg-foo " +
                 "not found, did you mean rg-foo-eastus?'). Returns up to N candidates " +
-                "ranked by match quality (exact > substring > fuzzy/Levenshtein). " +
+                "ranked by match quality: exact, else a substring that matches exactly one " +
+                "resource, else typo matches (edit distance <= 2, <= 1 for names of 4 chars or fewer). " +
+                "Anything but an exact match is only a 'did you mean' suggestion. " +
                 "Cache-only, no network call.",
         });
 
@@ -108,9 +110,9 @@ public sealed class CachedResourceTools
         }
     }
 
-    [Description("Search local cache for resources by name with fuzzy fallback.")]
+    [Description("Search local cache for resources by name with typo-only fuzzy fallback.")]
     private async Task<string> FindResourcesAsync(
-        [Description("Name pattern. Exact > substring > Levenshtein typo correction.")]
+        [Description("Name pattern. Exact > unique substring > typo correction (edit distance <= 2, <= 1 for 4 chars or fewer).")]
         string namePattern,
         [Description("Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched and results merged by score.")]
         string? kind = null,

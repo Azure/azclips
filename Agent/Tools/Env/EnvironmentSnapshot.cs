@@ -1,9 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace Core.Agent.Tools.Env;
 
 /// <summary>Read-only snapshot of host facts. Serialized by <c>az agent tool env show</c>
 /// as JSON; the agent host reads that JSON and reformats it into the
 /// <c>&lt;environment&gt;</c> block via
-/// <c>Core.Agent.Common.EnvSnapshotFormatter</c>.</summary>
+/// <c>Core.Agent.Common.EnvSnapshotFormatter</c>. <see cref="CommandGroups"/> is null
+/// (and omitted from the JSON) when the caller supplies no help catalog.</summary>
 public sealed record EnvironmentSnapshot(
     string Os,
     string Shell,
@@ -15,4 +18,6 @@ public sealed record EnvironmentSnapshot(
     string? SubscriptionId,
     string? TenantId,
     string Flavor,
-    string AzclipsVersion);
+    string AzclipsVersion,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<string>? CommandGroups);
