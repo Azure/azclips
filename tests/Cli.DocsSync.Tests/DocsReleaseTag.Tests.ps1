@@ -64,20 +64,62 @@ Describe 'Test-DocsReleaseTag' {
         { & $ps -ReleaseTag 'missing' } | Should -Throw '*not found*'
     }
 
+    It 'preserves the original local target for tagged <Script> runs' -ForEach @(
+        @{ Script = 'Sync-AzClipsCliDocs.ps1'; DefaultTarget = '../azure-docs-cli' }
+        @{ Script = 'Sync-AzclipsPowerShellDocs.ps1'; DefaultTarget = '../azure-docs-powershell' }
+    ) {
+        $helper = Join-Path $script:Repo 'build/Invoke-DocsReleaseCheckout.ps1'
+        Set-Content -LiteralPath $helper -Value @'
+function Invoke-DocsReleaseCheckout {
+    param($SourceRoot, $ReleaseTag, $ScriptName, $ScriptArguments, $KeepOnSuccess)
+    $global:CapturedReleaseArgs = $ScriptArguments
+}
+'@
+        $sync = Join-Path $script:Repo "build/$Script"
+        try {
+            & $sync -ReleaseTag 'v1.0.0'
+            [IO.Path]::GetFullPath($global:CapturedReleaseArgs.TargetRepoPath) |
+                Should -Be ([IO.Path]::GetFullPath((Join-Path $script:Repo $DefaultTarget)))
+
+            & $sync -ReleaseTag 'v1.0.0' -Force -TargetRepoPath '../custom-docs'
+            [IO.Path]::GetFullPath($global:CapturedReleaseArgs.TargetRepoPath) |
+                Should -Be ([IO.Path]::GetFullPath((Join-Path $script:Repo '../custom-docs')))
+
+            & $sync -ReleaseTag 'v1.0.0' -Push
+            $global:CapturedReleaseArgs.ContainsKey('TargetRepoPath') | Should -BeFalse
+        }
+        finally {
+            Remove-Variable -Name CapturedReleaseArgs -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'runs the tagged PowerShell source without switching the caller checkout' {
         $module = Join-Path $script:Repo 'src/PS/Example'
         New-Item -ItemType Directory -Path (Join-Path $module 'help') -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $module 'Example.psd1') -Value "@{ ModuleVersion = '1.0'; Description = 'fixture' }"
-        Set-Content -LiteralPath (Join-Path $module 'help/Get-Example.md') -Value "## SYNOPSIS`nTagged source."
+        Set-Content -LiteralPath (Join-Path $module 'help/Get-Example.md') -Value "---`nModule Name: Example`n---`n`n## SYNOPSIS`nTagged source."
         git -C $script:Repo add --all
         git -C $script:Repo commit -m 'tagged content' --quiet
         git -C $script:Repo tag v2
         git -C $script:Repo commit --allow-empty -m 'later' --quiet
         $original = (git -C $script:Repo rev-parse HEAD).Trim()
         $ps = Join-Path $script:Repo 'build/Sync-AzclipsPowerShellDocs.ps1'
-        $output = & $ps -ReleaseTag 'v2' -TargetRepoPath (Join-Path $script:Repo 'missing-docs') 6>&1 | Out-String
+        $target = Join-Path (Split-Path $script:Repo -Parent) 'tagged-docs'
+        New-Item -ItemType Directory -Path (Join-Path $target 'azps-preview') -Force | Out-Null
+        git -C $target init --initial-branch=main --quiet
+        git -C $target config user.email 'test@example.com'
+        git -C $target config user.name 'Test'
+        Set-Content -LiteralPath (Join-Path $target 'azps-preview/keep.txt') -Value 'base'
+        git -C $target add --all
+        git -C $target commit -m 'base' --quiet
+        $output = & $ps -ReleaseTag 'v2' -TargetRepoPath '../tagged-docs' 6>&1 | Out-String
         $output | Should -Match 'Release source  : v2'
         $output | Should -Match 'Get-Example.md'
+        $output | Should -Match ([regex]::Escape((Join-Path $script:Repo '../tagged-docs')))
+        $output | Should -Not -Match 'target repo path .* does not exist'
+        & $ps -ReleaseTag 'v2' -TargetRepoPath '../tagged-docs' -Force -Timestamp 'fixture' | Out-Null
+        (git -C $target branch --show-current).Trim() | Should -Be 'azclips-ps-sync-fixture'
+        Test-Path -LiteralPath (Join-Path $target 'azps-preview/Az.Example/Get-Example.md') | Should -BeTrue
         (git -C $script:Repo rev-parse HEAD).Trim() | Should -Be $original
     }
 }

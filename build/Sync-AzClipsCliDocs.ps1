@@ -806,6 +806,7 @@ if ($PSBoundParameters.ContainsKey('ReleaseTag'))
     {
         $releaseArgs = @{} + $PSBoundParameters
         $releaseArgs.Remove('ReleaseCheckout')
+        if (-not $Push) { $releaseArgs.TargetRepoPath = $effectiveTargetRepoPath }
         Invoke-DocsReleaseCheckout -SourceRoot $repoRoot -ReleaseTag $ReleaseTag -ScriptName 'Sync-AzClipsCliDocs.ps1' `
             -ScriptArguments $releaseArgs -KeepOnSuccess:(!$Push -and !$Force)
         return
