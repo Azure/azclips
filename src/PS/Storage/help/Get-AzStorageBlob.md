@@ -22,8 +22,8 @@ Lists the blobs in a container, or gets the properties of a blob.
 ```
 Get-AzStorageBlob [-Url <string>] [-StorageAccountName <string>] [-ContainerName <string>]
  [-StorageAccountKey <string>] [-SasToken <string>] [-Prefix <string>] [-Marker <string>]
- [-Maxresults <int>] [-Include <string[]>] [-Timeout <int>] [-StartFrom <string>]
- [-ClientRequestId <string>] [<CommonParameters>]
+ [-Maxresults <int>] [-Timeout <int>] [-StartFrom <string>] [-ClientRequestId <string>]
+ [<CommonParameters>]
 ```
 
 ### Get
@@ -41,7 +41,7 @@ Get-AzStorageBlob [-Url <string>] [-StorageAccountName <string>] [-ContainerName
 
 ## DESCRIPTION
 
-Without -BlobName, lists the blobs in a container and follows continuation markers until all pages are returned. Use -Prefix to filter by name and -Include to return additional details such as metadata or snapshots. With -BlobName, gets the system properties and metadata of a single blob without downloading its content. Authenticate with -StorageAccountName and -StorageAccountKey, or with -SasToken. Alternatively, pass the full resource URL with -Url.
+Without -BlobName, lists the blobs in a container and follows continuation markers until all pages are returned. Use -Prefix to filter by name. With -BlobName, gets the system properties and metadata of a single blob without downloading its content. Authenticate with -StorageAccountName and -StorageAccountKey, or with -SasToken. Alternatively, pass the full resource URL with -Url.
 
 ## EXAMPLES
 
@@ -51,10 +51,10 @@ Without -BlobName, lists the blobs in a container and follows continuation marke
 Get-AzStorageBlob -StorageAccountName mystorageaccount -StorageAccountKey $env:AZURE_STORAGE_KEY -ContainerName mycontainer
 ```
 
-### Example 2: List blobs with a name prefix and their metadata
+### Example 2: List blobs with a name prefix
 
 ```powershell
-Get-AzStorageBlob -StorageAccountName mystorageaccount -StorageAccountKey $env:AZURE_STORAGE_KEY -ContainerName mycontainer -Prefix logs/ -Include metadata
+Get-AzStorageBlob -StorageAccountName mystorageaccount -StorageAccountKey $env:AZURE_STORAGE_KEY -ContainerName mycontainer -Prefix logs/
 ```
 
 ### Example 3: Get the properties of a blob
@@ -286,27 +286,6 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Include
-
-Specify to include additional, optional information.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: List
   Position: Named
   IsRequired: false
   ValueFromPipeline: false

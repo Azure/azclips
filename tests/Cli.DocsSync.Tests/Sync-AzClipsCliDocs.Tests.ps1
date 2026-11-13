@@ -85,6 +85,44 @@ Describe 'Get-Cli2YamlDllPath' {
     }
 }
 
+Describe 'Invoke-CliExporter' {
+    It 'passes the selected configuration artifacts directory to the exporter' -ForEach @(
+        @{ Configuration = 'Debug' }
+        @{ Configuration = 'Release' }
+    ) {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $project = Join-Path $root 'export.csproj'
+        New-Item -ItemType Directory -Path (Join-Path $root 'artifacts/cli-export/latest') -Force | Out-Null
+        Set-Content -LiteralPath $project -Value 'fixture'
+        Mock dotnet { $global:LASTEXITCODE = 0; 'exported' }
+
+        Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration $Configuration | Out-Null
+
+        Should -Invoke dotnet -Times 1 -Exactly -ParameterFilter {
+            $args -contains '--artifacts-root' -and
+            $args -contains (Join-Path (Join-Path $root 'artifacts') $Configuration) -and
+            $args -contains $Configuration
+        }
+    }
+
+    It 'requires freshly produced root and command-group files for release output' {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $output = Join-Path $root 'release-output'
+        $latest = Join-Path $output 'latest'
+        New-Item -ItemType Directory -Path $latest -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'export.csproj') -Value 'fixture'
+        Mock dotnet { $global:LASTEXITCODE = 0 }
+
+        { Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration Release -OutputFolder $output -RequireOutput } |
+            Should -Throw '*did not produce the root and command-group JSON*'
+        Set-Content -LiteralPath (Join-Path $latest '_root_.json') -Value '[]'
+        Set-Content -LiteralPath (Join-Path $latest 'group.json') -Value '[]'
+        Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration Release -OutputFolder $output -RequireOutput |
+            Should -Be $latest
+        Should -Invoke dotnet -ParameterFilter { $args -contains '--output-folder' -and $args -contains $output }
+    }
+}
+
 Describe 'Get-TargetVersionFolder' {
     It 'composes docs-ref-autogen/<VersionFolder>' {
         $result = Get-TargetVersionFolder -TargetRepoPath 'fake-target' -VersionFolder 'preview-version'

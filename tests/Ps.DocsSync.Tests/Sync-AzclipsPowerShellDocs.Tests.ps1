@@ -8,6 +8,39 @@ BeforeAll {
     $env:AZCLIPS_PS_SYNC_LOAD_ONLY = ''
 }
 
+Describe 'Target branch selection' {
+    BeforeEach {
+        $script:TargetRepo = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path (Join-Path $script:TargetRepo 'azps-preview') -Force | Out-Null
+        git -C $script:TargetRepo init --initial-branch=main --quiet
+        git -C $script:TargetRepo config user.email 'test@example.com'
+        git -C $script:TargetRepo config user.name 'Test'
+        Set-Content -LiteralPath (Join-Path $script:TargetRepo 'azps-preview/keep.txt') -Value 'base'
+        git -C $script:TargetRepo add --all
+        git -C $script:TargetRepo commit -m 'base' --quiet
+        git -C $script:TargetRepo switch -c review --quiet
+        Set-Content -LiteralPath (Join-Path $script:TargetRepo 'review.txt') -Value 'review'
+        git -C $script:TargetRepo add --all
+        git -C $script:TargetRepo commit -m 'review' --quiet
+        $script:BaseCommit = (git -C $script:TargetRepo rev-parse HEAD).Trim()
+        git -C $script:TargetRepo switch main --quiet
+    }
+
+    It 'creates the sync commit from the requested branch' {
+        & "$PSScriptRoot/../../build/Sync-AzclipsPowerShellDocs.ps1" -TargetRepoPath $script:TargetRepo `
+            -TargetBranch 'review' -Force -Timestamp 'target-branch-test' | Out-Null
+        (git -C $script:TargetRepo rev-parse 'HEAD^').Trim() | Should -Be $script:BaseCommit
+        (git -C $script:TargetRepo branch --show-current).Trim() | Should -Be 'azclips-ps-sync-target-branch-test'
+        Test-Path -LiteralPath (Join-Path $script:TargetRepo 'review.txt') | Should -BeTrue
+    }
+
+    It 'does not check out the target branch during a dry-run' {
+        & "$PSScriptRoot/../../build/Sync-AzclipsPowerShellDocs.ps1" -TargetRepoPath $script:TargetRepo `
+            -TargetBranch 'review' -Module 'Compute' | Out-Null
+        (git -C $script:TargetRepo branch --show-current).Trim() | Should -Be 'main'
+    }
+}
+
 Describe 'Get-PublishableModule' {
     BeforeAll {
         $script:TempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-pssync-" + [Guid]::NewGuid().ToString('N'))

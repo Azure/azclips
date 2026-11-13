@@ -14,7 +14,7 @@ public partial class ApplicationSecurityGroup
 
     /// <summary>The name of the application security group.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]

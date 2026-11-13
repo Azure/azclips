@@ -22,7 +22,7 @@ Docs sync, module packaging, and release changelogs share the naming rule in [bu
 | ----------------- | -------- | ---------------------------------------------------------------------------------------------------- | ----------- |
 | Dry-run (default) | —        | Prints the copy plan; no filesystem writes                                                           | No          |
 | Force             | `-Force` | Writes to the local target repo + commits on a fresh branch. **No push.**                            | No          |
-| Push              | `-Push`  | Would push the branch + open a PR. **Currently throws** — docs.ms bot-auth pattern is still pending. | Deferred    |
+| Push              | `-Push`  | Clones the target temporarily, pushes a sync branch and opens a draft PR.                            | Existing Git and GitHub access |
 
 ## Config
 
@@ -50,6 +50,22 @@ Docs sync, module packaging, and release changelogs share the naming rule in [bu
 `serviceGroupNames` maps source module names to the service-group display names written to the service map. Modules not listed use their source name (for example, `Compute`).
 
 ## Running locally
+
+### Release-tag sync
+
+For release publishing, pass `-ReleaseTag` with a tag available in the local Git repository.
+The script creates a fresh source clone at that tag. The tag must contain this version of the
+sync script; older tags without it cannot use this workflow directly.
+
+```powershell
+git fetch origin --tags
+pwsh -File .\build\Sync-AzclipsPowerShellDocs.ps1 -ReleaseTag v1.0.0
+```
+
+The isolated checkout is verified against the tag and the script prints the tag and commit SHA.
+Markdown and manifests come from the tag; module-index source links still use `sourceBranch`
+(normally `main`). The rolling preview moniker is unchanged. Runs without `-ReleaseTag` use the
+current checkout.
 
 ### Dry-run (safest — start here)
 
@@ -98,6 +114,20 @@ Requires a local clone of the target docs repo (or a stand-in). Simplest way:
 
 `-Timestamp` is optional but locks the branch name (`azclips-ps-sync-<timestamp>`) and commit message for reproducibility. Otherwise the script uses the current UTC time.
 
+To choose the target explicitly, fetch the docs remote and pass its remote-tracking branch:
+
+```powershell
+git -C ..\azure-docs-powershell fetch upstream
+pwsh -File .\build\Sync-AzclipsPowerShellDocs.ps1 -Force `
+    -TargetBranch 'upstream/release-preview-azure-powershell-2026-11'
+```
+
+The script requires a clean target checkout, checks out the selected commit detached without
+overwriting ignored files, and creates the sync branch from it. It does not fetch automatically.
+Without `-TargetBranch`, the current target checkout remains the base. A dry-run does not check
+out the target branch, so its target comparisons use the current checkout. The configured
+`sourceBranch` controls source links, not the docs target.
+
 Expected output ends with:
 
 ```
@@ -129,9 +159,26 @@ gh pr create --repo <your-gh-user>/azure-docs-powershell `
 
 You now have a GitHub-rendered view of what a real sync PR looks like. Reviewers can eyeball each module-index landing page as GitHub would render it. Zero risk to the real `MicrosoftDocs/*` upstream.
 
-### `-Push` (currently deferred)
+### `-Push` — generate a draft PR
 
-Fails cleanly with a message pointing at the auth-pattern decision. Nothing to do here yet.
+No docs clone is needed. Supply a plain target branch name and the fork (or the base repository
+itself) to push to:
+
+```powershell
+pwsh -File .\build\Sync-AzclipsPowerShellDocs.ps1 -Push `
+    -TargetBranch 'release-preview-azure-powershell-2026-11' `
+    -HeadRepository 'your-user/azure-docs-powershell'
+```
+
+Add `-ReleaseTag v1.0.0` to use a tag rather than the current checkout. The script clones the
+target branch into a temporary workspace, generates the docs, and opens a draft PR after
+pushing the sync branch. It keeps the target repository's PR template and includes source and
+base commit provenance. No PR is created when there are no changes. Git and `gh` must already
+be authenticated and configured; `-CommitAuthor` and `-CommitEmail` can supply commit identity.
+The head repository must have the same name as the target repository. For a fork, `gh pr create`
+requires a user-owned head; organization-owned fork heads are not supported by `gh`.
+Successful temporary workspaces are removed; failed ones are retained and their paths printed.
+If pushing succeeded but PR creation failed, the error identifies the pushed branch.
 
 ## Cleanup
 
@@ -157,7 +204,7 @@ Remove-Item ../azure-docs-powershell/azps-preview -Recurse -Force
 | `Target working tree is dirty`                       | Uncommitted changes in the local target clone                                                          | Commit, stash, or `git checkout .` in the target                  |
 | `Target '…' is not a git repository`                 | `-TargetRepoPath` points somewhere that isn't a git repo                                               | Check the path; typically `../azure-docs-powershell`              |
 | `Branch 'azclips-ps-sync-…' already exists`          | Re-running with the same `-Timestamp`                                                                  | Delete the old branch or pass a fresh `-Timestamp`                |
-| `-Push is not yet implemented`                       | Correct behavior — auth boundary                                                                       | Use `-Force` and hand off to your normal PR flow                  |
+| `-Push requires -TargetBranch and -HeadRepository`  | The PR base branch or push repository was omitted                                                      | Supply both parameters                                            |
 
 ## Running the tests
 
@@ -176,7 +223,7 @@ Fork-PR safe — no secrets, no external clone, no `git push`.
 
 ## What's NOT covered (yet)
 
-- **Actual publish.** `-Push` throws by design. Real bot-PR-open + `git push` land when the docs.ms auth pattern is decided.
+- **CI credentials and release trigger.** These must be configured before running `-Push` in CI.
 - **Docset config.** Adding an AzClips moniker to `mapping/monikerMapping.json`, creating `docs-conceptual/<moniker>/toc.yml`, and configuring the docset with `PSMD2Yaml` are docs.ms's responsibility (via desk ticket). Our sync assumes those already exist and fails clearly if they don't.
 - **PR body customization / label management.** Deferred.
 - **Multi-moniker publishing.** Current script assumes a single moniker per invocation. Multi-version support (if we ever version AzClips-PS) means a config extension.

@@ -707,7 +707,7 @@ public class Program
 
 
     /// <summary>
-    /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.
+    /// Spawns a detached background process to upload buffered telemetry to Aria.
     /// Fire-and-forget: the CLI exits immediately without waiting for the upload.
     /// </summary>
     private static void SpawnTelemetryUploader(ProcessStartInfo? startInfo)

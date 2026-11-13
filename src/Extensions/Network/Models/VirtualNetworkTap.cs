@@ -14,7 +14,7 @@ public partial class VirtualNetworkTap
 
     /// <summary>The name of virtual network tap.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]

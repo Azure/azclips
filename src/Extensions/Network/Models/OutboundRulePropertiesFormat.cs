@@ -14,12 +14,12 @@ public partial class OutboundRulePropertiesFormat
 
     /// <summary>The Frontend IP addresses of the load balancer.</summary>
     [JsonPropertyName("frontendIPConfigurations")]
-    public IList<SubResource> FrontendIPConfigurations { get; set; }
+    public IList<SubResource> FrontendIPConfigurations { get; set; } = null !;
 
     /// <summary>A reference to a pool of DIPs. Outbound traffic is randomly load balanced across IPs in the backend IPs.</summary>
     [JsonPropertyName("backendAddressPool")]
     [JsonInclude]
-    internal SubResource BackendAddressPool { get; set; }
+    internal SubResource BackendAddressPool { get; set; } = null !;
 
     /// <summary>The provisioning state of the outbound rule resource.</summary>
     /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
@@ -29,7 +29,7 @@ public partial class OutboundRulePropertiesFormat
     /// <summary>The protocol for the outbound rule in load balancer.</summary>
     /// <remarks>Known values (extensible enum LoadBalancerOutboundRuleProtocol): "Tcp", "Udp", "All".</remarks>
     [JsonPropertyName("protocol")]
-    public string Protocol { get; set; }
+    public string Protocol { get; set; } = null !;
 
     /// <summary>Receive bidirectional TCP Reset on TCP flow idle timeout or unexpected connection termination. This element is only used when the protocol is set to TCP.</summary>
     [JsonPropertyName("enableTcpReset")]
