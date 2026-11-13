@@ -161,8 +161,8 @@ To add a setting:
    service:
 
     ```bash
-    dotnet test tests/Cli.Tests/Cli.Tests.csproj
-    dotnet test tests/Cmdlets.Tests/Cmdlets.Tests.csproj
+    dotnet test --project tests/Cli.Tests/Cli.Tests.csproj
+    dotnet test --project tests/Cmdlets.Tests/Cmdlets.Tests.csproj
     ```
 
 The recursive builder lives in `src/Core/Core.Configuration/Schema/ConfigurationSchemaBuilder.cs`

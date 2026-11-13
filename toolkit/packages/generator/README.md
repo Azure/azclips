@@ -82,7 +82,7 @@ target each project by path:
 dotnet build Ace.Generator.csproj
 
 # run the tests (also builds the library via its project reference)
-dotnet test test/Ace.Generator.Tests/Ace.Generator.Tests.csproj
+dotnet test --project test/Ace.Generator.Tests/Ace.Generator.Tests.csproj
 ```
 
 To build this package *and* the TypeScript packages together, run the toolkit's

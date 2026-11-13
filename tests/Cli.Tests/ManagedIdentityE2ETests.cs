@@ -57,7 +57,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
     private string _localAppDataDir = string.Empty;
     private string _profileDirectory = string.Empty;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _localAppDataDir = Path.Combine(Path.GetTempPath(), "azclips-mi-e2e", Guid.NewGuid().ToString("N"));
         _profileDirectory = Path.Combine(_localAppDataDir, HomePaths.DefaultHomeDirectoryName);
@@ -82,7 +82,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         Environment.SetEnvironmentVariable("AZURE_POD_IDENTITY_AUTHORITY_HOST", _imds.Url);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         Environment.SetEnvironmentVariable("AZURE_POD_IDENTITY_AUTHORITY_HOST", null);
 

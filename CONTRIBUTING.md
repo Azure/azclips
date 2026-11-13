@@ -25,11 +25,38 @@ Install the .NET SDK version pinned in [global.json](global.json), then build an
 
 ```bash
 dotnet build azclips.slnx
-dotnet test tests/Cli.Tests/Cli.Tests.csproj
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj
 ```
 
 Use the repository conventions in [AGENTS.md](AGENTS.md) for coding style, project layout, tests, and module boundaries.
 Specialized build, documentation, extension, and release workflows are documented under [eng-docs/howto](eng-docs/howto/).
+
+### Test runner
+
+Tests use xUnit.net v3 with Microsoft.Testing.Platform v2. `global.json` selects the
+native .NET 10 MTP runner; VSTest switches such as `--filter`, `--logger`, and
+`--collect` are not supported. Use an IDE/Test Explorer version with native MTP v2
+support, or run the commands below from the terminal.
+
+```bash
+# Unit tests, matching the CI exclusions
+dotnet test --solution azclips.slnx --filter-not-namespace "Scenario.Tests*" --filter-not-trait "Category=LocalOnly" --ignore-exit-code 8 --minimum-expected-tests 1
+# One test class (wildcards match fully qualified names)
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj --filter-class "*ConfigurationSchemaLintTests"
+# TRX results or Cobertura coverage
+dotnet test --project tests/Core.Engine.Tests/Core.Engine.Tests.csproj --report-xunit-trx --results-directory artifacts/TestResults
+dotnet test --project tests/Core.Engine.Tests/Core.Engine.Tests.csproj --coverage --coverage-output-format cobertura
+```
+
+Build the complete solution first when running tests that load built extension
+artifacts, and add `--no-build` to reuse it. Test projects ending in `.Tests`
+inherit the executable runner and packages from `tests/Directory.Build.props`;
+shared helpers, fixture libraries, and the benchmark executable are not test hosts.
+The unit-suite command permits MTP exit code 8 only because the scenario host is
+intentionally filtered to zero tests; its aggregate minimum still rejects an empty run.
+The standalone toolkit generator tests share these settings but are not in
+`azclips.slnx`; run them with
+`dotnet test --project toolkit/packages/generator/test/Ace.Generator.Tests/Ace.Generator.Tests.csproj`.
 
 ### Configuration Schema Validation
 
@@ -46,7 +73,7 @@ it does not inspect saved configuration or unknown keys written with `--force`.
 Run it locally before submitting new configuration keys:
 
 ```bash
-dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter FullyQualifiedName~ConfigurationSchemaLintTests
+dotnet test --project tests/Cli.Tests/Cli.Tests.csproj --filter-class "*ConfigurationSchemaLintTests"
 ```
 
 ### CLI Command-Tree Conventions
@@ -87,7 +114,7 @@ Run locally after building:
 
 ```powershell
 dotnet build azclips.slnx
-dotnet test tests\Cli.Tests\Cli.Tests.csproj --filter "FullyQualifiedName~CommandTreeConventionValidatorTests"
+dotnet test --project tests\Cli.Tests\Cli.Tests.csproj --filter-class "*CommandTreeConventionValidatorTests"
 ```
 
 The CLI test suite runs these checks in CI. Violations fail the built-extension

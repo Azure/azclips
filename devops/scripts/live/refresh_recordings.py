@@ -28,19 +28,23 @@ def run_tests(repo_root, results_dir, test_filter=None, record=False):
     """Run the scenario suite, return the set of failed test class names."""
     trx = results_dir / ("record.trx" if record else "playback.trx")
     command = [
-        "dotnet", "test", "tests/Scenario.Tests",
-        "--logger", f"trx;LogFileName={trx}",
+        "dotnet", "test", "--project", "tests/Scenario.Tests/Scenario.Tests.csproj",
+        "--report-xunit-trx", "--report-xunit-trx-filename", trx.name,
         "--results-directory", str(results_dir),
     ]
     if test_filter:
-        command += ["--filter", f"FullyQualifiedName~{test_filter}"]
+        command += ["--filter-class", f"*{test_filter}*"]
 
     environment = os.environ.copy()
     environment.pop(RECORD_MODE_VARIABLE, None)
     if record:
         environment[RECORD_MODE_VARIABLE] = "Record"
 
-    subprocess.run(command, cwd=repo_root, env=environment)
+    trx.unlink(missing_ok=True)
+    result = subprocess.run(command, cwd=repo_root, env=environment)
+    # MTP uses exit 2 for test failures; other failures must not trigger live recording.
+    if result.returncode not in (0, 2):
+        raise SystemExit(f"scenario test runner failed with exit code {result.returncode}")
     return parse_failed_classes(trx)
 
 
