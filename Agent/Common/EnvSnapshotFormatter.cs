@@ -53,14 +53,14 @@ internal static class EnvSnapshotFormatter
             var groups = GetStrings(root, "commandGroups");
             if (groups.Count > 0)
             {
-                sb.Append("command-groups (installed)\n");
+                sb.Append("command-groups (installed; not runnable by themselves)\n");
                 sb.Append("  ").Append(string.Join(", ", groups)).Append('\n');
             }
 
             var installable = GetInstallableGroups(root);
             if (installable.Count > 0)
             {
-                sb.Append("installable-command-groups (not installed; group (extension package))\n");
+                sb.Append("installable-command-groups (not installed, not runnable by themselves; group (extension package))\n");
                 sb.Append("  ").Append(string.Join(", ", installable)).Append('\n');
             }
 
