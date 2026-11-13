@@ -80,9 +80,12 @@ PowerShell validation's `run_ps_validation_phase.ps1` dispatches the Install and
 Uninstall module phases. Install imports every packaged module with
 `-RequiredVersion` and fails when the loaded version differs, the exported cmdlets
 differ from manifest `CmdletsToExport`, or a cmdlet lacks a `Get-Help` example.
-Both the shared non-Windows bootstrap and the Windows bootstrap pass the source
-root's `NuGet.config` explicitly to `dotnet tool install`; PowerShell restores must
-use the approved CFS feed regardless of the working directory.
+The validation bootstraps install standalone PowerShell archives from the official
+GitHub releases, verify the published SHA256, and use the bundled .NET runtime.
+Do not reintroduce a separate SDK/runtime installer or framework-dependent tool.
+Release lines select the latest stable patch in that line; keep matrix runtime
+channels as compatibility/report metadata. Repository restores still use CFS via
+`NuGet.config`, which does not govern the standalone archive source.
 The lifecycle fixtures resolve symbolic-link ancestors of the OS temporary
 directory before creating scratch files, including macOS's `/var` alias.
 Artifact capture still rejects symbolic links and reparse points.
