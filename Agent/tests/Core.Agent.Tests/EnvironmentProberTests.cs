@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Core.Abstractions;
+using Core.Agent.Common;
 using Core.Agent.Tools.Env;
 using Core.Extensions;
 using Tests.Common.Stubs;
@@ -11,6 +13,8 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class EnvironmentProberTests
 {
+    // Same serializer settings as EnvSnapshotProvider, which feeds the formatter in production.
+    private static readonly JsonSerializerOptions s_json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     [Fact]
     public async Task ProfileService_Throws_ProberDoesNotReportSignedOut()
     {
@@ -33,15 +37,40 @@ public class EnvironmentProberTests
         Assert.Equal(["aks", "vm"], snapshot.CommandGroups);
     }
 
-    [Fact]
-    public async Task CommandGroups_CatalogError_IsEmpty()
+    [Theory]
+    [InlineData("{\"error\":\"help_catalog_regeneration_failed\"}")]
+    [InlineData("{\"error\":\"help_catalog_unavailable\",\"hint\":\"Run 'az agent tool docs generate' to rebuild the help catalog.\"}")]
+    [InlineData("not json")]
+    public async Task CatalogUnreadable_GroupsAreUnknown_AndEnvironmentShowsNeitherLine(string catalog)
     {
+        var hints = Hints(("vm", "azclips.compute"), ("aks", "azclips.aks"));
         var prober = new EnvironmentProber(new StubProfileService(), flavor: "cli", azclipsVersion: "1",
-            readCommandCatalog: _ => Task.FromResult("{\"error\":\"help_catalog_regeneration_failed\"}"));
+            readCommandCatalog: _ => Task.FromResult(catalog), extensionHints: hints);
 
         var snapshot = await prober.ProbeAsync();
+        var block = EnvSnapshotFormatter.Format(JsonSerializer.Serialize(snapshot, s_json));
 
-        Assert.Empty(snapshot.CommandGroups);
+        Assert.Null(snapshot.CommandGroups);
+        Assert.Null(snapshot.InstallableGroups);
+        Assert.Contains("</environment>", block);
+        Assert.DoesNotContain("command-groups", block);
+    }
+
+    [Fact]
+    public async Task ValidCatalog_AllHintGroupsInstalled_EnvironmentListsGroupsAndInstallableNone()
+    {
+        const string catalog = """
+            { "groups": [ { "verb": "vm", "summary": "" }, { "verb": "group", "summary": "" } ], "commands": [] }
+            """;
+        var hints = Hints(("vm", "azclips.compute"), ("vm create", "azclips.compute"), ("group", "azclips.resources"));
+        var prober = new EnvironmentProber(new StubProfileService(), flavor: "cli", azclipsVersion: "1",
+            readCommandCatalog: _ => Task.FromResult(catalog), extensionHints: hints);
+
+        var snapshot = await prober.ProbeAsync();
+        var block = EnvSnapshotFormatter.Format(JsonSerializer.Serialize(snapshot, s_json));
+
+        Assert.Contains("command-groups (installed; not runnable by themselves)\n  group, vm\n", block);
+        Assert.Contains("extension package))\n  none\n", block);
     }
 
     [Fact]

@@ -79,15 +79,15 @@ public sealed class EnvironmentProber
             InstallableGroups: installableGroups);
     }
 
-    // Root group verbs from the help catalog; null without a reader. An error payload
-    // or an unparsable catalog yields an empty list. The reader returns expected read
-    // failures as an error payload; an exception it throws propagates.
+    // Root group verbs from the help catalog; null when they are unknown: no reader, an error
+    // payload, or a catalog that cannot be parsed. The reader returns expected read failures as
+    // an error payload; an exception it throws propagates.
     private async Task<IReadOnlyList<string>?> ReadCommandGroupsAsync(CancellationToken ct)
     {
         if (_readCommandCatalog is null) return null;
         var json = await _readCommandCatalog(ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
-        return Safe(() => ParseGroupVerbs(json), []);
+        return Safe(() => ParseGroupVerbs(json), null);
     }
 
     // Verbs (first token of each hint key) that are not installed, with their package ids.
@@ -107,13 +107,14 @@ public sealed class EnvironmentProber
             .ToArray();
     }
 
-    private static IReadOnlyList<string> ParseGroupVerbs(string catalogJson)
+    // Null for an error payload or any document without a groups array.
+    private static IReadOnlyList<string>? ParseGroupVerbs(string catalogJson)
     {
         using var doc = JsonDocument.Parse(catalogJson);
         if (doc.RootElement.ValueKind != JsonValueKind.Object ||
             !doc.RootElement.TryGetProperty("groups", out var groups) ||
             groups.ValueKind != JsonValueKind.Array)
-            return [];
+            return null;
         return groups.EnumerateArray()
             .Where(g => g.ValueKind == JsonValueKind.Object)
             .Select(g => g.TryGetProperty("verb", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null)
