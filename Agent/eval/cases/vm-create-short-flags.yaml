@@ -1,0 +1,44 @@
+description: vm create with short flags -n/-g → plan must use long flags
+vars:
+  case_id: vm-create-long-flags
+  command_group: vm
+  goal: Create the requested VM in the supplied group; request the password rather than inventing it.
+  command: vm create -n test-vm -g {{resource_group}}
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm create
+          match: all
+          requiredArguments:
+            - --name
+            - --location
+            - --resource-group
+            - --size
+            - --admin-username
+            - --admin-password
+            - --virtual-network-name
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: test-vm
+            --resource-group: "{{resource_group}}"
+  - type: javascript
+    value: file://assertions/resource-group-plan.js:resourceGroupPlanAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm create
+        - az group create
+      resourceCommand: az vm create
+      validateSubscription: true
+      secretArguments:
+        - --admin-password
+  - recoveryQuality: vm
