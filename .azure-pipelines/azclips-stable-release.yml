@@ -44,13 +44,13 @@ variables:
 - name: DockerCliRegistryServer
   value: azclips.azurecr.io
 - name: DockerCliRepository
-  value: unlisted/azclips/cli-dev
+  value: public/azclips/cli
 - name: DockerPowerShellRegistryName
   value: azclips
 - name: DockerPowerShellRegistryServer
   value: azclips.azurecr.io
 - name: DockerPowerShellRepository
-  value: unlisted/azclips/powershell-dev
+  value: public/azclips/powershell
 
 stages:
 - stage: Preflight
