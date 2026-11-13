@@ -113,4 +113,14 @@ public class ProfileRemoveProcessorTests
         Assert.Equal("ProfileNotFound", ex.Code);
         Assert.False(auth.LogoutCalled);
     }
+
+    [Fact]
+    public async Task ProcessAsync_ProfileDoesNotExist_ThrowsExactMessage()
+    {
+        InitDi();
+
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => CreateProcessor("missing").ProcessAsync());
+
+        Assert.Equal("Profile 'missing' does not exist.", ex.Message);
+    }
 }

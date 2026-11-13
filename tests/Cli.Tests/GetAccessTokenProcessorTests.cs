@@ -396,4 +396,122 @@ public class GetAccessTokenProcessorTests
         await RunAsync(new GetAccessTokenProcessor { ResourceType = "key-vault", Plaintext = true }, ProfileWith(AuthMethod.Browser));
         Assert.Equal(["https://vault.azure.net/.default"], capturedScopes!);
     }
+
+    // ── Rejected input: exact error messages ───────────────────────────────────────────────────
+    // The auth service mock is strict and the HTTP pipeline throws on any request, so if a token or
+    // request happened before validation the test would get a different exception type and fail.
+
+    private static GetAccessTokenProcessor InitRejecting(ClientType clientType, GetAccessTokenProcessor processor, Profile? profile)
+    {
+        InitDi(clientType, new Mock<IAuthService>(MockBehavior.Strict).Object);
+        return InitProcessor(processor, profile, out _);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, "az login")]
+    [InlineData(ClientType.PowerShell, "Connect-AzAccount")]
+    public async Task ProcessAsync_NullProfile_ThrowsExactSignInGuidance(ClientType surface, string signInCommand)
+    {
+        var processor = InitRejecting(surface, new GetAccessTokenProcessor(), profile: null);
+
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+
+        Assert.Equal(
+            $"No signed-in context is available. Run '{signInCommand}' to sign in (or set an active profile), then retry.",
+            ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_NullProfile_IsReportedBeforeScopeInputErrors()
+    {
+        var processor = InitRejecting(
+            ClientType.CLI,
+            new GetAccessTokenProcessor { Resource = "https://vault.azure.net", Scope = ["x"] },
+            profile: null);
+
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+
+        Assert.Equal(
+            "No signed-in context is available. Run 'az login' to sign in (or set an active profile), then retry.",
+            ex.Message);
+    }
+
+    [Theory]
+    [InlineData("requested-tenant")]
+    [InlineData("  requested-tenant  ")]
+    public async Task ProcessAsync_ManagedIdentityWithUnknownTenant_ExplicitTenant_ThrowsExactMessage(string tenant)
+    {
+        var processor = InitRejecting(
+            ClientType.CLI,
+            new GetAccessTokenProcessor { Tenant = tenant },
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: ""));
+
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+
+        Assert.Equal(
+            "Tenant 'requested-tenant' cannot be honored for the current managed identity account, whose tenant is fixed by the account and cannot be overridden. Retry without specifying a tenant.",
+            ex.Message);
+    }
+
+    [Theory]
+    [InlineData("other-tenant")]
+    [InlineData(" other-tenant ")]
+    public async Task ProcessAsync_ManagedIdentity_MismatchedExplicitTenant_ThrowsExactMessage(string tenant)
+    {
+        var processor = InitRejecting(
+            ClientType.CLI,
+            new GetAccessTokenProcessor { Tenant = tenant },
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"));
+
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+
+        Assert.Equal(
+            "Tenant 'other-tenant' is not valid for the current account. A managed identity account can only acquire tokens for its own tenant ('mi-tenant').",
+            ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ManagedIdentity_TenantMismatch_IsReportedBeforeScopeInputErrors()
+    {
+        var processor = InitRejecting(
+            ClientType.CLI,
+            new GetAccessTokenProcessor { Tenant = "other-tenant", Resource = "https://vault.azure.net", Scope = ["x"] },
+            ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"));
+
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+
+        Assert.Equal(
+            "Tenant 'other-tenant' is not valid for the current account. A managed identity account can only acquire tokens for its own tenant ('mi-tenant').",
+            ex.Message);
+    }
+
+    // TokenScopeResolver errors surfaced through the processor are raised before token acquisition.
+    public static TheoryData<string?, string?, string[]?, string> ScopeInputErrors() => new()
+    {
+        { "https://vault.azure.net", "key-vault", null,
+            "Specify at most one of a resource, a resource type, or a scope list - these inputs are mutually exclusive." },
+        { null, null, [], "At least one scope must be supplied with --scope/-Scope." },
+        { null, null, [" "], "Scope values must not be empty." },
+        { null, " ", null, "Resource type must not be empty." },
+        { " ", null, null, "Resource must not be empty." },
+        { null, "nope", null,
+            "Unknown resource type 'nope'. Known resource types: arm, aad-graph, ms-graph, batch, data-lake, oss-rdbms, media, "
+            + "key-vault, storage, synapse, managed-hsm, communication-email, attestation, app-configuration, analysis-services, "
+            + "operational-insights." },
+    };
+
+    [Theory]
+    [MemberData(nameof(ScopeInputErrors))]
+    public async Task ProcessAsync_InvalidScopeInput_ThrowsBeforeTokenAcquisition(
+        string? resource, string? resourceType, string[]? scope, string expectedMessage)
+    {
+        var processor = InitRejecting(
+            ClientType.CLI,
+            new GetAccessTokenProcessor { Resource = resource, ResourceType = resourceType, Scope = scope },
+            ProfileWith(AuthMethod.Browser, tenantId: "home-tenant"));
+
+        var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
+
+        Assert.Equal(expectedMessage, ex.Message);
+    }
 }

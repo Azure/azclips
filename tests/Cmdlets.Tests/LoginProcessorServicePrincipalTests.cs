@@ -319,11 +319,75 @@ public class LoginProcessorServicePrincipalTests
         ConfigureForDirectProcessAsync(processor);
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
-        Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            $"Profile 'ci' requires a newly issued token in '{FlagFor(surface, nameof(LoginProcessor.FederatedToken))}'.",
+            ex.Message);
 
         // Nothing signed in, nothing persisted.
         auth.Verify(a => a.LoginAsync(It.IsAny<LoginRequest>(), It.IsAny<CancellationToken>()), Times.Never);
         profiles.Verify(p => p.SaveAndActivateProfileAsync(It.IsAny<Profile>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, null)]
+    [InlineData(ClientType.CLI, "")]
+    [InlineData(ClientType.PowerShell, " ")]
+    public async Task ProcessAsync_FederatedProfileReauthWithoutStoredClientId_ThrowsExactMessage(
+        ClientType surface, string? storedClientId)
+    {
+        // Strict mocks: any login or profile save before the error raises MockException instead.
+        var profiles = new Mock<IProfileService>(MockBehavior.Strict);
+        profiles.Setup(p => p.GetProfileAsync("ci", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Profile
+                {
+                    Name = "ci",
+                    TenantId = "22222222-2222-2222-2222-222222222222",
+                    SubscriptionId = "33333333-3333-3333-3333-333333333333",
+                    CloudName = "AzureCloud",
+                    AuthMethod = AuthMethod.Federated,
+                    ClientId = storedClientId,
+                });
+        var auth = new Mock<IAuthService>(MockBehavior.Strict);
+        InitializeProfileReauthDi(surface, profiles, auth);
+
+        var processor = new LoginProcessor { Profile = "ci", FederatedToken = "header.payload.signature" };
+        ConfigureForDirectProcessAsync(processor);
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal("Profile 'ci' is missing client ID for authentication with federated credentials.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_BrokerProfileReauth_ThrowsUnsupportedAuthMethodBeforeLogin()
+    {
+        // Strict mocks: any login, secret lookup or profile save before the error raises MockException instead.
+        var profiles = new Mock<IProfileService>(MockBehavior.Strict);
+        profiles.Setup(p => p.GetProfileAsync("ci", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Profile
+                {
+                    Name = "ci",
+                    TenantId = "22222222-2222-2222-2222-222222222222",
+                    SubscriptionId = "33333333-3333-3333-3333-333333333333",
+                    CloudName = "AzureCloud",
+                    AuthMethod = AuthMethod.Broker,
+                });
+        var auth = new Mock<IAuthService>(MockBehavior.Strict);
+        AzclipsServiceProvider.Dispose();
+        AzclipsServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton(new Mock<ILoggingService>().Object);
+            services.AddSingleton(profiles.Object);
+            services.AddSingleton(auth.Object);
+            services.AddSingleton(new Mock<IServicePrincipalSecretStore>(MockBehavior.Strict).Object);
+        });
+        AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+
+        var processor = new LoginProcessor { Profile = "ci" };
+        ConfigureForDirectProcessAsync(processor);
+
+        // A Broker profile is a defined AuthMethod but cannot be re-authenticated via --profile.
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal("usage error: Unsupported authentication method 'Broker'.", ex.Message);
     }
 
     [Theory]
@@ -397,6 +461,26 @@ public class LoginProcessorServicePrincipalTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
+    public async Task ProcessAsync_ProfileReauthUnknownProfile_ThrowsExactMessage(ClientType surface)
+    {
+        var profiles = new Mock<IProfileService>();
+        profiles.Setup(p => p.GetProfileAsync("missing", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Profile?)null);
+        var auth = new Mock<IAuthService>(MockBehavior.Strict);
+
+        InitializeProfileReauthDi(surface, profiles, auth);
+
+        var processor = new LoginProcessor { Profile = "missing" };
+        ConfigureForDirectProcessAsync(processor);
+
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(processor.ProcessAsync);
+
+        Assert.Equal("Profile 'missing' does not exist.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI)]
+    [InlineData(ClientType.PowerShell)]
     public async Task ProcessAsync_NonFederatedProfileReauthWithFederatedToken_Throws(ClientType surface)
     {
         var validLogin = ValidServicePrincipalLogin();
@@ -423,7 +507,9 @@ public class LoginProcessorServicePrincipalTests
         ConfigureForDirectProcessAsync(processor);
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
-        Assert.Contains(FlagFor(surface, nameof(LoginProcessor.FederatedToken)), ex.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            $"Profile 'ci' uses 'Browser' authentication and does not accept '{FlagFor(surface, nameof(LoginProcessor.FederatedToken))}'.",
+            ex.Message);
     }
 
     [Theory]
