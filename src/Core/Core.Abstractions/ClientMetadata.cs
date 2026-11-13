@@ -10,6 +10,8 @@ namespace Core.Abstractions;
 /// <param name="FirstPartyApplicationId">
 /// The Microsoft Entra application ID used for first-party public client authentication.
 /// </param>
+/// <param name="ReleaseVersion">The client-wide release version, when supplied by the host.</param>
 public sealed record ClientMetadata(
     ClientType ClientType,
-    string FirstPartyApplicationId);
+    string FirstPartyApplicationId,
+    string? ReleaseVersion = null);
