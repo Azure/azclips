@@ -89,9 +89,13 @@ public sealed class SystemPromptFingerprintTests
         : OperatingSystem.IsMacOS() ? "macos"
         : "unknown";
 
-    // The "Git repository" line appears only for some origin remotes, so it is dropped.
+    // The "Git repository" line and the <gh_cli_preference> block appear only when the
+    // working directory's origin is on GitHub, so both are dropped.
     private static string Normalize(string content) =>
-        Regex.Replace(Regex.Replace(content.Replace("\r\n", "\n"), @"^\* Git repository: .*\n", "", RegexOptions.Multiline),
+        Regex.Replace(
+            Regex.Replace(
+                Regex.Replace(content.Replace("\r\n", "\n"), @"^\* Git repository: .*\n", "", RegexOptions.Multiline),
+                @"<gh_cli_preference>\n.*?\n</gh_cli_preference>\n\n?", "", RegexOptions.Singleline),
             @"^(\* (Current working directory|Git repository root|Session folder|Available tools)):.*$", "$1: <dynamic>",
             RegexOptions.Multiline);
 }
