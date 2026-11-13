@@ -174,6 +174,116 @@ public class KeyVaultEndpointTests
         Assert.DoesNotContain("private-fixture", error.ToString());
     }
 
+    [Fact]
+    public Task VaultNameAndVaultUrl_ThrowsBeforeNetwork() =>
+        AssertVaultRejectedBeforeNetworkAsync(new EndpointProcessor { VaultName = "fixture", VaultUrl = "https://fixture.vault.azure.net/" },
+            "Specify either a vault name or a vault URL, not both.");
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not a url")]
+    [InlineData("fixture.vault.azure.net")]
+    public Task NonAbsoluteVaultUrl_ThrowsBeforeNetwork(string url) =>
+        AssertVaultRejectedBeforeNetworkAsync(new EndpointProcessor { VaultUrl = url }, "The vault URL must be an absolute HTTPS URL.");
+
+    [Theory]
+    [InlineData("http://fixture.vault.azure.net/")]
+    [InlineData("https://fixture.vault.azure.net.attacker.example/")]
+    [InlineData("https://fixture.vault.azure.net:444/")]
+    [InlineData("https://user@fixture.vault.azure.net/")]
+    [InlineData("https://fixture.vault.azure.net/secrets")]
+    [InlineData("https://fixture.vault.azure.net/?query=value")]
+    [InlineData("https://fixture.vault.azure.net/#fragment")]
+    [InlineData("https://fixture.vault.azure.cn/")]
+    public Task NonRootOrNonPublicCloudVaultUrl_ThrowsBeforeNetwork(string url) =>
+        AssertVaultRejectedBeforeNetworkAsync(new EndpointProcessor { VaultUrl = url }, "Use the root HTTPS URL of an Azure public-cloud vault.");
+
+    [Fact]
+    public Task MissingVault_ThrowsBeforeNetwork() =>
+        AssertVaultRejectedBeforeNetworkAsync(new EndpointProcessor(), "Use the root HTTPS URL of an Azure public-cloud vault.");
+
+    [Theory]
+    [InlineData("ab")]
+    [InlineData("1abc")]
+    [InlineData("-abc")]
+    [InlineData("abc-")]
+    [InlineData("ab--c")]
+    [InlineData("ab_c")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public Task InvalidVaultName_ThrowsBeforeNetwork(string name) =>
+        AssertVaultRejectedBeforeNetworkAsync(new EndpointProcessor { VaultName = name },
+            "Vault names must be 3-24 letters, digits or hyphens, start with a letter, end with a letter or digit and contain no consecutive hyphens.");
+
+    [Theory]
+    [InlineData("ab")]
+    [InlineData("1abc")]
+    [InlineData("-abc")]
+    [InlineData("abc-")]
+    [InlineData("ab--c")]
+    [InlineData("ab_c")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public Task InvalidVaultNameInVaultUrl_ThrowsBeforeNetwork(string name) =>
+        AssertVaultRejectedBeforeNetworkAsync(new EndpointProcessor { VaultUrl = $"https://{name}.vault.azure.net/" },
+            "Vault names must be 3-24 letters, digits or hyphens, start with a letter, end with a letter or digit and contain no consecutive hyphens.");
+
+    [Fact]
+    public Task VaultUrlWithSubdomain_ThrowsVaultNameError() =>
+        AssertVaultRejectedBeforeNetworkAsync(new EndpointProcessor { VaultUrl = "https://other.fixture.vault.azure.net/" },
+            "Vault names must be 3-24 letters, digits or hyphens, start with a letter, end with a letter or digit and contain no consecutive hyphens.");
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("a23456789012345678901234")]
+    public async Task VaultNameAtLengthBoundary_IsAccepted(string name)
+    {
+        var pipeline = new Mock<IRuntimeHttpPipeline>();
+        string? host = null;
+        pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .ReturnsAsync((HttpRequestMessage request, IEventPublisher _) =>
+            {
+                host = request.RequestUri!.Host;
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}"), RequestMessage = request };
+            });
+        var processor = new EndpointProcessor { VaultName = name, RequestUri = $"https://{name}.vault.azure.net/secrets/test" };
+        processor.Init(Context(pipeline.Object, new AuthHandler()));
+
+        await processor.ProcessAsync();
+
+        Assert.Equal($"{name}.vault.azure.net", host);
+    }
+
+    [Theory]
+    [InlineData("GET", "https://other.vault.azure.net/secrets/test")]
+    [InlineData("GET", "https://fixture.vault.azure.net/keys/test")]
+    [InlineData("GET", "https://fixture.vault.azure.net/deletedsecrets/test/recover")]
+    public async Task RequestOutsideSelectedVaultEndpoint_ThrowsBeforeAuthOrSend(string method, string requestUri)
+    {
+        var auth = new AuthHandler { AcquireTokenAsyncDefault = (_, _, _, _, _) => throw new Exception("Token acquisition must not occur.") };
+        var terminal = new Mock<ISendAsync>(MockBehavior.Strict);
+        var factory = new Mock<ISendAsyncTerminalFactory>();
+        factory.Setup(value => value.Create()).Returns(terminal.Object);
+        var pipeline = new HttpPipeline(factory.Object);
+        pipeline.Prepend(auth.SendAsync);
+        var processor = new EndpointProcessor { VaultName = "fixture", RequestUri = requestUri, RequestMethod = new HttpMethod(method) };
+        processor.Init(Context(pipeline, auth));
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Equal("The request must target the selected vault's secrets or certificates endpoint.", ex.Message);
+    }
+
+    private static async Task AssertVaultRejectedBeforeNetworkAsync(EndpointProcessor processor, string message)
+    {
+        var pipeline = new Mock<IRuntimeHttpPipeline>();
+        pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .ThrowsAsync(new InvalidOperationException("Unexpected request."));
+        processor.Init(Context(pipeline.Object, new AuthHandler()));
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Equal(message, ex.Message);
+    }
+
     private static ProcessorContext Context(IRuntimeHttpPipeline pipeline, AuthHandler auth, Profile? profile = null)
     {
         var publisher = new Mock<IEventPublisher>();
