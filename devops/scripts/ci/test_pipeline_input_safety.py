@@ -339,5 +339,90 @@ class PipelineInputSafetyTests(unittest.TestCase):
                 self.assertNotIn(archive_option, arguments)
 
 
+class ShellPipelineSafetyTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.bash = shutil.which("bash")
+        if not cls.bash:
+            raise RuntimeError("Bash is required to test shell pipeline safety.")
+        cls.repo_root = Path(__file__).resolve().parents[3]
+
+    def run_bash(self, script, **environment):
+        return subprocess.run(
+            [self.bash, "--noprofile", "--norc", "-c", "set -euo pipefail\n" + script],
+            env={"PATH": os.defpath, **environment},
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_extensions_help_preserves_output_and_producer_status(self):
+        validator = (
+            self.repo_root / "devops/scripts/packaging/common/validate_cli_download.sh"
+        ).read_text(encoding="utf-8").splitlines()
+        start = next(
+            index for index, line in enumerate(validator)
+            if "bash -s -- --help" in line and "azcli-extensions-download.sh" in line
+        )
+        fragment = "\n".join(validator[start:start + 3])
+        with tempfile.TemporaryDirectory() as directory:
+            install = Path(directory) / "install"
+            install.mkdir()
+            (install / "azcli-extensions-download.sh").write_text(
+                'if [[ "$HELP_CASE" != missing ]]; then printf "Usage: fixture\\n"; fi\n'
+                'printf "%1048576s\\n" ""\n'
+                'if [[ "$HELP_CASE" == failure ]]; then exit 37; fi\n',
+                encoding="utf-8",
+            )
+            for scenario, expected in (("valid", 0), ("missing", 1), ("failure", 37)):
+                with self.subTest(scenario=scenario):
+                    result = self.run_bash(fragment, repo_root=directory, HELP_CASE=scenario)
+                    self.assertEqual(result.returncode, expected, result.stderr)
+
+    def test_signing_checks_handle_large_output_and_missing_fields(self):
+        for filename in ("sign-macos.yml", "validate-sign-macos.yml"):
+            source = (
+                self.repo_root / ".azure-pipelines/templates/dist/jobs" / filename
+            ).read_text(encoding="utf-8")
+            checks = re.findall(
+                r"if ! ((?:printf|grep)[^\n]*(?:signature_details|entitlements)[^\n]*); then",
+                source,
+            )
+            self.assertTrue(checks, filename)
+            for check in checks:
+                for present in (True, False):
+                    with self.subTest(filename=filename, check=check, present=present):
+                        header = (
+                            "TeamIdentifier=UBF8T346G9\nflags=runtime\nTimestamp=now\n"
+                            "com.apple.security.cs.allow-jit"
+                        ) if present else "unrelated output"
+                        result = self.run_bash(
+                            'printf -v signature_details "%s\\n%1048576s\\n" "$HEADER" ""\n'
+                            'entitlements="$signature_details"\n'
+                            'entitlement=com.apple.security.cs.allow-jit\n' + check,
+                            HEADER=header,
+                        )
+                        self.assertEqual(result.returncode, 0 if present else 1, result.stderr)
+
+    def test_first_assembly_selection_drains_large_input(self):
+        source = (
+            self.repo_root / "devops/scripts/packaging/common/build_common.sh"
+        ).read_text(encoding="utf-8").splitlines()
+        assignment = next(line for line in source if "ext_assembly_name=$(" in line)
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "extension.csproj"
+            for content, expected in (
+                ("<AssemblyName>First</AssemblyName>\n" * 32768, "First"),
+                ("<Project />\n", ""),
+            ):
+                with self.subTest(expected=expected):
+                    project.write_text(content, encoding="utf-8")
+                    result = self.run_bash(
+                        assignment + '\nprintf "%s" "$ext_assembly_name"', ext=str(project)
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout, expected)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,7 @@ guide in the same PR so it stays accurate.
 - Never inline secrets. Credentials come from **variable groups**, **Azure Key Vault**, **approved Azure service connections** (e.g. `ame_esrp_connection`, `AzureSubscription`), and **built-in pipeline authentication** (e.g. `persistCredentials: true` on checkout).
 - Signing and release-orchestration work runs in the **`release`** ADO project; PR (`pr-alpha`) and `beta` builds run in **`public`**. The stable-release pipeline runs its full build in **`release`**.
 - Keep changes template-driven: prefer editing a shared template over duplicating steps in an entry pipeline.
+- Inline Bash follows the same SIGPIPE rules as `devops/scripts/`: match captured output with here-strings, drain streaming checks with non-quiet `grep` redirected to `/dev/null`, and use `sed -n '1p'` instead of `head` for first-line selection from unbounded pipelines. Keep `pipefail` enabled so producer failures remain visible.
 
 ## Entry Pipelines
 | File | Trigger | Project | Purpose |
