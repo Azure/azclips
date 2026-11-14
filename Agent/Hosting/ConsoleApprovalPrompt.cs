@@ -370,12 +370,16 @@ public sealed class ConsoleApprovalPrompt
     /// (true for Yes, false for No/Redirect) before this method returns; the
     /// caller only needs to act on the FeedbackPrompt.
     /// </returns>
-    public async Task<ApprovalOutcome> PumpOneAsync(CancellationToken ct)
+    public Task<ApprovalOutcome> PumpOneAsync(CancellationToken ct) => PumpOneAsync(ct, ct);
+
+    /// <param name="queueCt">Stops waiting for a request; does not abandon a read that has started.</param>
+    /// <param name="sessionCt">Ends the session; abandons a started read with <see cref="OperationCanceledException"/>.</param>
+    public async Task<ApprovalOutcome> PumpOneAsync(CancellationToken queueCt, CancellationToken sessionCt)
     {
         PendingApproval pending;
         try
         {
-            pending = await _queue.Reader.ReadAsync(ct).ConfigureAwait(false);
+            pending = await _queue.Reader.ReadAsync(queueCt).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -385,6 +389,7 @@ public sealed class ConsoleApprovalPrompt
         _spinner?.Pause();
         _abortWatcher?.Pause();
         string? line = null;
+        var readCancelled = false;
         try
         {
             Action body = () =>
@@ -401,14 +406,23 @@ public sealed class ConsoleApprovalPrompt
                     WriteArgs(pending.ArgsPreview);
                     Console.Write("   [y]es / [n]o, tell me what to do differently: ");
                 }
-                line = Console.ReadLine();
+                // Throws OperationCanceledException on session cancel, which also releases the renderer lock.
+                line = ConsoleLineInput.ReadLineAsync(sessionCt).GetAwaiter().GetResult();
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
             else                       body();
         }
+        catch (OperationCanceledException)
+        {
+            readCancelled = true;
+            // The request token may not be cancelled yet; complete the request so its waiter does not hang.
+            pending.Result.TrySetCanceled(sessionCt);
+            throw;
+        }
         finally
         {
-            _abortWatcher?.Resume();
+            // After session cancel the abandoned read still owns stdin, so the watcher stays paused.
+            if (!readCancelled) _abortWatcher?.Resume();
             _spinner?.Resume();
             pending.Reg.Dispose();
         }

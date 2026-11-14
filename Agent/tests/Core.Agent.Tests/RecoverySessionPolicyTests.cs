@@ -4,6 +4,7 @@
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
+using Core.Agent.AgentMode;
 using Core.Agent.Hosting;
 using Core.Agent.Telemetry;
 using Core.Agent.Tools;
@@ -87,6 +88,59 @@ public class RecoverySessionPolicyTests
             Console.SetIn(previousInput);
             Console.SetOut(previousOutput);
         }
+    }
+
+    // Contract (#1295): Esc ends only the current turn in interactive mode; oneshot has no next
+    // turn, and Ctrl+C always ends the session as cancelled.
+    [Theory]
+    [InlineData(true, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, true, true)]
+    public async Task EscAbort_ReturnsToPromptOnlyInInteractiveWithoutCtrlC(
+        bool interactive, bool sessionCancelled, bool endsSession)
+    {
+        var aborted = Task.FromCanceled(new CancellationToken(canceled: true));
+        var previousOutput = Console.Out;
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var turn = AgentModeEntry.AwaitTurnAsync(
+                aborted, () => null, redirected: false, userAborted: true, interactive, () => sessionCancelled);
+            if (endsSession)
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => turn);
+            else
+                Assert.True(await turn);
+        }
+        finally
+        {
+            Console.SetOut(previousOutput);
+        }
+    }
+
+    // Esc can land after the turn's last cancel check, so the send completes normally.
+    [Theory]
+    [InlineData(true, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, true, true)]
+    public async Task EscAbort_AfterCompletedSend_StillAbortsTheTurn(
+        bool interactive, bool sessionCancelled, bool endsSession)
+    {
+        var turn = AgentModeEntry.AwaitTurnAsync(
+            Task.CompletedTask, () => null, redirected: false, userAborted: true, interactive, () => sessionCancelled);
+        if (endsSession)
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => turn);
+        else
+            Assert.True(await turn);
+    }
+
+    [Fact]
+    public async Task CtrlC_OverridesNonCancellationSendFailure()
+    {
+        var failed = Task.FromException(new IOException("offline send failure"));
+        var turn = AgentModeEntry.AwaitTurnAsync(
+            failed, () => null, redirected: false, userAborted: false, interactive: true, () => true);
+        var oce = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => turn);
+        Assert.IsType<IOException>(oce.InnerException);
     }
 
     private static SessionConfig CreateConfig(
