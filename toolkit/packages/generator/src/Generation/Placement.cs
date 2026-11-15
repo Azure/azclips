@@ -31,6 +31,17 @@ internal sealed class Placement
         RootNamespace = string.Join(".", target.RootNamespace);
 
         ProjectName = !string.IsNullOrWhiteSpace(target.ProjectName) ? target.ProjectName : RootNamespace;
+
+        var occupiedNames = ir.Models
+            .Where(model => !string.IsNullOrWhiteSpace(model.Name))
+            .Select(model => model.Name.Identifier())
+            .Concat(ir.Commands.Select(command => command.Name + "Processor"))
+            .ToHashSet(StringComparer.Ordinal);
+        PaginationTypeName = "Pagination";
+        for (int suffix = 2; occupiedNames.Contains(PaginationTypeName); suffix++)
+        {
+            PaginationTypeName = $"Pagination{suffix}";
+        }
     }
 
     /// <summary>Root namespace of the generated code, dotted.</summary>
@@ -53,6 +64,12 @@ internal sealed class Placement
 
     /// <summary>Namespace for processors, derived the same way.</summary>
     public string ProcessorsNamespace => $"{RootNamespace}.{ProcessorsDirectory}";
+
+    /// <summary>Helper name that does not shadow a service model or duplicate a class-map key.</summary>
+    public string PaginationTypeName { get; }
+
+    /// <summary>Fully qualified helper reference, unaffected by processor parameter names.</summary>
+    public string PaginationTypeReference => $"global::{ProcessorsNamespace}.{PaginationTypeName}";
 
     /// <summary>Output path for one model file.</summary>
     public string ModelFile(string typeName) => $"{ModelsDirectory}/{typeName}.cs";

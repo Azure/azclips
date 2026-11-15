@@ -87,7 +87,7 @@ public sealed class ProcessorBaseTests
         Assert.Contains("protected virtual async IAsyncEnumerable<TResponse> ReadPagesAsync()", src);
         Assert.Contains("protected async Task ExecutePagesAsync<TItem>", src);
         Assert.Contains("await ExecuteAsync();", src);
-        Assert.Contains("ReadPagesAsync().CollectItemsAsync(pageItems)", src);
+        Assert.Contains("global::Azure.ElasticSan.Processors.Pagination.CollectItemsAsync(ReadPagesAsync(), pageItems)", src);
         Assert.Contains("ReadResponseAsync(HttpResponseMessage response)", src);
         Assert.Contains("return await ReadResponseAsync(response);", src);
         Assert.Contains("TResponse? body = await ReadResponseAsync(response);", src);

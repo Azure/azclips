@@ -318,9 +318,14 @@ response token and a string query or header parameter; otherwise `create-command
 `paging-continuation-unresolved` and keeps items-only pagination (first page).
 
 Codegen emits one internal `Processors/Pagination.cs` helper per extension, alongside
-the processor base. Its namespace is the extension's processor namespace, so generated
-processors and customizations in that namespace bind to the local helper rather than
-the legacy runtime type. Transport, authentication, and events still use ExtensionRuntime.
+the processor base. If its type name collides with a service model, codegen chooses the
+first unused name `Pagination2`, `Pagination3`, etc., using that name for the class,
+file, and generated-class map entry. Generated paging and collection calls use fully
+qualified `global::` references, so command parameters cannot shadow the local helper.
+A service model named `Pagination` receives a model alias in generated processors to
+disambiguate it from the legacy runtime type.
+Its namespace is the extension's processor namespace; transport, authentication, and
+events still use ExtensionRuntime.
 The authoritative source is `packages/generator/src/Templates/Pagination.cs`, embedded
 in the generator assembly. ExtensionRuntime links that same source to preserve existing
 callers without maintaining a second copy. Helper changes ship to generated extensions

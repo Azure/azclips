@@ -213,9 +213,17 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 UsingDirective(ParseName("System.Threading.Tasks")),
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(ParseName(modelsNamespace)))
-            .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls))
-            .NormalizeWhitespace()
-            .FixNormalizerSpacing();
+            .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls));
+
+        // The compatibility runtime still exports Pagination, so resolve the service model explicitly.
+        if (context.Ir.Models.Any(model => !string.IsNullOrWhiteSpace(model.Name)
+            && model.Name.Identifier() == "Pagination" && IrTypeMapper.RecordValue(model) is null))
+        {
+            unit = unit.AddUsings(UsingDirective(NameEquals(IdentifierName("Pagination")),
+                ParseName($"global::{modelsNamespace}.Pagination")));
+        }
+
+        unit = unit.NormalizeWhitespace().FixNormalizerSpacing();
 
         var sb = new StringBuilder();
         sb.AppendLine(Banner);
@@ -608,8 +616,8 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
         string read = continuation is not null
-            ? $"Pagination.ReadWithTokenAsync(ReadResponseAsync, continuationToken, token => {continuation.Parameter} = token, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)"
-            : "Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)";
+            ? $"{context.Placement.PaginationTypeReference}.ReadWithTokenAsync(ReadResponseAsync, continuationToken, token => {continuation.Parameter} = token, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)"
+            : $"{context.Placement.PaginationTypeReference}.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)";
 
         yield return MethodDeclaration(ParseTypeName($"IAsyncEnumerable<{listResultType}>"), Identifier("ReadPagesAsync"))
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))

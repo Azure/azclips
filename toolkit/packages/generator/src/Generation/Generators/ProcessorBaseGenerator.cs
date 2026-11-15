@@ -22,7 +22,7 @@ namespace Ace.Generator.Generators;
 /// structurally with Roslyn <see cref="SyntaxFactory"/> as a safeguard and to separate each
 /// piece's responsibility; only method <em>implementations</em> are authored as raw code blocks
 /// (via <see cref="EmitterExtensions.WithRawBody{TMethod}(TMethod,string)"/>). The bodies here
-/// carry no gen-time variables, so they are plain (non-interpolated) raw strings.
+/// are mostly fixed raw strings; pagination calls use the extension's resolved helper type.
 /// <para>
 /// The request is assembled from fine-grained seams — <c>Method</c>, <c>CreateRequestUri</c>,
 /// <c>CreateRequestBody</c>, <c>CreateRequestHeaders</c> — so a processor overrides the smallest
@@ -47,7 +47,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         string ns = context.Placement.ProcessorsNamespace;
         yield return new GeneratedFile(
             context.Placement.ProcessorFile(BaseTypeName),
-            Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir), AuthSupport.Dominant(context.Ir)),
+            Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir), AuthSupport.Dominant(context.Ir),
+                context.Placement.PaginationTypeReference),
             BaseTypeName);
     }
 
@@ -55,7 +56,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         string @namespace,
         ServerSupport.ResolvedEndpoint? endpoint,
         IReadOnlyList<string> endpointInputs,
-        AuthSupport.ResolvedAuth? auth)
+        AuthSupport.ResolvedAuth? auth,
+        string paginationType)
     {
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
@@ -73,7 +75,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
-                .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass()))
+                .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass(paginationType)))
             .NormalizeWhitespace()
             .FixNormalizerSpacing();
 
@@ -221,7 +223,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
 
     // ── The generic base: typed body seam + the standard ProcessAsync pipeline ──────────────
 
-    private static ClassDeclarationSyntax GenericBaseClass() =>
+    private static ClassDeclarationSyntax GenericBaseClass(string paginationType) =>
         ClassDeclaration(BaseTypeName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
             .AddTypeParameterListParameters(TypeParameter("TRequest"), TypeParameter("TResponse"))
@@ -289,8 +291,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.AsyncKeyword))
                     .AddTypeParameterListParameters(TypeParameter("TItem"))
                     .AddParameterListParameters(Parameter(Identifier("pageItems")).WithType(ParseTypeName("Func<TResponse, IEnumerable<TItem>?>")))
-                    .WithRawBody("""
-                        List<TItem> items = await ReadPagesAsync().CollectItemsAsync(pageItems);
+                    .WithRawBody($$"""
+                        List<TItem> items = await {{paginationType}}.CollectItemsAsync(ReadPagesAsync(), pageItems);
                         await WriteOutput(items);
                         """)
                     .WithLeadingXmlDoc("Default paged execution collects all items before one write. Override ExecuteAsync to consume pages differently or transform collected items."),
