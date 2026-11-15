@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+
+## Version 0.1.4
 * Added federated identity credential lifecycle cmdlets
     - `New-AzFederatedIdentityCredential`, `Get-AzFederatedIdentityCredential`, `Update-AzFederatedIdentityCredential`, `Remove-AzFederatedIdentityCredential`
 
