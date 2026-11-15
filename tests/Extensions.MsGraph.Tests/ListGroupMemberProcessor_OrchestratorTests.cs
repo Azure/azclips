@@ -93,30 +93,65 @@ public class ListGroupMemberProcessor_OrchestratorTests
         Assert.Contains(Uri.EscapeDataString("displayName eq 'O''Brien'"), listUri);
     }
 
-    [Fact]
-    public async Task ProcessAsync_MissingBothIdentifiers_ShouldThrowBeforeHttp()
-    {
-        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
-        var orch = new ListGroupMemberProcessor_Orchestrator();
-        orch.WithCapturingContext(pipeline, NoOpPublisher());
+    // Fails the test with a different exception if the orchestrator sends any request.
+    private static FakeGraphHttpPipeline NoRequestPipeline() =>
+        new(_ => throw new InvalidOperationException("Unexpected request."));
 
-        await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
-        Assert.Empty(pipeline.Sent);
+    // Answers only the group lookup; any later request (e.g. members) fails the test.
+    private static FakeGraphHttpPipeline LookupOnlyPipeline(string listResponseBody) =>
+        new(request => request.RequestUri!.AbsolutePath.EndsWith("/v1.0/groups", StringComparison.Ordinal)
+            ? FakeGraphHttpPipeline.JsonResponse(listResponseBody)
+            : throw new InvalidOperationException("Unexpected request."));
+
+    [Fact]
+    public async Task ProcessAsync_GroupDisplayNameNotFound_ThrowsNotFound()
+    {
+        var orch = new ListGroupMemberProcessor_Orchestrator { GroupDisplayName = "Ghost" };
+        orch.WithCapturingContext(LookupOnlyPipeline("{\"value\":[]}"), NoOpPublisher());
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
+
+        Assert.Equal("Group 'Ghost' is not found in Graph.", ex.Message);
     }
 
     [Fact]
-    public async Task ProcessAsync_WhenBothIdentifiersProvided_ShouldThrowBeforeHttp()
+    public async Task ProcessAsync_GroupPrefixMatchesMany_ThrowsAmbiguous()
     {
-        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
+        var orch = new ListGroupMemberProcessor_Orchestrator { Group = "Sales" };
+        orch.WithCapturingContext(LookupOnlyPipeline(
+            "{\"value\":[" +
+            "{\"id\":\"11111111-2222-3333-4444-555555555555\",\"displayName\":\"Sales-North\"}," +
+            "{\"id\":\"66666666-7777-8888-9999-aaaaaaaaaaaa\",\"displayName\":\"Sales-South\"}]}"), NoOpPublisher());
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
+
+        Assert.Equal("More than one group matched 'Sales'. Use the object id instead.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_MissingBothIdentifiers_ThrowsBeforeHttp()
+    {
+        var orch = new ListGroupMemberProcessor_Orchestrator();
+        orch.WithCapturingContext(NoRequestPipeline(), NoOpPublisher());
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
+
+        Assert.Equal("A group identifier is required. Provide Group or GroupDisplayName.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_WhenBothIdentifiersProvided_ThrowsBeforeHttp()
+    {
         var orch = new ListGroupMemberProcessor_Orchestrator
         {
             Group = "Marketing",
             GroupDisplayName = "Sales",
         };
-        orch.WithCapturingContext(pipeline, NoOpPublisher());
+        orch.WithCapturingContext(NoRequestPipeline(), NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
-        Assert.Empty(pipeline.Sent);
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
+
+        Assert.Equal("Provide either Group or GroupDisplayName, but not both.", ex.Message);
     }
 
     [Fact]
@@ -130,13 +165,11 @@ public class ListGroupMemberProcessor_OrchestratorTests
             .Callback<string>(publishedEvents.Add)
             .Returns(Task.CompletedTask);
 
-        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
         var orch = new ListGroupMemberProcessor_Orchestrator();
-        orch.WithCapturingContext(pipeline, publisher.Object);
+        orch.WithCapturingContext(NoRequestPipeline(), publisher.Object);
 
         await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
 
         Assert.Contains(Events.ProcessorProcessAsyncEnd, publishedEvents);
-        Assert.Empty(pipeline.Sent);
     }
 }

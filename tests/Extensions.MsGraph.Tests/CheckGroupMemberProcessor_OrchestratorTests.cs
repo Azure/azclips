@@ -68,51 +68,72 @@ public class CheckGroupMemberProcessor_OrchestratorTests
         Assert.EndsWith($"/directoryObjects/{MemberId}/checkMemberGroups", pipeline.Sent[1].RequestUri!.AbsolutePath);
     }
 
+    // Fails the test with a different exception if the orchestrator sends any request.
+    private static FakeGraphHttpPipeline NoRequestPipeline() =>
+        new(_ => throw new InvalidOperationException("Unexpected request."));
+
+    // Answers only the group lookup; the membership check request fails the test.
+    private static FakeGraphHttpPipeline LookupOnlyPipeline(string listResponseBody) =>
+        new(request => request.RequestUri!.AbsolutePath.EndsWith("/v1.0/groups", StringComparison.Ordinal)
+            ? FakeGraphHttpPipeline.JsonResponse(listResponseBody)
+            : throw new InvalidOperationException("Unexpected request."));
+
     [Fact]
-    public async Task SendAsync_MissingGroup_ShouldThrowBeforeHttp()
+    public async Task SendAsync_MissingGroup_ThrowsBeforeHttp()
     {
-        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
         var orch = new CheckGroupMemberProcessor_Orchestrator
         {
             Group = "",
             MemberId = MemberId,
-        }.WithFakeContext(pipeline, NoOpPublisher());
+        }.WithFakeContext(NoRequestPipeline(), NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-        Assert.Empty(pipeline.Sent);
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+
+        Assert.Equal("Group is required.", ex.Message);
     }
 
     [Fact]
-    public async Task SendAsync_MissingMemberId_ShouldThrowBeforeHttp()
+    public async Task SendAsync_MissingMemberId_ThrowsBeforeHttp()
     {
-        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
         var orch = new CheckGroupMemberProcessor_Orchestrator
         {
             Group = GroupId,
             MemberId = "",
-        }.WithFakeContext(pipeline, NoOpPublisher());
+        }.WithFakeContext(NoRequestPipeline(), NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-        Assert.Empty(pipeline.Sent);
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+
+        Assert.Equal("MemberId is required to check group membership.", ex.Message);
     }
 
     [Fact]
-    public async Task SendAsync_ResolutionReturnsNoMatches_ShouldThrow()
+    public async Task SendAsync_ResolutionReturnsNoMatches_ThrowsNotFound()
     {
-        var pipeline = new FakeGraphHttpPipeline(request =>
-        {
-            if (request.RequestUri!.AbsolutePath.EndsWith("/v1.0/groups", StringComparison.Ordinal))
-            {
-                return FakeGraphHttpPipeline.JsonResponse("{\"value\":[]}");
-            }
-            return FakeGraphHttpPipeline.JsonResponse("{}");
-        });
         var orch = new CheckGroupMemberProcessor_Orchestrator
         {
             Group = "Nope",
             MemberId = MemberId,
-        }.WithFakeContext(pipeline, NoOpPublisher());
+        }.WithFakeContext(LookupOnlyPipeline("{\"value\":[]}"), NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+
+        Assert.Equal("Group 'Nope' is not found in Graph.", ex.Message);
+    }
+
+    [Fact]
+    public async Task SendAsync_ResolutionReturnsMultipleMatches_ThrowsAmbiguous()
+    {
+        var orch = new CheckGroupMemberProcessor_Orchestrator
+        {
+            Group = "Sales",
+            MemberId = MemberId,
+        }.WithFakeContext(LookupOnlyPipeline(
+            "{\"value\":[" +
+            "{\"id\":\"11111111-2222-3333-4444-555555555555\",\"displayName\":\"Sales-North\"}," +
+            "{\"id\":\"66666666-7777-8888-9999-aaaaaaaaaaaa\",\"displayName\":\"Sales-South\"}]}"), NoOpPublisher());
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+
+        Assert.Equal("More than one group matched 'Sales'. Use the object id instead.", ex.Message);
     }
 }

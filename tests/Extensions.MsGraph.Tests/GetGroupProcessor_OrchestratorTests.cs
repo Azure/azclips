@@ -100,8 +100,7 @@ public class GetGroupProcessor_OrchestratorTests
         var (orch, _) = CreateWithResolution("Ghost", "{\"value\":[]}");
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-        Assert.Contains("'Ghost'", ex.Message);
-        Assert.Contains("not found", ex.Message);
+        Assert.Equal("Group 'Ghost' is not found in Graph.", ex.Message);
     }
 
     [Fact]
@@ -115,19 +114,19 @@ public class GetGroupProcessor_OrchestratorTests
         var (orch, _) = CreateWithResolution("Sales", listBody);
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-        Assert.Contains("More than one", ex.Message);
-        Assert.Contains("'Sales'", ex.Message);
+        Assert.Equal("More than one group matched 'Sales'. Use the object id instead.", ex.Message);
     }
 
     [Fact]
-    public async Task SendAsync_MissingGroup_ShouldThrowBeforeHttp()
+    public async Task SendAsync_MissingGroup_ThrowsBeforeHttp()
     {
-        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
+        var pipeline = new FakeGraphHttpPipeline(_ => throw new InvalidOperationException("Unexpected request."));
         var orch = new GetGroupProcessor_Orchestrator { Group = "" }
             .WithFakeContext(pipeline, NoOpPublisher());
 
-        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-        Assert.Empty(pipeline.Sent);
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+
+        Assert.Equal("Group is required.", ex.Message);
     }
 
     [Fact]
