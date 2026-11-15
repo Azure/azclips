@@ -15,3 +15,11 @@
 /build/ @Azure/act-quality-productivity-squad @Azure/act-codegen-extensibility-squad
 /install/ @Azure/act-platform-engineering-squad
 /toolkit/ @Azure/act-codegen-extensibility-squad
+
+# Keep these ownerless exceptions last so release metadata does not request squad reviews.
+# These apply to all edits in matching files, not only version bumps.
+/src/CLI/*.csproj
+/src/Extensions/**/*.csproj
+/src/PS/**/*.psd1
+/src/PS/**/ChangeLog.md
+/CHANGELOG.md
