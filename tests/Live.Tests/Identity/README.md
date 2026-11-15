@@ -8,6 +8,9 @@ set your `ALIAS`.
 
 ## Prerequisite
 
+- A bash shell. Linux/macOS have one built in; on Windows, use Git Bash (installed
+  alongside Git for Windows) - run these scripts from a Git Bash terminal, not
+  PowerShell or cmd.
 - Azure CLI and GitHub CLI installed and signed in:
   - `az login --tenant <yourBAMITenant>` if you have not already login
   - `gh auth login` & `gh auth status` if you have not already login
