@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using Core.Abstractions;
 
@@ -256,71 +256,52 @@ public sealed class ResourceCache
         // Single-kind path: already correctly capped, return as-is.
         if (perKind.Count == 1) return perKind[0];
 
-        // Multi-kind: re-merge across kinds and re-cap to `top`. A substring hit counts
-        // only when it is the single substring hit across all kinds.
-        var merged = perKind.SelectMany(x => x).ToList();
-        if (merged.Count(m => m.Match == "substring") > 1)
-            merged = merged.Where(m => m.Match != "substring").ToList();
-        return merged
+        // Multi-kind: re-sort the merged rows by the same order and re-cap to `top`.
+        return perKind.SelectMany(x => x)
             .OrderByDescending(m => m.Score)
+            .ThenBy(m => m.Resource.Name, StringComparer.OrdinalIgnoreCase)
             .Take(top)
             .ToList();
     }
 
+    private const double MinSimilarity = 0.75;
+
+    // Similarity = 1 - Levenshtein / max(len), case-insensitive. Keeps rows at or above
+    // MinSimilarity, ordered by similarity then name. 1.0 is "exact", anything lower "similar".
     private static IReadOnlyList<MatchResult> RankByName(
         IEnumerable<CachedResource> candidates,
         string? namePattern,
         int top)
     {
         var pat = namePattern?.Trim();
-        var materialized = candidates as IList<CachedResource> ?? candidates.ToList();
 
         if (string.IsNullOrEmpty(pat))
         {
-            return materialized
+            return candidates
                 .Take(top)
                 .Select(c => new MatchResult(c, "scope-only", 1.0))
                 .ToList();
         }
 
         var patLower = pat.ToLowerInvariant();
-
-        var exact = materialized.Where(c => string.Equals(c.Name, pat, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (exact.Count > 0)
-        {
-            return exact.Take(top).Select(c => new MatchResult(c, "exact", 1.0)).ToList();
-        }
-
-        // A substring hit counts only when it identifies one resource; an ambiguous
-        // fragment falls through to the typo tier.
-        var substr = materialized
-            .Where(c => c.Name.Contains(pat, StringComparison.OrdinalIgnoreCase))
-            .Take(2)
-            .ToList();
-        if (substr.Count == 1)
-        {
-            return new[] { new MatchResult(substr[0], "substring", SubstringScore(substr[0].Name, patLower)) }
-                .Take(top)
-                .ToList();
-        }
-
-        // Typo tier: edit distance <= 2, or <= 1 for patterns of 4 chars or fewer.
-        var maxDistance = patLower.Length <= 4 ? 1 : 2;
-        return materialized
-            .Select(c => (Resource: c, Distance: Lev(c.Name.ToLowerInvariant(), patLower)))
-            .Where(x => x.Distance <= maxDistance)
-            .Select(x => new MatchResult(x.Resource, "fuzzy",
-                1.0 - (x.Distance / (double)Math.Max(x.Resource.Name.Length, patLower.Length))))
-            .OrderByDescending(m => m.Score)
+        return candidates
+            .Select(c => (Resource: c, Score: Similarity(c.Name.ToLowerInvariant(), patLower)))
+            .Where(x => x.Score >= MinSimilarity)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Resource.Name, StringComparer.OrdinalIgnoreCase)
             .Take(top)
+            .Select(x => new MatchResult(x.Resource, x.Score == 1.0 ? "exact" : "similar", x.Score))
             .ToList();
     }
 
+    private static double Similarity(string a, string b) =>
+        1.0 - (Lev(a, b) / (double)Math.Max(a.Length, b.Length));
+
     /// <summary>
     /// Resolves an identifier to a single resource. <paramref name="nameOrId"/>
-    /// can be a full ARM id, an exact name, or a unique substring. Throws
-    /// <see cref="AmbiguousMatchException"/> when multiple resources match;
-    /// returns null when none match.
+    /// can be a full ARM id or a name. An exact name match wins (throws
+    /// <see cref="AmbiguousMatchException"/> when several resources share it);
+    /// otherwise returns the most similar candidate, or null when none qualify.
     /// </summary>
     public CachedResource? ResolveResource(string nameOrId, string? kind, ScopeFilter? scope)
     {
@@ -334,9 +315,8 @@ public sealed class ResourceCache
             if (_rgByIdCi.TryGetValue(nameOrId, out var byRgId)) return CacheKinds.ProjectResourceGroup(byRgId);
         }
 
-        // 2) Single FindResources call — RankByName short-circuits to exact /
-        // substring / fuzzy in that order, so the Match field on the first
-        // row tells us which tier we landed in.
+        // 2) Single FindResources call — rows are ordered by similarity, so exact
+        // matches (similarity 1.0) come first.
         var matches = FindResources(nameOrId, kind, scope, top: 25);
         if (matches.Count == 0) return null;
 
@@ -347,9 +327,8 @@ public sealed class ResourceCache
             throw new AmbiguousMatchException(exact.Select(m => m.Resource.Id).ToList());
         }
 
-        // 3) Substring/fuzzy fallback — already capped by FindResources.
-        if (matches.Count == 1) return matches[0].Resource;
-        throw new AmbiguousMatchException(matches.Select(m => m.Resource.Id).ToList());
+        // 3) No exact match: take the most similar candidate.
+        return matches[0].Resource;
     }
 
     public CachedResourceGroup? ResolveResourceGroup(string nameOrId, ScopeFilter? scope)
@@ -468,17 +447,6 @@ public sealed class ResourceCache
         if (_subById.TryGetValue(subId, out var sub)
             && string.Equals(sub.DisplayName, filter, StringComparison.OrdinalIgnoreCase)) return true;
         return false;
-    }
-
-    private static double SubstringScore(string name, string patLower)
-    {
-        var nameLower = name.ToLowerInvariant();
-        var idx = nameLower.IndexOf(patLower, StringComparison.Ordinal);
-        if (idx < 0) return 0;
-        // Higher score for prefix and shorter name.
-        var prefixBonus = idx == 0 ? 0.3 : 0.0;
-        var lengthRatio = patLower.Length / (double)Math.Max(name.Length, 1);
-        return Math.Min(0.99, 0.5 + prefixBonus + 0.2 * lengthRatio);
     }
 
     private static int Lev(string a, string b)

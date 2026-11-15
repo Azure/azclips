@@ -1,4 +1,7 @@
-using System.Text.Json;
+﻿using System.Text.Json;
+using Core.Agent.Tools.Resource;
+using Microsoft.Extensions.AI;
+using Tests.Common.Stubs;
 using Core.Agent.Tools.Resource.Cache;
 using Xunit;
 
@@ -69,8 +72,8 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
         var top = Assert.Single(hits);
         Assert.Equal("zhoxing-test", top.Resource.Name);
-        Assert.Equal("fuzzy", top.Match);
-        Assert.True(top.Score >= 0.85, $"expected high fuzzy score for 1-char-edit typo, got {top.Score:F3}");
+        Assert.Equal("similar", top.Match);
+        Assert.Equal(0.923, top.Score, 3);
     }
 
     [Fact]
@@ -140,8 +143,10 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
         var hits = cache.FindResources("Sub A", kind: "subscription", scope: null, top: 5);
 
-        var top = Assert.Single(hits);
-        Assert.Equal("Sub A", top.Resource.Name);
+        // "Sub B" is 0.8 similar, so it follows the exact match.
+        Assert.Equal(new[] { "Sub A", "Sub B" }, hits.Select(h => h.Resource.Name));
+        var top = hits[0];
+        Assert.Equal("exact", top.Match);
         Assert.Equal("Microsoft.Subscription", top.Resource.Type);
     }
 
@@ -189,98 +194,97 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         Assert.NotEmpty(hitsInB);
     }
 
-    // ── Match tiers: exact > unique substring > typo ──
-
-    [Fact]
-    public void FindResources_UniqueSubstring_ReturnsThatResource()
-    {
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
-
-        var hits = cache.FindResources("domain", kind: "resourceGroup", scope: null, top: 5);
-
-        var top = Assert.Single(hits);
-        Assert.Equal("zhwen-domain", top.Resource.Name);
-        Assert.Equal("substring", top.Match);
-    }
-
-    [Fact]
-    public void FindResources_AmbiguousSubstring_FallsThroughAndReturnsNoSubstringMatches()
-    {
-        // "zh" is a substring of both zhoxing-test and zhwen-domain, and no name is
-        // within one edit of it.
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
-
-        var hits = cache.FindResources("zh", kind: "resourceGroup", scope: null, top: 5);
-
-        Assert.Empty(hits);
-    }
-
-    [Fact]
-    public void FindResources_UniqueSubstring_TopZero_ReturnsNothing()
-    {
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
-
-        var hits = cache.FindResources("domain", kind: "resourceGroup", scope: null, top: 0);
-
-        Assert.Empty(hits);
-    }
-
-    [Fact]
-    public void FindResources_WithoutKind_SubstringHitsInTwoKinds_ReturnsNoSubstringMatch()
-    {
-        // "prod" is a unique substring among resource groups (prod-rg) and among
-        // resources (prod-vm-01), so it is not unique across kinds.
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
-
-        var hits = cache.FindResources("prod", kind: null, scope: null, top: 10);
-
-        Assert.DoesNotContain(hits, h => h.Match == "substring");
-    }
+    // ── Similarity ranking: 1 - Levenshtein / max(len), keep >= 0.75 ──
 
     [Theory]
-    [InlineData("prxd-rg")]   // distance 1
-    [InlineData("pxxd-rg")]   // distance 2
-    public void FindResources_TypoWithinTwoEdits_ReturnsFuzzyMatch(string pattern)
+    [InlineData("azclips-test-rg", "azclips-test-rg", 1.0, "exact")]
+    [InlineData("AZCLIPS-Test-RG", "azclips-test-rg", 1.0, "exact")]
+    [InlineData("azclips-tset-rg", "azclips-test-rg", 0.867, "similar")]
+    [InlineData("prd-rg", "prod-rg", 0.857, "similar")]
+    [InlineData("abxd", "abcd", 0.75, "similar")]
+    public void FindResources_SimilarityAtOrAboveThreshold_Matches(
+        string pattern, string name, double score, string match)
     {
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+        var cache = CacheWithResourceGroups(name);
 
         var hits = cache.FindResources(pattern, kind: "resourceGroup", scope: null, top: 5);
 
         var top = Assert.Single(hits);
-        Assert.Equal("prod-rg", top.Resource.Name);
-        Assert.Equal("fuzzy", top.Match);
+        Assert.Equal(name, top.Resource.Name);
+        Assert.Equal(match, top.Match);
+        Assert.Equal(score, top.Score, 3);
     }
 
-    [Fact]
-    public void FindResources_TypoOfThreeEdits_ReturnsNothing()
+    [Theory]
+    [InlineData("abd", "abc")]                                   // 0.667
+    [InlineData("azclips-eval-id", "azclips-evaluation")]        // 0.722
+    [InlineData("azclips-eval-vnet", "azclis-evaluation-vnet")]  // 0.682
+    [InlineData("zh", "zhoxing-test")]
+    public void FindResources_SimilarityBelowThreshold_ReturnsNothing(string pattern, string name)
     {
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+        var cache = CacheWithResourceGroups(name);
 
-        var hits = cache.FindResources("pxxx-rg", kind: "resourceGroup", scope: null, top: 5);
+        var hits = cache.FindResources(pattern, kind: "resourceGroup", scope: null, top: 5);
 
         Assert.Empty(hits);
     }
 
     [Fact]
-    public void FindResources_ShortPatternOneEdit_ReturnsFuzzyMatch()
+    public void FindResources_EqualSimilarity_OrdersByName()
     {
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+        var cache = CacheWithResourceGroups("web2", "web1");
 
-        var hits = cache.FindResources("wab1", kind: "resourceGroup", scope: null, top: 5);
+        var hits = cache.FindResources("web", kind: "resourceGroup", scope: null, top: 5);
 
-        var top = Assert.Single(hits);
-        Assert.Equal("web1", top.Resource.Name);
-        Assert.Equal("fuzzy", top.Match);
+        Assert.Equal(new[] { "web1", "web2" }, hits.Select(h => h.Resource.Name));
+        Assert.All(hits, h => Assert.Equal(0.75, h.Score, 3));
+        Assert.All(hits, h => Assert.Equal("similar", h.Match));
     }
 
     [Fact]
-    public void FindResources_ShortPatternTwoEdits_ReturnsNothing()
+    public void FindResources_WithoutKind_EqualSimilarityAcrossKinds_OrdersByName()
+    {
+        // web2 is a resource group and web1 a resource; resource groups are searched first.
+        var cache = CacheWithResourceGroups("web2");
+        WriteEnvelope("resources.json", new object[] { Resource("web2", "web1") }, TenantId);
+
+        var hits = cache.FindResources("web", kind: null, scope: null, top: 5);
+
+        Assert.Equal(new[] { "web1", "web2" }, hits.Select(h => h.Resource.Name));
+    }
+
+    [Fact]
+    public void FindResources_TopZero_ReturnsNothing()
     {
         var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
 
-        var hits = cache.FindResources("waa1", kind: "resourceGroup", scope: null, top: 5);
+        var hits = cache.FindResources("prod-rg", kind: "resourceGroup", scope: null, top: 0);
 
         Assert.Empty(hits);
+    }
+
+    [Fact]
+    public async Task FindResourcesTool_ReturnsMatchKindAndOrderedCandidates()
+    {
+        var cache = CacheWithResourceGroups("web2", "web1", "Web");
+        var tools = new CachedResourceTools(new ArmDetailsClient(new StubAuthService()),
+            new StubProfileService(seedDefault: false), activityCreator: null, cache);
+
+        var output = (await tools.FindResources.InvokeAsync(new AIFunctionArguments
+        {
+            ["namePattern"] = "web", ["kind"] = "resourceGroup", ["top"] = 10,
+        }))!.ToString()!;
+
+        using var doc = JsonDocument.Parse(output);
+        var rows = doc.RootElement.GetProperty("matches").EnumerateArray()
+            .Select(m => (m.GetProperty("name").GetString(), m.GetProperty("matchKind").GetString(),
+                m.GetProperty("score").GetDouble()))
+            .ToArray();
+        Assert.Equal(new (string?, string?, double)[]
+        {
+            ("Web", "exact", 1.0), ("web1", "similar", 0.75), ("web2", "similar", 0.75),
+        }, rows);
+        Assert.Equal(3, doc.RootElement.GetProperty("matchCount").GetInt32());
     }
 
     // ── Cache miss is not a panic signal ──
@@ -359,6 +363,31 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
                   identity = (object?)null, managedBy = (string?)null },
         }, TenantId);
     }
+
+    // Replaces the resource groups with the given names (all in SubA) and clears resources.
+    private ResourceCache CacheWithResourceGroups(params string[] names)
+    {
+        WriteEnvelope("resource-groups.json", names.Select(n => (object)new
+        {
+            id = $"/subscriptions/{SubA}/resourceGroups/{n}",
+            name = n, location = "westus", subscriptionId = SubA, tenantId = TenantId, tags = (object?)null,
+        }).ToArray(), TenantId);
+        WriteEnvelope("resources.json", Array.Empty<object>(), TenantId);
+        return new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+    }
+
+    private static object Resource(string resourceGroup, string name) => new
+    {
+        id = $"/subscriptions/{SubA}/resourceGroups/{resourceGroup}/providers/microsoft.web/sites/{name}",
+        name,
+        type = "microsoft.web/sites",
+        location = "westus",
+        subscriptionId = SubA,
+        tenantId = TenantId,
+        resourceGroup,
+        kind = (string?)null, sku = (object?)null, tags = (object?)null,
+        identity = (object?)null, managedBy = (string?)null,
+    };
 
     // subDir null → cache root (tenants.json); non-null → <root>/<subDir>/ (per-tenant files).
     private void WriteEnvelope(string fileName, object[] items, string? subDir = null)

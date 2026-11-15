@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation.
+﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using Core.Abstractions;
@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
 {
     public class ResourceFindProcessor : AgentProcessorBase
     {
-        [ArgumentInfo(Required = true, Description = @"Name pattern to match. Exact match preferred, falls back to substring, then Levenshtein typo correction.", SerializedName = @"name")]
+        [ArgumentInfo(Required = true, Description = @"Name pattern to match. Returns names with similarity >= 0.75 (1 - Levenshtein distance / longer length, case-insensitive), most similar first; similarity 1.0 is an exact match.", SerializedName = @"name")]
         public string Name { get; set; } = string.Empty;
 
         [ArgumentInfo(Required = false, Description = @"Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched.", SerializedName = @"kind")]

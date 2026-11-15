@@ -9,7 +9,7 @@ namespace Core.Agent.Tools.Resource.Cache;
 /// <summary>
 /// Three AI agent tools that READ the local ARM cache (built and
 /// refreshed by another component — we never write to it):
-///   • find_resources       — exact / unique-substring / typo search by name (cache-only)
+///   • find_resources       — name similarity search (cache-only)
 ///   • get_resource_tree    — hierarchical subtree from a node (cache-only)
 ///   • get_resource_details — exact identity from cache + live ARM properties
 /// </summary>
@@ -25,11 +25,21 @@ public sealed class CachedResourceTools
     private readonly ArmDetailsClient _armDetails;
     private readonly IProfileService _profileService;
     private readonly Func<string, IDisposable?>? _activityCreator;
+    private readonly ResourceCache? _cache;
 
     public CachedResourceTools(
         ArmDetailsClient armDetails, IProfileService profileService,
         Func<string, IDisposable?>? activityCreator = null)
+        : this(armDetails, profileService, activityCreator, cache: null)
     {
+    }
+
+    // cache: the cache find_resources reads; null reads ResourceCache.Current.
+    internal CachedResourceTools(
+        ArmDetailsClient armDetails, IProfileService profileService,
+        Func<string, IDisposable?>? activityCreator, ResourceCache? cache)
+    {
+        _cache = cache;
         _armDetails = armDetails;
         _profileService = profileService;
         _activityCreator = activityCreator;
@@ -43,9 +53,9 @@ public sealed class CachedResourceTools
                 "Use when the user mentions a name and you need to locate it (or " +
                 "get suggestions when an exact name doesn't exist — e.g. 'rg-foo " +
                 "not found, did you mean rg-foo-eastus?'). Returns up to N candidates " +
-                "ranked by match quality: exact, else a substring that matches exactly one " +
-                "resource, else typo matches (edit distance <= 2, <= 1 for names of 4 chars or fewer). " +
-                "Anything but an exact match is only a 'did you mean' suggestion. " +
+                "ranked by name similarity (1 - edit distance / longer name length, case-insensitive), " +
+                "keeping only candidates with similarity >= 0.75, ties ordered by name. " +
+                "matchKind is 'exact' for similarity 1.0, otherwise 'similar'. " +
                 "Cache-only, no network call.",
         });
 
@@ -110,9 +120,9 @@ public sealed class CachedResourceTools
         }
     }
 
-    [Description("Search local cache for resources by name with typo-only fuzzy fallback.")]
+    [Description("Search local cache for resources by name similarity.")]
     private async Task<string> FindResourcesAsync(
-        [Description("Name pattern. Exact > unique substring > typo correction (edit distance <= 2, <= 1 for 4 chars or fewer).")]
+        [Description("Name pattern. Candidates with similarity >= 0.75 (1 - edit distance / longer length), most similar first; exact or similar.")]
         string namePattern,
         [Description("Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched and results merged by score.")]
         string? kind = null,
@@ -148,8 +158,9 @@ public sealed class CachedResourceTools
             ? new ScopeFilter(subscription, resourceGroup)
             : null;
 
-        var stats = ResourceCache.Current.Stats();
-        var matches = ResourceCache.Current.FindResources(namePattern, kind, filter, top);
+        var cache = _cache ?? ResourceCache.Current;
+        var stats = cache.Stats();
+        var matches = cache.FindResources(namePattern, kind, filter, top);
 
         var result = new
         {
