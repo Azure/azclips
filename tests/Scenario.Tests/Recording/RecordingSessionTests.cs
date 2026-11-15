@@ -49,10 +49,19 @@ public class RecordingSessionTests
         {
             // Record: run the scenario against the fake pipeline, then persist.
             var recordSession = RecordingSession.Open(RecorderMode.Record, path);
-            using (var host = new ScenarioHost(ClientType.CLI, recordSession.CreateInterceptor(), new FakeArmBackend()))
+            using var error = new StringWriter();
+            var originalError = Console.Error;
+            try
             {
+                Console.SetError(error);
+                using var host = new ScenarioHost(ClientType.CLI, recordSession.CreateInterceptor(), new FakeArmBackend());
                 AssertCreated(RunCli(host));
             }
+            finally
+            {
+                Console.SetError(originalError);
+            }
+            Assert.DoesNotContain("[DataBoundaryResolver]", error.ToString());
             Assert.DoesNotContain(recordSession.Record.Entries, e => e.Request.Headers.ContainsKey("Authorization"));
             recordSession.Save();
 

@@ -53,7 +53,7 @@ bash "$SCRIPT_DIR/rename_extension_packages.sh" "$EXT_PACK_DIR"
 echo "[common 5/5] Publish extension assemblies for platform inject step"
 for ext in "${DISCOVERED_EXTENSIONS[@]}"; do
   ext_name=$(basename "$(dirname "$ext")")
-  ext_assembly_name=$(sed -n 's:.*<AssemblyName>\(.*\)</AssemblyName>.*:\1:p' "$ext" | head -n 1)
+  ext_assembly_name=$(sed -n 's:.*<AssemblyName>\(.*\)</AssemblyName>.*:\1:p' "$ext" | sed -n '1p')
   ext_assembly_name="${ext_assembly_name:-$ext_name}"
   out_dir="$BUILTIN_PUBLISH_ROOT/$ext_assembly_name"
 

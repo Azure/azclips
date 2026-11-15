@@ -178,7 +178,7 @@ jobs:
     - ${{ if eq(parameters.esrp_require_windows_strong_name, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Strong-name Sign Windows Payload [Azclips DLLs]
-        condition: eq(variables['HasStrongNamePayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasStrongNamePayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -211,7 +211,7 @@ jobs:
             ]
       - task: PowerShell@2
         displayName: Restore Strong-name Signed Windows DLLs
-        condition: eq(variables['HasStrongNamePayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasStrongNamePayload'], 'true'))
         inputs:
           targetType: inline
           pwsh: true
@@ -239,7 +239,7 @@ jobs:
     - ${{ if eq(parameters.esrp_enable_windows_timestamp, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Sign Windows Payload [az.exe]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -278,7 +278,7 @@ jobs:
             ]
       - task: EsrpCodeSigning@6
         displayName: Sign Windows Payload [First-Party DLLs]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -321,7 +321,7 @@ jobs:
             ]
       - task: EsrpCodeSigning@6
         displayName: Sign Windows Payload [First-Party EXEs]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -362,7 +362,7 @@ jobs:
     - ${{ if ne(parameters.esrp_enable_windows_timestamp, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Sign Windows Payload [az.exe]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -400,7 +400,7 @@ jobs:
             ]
       - task: EsrpCodeSigning@6
         displayName: Sign Windows Payload [First-Party DLLs]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -442,7 +442,7 @@ jobs:
             ]
       - task: EsrpCodeSigning@6
         displayName: Sign Windows Payload [First-Party EXEs]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -482,7 +482,7 @@ jobs:
     - ${{ if eq(parameters.esrp_enable_non_azclips_dll_signing, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Optional Co-sign Windows Payload [Third-Party DLLs]
-        condition: eq(variables['HasThirdPartyDllPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasThirdPartyDllPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -525,7 +525,7 @@ jobs:
             ]
       - task: PowerShell@2
         displayName: Restore Co-signed Windows Payload [Third-Party DLLs]
-        condition: eq(variables['HasThirdPartyDllPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasThirdPartyDllPayload'], 'true'))
         inputs:
           targetType: inline
           pwsh: true
@@ -554,7 +554,7 @@ jobs:
     - ${{ if eq(parameters.esrp_enable_windows_verify, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Verify Windows Payload In ESRP [az.exe]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -580,7 +580,7 @@ jobs:
             ]
       - task: EsrpCodeSigning@6
         displayName: Verify Windows Payload In ESRP [First-Party DLLs]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -611,7 +611,7 @@ jobs:
             ]
       - task: EsrpCodeSigning@6
         displayName: Verify Windows Payload In ESRP [First-Party EXEs]
-        condition: eq(variables['HasWindowsPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasWindowsPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'

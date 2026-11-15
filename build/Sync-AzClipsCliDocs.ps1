@@ -1,13 +1,14 @@
 # Syncs AzClips CLI SDP YAML into the destination docs repo
 # (MicrosoftDocs/azure-docs-cli). Three-stage escape hatch: dry-run (default; no flag)
-# / -Force (write to local target) / -Push (deferred until docs.ms bot-auth is decided).
+# / -Force (write to local target) / -Push (open a PR using a temporary target clone).
 #
 # Usage:
 #   pwsh -File build/Sync-AzClipsCliDocs.ps1               # dry-run against a scratch folder
 #   pwsh -File build/Sync-AzClipsCliDocs.ps1 -Force        # writes to local target; no push
-#   pwsh -File build/Sync-AzClipsCliDocs.ps1 -Push         # WILL FAIL — deferred until auth-pattern decided
+#   pwsh -File build/Sync-AzClipsCliDocs.ps1 -Push -TargetBranch <branch> -HeadRepository <owner/repo>
 #
 # CI-oriented parameters (all optional, no effect on interactive use):
+#   -ReleaseTag <tag>     verify a clean checkout at this tag and build Release for publishing
 #   -NoBuild              skip the leading `dotnet build` (CI usually builds separately)
 #   -Configuration <cfg>  Debug|Release for the build + exporter run (default Debug)
 #   -FetchIfMissing       auto-fetch CLI2Yaml non-interactively when missing from the NuGet cache
@@ -31,8 +32,16 @@ param(
     [string]$Moniker,
     [string]$VersionFolder,
     [string]$TargetRepoPath,
+    [string]$TargetBranch,
+    [string]$TargetRepository = 'MicrosoftDocs/azure-docs-cli',
+    [string]$HeadRepository,
+    [Parameter(DontShow)]
+    [switch]$ReleaseCheckout,
+    [Parameter(DontShow)]
+    [string]$PrArtifactsRoot,
     [string]$SourceRepoUrl,
     [string]$SourceBranch,
+    [string]$ReleaseTag,
     [string]$Timestamp,
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
@@ -47,6 +56,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+. (Join-Path $PSScriptRoot 'Test-DocsReleaseTag.ps1')
+. (Join-Path $PSScriptRoot 'Set-DocsTargetBranch.ps1')
+. (Join-Path $PSScriptRoot 'Invoke-DocsPullRequest.ps1')
+. (Join-Path $PSScriptRoot 'Invoke-DocsReleaseCheckout.ps1')
 
 $__loadOnly = $env:AZCLIPS_CLI_SYNC_LOAD_ONLY -eq '1'
 
@@ -234,7 +248,10 @@ function Invoke-CliExporter
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
         [Parameter(Mandatory)][string]$ExportProject,
-        [string]$Configuration = 'Debug'
+        [string]$Configuration = 'Debug',
+        [string]$ArtifactsRoot,
+        [string]$OutputFolder,
+        [switch]$RequireOutput
     )
 
     $projectPath = Join-Path $RepoRoot $ExportProject
@@ -246,7 +263,10 @@ function Invoke-CliExporter
     Write-Host "Running exporter ($Configuration): $projectPath" -ForegroundColor Cyan
     Push-Location $RepoRoot
     try {
-        $output = & dotnet run --project $projectPath --no-build --configuration $Configuration 2>&1
+        if (-not $ArtifactsRoot) { $ArtifactsRoot = Join-Path (Join-Path $RepoRoot 'artifacts') $Configuration }
+        $exportArgs = @('--artifacts-root', $ArtifactsRoot)
+        if ($OutputFolder) { $exportArgs += @('--output-folder', $OutputFolder) }
+        $output = & dotnet run --project $projectPath --no-build --configuration $Configuration -- @exportArgs 2>&1
         if ($LASTEXITCODE -ne 0)
         {
             throw "Exporter failed with exit $LASTEXITCODE. Output:`n$($output -join "`n")"
@@ -257,12 +277,20 @@ function Invoke-CliExporter
         Pop-Location
     }
 
-    $outputFolder = Join-Path $RepoRoot 'artifacts/cli-export/latest'
-    if (-not (Test-Path $outputFolder))
+    $latestFolder = if ($OutputFolder) { Join-Path $OutputFolder 'latest' } else { Join-Path $RepoRoot 'artifacts/cli-export/latest' }
+    if (-not (Test-Path $latestFolder))
     {
-        throw "Exporter completed but expected output folder is missing: $outputFolder"
+        throw "Exporter completed but expected output folder is missing: $latestFolder"
     }
-    return $outputFolder
+    if ($RequireOutput)
+    {
+        $verbFiles = @(Get-ChildItem -LiteralPath $latestFolder -File -Filter '*.json' | Where-Object Name -ne '_root_.json')
+        if (-not (Test-Path -LiteralPath (Join-Path $latestFolder '_root_.json') -PathType Leaf) -or $verbFiles.Count -eq 0)
+        {
+            throw "Exporter did not produce the root and command-group JSON files in $latestFolder."
+        }
+    }
+    return $latestFolder
 }
 
 # ── CLI2Yaml orchestration ──────────────────────────────────────────────────────
@@ -274,10 +302,11 @@ function New-Cli2YamlWorkspace
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
-        [Parameter(Mandatory)][string]$ExporterOutput
+        [Parameter(Mandatory)][string]$ExporterOutput,
+        [string]$WorkspacePath
     )
 
-    $workspace = Join-Path $RepoRoot 'artifacts/cli-yaml'
+    $workspace = if ($WorkspacePath) { $WorkspacePath } else { Join-Path $RepoRoot 'artifacts/cli-yaml' }
     Remove-Item -Recurse -Force $workspace -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Path (Join-Path $workspace 'input/latest'), (Join-Path $workspace 'input-ext') | Out-Null
 
@@ -678,7 +707,7 @@ function Write-DryRunReport
     }
 
     Write-Host ''
-    Write-Host '(No files written to a target repo. Pass -Force to write to the local target. Pass -Push to also open a PR — currently DEFERRED, will fail.)' -ForegroundColor DarkGray
+    Write-Host '(No files written to a target repo. Pass -Force to write locally, or -Push to open a PR.)' -ForegroundColor DarkGray
 }
 
 # ── Machine-readable manifest ───────────────────────────────────────────────────
@@ -766,9 +795,51 @@ function Write-SyncManifest
 
 if ($__loadOnly) { return }
 
+if ($PSBoundParameters.ContainsKey('ReleaseTag'))
+{
+    if ($PSBoundParameters.ContainsKey('Configuration') -and $Configuration -ne 'Release')
+    {
+        throw "Release tag sync requires -Configuration Release."
+    }
+    if ($NoBuild) { throw "Release tag sync requires a build; do not pass -NoBuild." }
+    if (-not $ReleaseCheckout)
+    {
+        $releaseArgs = @{} + $PSBoundParameters
+        $releaseArgs.Remove('ReleaseCheckout')
+        if (-not $Push) { $releaseArgs.TargetRepoPath = $effectiveTargetRepoPath }
+        Invoke-DocsReleaseCheckout -SourceRoot $repoRoot -ReleaseTag $ReleaseTag -ScriptName 'Sync-AzClipsCliDocs.ps1' `
+            -ScriptArguments $releaseArgs -KeepOnSuccess:(!$Push -and !$Force)
+        return
+    }
+    $Configuration = 'Release'
+    $sourceCommit = Test-DocsReleaseTag -RepoRoot $repoRoot -ReleaseTag $ReleaseTag -RequireFullHistory
+    Write-Host "Release source  : $ReleaseTag ($sourceCommit)"
+    $releaseArtifacts = Join-Path (Join-Path $repoRoot 'artifacts') 'Release'
+    if (Test-Path -LiteralPath $releaseArtifacts)
+    {
+        throw "Release tag sync requires a fresh checkout without existing $releaseArtifacts. Use a new worktree to avoid stale binaries."
+    }
+}
+
 if ($Push)
 {
-    throw "-Push is not yet implemented. docs.ms bot-auth pattern is still pending decision. Use -Force to write to the local target repo only, then hand off to your normal PR flow."
+    if (-not $TargetBranch -or -not $HeadRepository) { throw '-Push requires -TargetBranch and -HeadRepository.' }
+    if ($PSBoundParameters.ContainsKey('TargetRepoPath')) { throw '-TargetRepoPath cannot be combined with -Push; a temporary docs clone is used.' }
+    if ($PSBoundParameters.ContainsKey('Configuration') -and $Configuration -ne 'Release') { throw '-Push requires -Configuration Release.' }
+    if ($NoBuild) { throw '-Push requires a Release build; do not pass -NoBuild.' }
+    $syncPath = $PSCommandPath
+    $syncParams = @{} + $PSBoundParameters
+    foreach ($key in @('Push', 'Force', 'TargetRepoPath', 'TargetBranch', 'TargetRepository', 'HeadRepository', 'Timestamp')) { $syncParams.Remove($key) }
+    $syncParams.Configuration = 'Release'
+    $sync = {
+        param($path, $stamp)
+        $artifacts = Join-Path (Split-Path -Parent $path) 'build-artifacts'
+        & $syncPath @syncParams -TargetRepoPath $path -Timestamp $stamp -PrArtifactsRoot $artifacts -Force
+    }.GetNewClosure()
+    Invoke-DocsPullRequest -TargetRepository $TargetRepository -HeadRepository $HeadRepository -TargetBranch $TargetBranch `
+        -SourceRoot $repoRoot -ReleaseTag $ReleaseTag -BranchPrefix 'azclips-cli-sync-' `
+        -Title "AzClips CLI documentation sync" -Sync $sync -Timestamp $Timestamp
+    return
 }
 
 # Resolve CLI2Yaml first — cheap check that fails fast on unresolved package.
@@ -786,7 +857,10 @@ else
     Write-Host "Building azclips.slnx ($Configuration) ..." -ForegroundColor Cyan
     Push-Location $repoRoot
     try {
-        $buildOutput = & dotnet build azclips.slnx --configuration $Configuration --nologo -clp:ErrorsOnly 2>&1
+        $buildArgs = @('build', 'azclips.slnx', '--configuration', $Configuration, '--nologo', '-clp:ErrorsOnly')
+        if ($PSBoundParameters.ContainsKey('ReleaseTag') -or $PrArtifactsRoot) { $buildArgs += '--no-incremental' }
+        if ($PrArtifactsRoot) { $buildArgs += "-p:RepoArtifacts=$PrArtifactsRoot$([IO.Path]::DirectorySeparatorChar)" }
+        $buildOutput = & dotnet @buildArgs 2>&1
         if ($LASTEXITCODE -ne 0)
         {
             throw "dotnet build failed with exit $LASTEXITCODE. Output:`n$($buildOutput -join "`n")"
@@ -799,10 +873,24 @@ else
 }
 
 # Stage 1: exporter → JSON
-$exporterOutput = Invoke-CliExporter -RepoRoot $repoRoot -ExportProject $config.exportProject -Configuration $Configuration
+$exporterArgs = @{ RepoRoot = $repoRoot; ExportProject = $config.exportProject; Configuration = $Configuration }
+if ($PrArtifactsRoot)
+{
+    $exporterArgs.ArtifactsRoot = Join-Path $PrArtifactsRoot $Configuration
+    $exporterArgs.OutputFolder = Join-Path $PrArtifactsRoot 'cli-export'
+    $exporterArgs.RequireOutput = $true
+}
+elseif ($PSBoundParameters.ContainsKey('ReleaseTag'))
+{
+    $exporterArgs.OutputFolder = Join-Path $repoRoot ("artifacts/cli-export/release-" + [Guid]::NewGuid().ToString('N'))
+    $exporterArgs.RequireOutput = $true
+}
+$exporterOutput = Invoke-CliExporter @exporterArgs
 
 # Stage 2: assemble CLI2Yaml workspace + commit map
-$workspace = New-Cli2YamlWorkspace -RepoRoot $repoRoot -ExporterOutput $exporterOutput
+$workspaceArgs = @{ RepoRoot = $repoRoot; ExporterOutput = $exporterOutput }
+if ($PrArtifactsRoot) { $workspaceArgs.WorkspacePath = Join-Path $PrArtifactsRoot 'cli-yaml' }
+$workspace = New-Cli2YamlWorkspace @workspaceArgs
 
 # Resolve absolute paths for side-cars — CLI2Yaml is picky about relative paths.
 $docsReferenceConfig = (Resolve-Path (Join-Path $repoRoot $config.docsReferenceConfig)).Path
@@ -811,6 +899,10 @@ $serviceMapping      = (Resolve-Path (Join-Path $repoRoot $config.serviceMapping
 
 if ($Force)
 {
+    if ($PSBoundParameters.ContainsKey('TargetBranch'))
+    {
+        Set-DocsTargetBranch -TargetRepoPath $effectiveTargetRepoPath -TargetBranch $TargetBranch
+    }
     $problems = @(Test-TargetReady -TargetRepoPath $effectiveTargetRepoPath -VersionFolder $effectiveVersionFolder)
     if ($problems.Count -gt 0)
     {
@@ -915,6 +1007,11 @@ if ($SkipServicePages)
 {
     Remove-ServicePageOutput -OutputVersionFolder $scratchOutput
     Write-CommandGroupToc -OutputVersionFolder $scratchOutput
+}
+
+if ($PSBoundParameters.ContainsKey('TargetBranch'))
+{
+    Write-Host "Dry-run: target branch '$TargetBranch' will not be checked out without -Force."
 }
 
 Write-DryRunReport -ScratchOutput $scratchOutput -Moniker $effectiveMoniker -VersionFolder $effectiveVersionFolder -SourceRepoUrl $effectiveSourceRepoUrl -SourceBranch $effectiveSourceBranch

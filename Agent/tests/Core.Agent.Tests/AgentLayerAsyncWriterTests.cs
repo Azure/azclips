@@ -19,8 +19,11 @@ public class AgentLayerAsyncWriterTests
     [InlineData(0, false)]
     [InlineData(1, false)]
     [InlineData(130, false)]
-    public async Task RunSessionAsync_ChildDisposeCannotBlockAdmissionToBoundedCompletion(
-        int expectedExit, bool expireBudget)
+    public Task RunSessionAsync_ChildDisposeCannotBlockAdmissionToBoundedCompletion(
+        int expectedExit, bool expireBudget) =>
+        AgentLayerTestHarness.WithCapturedConsoleAsync(() => ChildDisposeCannotBlockAdmissionAsync(expectedExit, expireBudget));
+
+    private static async Task ChildDisposeCannotBlockAdmissionAsync(int expectedExit, bool expireBudget)
     {
         var directory = Path.Combine(AppContext.BaseDirectory, "TestArtifacts",
             "AgentLayerAsyncWriter", Guid.NewGuid().ToString("N"));

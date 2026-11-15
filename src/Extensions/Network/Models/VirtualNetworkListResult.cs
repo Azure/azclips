@@ -10,7 +10,7 @@ public partial class VirtualNetworkListResult
 {
     /// <summary>The VirtualNetwork items on this page</summary>
     [JsonPropertyName("value")]
-    public IList<VirtualNetwork> Value { get; set; }
+    public IList<VirtualNetwork> Value { get; set; } = null !;
 
     /// <summary>The link to the next page of items</summary>
     [JsonPropertyName("nextLink")]

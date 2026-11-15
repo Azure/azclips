@@ -192,7 +192,9 @@ if bash -s -- --release '../invalid' < "$repo_root/install/azcli-extensions-down
   echo "FAIL: Invalid release tag was accepted." >&2; exit 1
 fi
 grep -q 'Invalid release tag' "$fixture_root/invalid-tag.log"
-bash -s -- --help < "$repo_root/install/azcli-extensions-download.sh" | grep -q 'Usage:'
+help="$(bash -s -- --help < "$repo_root/install/azcli-extensions-download.sh")"
+grep -q 'Usage:' <<<"$help" ||
+  { echo "FAIL: Piped extensions download help is missing." >&2; exit 1; }
 sed '$d' "$repo_root/install/azcli-extensions-download.sh" | bash
 shopt -s dotglob nullglob
 downloaded_files=(*)

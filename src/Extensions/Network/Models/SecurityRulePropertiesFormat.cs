@@ -25,7 +25,7 @@ public partial class SecurityRulePropertiesFormat
     /// </list>
     /// </remarks>
     [JsonPropertyName("protocol")]
-    public string Protocol { get; set; }
+    public string Protocol { get; set; } = null !;
 
     /// <summary>The source port or range. Integer or range between 0 and 65535. Asterisk '*' can also be used to match all ports.</summary>
     [JsonPropertyName("sourcePortRange")]
@@ -70,7 +70,7 @@ public partial class SecurityRulePropertiesFormat
     /// <summary>The network traffic is allowed or denied.</summary>
     /// <remarks>Known values (extensible enum SecurityRuleAccess): "Allow", "Deny".</remarks>
     [JsonPropertyName("access")]
-    public string Access { get; set; }
+    public string Access { get; set; } = null !;
 
     /// <summary>The priority of the rule. The value can be between 100 and 4096. The priority number must be unique for each rule in the collection. The lower the priority number, the higher the priority of the rule.</summary>
     [JsonPropertyName("priority")]
@@ -79,7 +79,7 @@ public partial class SecurityRulePropertiesFormat
     /// <summary>The direction of the rule. The direction specifies if rule will be evaluated on incoming or outgoing traffic.</summary>
     /// <remarks>Known values (extensible enum SecurityRuleDirection): "Inbound", "Outbound".</remarks>
     [JsonPropertyName("direction")]
-    public string Direction { get; set; }
+    public string Direction { get; set; } = null !;
 
     /// <summary>The provisioning state of the security rule resource.</summary>
     /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>

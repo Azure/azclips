@@ -30,7 +30,7 @@ If you installed azcli to a custom location, update the path in the function acc
 
 ## bash / zsh
 
-Add the function to your shell profile (`~/.bashrc` or `~/.zshrc`), then reload it:
+Add only the following function to your shell profile (`~/.bashrc` or `~/.zshrc`) and save the file:
 
 ```bash
 # Toggle az between the classic CLI and the azcli preview build (current shell only)
@@ -62,13 +62,26 @@ switch-az() {
 }
 ```
 
+Then run the following command in your terminal, not inside the profile:
+
 ```bash
 source ~/.bashrc   # or: source ~/.zshrc
 ```
 
 ## PowerShell
 
-Add the function to your PowerShell profile (`$PROFILE`), then reload it:
+### 1. Create the profile if needed
+
+Run this command in your PowerShell terminal. It creates the profile only if it does not already exist:
+
+```powershell
+if (-not (Test-Path -Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force | Out-Null }
+```
+
+### 2. Add the function to the profile
+
+Run `$PROFILE` in the terminal to display its path, then open that file in your text editor.
+Add only the following function and save the file:
 
 ```powershell
 # Toggle az between the classic CLI and the azcli preview build (current session only)
@@ -118,10 +131,16 @@ function Switch-Az {
 }
 ```
 
+### 3. Reload the profile
+
+After saving, run this command in your PowerShell terminal to make `Switch-Az` available in the current session:
+
 ```powershell
-if (-not (Test-Path -Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force | Out-Null }
 . $PROFILE
 ```
+
+Do not add `. $PROFILE` to the profile itself: it would repeatedly load itself.
+Defining the function does not switch CLIs; call `Switch-Az` when you want to toggle.
 
 ## Try it
 
