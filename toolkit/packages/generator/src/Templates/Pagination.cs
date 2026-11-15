@@ -3,6 +3,10 @@
 
 namespace Microsoft.Azure.Azclips.ExtensionRuntime;
 
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading.Tasks;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;

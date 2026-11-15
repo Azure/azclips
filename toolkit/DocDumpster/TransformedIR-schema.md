@@ -317,7 +317,16 @@ rebuilt). The token is resolved only when there is no next link, and only for a 
 response token and a string query or header parameter; otherwise `create-command` warns
 `paging-continuation-unresolved` and keeps items-only pagination (first page).
 
-Generated pageable processors override `ReadPagesAsync` to select the runtime's lazy
+Codegen emits one internal `Processors/Pagination.cs` helper per extension, alongside
+the processor base. Its namespace is the extension's processor namespace, so generated
+processors and customizations in that namespace bind to the local helper rather than
+the legacy runtime type. Transport, authentication, and events still use ExtensionRuntime.
+The authoritative source is `packages/generator/src/Templates/Pagination.cs`, embedded
+in the generator assembly. ExtensionRuntime links that same source to preserve existing
+callers without maintaining a second copy. Helper changes ship to generated extensions
+through regeneration and rebuilding.
+
+Generated pageable processors override `ReadPagesAsync` to select the local helper's lazy
 next-link or token iterator, and `ExecuteAsync` to consume it through `ExecutePagesAsync`.
 `ProcessAsync` still owns lifecycle events for both CLI and PowerShell. The default
 execution collects all items and writes once, preserving existing output; custom

@@ -28,7 +28,7 @@ namespace Ace.Generator.Generators;
 /// <para>
 /// Long-running commands additionally emit the final-state/polling hook overrides and
 /// <c>SendAsync() =&gt; SendAsyncLRO()</c>; paginated ones emit the selector wiring the runtime
-/// helper drives. Spec-vs-reality deviations are handled by customization on top of the
+/// extension-local helper drives. Spec-vs-reality deviations are handled by customization on top of the
 /// generated (<c>partial</c>) processor, never by the generator.
 /// </para>
 /// </remarks>
@@ -565,7 +565,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
 
     /// <summary>
     /// Supplies page selectors, a lazy ReadPagesAsync strategy and an ExecuteAsync override.
-    /// The runtime owns continuation requests; the base's default paged execution collects
+    /// The generated helper owns continuation requests; the base's default paged execution collects
     /// all items before output without performing network operations in an output hook.
     /// </summary>
     private static IEnumerable<MemberDeclarationSyntax> PageableMembers(

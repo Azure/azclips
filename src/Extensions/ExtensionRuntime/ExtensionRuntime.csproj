@@ -20,6 +20,8 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
     <ItemGroup>
+        <!-- Keep the legacy API on the same source template emitted into generated extensions. -->
+        <Compile Include="..\..\..\toolkit\packages\generator\src\Templates\Pagination.cs" Link="Pagination.cs" />
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

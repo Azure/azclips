@@ -37,8 +37,8 @@ public sealed class ElasticSanProcessorTests
         TransformedIR ir = LoadIr();
         (_, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors");
 
-        // One processor per command, plus the shared ProcessorBase.
-        Assert.Equal(ir.Commands.Count + 1, writer.Files.ProcessorSources().Count());
+        // One processor per command, plus the extension-local base and pagination helper.
+        Assert.Equal(ir.Commands.Count + 2, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]

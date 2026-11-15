@@ -650,15 +650,19 @@ public sealed class CSharpClientGeneratorTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task Generate_Paging_WithAContinuationToken_SetsItsParameterAndRebuildsTheRequest(bool headerToken, bool failLaterPage)
+    [InlineData("nextLink", false)]
+    [InlineData("nextLink", true)]
+    [InlineData("queryToken", false)]
+    [InlineData("queryToken", true)]
+    [InlineData("headerToken", false)]
+    [InlineData("headerToken", true)]
+    public async Task Generate_Paging_UsesExtensionLocalHelperForLinksAndTokens(string strategy, bool failLaterPage)
     {
+        bool headerToken = strategy == "headerToken";
+        bool nextLink = strategy == "nextLink";
         IRId pageId = new() { Module = "Test", Name = "Page" };
         IRId valueId = new() { Module = "Test", Name = "Page.value" };
-        IRId markerId = new() { Module = "Test", Name = "Page.nextMarker" };
+        IRId markerId = new() { Module = "Test", Name = nextLink ? "Page.nextLink" : "Page.nextMarker" };
         TransformedIR ir = Ir(operations: ["list"]);
         ir.Models =
         [
@@ -679,8 +683,8 @@ public sealed class CSharpClientGeneratorTests
                     new IRPropertyPrimitive
                     {
                         Id = markerId,
-                        Name = "NextMarker",
-                        WireName = "nextMarker",
+                        Name = nextLink ? "NextLink" : "NextMarker",
+                        WireName = nextLink ? "nextLink" : "nextMarker",
                         Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
                     },
                 ],
@@ -692,20 +696,21 @@ public sealed class CSharpClientGeneratorTests
                 "List",
                 ServerId(),
                 OperationId("list"),
-                query: headerToken
+                query: headerToken || nextLink
                     ? [Commands.Pinned("api-version", "v1")]
                     : [Commands.Pinned("api-version", "v1"), Commands.Supplied("marker", "Marker")],
                 headers: headerToken
                     ? [Commands.Pinned("x-test", "retained"), Commands.Supplied("x-marker", "Marker")]
                     : [Commands.Pinned("x-test", "retained")],
-                parameters: [Commands.Parameter("Marker", headerToken
+                parameters: nextLink ? [] : [Commands.Parameter("Marker", headerToken
                     ? Commands.FromHeader(OperationId("p.marker"))
                     : Commands.FromQuery(OperationId("p.marker")), required: false)],
                 pagination: new IRCommandPagination
                 {
                     ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
                     Items = new IRPropertyRef { Property = valueId, Via = [] },
-                    ContinuationToken = new IRCommandContinuationToken
+                    NextLink = nextLink ? new IRPropertyRef { Property = markerId, Via = [] } : null,
+                    ContinuationToken = nextLink ? null : new IRCommandContinuationToken
                     {
                         Response = new IRPropertyRef { Property = markerId, Via = [] },
                         Parameter = "Marker",
@@ -715,23 +720,33 @@ public sealed class CSharpClientGeneratorTests
         ];
 
         (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
-            scenario: $"{nameof(Generate_Paging_WithAContinuationToken_SetsItsParameterAndRebuildsTheRequest)}_{headerToken}_{failLaterPage}");
+            scenario: $"{nameof(Generate_Paging_UsesExtensionLocalHelperForLinksAndTokens)}_{strategy}_{failLaterPage}");
 
         Assert.Empty(result.Diagnostics);
         string source = writer.Files.Source(result, "ListProcessor");
-        Assert.Contains("continuationToken(Page body) => body.NextMarker;", source);
-        Assert.Contains(
-            "Pagination.ReadWithTokenAsync(ReadResponseAsync, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)",
-            source);
+        if (nextLink)
+        {
+            Assert.Contains("nextLink(Page body) => body.NextLink;", source);
+            Assert.Contains("Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)", source);
+            Assert.DoesNotContain("continuationToken", source);
+        }
+        else
+        {
+            Assert.Contains("continuationToken(Page body) => body.NextMarker;", source);
+            Assert.Contains(
+                "Pagination.ReadWithTokenAsync(ReadResponseAsync, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)",
+                source);
+            Assert.DoesNotContain("nextLink", source);
+        }
         Assert.Contains("IAsyncEnumerable<Page> ReadPagesAsync()", source);
         Assert.Contains("ExecuteAsync() => ExecutePagesAsync<string>(pageItems)", source);
         Assert.DoesNotContain("BeforeWriteOutputAsyncAndReturn", source);
-        Assert.DoesNotContain("nextLink", source);
         byte[] assembly = CompilePaging(result, writer, "Page");
-        await RunGeneratedTokenPagingAsync(assembly, headerToken, failLaterPage);
+        await RunGeneratedPagingAsync(assembly, strategy, failLaterPage);
         if (!failLaterPage)
         {
-            await RunGeneratedTokenPagingAsync(assembly, headerToken, failLaterPage: false, malformedFirstPage: true);
+            await RunGeneratedPagingAsync(assembly, strategy, failLaterPage: false, malformedFirstPage: true);
+            await RunGeneratedPagingAsync(assembly, strategy, failLaterPage: false, stopAfterFirstPage: true);
         }
     }
 
@@ -855,9 +870,9 @@ public sealed class CSharpClientGeneratorTests
         Assert.True(result.Success);
         Assert.Empty(result.Diagnostics);
         Assert.Equal(
-            new[] { "GetWidgetByNameProcessor", "GetWidgetProcessor", "ProcessorBase" },
+            new[] { "GetWidgetByNameProcessor", "GetWidgetProcessor", "Pagination", "ProcessorBase" },
             result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
-        Assert.Equal(3, writer.Files.ProcessorSources().Count());
+        Assert.Equal(4, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]
@@ -866,6 +881,7 @@ public sealed class CSharpClientGeneratorTests
         (GenerationResult result, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"]));
 
         Assert.Contains("ProcessorBase", result.GeneratedClasses.Keys);
+        Assert.Contains("Pagination", result.GeneratedClasses.Keys);
         // A .csproj is a platform requirement, not a volatile naming decision.
         Assert.Contains(writer.Files.Keys, k => k.EndsWith(".csproj", StringComparison.Ordinal));
     }
@@ -883,9 +899,9 @@ public sealed class CSharpClientGeneratorTests
         }
         // ...the project file is not a class...
         Assert.DoesNotContain(result.GeneratedClasses.Values, v => v.EndsWith(".csproj", StringComparison.Ordinal));
-        // ...and coverage is exactly model + operation + the always-on base.
+        // ...and coverage is exactly model + operation + the always-on base and helper.
         Assert.Equal(
-            new[] { "ProcessorBase", "RestoreVolumeProcessor", "Widget" },
+            new[] { "Pagination", "ProcessorBase", "RestoreVolumeProcessor", "Widget" },
             result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
     }
 
@@ -901,6 +917,7 @@ public sealed class CSharpClientGeneratorTests
         Assert.Equal("Models/Widget.cs", result.GeneratedClasses["Widget"]);
         Assert.Equal("Processors/RestoreVolumeProcessor.cs", result.GeneratedClasses["RestoreVolumeProcessor"]);
         Assert.Equal("Processors/ProcessorBase.cs", result.GeneratedClasses["ProcessorBase"]);
+        Assert.Equal("Processors/Pagination.cs", result.GeneratedClasses["Pagination"]);
         Assert.Contains("Contoso.Clients.csproj", writer.Files.Keys);
     }
 
@@ -932,8 +949,8 @@ public sealed class CSharpClientGeneratorTests
         (GenerationResult result, _) = await RunAsync(Ir(models: [""]));
 
         Assert.Contains(result.Diagnostics, d => d.Code == "ace-generator/empty-model-name");
-        // The empty-named model is skipped, not emitted — only the always-on base remains.
-        Assert.Equal("ProcessorBase", Assert.Single(result.GeneratedClasses.Keys));
+        // The empty-named model is skipped; only the always-on scaffolding remains.
+        Assert.Equal(["Pagination", "ProcessorBase"], result.GeneratedClasses.Keys.OrderBy(name => name));
     }
 
     [Fact]
@@ -1031,7 +1048,7 @@ public sealed class CSharpClientGeneratorTests
             typeof(Microsoft.Azure.Azclips.ExtensionRuntime.Pagination).Assembly.Location,
             typeof(Core.Abstractions.IProcessor).Assembly.Location,
         ];
-        string[] classes = ["ProcessorBase", "ListProcessor", .. models];
+        string[] classes = ["ProcessorBase", "Pagination", "ListProcessor", .. models];
         var compilation = CSharpCompilation.Create(
             "GeneratedPaging",
             classes.Select(name => CSharpSyntaxTree.ParseText(writer.Files.Source(result, name))),
@@ -1042,21 +1059,39 @@ public sealed class CSharpClientGeneratorTests
 
         Assert.True(emitted.Success, string.Join(Environment.NewLine,
             emitted.Diagnostics.Where(diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error)));
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var semanticModel = compilation.GetSemanticModel(tree);
+            foreach (var invocation in tree.GetRoot().DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>())
+            {
+                if (semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+                    && method.ContainingType.Name == "Pagination")
+                {
+                    Assert.Equal("Contoso.Clients.Processors.Pagination", method.ContainingType.ToDisplayString());
+                }
+            }
+        }
         return output.ToArray();
     }
 
-    private static async Task RunGeneratedTokenPagingAsync(byte[] assemblyBytes, bool headerToken, bool failLaterPage, bool malformedFirstPage = false)
+    private static async Task RunGeneratedPagingAsync(byte[] assemblyBytes, string strategy, bool failLaterPage, bool malformedFirstPage = false, bool stopAfterFirstPage = false)
     {
+        bool headerToken = strategy == "headerToken";
+        bool nextLink = strategy == "nextLink";
         var loadContext = new AssemblyLoadContext("GeneratedPagingExecution", isCollectible: true);
         try
         {
             using var stream = new MemoryStream(assemblyBytes);
             var assembly = loadContext.LoadFromStream(stream);
+            var helper = Assert.Single(assembly.GetTypes(), type => type.Name == "Pagination");
+            Assert.False(helper.IsPublic);
+            Assert.Equal("Contoso.Clients.Processors", helper.Namespace);
             var processorType = Assert.Single(assembly.GetTypes(), type => type.Name == "ListProcessor");
             var processor = Assert.IsAssignableFrom<IProcessor>(Activator.CreateInstance(processorType));
             string?[] markers = [null, "second +/&=", "third?="];
             string[] names = ["first", "second", "third"];
             var requests = new List<string>();
+            var responses = new List<TrackedContent>();
             var written = new List<object>();
             var publisher = new Mock<IEventPublisher>();
             publisher.SetReturnsDefault(Task.CompletedTask);
@@ -1069,7 +1104,11 @@ public sealed class CSharpClientGeneratorTests
                     Assert.Empty(written);
                     Assert.Equal(HttpMethod.Get, request.Method);
                     string expectedUri = "https://example.com/widgets?api-version=v1";
-                    if (!headerToken && markers[index] is { } marker)
+                    if (nextLink && index > 0)
+                    {
+                        expectedUri = $"https://example.com/widgets?continuation=page{index + 1}";
+                    }
+                    else if (!headerToken && !nextLink && markers[index] is { } marker)
                     {
                         expectedUri += $"&marker={Uri.EscapeDataString(marker)}";
                     }
@@ -1083,16 +1122,23 @@ public sealed class CSharpClientGeneratorTests
                     bool failed = failLaterPage && index == 1;
                     string rawBody = failed
                         ? """{"error":{"code":"Denied","message":"Access denied."}}"""
+                        : nextLink ? JsonSerializer.Serialize(new
+                        {
+                            value = new[] { names[index] },
+                            nextLink = index + 1 < names.Length ? $"https://example.com/widgets?continuation=page{index + 2}" : null,
+                        })
                         : JsonSerializer.Serialize(new
                         {
                             value = new[] { names[index] },
                             nextMarker = index + 1 < markers.Length ? markers[index + 1] : null,
                         });
                     if (malformedFirstPage) rawBody = "{invalid-json";
+                    var content = new TrackedContent(rawBody);
+                    responses.Add(content);
                     return Task.FromResult(new HttpResponseMessage(failed ? HttpStatusCode.Forbidden : HttpStatusCode.OK)
                     {
                         RequestMessage = request,
-                        Content = new StringContent(rawBody),
+                        Content = content,
                     });
                 });
             var output = new Mock<IOutputHandler>();
@@ -1105,7 +1151,26 @@ public sealed class CSharpClientGeneratorTests
 
             Assert.Empty(requests);
             Assert.Empty(written);
-            if (malformedFirstPage)
+            if (stopAfterFirstPage)
+            {
+                var readPages = processorType.GetMethod("ReadPagesAsync",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Assert.NotNull(readPages);
+                var pages = Assert.IsAssignableFrom<IAsyncEnumerable<object>>(readPages.Invoke(processor, null));
+                Assert.Empty(requests);
+                await using (var iterator = pages.GetAsyncEnumerator())
+                {
+                    Assert.Empty(requests);
+                    Assert.True(await iterator.MoveNextAsync());
+                    var items = iterator.Current.GetType().GetProperty("Value");
+                    Assert.NotNull(items);
+                    Assert.Equal(["first"], Assert.IsAssignableFrom<IEnumerable<string>>(items.GetValue(iterator.Current)));
+                    Assert.Single(requests);
+                    Assert.All(responses, response => Assert.True(response.Disposed));
+                }
+                Assert.Empty(written);
+            }
+            else if (malformedFirstPage)
             {
                 var error = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
                 Assert.Equal("Failed to deserialize response body into Page. Raw body: {invalid-json", error.Message);
@@ -1126,16 +1191,29 @@ public sealed class CSharpClientGeneratorTests
                 Assert.Equal(names, Assert.IsType<List<string>>(Assert.Single(written)));
             }
 
-            int count = malformedFirstPage ? 1 : failLaterPage ? 2 : 3;
+            int count = malformedFirstPage || stopAfterFirstPage ? 1 : failLaterPage ? 2 : 3;
+            int creates = nextLink && !malformedFirstPage ? 2 : count;
             Assert.Equal(count, requests.Count);
-            publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Exactly(count));
-            publisher.Verify(value => value.Publish(Events.ProcessorAfterHttpRequestCreate), Times.Exactly(count));
-            publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncStart), Times.Once);
-            publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncEnd), Times.Once);
+            Assert.All(responses, response => Assert.True(response.Disposed));
+            publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Exactly(creates));
+            publisher.Verify(value => value.Publish(Events.ProcessorAfterHttpRequestCreate), Times.Exactly(creates));
+            publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncStart), Times.Exactly(stopAfterFirstPage ? 0 : 1));
+            publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncEnd), Times.Exactly(stopAfterFirstPage ? 0 : 1));
         }
         finally
         {
             loadContext.Unload();
+        }
+    }
+
+    private sealed class TrackedContent(string content) : StringContent(content)
+    {
+        public bool Disposed { get; private set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            Disposed = true;
+            base.Dispose(disposing);
         }
     }
 

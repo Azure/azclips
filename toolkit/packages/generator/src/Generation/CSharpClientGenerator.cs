@@ -8,7 +8,7 @@ namespace Ace.Generator;
 
 /// <summary>
 /// The C# client generator. Orchestrates the artifact generators — models,
-/// processors, the processor base, and the project stub — streaming each file
+/// processors, the processor base, the pagination helper, and the project stub — streaming each file
 /// they produce to the caller's <see cref="GeneratedFileHandler"/>.
 /// </summary>
 /// <remarks>
@@ -24,6 +24,7 @@ public sealed class CSharpClientGenerator : IClientGenerator
         new ModelGenerator(),
         new ProcessorGenerator(),
         new ProcessorBaseGenerator(),
+        new PaginationGenerator(),
         new ProjectStubGenerator(),
     ];
 
