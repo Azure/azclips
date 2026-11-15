@@ -69,7 +69,7 @@ public sealed class DirectReadCommandTests
                 });
 
             using var command = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "env", "show"], fixture.Root));
-            using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli, default, WarmCatalog(fixture, cli, home).ListJsonAsync));
+            using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli, WarmCatalog(fixture, cli, home).ListJsonAsync));
             Assert.NotEmpty(command.RootElement.GetProperty("commandGroups").EnumerateArray());
             foreach (var field in new[] { "os", "shell", "sshSession", "browserAvailable", "signedIn", "subscriptionId", "tenantId", "flavor", "azclipsVersion", "commandGroups", "installableGroups" })
                 Assert.True(JsonElement.DeepEquals(command.RootElement.GetProperty(field), direct.RootElement.GetProperty(field)), field);
@@ -97,7 +97,7 @@ public sealed class DirectReadCommandTests
         var written = File.GetLastWriteTimeUtc(index);
 
         using var command = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "env", "show"], fixture.Root));
-        using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli, default, WarmCatalog(fixture, cli, home).ListJsonAsync));
+        using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli, WarmCatalog(fixture, cli, home).ListJsonAsync));
 
         Assert.Equal(written, File.GetLastWriteTimeUtc(index));
         Assert.Contains("warmcachemarker", command.RootElement.GetProperty("commandGroups").EnumerateArray().Select(g => g.GetString()));

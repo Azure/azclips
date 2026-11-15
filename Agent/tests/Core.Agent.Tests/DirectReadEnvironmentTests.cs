@@ -28,6 +28,9 @@ public sealed class DirectReadEnvironmentTests
     private const string TenantOne = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     private const string TenantTwo = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 
+    // A catalog without a groups array, so the snapshot omits commandGroups.
+    private static Task<string> EmptyCatalog(CancellationToken ct) => Task.FromResult("{}");
+
     [Fact]
     public async Task SnapshotUsesLiveProfileService_SignedOutSwitchProfileAndSignOut()
     {
@@ -36,7 +39,7 @@ public sealed class DirectReadEnvironmentTests
         var profiles = new ProfileService(new NullLoggingService(), new FilePersistenceStore(profilesDirectory));
         var otherProcess = new ProfileService(new NullLoggingService(), new FilePersistenceStore(profilesDirectory));
 
-        using (var signedOut = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable)))
+        using (var signedOut = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable, EmptyCatalog)))
         {
             Assert.False(signedOut.RootElement.GetProperty("signedIn").GetBoolean());
             Assert.Equal(JsonValueKind.Null, signedOut.RootElement.GetProperty("subscriptionId").ValueKind);
@@ -50,11 +53,11 @@ public sealed class DirectReadEnvironmentTests
         }
 
         await otherProcess.SaveAndActivateProfileAsync(Profile("first", SubscriptionOne, TenantOne));
-        var first = await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable);
+        var first = await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable, EmptyCatalog);
         Assert.Contains($"subscription-id: {SubscriptionOne}", EnvSnapshotFormatter.Format(first));
         Assert.False(EnvSnapshotFormatter.IsSignedOut(first));
         await otherProcess.SaveAndActivateProfileAsync(Profile("second", SubscriptionTwo, TenantTwo));
-        using (var changed = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable)))
+        using (var changed = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable, EmptyCatalog)))
         {
             Assert.True(changed.RootElement.GetProperty("signedIn").GetBoolean());
             Assert.Equal(SubscriptionTwo, changed.RootElement.GetProperty("subscriptionId").GetString());
@@ -62,7 +65,7 @@ public sealed class DirectReadEnvironmentTests
         }
 
         await otherProcess.SetActiveProfileNameAsync(null);
-        Assert.True(EnvSnapshotFormatter.IsSignedOut(await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable)));
+        Assert.True(EnvSnapshotFormatter.IsSignedOut(await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable, EmptyCatalog)));
     }
 
     [Fact]
@@ -72,7 +75,7 @@ public sealed class DirectReadEnvironmentTests
         var profiles = new ProfileService(new NullLoggingService(), new FilePersistenceStore(fixture.Root));
         await profiles.SaveAndActivateProfileAsync(Profile("test", SubscriptionOne, TenantOne));
         await File.WriteAllTextAsync(Path.Combine(fixture.Root, "profiles.json"), "PRIVATE BROKEN PROFILE");
-        var json = await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable);
+        var json = await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable, EmptyCatalog);
         HelpCatalogProviderTests.AssertError(json, "environment_snapshot_failed");
         Assert.DoesNotContain("PRIVATE", json);
         Assert.False(EnvSnapshotFormatter.IsSignedOut(json));
@@ -87,7 +90,7 @@ public sealed class DirectReadEnvironmentTests
         var profiles = new FailingProfileService(accessDenied
             ? new UnauthorizedAccessException("PRIVATE profile failure")
             : new IOException("PRIVATE profile failure"));
-        var json = await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable);
+        var json = await EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable, EmptyCatalog);
         HelpCatalogProviderTests.AssertError(json, "environment_snapshot_failed");
         Assert.DoesNotContain("PRIVATE", json);
         Assert.False(EnvSnapshotFormatter.IsSignedOut(json));
@@ -118,7 +121,7 @@ public sealed class DirectReadEnvironmentTests
         var config = CreateSessionConfig(fixture.Executable, profiles, new HelpTools(fixture.Provider));
 
         Assert.Same(failure, await Assert.ThrowsAnyAsync<Exception>(() =>
-            EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable)));
+            EnvSnapshotProvider.GetJsonAsync(profiles, fixture.Executable, EmptyCatalog)));
         Assert.Same(failure, await Assert.ThrowsAnyAsync<Exception>(async () =>
             await config.Hooks!.OnSessionStart!(null!, null!)));
         Assert.Same(failure, await Assert.ThrowsAnyAsync<Exception>(async () =>
@@ -132,12 +135,12 @@ public sealed class DirectReadEnvironmentTests
         using var fixture = new HelpCatalogFixture();
         using var cts = new CancellationTokenSource();
         var profile = new WaitingProfileService();
-        var read = EnvSnapshotProvider.GetJsonAsync(profile, fixture.Executable, cts.Token);
+        var read = EnvSnapshotProvider.GetJsonAsync(profile, fixture.Executable, EmptyCatalog, cts.Token);
         await profile.Started.Task;
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => read);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            EnvSnapshotProvider.GetJsonAsync(profile, fixture.Executable, cts.Token));
+            EnvSnapshotProvider.GetJsonAsync(profile, fixture.Executable, EmptyCatalog, cts.Token));
     }
 
     [Fact]

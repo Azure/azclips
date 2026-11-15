@@ -15,14 +15,13 @@ public static class EnvSnapshotProvider
     public static async Task<string> GetJsonAsync(
         IProfileService profileService,
         string azExePath,
-        CancellationToken ct = default,
-        Func<CancellationToken, Task<string>>? readCommandCatalog = null,
-        ExtensionHintTable? extensionHints = null)
+        Func<CancellationToken, Task<string>> readCommandCatalog,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            var prober = new EnvironmentProber(profileService, flavor: "cli", CliInstallation.GetVersion(azExePath), readCommandCatalog, extensionHints);
+            var prober = new EnvironmentProber(profileService, flavor: "cli", CliInstallation.GetVersion(azExePath), readCommandCatalog);
             var snapshot = await prober.ProbeAsync(ct).ConfigureAwait(false);
             return JsonSerializer.Serialize(snapshot, s_json);
         }

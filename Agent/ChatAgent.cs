@@ -415,7 +415,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnSessionStart = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct, helpTools.ReadCatalogAsync).ConfigureAwait(false);
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, helpTools.ReadCatalogAsync, ct).ConfigureAwait(false);
                     var ctx = EnvSnapshotFormatter.Format(envJson);
                     ctx = string.IsNullOrEmpty(ctx) ? AzclipsBoundary : $"{ctx}\n\n{AzclipsBoundary}";
                     // Append the pre-fetched help for the failed command (if any) so
@@ -438,7 +438,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnUserPromptSubmitted = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct, helpTools.ReadCatalogAsync).ConfigureAwait(false);
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, helpTools.ReadCatalogAsync, ct).ConfigureAwait(false);
                     var promptCtx = EnvSnapshotFormatter.Format(envJson);
                     traceNote?.Invoke("prompt_context", new { context = promptCtx });
                     return new UserPromptSubmittedHookOutput { AdditionalContext = promptCtx };
