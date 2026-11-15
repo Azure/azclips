@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+
+## Version 0.1.6
 * Added tenant deployment cmdlets: `New-AzTenantDeployment`, `Test-AzTenantDeployment`, `Get-AzTenantDeploymentWhatIfResult`, `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, `Remove-AzTenantDeployment`, and `Save-AzTenantDeploymentTemplate`.
     - `New-AzTenantDeployment`, `Test-AzTenantDeployment`, and `Get-AzTenantDeploymentWhatIfResult` take `-Location` plus the resource group deployment template and parameter inputs (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-QueryString`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-ValidationLevel`). `-Name` is optional and defaults to a generated GUID. Tenant deployments always use `Incremental` mode, so there is no `-Mode`.
     - `New-AzTenantDeployment` validates before deploying and waits for the deployment to finish. `-NoWait` returns the initial `DeploymentExtended` once the deployment is submitted; it does not create a PowerShell job.

@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+
+## Version 0.1.2
 * Added Blob Storage data-plane cmdlets
     - `New-AzStorageContainer`, `Remove-AzStorageContainer`
     - `Get-AzStorageBlob`, `Remove-AzStorageBlob`, `Set-AzStorageBlobContent`, `Get-AzStorageBlobContent`, `Start-AzStorageBlobCopy`, `Copy-AzStorageBlob`
