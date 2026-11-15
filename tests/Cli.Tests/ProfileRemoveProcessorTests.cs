@@ -115,7 +115,7 @@ public class ProfileRemoveProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_ProfileDoesNotExist_ThrowsExactMessage()
+    public async Task ProcessAsync_ProfileDoesNotExist_ThrowsProfileNotFound()
     {
         InitDi();
 

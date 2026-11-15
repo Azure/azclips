@@ -332,7 +332,7 @@ public class LoginProcessorServicePrincipalTests
     [InlineData(ClientType.CLI, null)]
     [InlineData(ClientType.CLI, "")]
     [InlineData(ClientType.PowerShell, " ")]
-    public async Task ProcessAsync_FederatedProfileReauthWithoutStoredClientId_ThrowsExactMessage(
+    public async Task ProcessAsync_FederatedProfileReauthWithoutStoredClientId_ThrowsInvalidInput(
         ClientType surface, string? storedClientId)
     {
         // Strict mocks: any login or profile save before the error raises MockException instead.
@@ -358,7 +358,7 @@ public class LoginProcessorServicePrincipalTests
     }
 
     [Fact]
-    public async Task ProcessAsync_BrokerProfileReauth_ThrowsUnsupportedAuthMethodBeforeLogin()
+    public async Task ProcessAsync_BrokerProfileReauth_ThrowsInvalidInput()
     {
         // Strict mocks: any login, secret lookup or profile save before the error raises MockException instead.
         var profiles = new Mock<IProfileService>(MockBehavior.Strict);
@@ -461,9 +461,9 @@ public class LoginProcessorServicePrincipalTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
-    public async Task ProcessAsync_ProfileReauthUnknownProfile_ThrowsExactMessage(ClientType surface)
+    public async Task ProcessAsync_ProfileReauthWithUnknownProfile_ThrowsProfileNotFound(ClientType surface)
     {
-        var profiles = new Mock<IProfileService>();
+        var profiles = new Mock<IProfileService>(MockBehavior.Strict);
         profiles.Setup(p => p.GetProfileAsync("missing", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Profile?)null);
         var auth = new Mock<IAuthService>(MockBehavior.Strict);

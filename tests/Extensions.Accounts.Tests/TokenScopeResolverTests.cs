@@ -89,7 +89,7 @@ public class TokenScopeResolverTests
 
     [Theory]
     [MemberData(nameof(MutuallyExclusiveCombinations))]
-    public void Resolve_MoreThanOneTarget_ThrowsExactMutualExclusivityMessage(
+    public void Resolve_MoreThanOneTarget_ThrowsUsageError(
         string? resource, string? resourceType, string[]? scopes)
     {
         var ex = Assert.Throws<UsageErrorException>(() =>
@@ -116,7 +116,7 @@ public class TokenScopeResolverTests
     }
 
     [Fact]
-    public void Resolve_EmptyStringScopeValue_Throws()
+    public void Resolve_EmptyStringScopeValue_ThrowsUsageError()
     {
         var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(null, null, [""]));

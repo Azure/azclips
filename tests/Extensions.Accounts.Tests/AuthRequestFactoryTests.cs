@@ -15,7 +15,7 @@ public class AuthRequestFactoryTests
     // AuthMethod.Broker is a defined enum value with no CreateFromProfile mapping, so it hits the fallback.
     // The secret store is strict, so any secret lookup before the error raises MockException instead.
     [Fact]
-    public async Task CreateFromProfile_UnsupportedAuthMethod_ThrowsExactMessage()
+    public async Task CreateFromProfile_UnsupportedAuthMethod_ThrowsInvalidInput()
     {
         var secretStore = new Mock<IServicePrincipalSecretStore>(MockBehavior.Strict);
         var profile = new Profile
@@ -34,7 +34,7 @@ public class AuthRequestFactoryTests
     }
 
     [Fact]
-    public async Task CreateFromProfile_ClientSecretMissingFromStore_ThrowsExactMessage()
+    public async Task CreateFromProfile_ClientSecretMissingFromStore_ThrowsInvalidInput()
     {
         var secretStore = new Mock<IServicePrincipalSecretStore>(MockBehavior.Strict);
         secretStore.Setup(s => s.GetClientSecretAsync("11111111-1111-1111-1111-111111111111")).ReturnsAsync((string?)null);
@@ -55,7 +55,7 @@ public class AuthRequestFactoryTests
     }
 
     [Fact]
-    public async Task CreateFromProfile_FederatedAssertionMissingFromStore_ThrowsExactMessage()
+    public async Task CreateFromProfile_FederatedAssertionMissingFromStore_ThrowsInvalidInput()
     {
         var secretStore = new Mock<IServicePrincipalSecretStore>(MockBehavior.Strict);
         secretStore.Setup(s => s.GetAssertionAsync("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"))

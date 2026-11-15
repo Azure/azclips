@@ -17,7 +17,7 @@ public class ProfileSetProcessorTests : IDisposable
     public void Dispose() => AzclipsServiceProvider.Dispose();
 
     [Fact]
-    public async Task ProcessAsync_ProfileDoesNotExist_ThrowsExactMessage()
+    public async Task ProcessAsync_ProfileDoesNotExist_ThrowsProfileNotFound()
     {
         // Strict: setting the active profile (or any other call) after the failed lookup throws MockException.
         var profiles = new Mock<IProfileService>(MockBehavior.Strict);

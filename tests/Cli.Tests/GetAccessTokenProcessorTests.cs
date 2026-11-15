@@ -410,7 +410,7 @@ public class GetAccessTokenProcessorTests
     [Theory]
     [InlineData(ClientType.CLI, "az login")]
     [InlineData(ClientType.PowerShell, "Connect-AzAccount")]
-    public async Task ProcessAsync_NullProfile_ThrowsExactSignInGuidance(ClientType surface, string signInCommand)
+    public async Task ProcessAsync_NullProfile_ThrowsUsageError(ClientType surface, string signInCommand)
     {
         var processor = InitRejecting(surface, new GetAccessTokenProcessor(), profile: null);
 
@@ -422,7 +422,7 @@ public class GetAccessTokenProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_NullProfile_IsReportedBeforeScopeInputErrors()
+    public async Task ProcessAsync_NullProfileAndInvalidScopeInput_ReportsSignInErrorFirst()
     {
         var processor = InitRejecting(
             ClientType.CLI,
@@ -439,7 +439,7 @@ public class GetAccessTokenProcessorTests
     [Theory]
     [InlineData("requested-tenant")]
     [InlineData("  requested-tenant  ")]
-    public async Task ProcessAsync_ManagedIdentityWithUnknownTenant_ExplicitTenant_ThrowsExactMessage(string tenant)
+    public async Task ProcessAsync_ManagedIdentityWithoutTenantAndExplicitTenant_ThrowsUsageError(string tenant)
     {
         var processor = InitRejecting(
             ClientType.CLI,
@@ -456,7 +456,7 @@ public class GetAccessTokenProcessorTests
     [Theory]
     [InlineData("other-tenant")]
     [InlineData(" other-tenant ")]
-    public async Task ProcessAsync_ManagedIdentity_MismatchedExplicitTenant_ThrowsExactMessage(string tenant)
+    public async Task ProcessAsync_ManagedIdentityWithMismatchedTenant_ThrowsUsageError(string tenant)
     {
         var processor = InitRejecting(
             ClientType.CLI,
@@ -471,7 +471,7 @@ public class GetAccessTokenProcessorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_ManagedIdentity_TenantMismatch_IsReportedBeforeScopeInputErrors()
+    public async Task ProcessAsync_MismatchedTenantAndInvalidScopeInput_ReportsTenantErrorFirst()
     {
         var processor = InitRejecting(
             ClientType.CLI,
@@ -485,33 +485,20 @@ public class GetAccessTokenProcessorTests
             ex.Message);
     }
 
-    // TokenScopeResolver errors surfaced through the processor are raised before token acquisition.
-    public static TheoryData<string?, string?, string[]?, string> ScopeInputErrors() => new()
-    {
-        { "https://vault.azure.net", "key-vault", null,
-            "Specify at most one of a resource, a resource type, or a scope list - these inputs are mutually exclusive." },
-        { null, null, [], "At least one scope must be supplied with --scope/-Scope." },
-        { null, null, [" "], "Scope values must not be empty." },
-        { null, " ", null, "Resource type must not be empty." },
-        { " ", null, null, "Resource must not be empty." },
-        { null, "nope", null,
-            "Unknown resource type 'nope'. Known resource types: arm, aad-graph, ms-graph, batch, data-lake, oss-rdbms, media, "
-            + "key-vault, storage, synapse, managed-hsm, communication-email, attestation, app-configuration, analysis-services, "
-            + "operational-insights." },
-    };
-
-    [Theory]
-    [MemberData(nameof(ScopeInputErrors))]
-    public async Task ProcessAsync_InvalidScopeInput_ThrowsBeforeTokenAcquisition(
-        string? resource, string? resourceType, string[]? scope, string expectedMessage)
+    // TokenScopeResolverTests covers every scope-input case; this proves the processor validates scope input
+    // before acquiring a token.
+    [Fact]
+    public async Task ProcessAsync_InvalidScopeInput_ThrowsUsageError()
     {
         var processor = InitRejecting(
             ClientType.CLI,
-            new GetAccessTokenProcessor { Resource = resource, ResourceType = resourceType, Scope = scope },
+            new GetAccessTokenProcessor { Resource = "https://vault.azure.net", ResourceType = "key-vault" },
             ProfileWith(AuthMethod.Browser, tenantId: "home-tenant"));
 
         var ex = await Assert.ThrowsAsync<UsageErrorException>(() => processor.ProcessAsync());
 
-        Assert.Equal(expectedMessage, ex.Message);
+        Assert.Equal(
+            "Specify at most one of a resource, a resource type, or a scope list - these inputs are mutually exclusive.",
+            ex.Message);
     }
 }

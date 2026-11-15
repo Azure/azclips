@@ -35,7 +35,7 @@ public class ProfileShowProcessorTests : IDisposable
     }
 
     [Fact]
-    public async Task ProcessAsync_NameAndActive_ThrowsExactMessage()
+    public async Task ProcessAsync_NameAndActive_ThrowsInvalidInput()
     {
         InitDi(new Mock<IProfileService>(MockBehavior.Strict));
 
@@ -48,7 +48,7 @@ public class ProfileShowProcessorTests : IDisposable
     [InlineData("", true)]
     [InlineData("", false)]
     [InlineData("   ", false)]
-    public async Task ProcessAsync_NoActiveProfile_ThrowsExactMessage(string name, bool active)
+    public async Task ProcessAsync_NoActiveProfile_ThrowsNotSignedIn(string name, bool active)
     {
         var profiles = new Mock<IProfileService>(MockBehavior.Strict);
         profiles.Setup(p => p.GetActiveProfileAsync(It.IsAny<CancellationToken>())).ReturnsAsync((Profile?)null);
@@ -60,7 +60,7 @@ public class ProfileShowProcessorTests : IDisposable
     }
 
     [Fact]
-    public async Task ProcessAsync_ProfileDoesNotExist_ThrowsExactMessage()
+    public async Task ProcessAsync_ProfileDoesNotExist_ThrowsProfileNotFound()
     {
         var profiles = new Mock<IProfileService>(MockBehavior.Strict);
         profiles.Setup(p => p.GetProfileAsync("missing", It.IsAny<CancellationToken>())).ReturnsAsync((Profile?)null);

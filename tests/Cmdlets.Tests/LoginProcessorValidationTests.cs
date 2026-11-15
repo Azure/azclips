@@ -363,7 +363,7 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(ClientType.CLI, nameof(LoginProcessor.ClientId), "11111111-1111-1111-1111-11111111111")]
     [InlineData(ClientType.PowerShell, nameof(LoginProcessor.ObjectId), "11111111-1111-1111-1111-11111111111Z")]
-    public async Task ProcessAsync_NonGuidSelector_ThrowsExactMessageBeforeLogin(
+    public async Task ProcessAsync_NonGuidIdentitySelector_ThrowsInvalidInput(
         ClientType surface, string property, string value)
     {
         var auth = new Mock<IAuthService>(MockBehavior.Strict);
@@ -439,7 +439,7 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(ClientType.CLI, true, true, false)]
     [InlineData(ClientType.PowerShell, false, true, true)]
-    public async Task ProcessAsync_MultipleManagedIdentitySelectors_ThrowsExactMessageBeforeLogin(
+    public async Task ProcessAsync_MultipleManagedIdentitySelectors_ThrowsInvalidInput(
         ClientType surface, bool clientId, bool objectId, bool resourceId)
     {
         var auth = new Mock<IAuthService>(MockBehavior.Strict);
@@ -825,7 +825,7 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
-    public async Task ProcessAsync_SubscriptionTenantLookupFails_ThrowsExactMessage(ClientType surface)
+    public async Task ProcessAsync_SubscriptionTenantLookupFails_ThrowsInvalidInput(ClientType surface)
     {
         var auth = new Mock<IAuthService>(MockBehavior.Strict);
         var subs = new Mock<ISubscriptionService>(MockBehavior.Strict);
@@ -846,7 +846,7 @@ public class LoginProcessorValidationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ProcessAsync_SubscriptionAccessFails_ThrowsExactMessage(bool managedIdentity)
+    public async Task ProcessAsync_SubscriptionAccessFails_ThrowsInvalidInput(bool managedIdentity)
     {
         var auth = new Mock<IAuthService>(MockBehavior.Strict);
         var subs = new Mock<ISubscriptionService>(MockBehavior.Strict);
