@@ -17,7 +17,12 @@
 /toolkit/ @Azure/act-codegen-extensibility-squad
 
 # Keep these ownerless exceptions last so release metadata does not request squad reviews.
-# These apply to all edits in matching files, not only version bumps.
-/src/Extensions/*/Extensions.*.csproj
-/src/PS/*/*.psd1
-/src/PS/*/ChangeLog.md
+# All edits to these files, including functional changes, skip automatic owner requests.
+# Add explicit exceptions when future owned modules need the same release behavior.
+# Required approvals and CI checks are unchanged.
+/src/Extensions/Accounts/Extensions.Accounts.csproj
+/src/Extensions/Config/Extensions.Config.csproj
+/src/PS/Accounts/Accounts.psd1
+/src/PS/Accounts/ChangeLog.md
+/src/PS/Config/Config.psd1
+/src/PS/Config/ChangeLog.md
