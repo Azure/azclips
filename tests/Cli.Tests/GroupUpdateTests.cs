@@ -172,12 +172,54 @@ public class GroupUpdateTests
 
         InvalidInputException missingAddress = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
-        Assert.Contains("exactly one", missingAddress.Message);
+        Assert.Equal("Specify exactly one of resource group name or resource group id.", missingAddress.Message);
 
         processor.ResourceGroupName = "test-rg";
         InvalidInputException missingTags = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
-        Assert.Contains("Tag parameter is required", missingTags.Message);
+        Assert.Equal("The Tag parameter is required.", missingTags.Message);
+    }
+
+    [Fact]
+    public async Task PowerShellProcessAsync_NameAndId_ThrowsInvalidInput()
+    {
+        SetResourceGroupProcessor_Orchestrator processor = CreatePowerShellProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.ResourceGroupName = "test-rg";
+        processor.Id = "/subscriptions/sub-1/resourceGroups/test-rg";
+        processor.Tags = new Dictionary<string, string> { ["Owner"] = "team-b" };
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Specify exactly one of resource group name or resource group id.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task PowerShellProcessAsync_BlankId_ThrowsInvalidInput(string id)
+    {
+        // A blank Id counts as "no address", so ResourceGroupIdResolver's own empty-id message is never reached here.
+        SetResourceGroupProcessor_Orchestrator processor = CreatePowerShellProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Id = id;
+        processor.Tags = new Dictionary<string, string> { ["Owner"] = "team-b" };
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Specify exactly one of resource group name or resource group id.", ex.Message);
+    }
+
+    [Fact]
+    public async Task PowerShellProcessAsync_MalformedId_ThrowsInvalidInput()
+    {
+        SetResourceGroupProcessor_Orchestrator processor = CreatePowerShellProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Id = "not-a-resource-id";
+        processor.Tags = new Dictionary<string, string> { ["Owner"] = "team-b" };
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal(
+            "Invalid resource group id 'not-a-resource-id'. Expected /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}.",
+            ex.Message);
     }
 
     [Fact]
@@ -242,8 +284,41 @@ public class GroupUpdateTests
         InvalidInputException exception = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
 
-        Assert.Contains("Supported roots", exception.Message);
+        Assert.Equal(
+            "The --set path 'location' cannot be updated by the resource group PATCH API. Supported roots are name, managedBy, and tags.",
+            exception.Message);
     }
+
+    [Theory]
+    [InlineData("=value")]
+    [InlineData("   =value")]
+    public async Task ProcessAsync_EmptyTagKey_ThrowsInvalidInput(string entry)
+    {
+        UpdateResourceGroupProcessor_Orchestrator processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.ResourceGroupName = "test-rg";
+        processor.TagsInput = [entry];
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal($"Invalid tag '{entry}'. Tag keys cannot be empty.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("location")]
+    [InlineData("=westus")]
+    public async Task ProcessAsync_MalformedSetExpression_ThrowsInvalidInput(string expression)
+    {
+        UpdateResourceGroupProcessor_Orchestrator processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.ResourceGroupName = "test-rg";
+        processor.Set = [expression];
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal($"Invalid --set expression '{expression}'. Expected PATH=VALUE.", ex.Message);
+    }
+
+    private static FakeHttpPipeline ThrowingPipeline() =>
+        new((_, _) => throw new InvalidOperationException("Unexpected request."));
 
     private static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };

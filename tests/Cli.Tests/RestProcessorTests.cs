@@ -49,7 +49,9 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("must use https", ex.Message);
+        Assert.Equal(
+            "Absolute URL 'http://management.azure.com/subscriptions/x/resourcegroups?api-version=2021-04-01' must use https. The rest command only targets ARM over https in this release.",
+            ex.Message);
         Assert.Equal(0, pipeline.SendCount);
         Assert.Empty(output.WrittenValues);
     }
@@ -64,7 +66,10 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("not an allowed Azure Resource Manager endpoint", ex.Message);
+        Assert.Equal(
+            "Host 'example.com' is not an allowed Azure Resource Manager endpoint. The rest command only targets ARM in this release. " +
+            "Allowed hosts: management.azure.com, management.chinacloudapi.cn, management.microsoftazure.de, management.usgovcloudapi.net.",
+            ex.Message);
         Assert.Equal(0, pipeline.SendCount);
         Assert.Empty(output.WrittenValues);
     }
@@ -215,7 +220,7 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("ApiVersion is required", ex.Message);
+        Assert.Equal("ApiVersion is required when building an ARM URL from piece-wise parameters.", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
         Assert.Empty(output.WrittenValues);
     }
@@ -233,7 +238,9 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("must equal ResourceType", ex.Message);
+        Assert.Equal(
+            "Name (2) must equal ResourceType (1) or be exactly one fewer (one trailing type without a name performs a collection GET on the last type).",
+            ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
 
@@ -250,7 +257,9 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("must equal ResourceType", ex.Message);
+        Assert.Equal(
+            "Name (0) must equal ResourceType (2) or be exactly one fewer (one trailing type without a name performs a collection GET on the last type).",
+            ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
 
@@ -270,7 +279,7 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("ResourceType segments must be non-empty", ex.Message);
+        Assert.Equal("ResourceType segments must be non-empty; ResourceType element 0 was empty or whitespace.", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
         Assert.Empty(output.WrittenValues);
     }
@@ -291,7 +300,7 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("Name segments must be non-empty", ex.Message);
+        Assert.Equal("Name segments must be non-empty; Name element 0 was empty or whitespace.", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
         Assert.Empty(output.WrittenValues);
     }
@@ -308,7 +317,10 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("not both", ex.Message);
+        Assert.Equal(
+            "Specify the endpoint either as a full URL (Uri) OR as the piece-wise parameters " +
+            "(SubscriptionId/ResourceGroupName/ResourceProviderName/ResourceType/Name/ApiVersion), not both.",
+            ex.Message);
         Assert.Equal(0, pipeline.SendCount);
         Assert.Empty(output.WrittenValues);
     }
@@ -322,7 +334,10 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
 
-        Assert.Contains("endpoint is required", ex.Message);
+        Assert.Equal(
+            "An endpoint is required: supply either a full URL (Uri) or the piece-wise ByParameters inputs " +
+            "(SubscriptionId/ResourceGroupName/ResourceProviderName/ResourceType/Name/ApiVersion) to build an ARM URL.",
+            ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
 
@@ -501,6 +516,116 @@ public class RestProcessorTests
         Assert.Contains("Expected KEY=VALUE", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
+
+    [Fact]
+    public void Init_NoProfile_ThrowsNotSignedIn()
+    {
+        var processor = new RestProcessor_Orchestrator();
+        var context = new ProcessorContext(
+            ThrowingPipeline(),
+            new FakeEventPublisher(),
+            new FakeAuthHandler(null),
+            new FakeOutputHandler());
+
+        var ex = Assert.Throws<AzclipsErrorException>(() => processor.Init(context));
+
+        Assert.Equal("No profile is available. Please sign in.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_UnsupportedMethod_ThrowsInvalidInput()
+    {
+        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Method = "TRACE";
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Unsupported HTTP method 'TRACE'. Supported methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ByParametersWithoutSubscription_ThrowsNotSignedIn()
+    {
+        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler(), subscriptionId: "");
+        processor.ResourceProviderName = "Microsoft.Resources";
+        processor.ResourceType = ["resourceGroups"];
+        processor.ApiVersion = "2021-04-01";
+
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => processor.ProcessAsync());
+
+        Assert.Equal("No subscription is available to build the ARM URL. Supply SubscriptionId or sign in first.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_SubscriptionTokenWithoutSubscription_ThrowsNotSignedIn()
+    {
+        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler(), subscriptionId: "");
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+
+        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => processor.ProcessAsync());
+
+        Assert.Equal(
+            "The URL contains '{subscriptionId}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.",
+            ex.Message);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("novalue")]
+    [InlineData("=value")]
+    public async Task ProcessAsync_MalformedUriParameter_ThrowsInvalidInput(string parameter)
+    {
+        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        processor.UriParameters = [parameter];
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_UriParameterEmptyName_ThrowsInvalidInput()
+    {
+        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        processor.UriParameters = [" =value"];
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Invalid uri parameter ' =value': parameter name cannot be empty.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("x-ms-test")]
+    [InlineData("=value")]
+    public async Task ProcessAsync_MalformedHeader_ThrowsInvalidInput(string header)
+    {
+        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        processor.Headers = [header];
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal($"Invalid header '{header}'. Expected KEY=VALUE format.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_HeaderEmptyName_ThrowsInvalidInput()
+    {
+        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        processor.Headers = [" =value"];
+
+        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Invalid header ' =value': header name cannot be empty.", ex.Message);
+    }
+
+    private static FakeHttpPipeline ThrowingPipeline() =>
+        new((_, _) => throw new InvalidOperationException("Unexpected request."));
 
     private static FakeHttpPipeline CapturingPipeline(Action<Uri?> capture)
     {
