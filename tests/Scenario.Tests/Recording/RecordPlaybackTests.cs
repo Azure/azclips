@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Tests.Recording;
 
@@ -150,6 +152,66 @@ public class RecordPlaybackTests
         var resourceGroup = Assert.IsType<ResourceGroup>(Assert.Single(outputs));
         Assert.Equal(ResourceGroupName, resourceGroup.Name);
         Assert.Equal(Location, resourceGroup.Location);
+    }
+
+    /// <summary>Deployment operations that are still running on the first read and finished on later ones.</summary>
+    private sealed class DeploymentOperationsBackend : ISendAsync
+    {
+        private int calls;
+
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback)
+        {
+            string state = Interlocked.Increment(ref calls) == 1 ? "Running" : "Succeeded";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($"{{\"value\":[{{\"properties\":{{\"provisioningState\":\"{state}\"}}}}]}}", Encoding.UTF8, "application/json"),
+            });
+        }
+    }
+
+    [Fact]
+    public async Task BackgroundRequests_AreNotRecorded_AndPlaybackAnswersThemWithoutConsumingEntries()
+    {
+        // Drives the step directly: through the engine, a deployment's first progress check only starts after 5 seconds.
+        string operationsUri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{ResourceGroupName}/deployments/dep/operations?api-version=2026-06-01";
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        var backend = new DeploymentOperationsBackend();
+
+        // Live: a progress check while the deployment runs, then the operations list once it has finished.
+        using (var progressCheck = BackgroundGet(operationsUri))
+        using (var response = await recorder.SendAsync(progressCheck, null!, backend))
+        {
+            Assert.Contains("Running", await response.Content.ReadAsStringAsync());
+        }
+        using (var list = new HttpRequestMessage(HttpMethod.Get, operationsUri))
+        using (await recorder.SendAsync(list, null!, backend))
+        {
+        }
+
+        Assert.Contains("Succeeded", Assert.Single(record.Entries).Response.Body);
+        Assert.Single(recorder.Sent);
+
+        // Playback answers polls at once, so whether a progress check happens differs from the recording. Either way it
+        // consumes nothing, and the operations list still gets the finished deployment's operations.
+        var playback = new RecordPlaybackInterceptor(RecorderMode.Playback, record);
+        using (var progressCheck = BackgroundGet(operationsUri))
+        using (var response = await playback.SendAsync(progressCheck, null!, null!))
+        {
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        using (var list = new HttpRequestMessage(HttpMethod.Get, operationsUri))
+        using (var response = await playback.SendAsync(list, null!, null!))
+        {
+            Assert.Contains("Succeeded", await response.Content.ReadAsStringAsync());
+        }
+    }
+
+    private static HttpRequestMessage BackgroundGet(string uri)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.MarkBackground();
+        return request;
     }
 
     [Fact]

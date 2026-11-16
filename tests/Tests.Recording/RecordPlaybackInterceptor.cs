@@ -64,6 +64,17 @@ public sealed class RecordPlaybackInterceptor(
 
     public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventPublisher callback, ISendAsync next) =>
     {
+        // Background requests (such as deployment progress checks) depend on timing: playback answers polls at once, so it
+        // sends fewer of them than the live recording did, and their leftover entries would answer later identical requests
+        // (an operations list after the deployment) with an earlier snapshot. So they're neither recorded nor replayed: record
+        // mode sends them without capturing them, and playback answers them with 404 Not Found.
+        if (request.IsBackground())
+        {
+            return Mode == RecorderMode.Record
+                ? await next.SendAsync(request, callback)
+                : new HttpResponseMessage(HttpStatusCode.NotFound) { RequestMessage = request };
+        }
+
         var snapshot = await CapturedHttpRequest.SnapshotAsync(request);
         lock (_gate)
         {
