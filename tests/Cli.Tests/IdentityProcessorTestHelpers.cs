@@ -5,11 +5,15 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
+using Moq;
 
 namespace Cli.Tests;
 
 /// <summary>
-/// Shared offline setup for Managed Identity orchestrator unit tests.
+/// Shared Moq setup for Managed Identity orchestrator unit tests. Create the pipeline mock with
+/// <see cref="MockBehavior.Strict"/> so any request a test did not set up throws <see cref="MockException"/>,
+/// which proves the validation under test ran before the network.
 /// </summary>
 internal static class IdentityProcessorTestHelpers
 {
@@ -17,33 +21,29 @@ internal static class IdentityProcessorTestHelpers
 
     internal const string MissingIdentityAddressMessage = "Provide either --ids, or both --name and --resource-group.";
 
-    /// <summary>Creates an initialized processor whose pipeline fails the test if any request is sent.</summary>
-    internal static T CreateProcessor<T>(Profile? profile = null) where T : IProcessor, new()
-        => CreateProcessor<T>(NoRequestPipeline(), profile);
+    internal const string InvalidResourceIdMessage =
+        "Invalid managed identity resource id 'not-a-resource-id'. Expected /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{resourceName}.";
 
-    internal static T CreateProcessor<T>(IRuntimeHttpPipeline pipeline, Profile? profile = null) where T : IProcessor, new()
+    /// <summary>Initializes <paramref name="processor"/> with <paramref name="mockPipeline"/> and returns it.</summary>
+    internal static T Initialize<T>(T processor, Mock<IRuntimeHttpPipeline> mockPipeline) where T : IProcessor
     {
-        profile ??= new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
-        var processor = new T();
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         processor.Init(new ProcessorContext(
-            pipeline,
-            new FakeEventPublisher(),
-            new FakeAuthHandler(profile),
-            new FakeOutputHandler(),
+            mockPipeline.Object,
+            Mock.Of<IEventPublisher>(),
+            Mock.Of<IAuthHandler>(a => a.Profile == profile),
+            Mock.Of<IOutputHandler>(),
             Profile: profile));
         return processor;
     }
 
-    /// <summary>
-    /// Any request fails the test with a different exception type, so a passing message assert
-    /// also proves the validation ran before the network.
-    /// </summary>
-    internal static FakeHttpPipeline NoRequestPipeline() =>
-        new((_, _) => throw new InvalidOperationException("Unexpected request."));
-
-    /// <summary>Answers GETs with <paramref name="getBody"/>; any write (PUT/PATCH/DELETE) fails the test.</summary>
-    internal static FakeHttpPipeline GetOnlyPipeline(string getBody) =>
-        new((request, _) => request.Method == HttpMethod.Get
-            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(getBody, Encoding.UTF8, "application/json") }
-            : throw new InvalidOperationException("Unexpected request."));
+    /// <summary>Answers every GET with <paramref name="body"/>; any other request still throws on a strict mock.</summary>
+    internal static void RespondToGet(this Mock<IRuntimeHttpPipeline> mockPipeline, string body) =>
+        mockPipeline
+            .Setup(p => p.SendAsync(It.Is<HttpRequestMessage>(r => r.Method == HttpMethod.Get), It.IsAny<IEventPublisher>()))
+            .ReturnsAsync((HttpRequestMessage request, IEventPublisher _) => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                RequestMessage = request,
+            });
 }

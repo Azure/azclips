@@ -10,9 +10,6 @@ public class ManagedIdentityResolverTests
 {
     private const string MissingAddressMessage = "Provide either --ids, or both --name and --resource-group.";
 
-    private static string InvalidIdMessage(string id) =>
-        $"Invalid managed identity resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{{resourceName}}.";
-
     [Theory]
     [InlineData(null, null)]
     [InlineData("id1", null)]
@@ -23,14 +20,18 @@ public class ManagedIdentityResolverTests
     [InlineData("id1", "   ")]
     public void ValidateInputs_MissingOrBlankNameOrResourceGroup_ThrowsInvalidInput(string? name, string? resourceGroup)
     {
-        var ex = Assert.Throws<InvalidInputException>(() => ManagedIdentityResolver.ValidateInputs(resourceGroup, name));
+        Exception? exception = Record.Exception(() => ManagedIdentityResolver.ValidateInputs(resourceGroup, name));
 
-        Assert.Equal(MissingAddressMessage, ex.Message);
+        Assert.Equal(MissingAddressMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
-    public void ValidateInputs_NameAndResourceGroup_DoesNotThrow() =>
-        Assert.Null(Record.Exception(() => ManagedIdentityResolver.ValidateInputs("rg1", "id1")));
+    public void ValidateInputs_NameAndResourceGroup_DoesNotThrow()
+    {
+        Exception? exception = Record.Exception(() => ManagedIdentityResolver.ValidateInputs("rg1", "id1"));
+
+        Assert.Null(exception);
+    }
 
     [Theory]
     [InlineData(null)]
@@ -38,9 +39,9 @@ public class ManagedIdentityResolverTests
     [InlineData("   ")]
     public void ParseResourceId_NullOrBlank_ThrowsInvalidInput(string? id)
     {
-        var ex = Assert.Throws<InvalidInputException>(() => ManagedIdentityResolver.ParseResourceId(id!));
+        Exception? exception = Record.Exception(() => ManagedIdentityResolver.ParseResourceId(id!));
 
-        Assert.Equal("Identity resource id cannot be empty.", ex.Message);
+        Assert.Equal("Identity resource id cannot be empty.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -55,14 +56,21 @@ public class ManagedIdentityResolverTests
     [InlineData("/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/systemAssignedIdentities/mi")]
     public void ParseResourceId_InvalidFormat_ThrowsInvalidInput(string id)
     {
-        var ex = Assert.Throws<InvalidInputException>(() => ManagedIdentityResolver.ParseResourceId(id));
+        Exception? exception = Record.Exception(() => ManagedIdentityResolver.ParseResourceId(id));
 
-        Assert.Equal(InvalidIdMessage(id), ex.Message);
+        Assert.Equal(InvalidIdMessage(id), Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
     [InlineData("/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi")]
     [InlineData(" /SUBSCRIPTIONS/s/RESOURCEGROUPS/rg/providers/microsoft.managedidentity/USERASSIGNEDIDENTITIES/mi/ ")]
-    public void ParseResourceId_ValidId_ReturnsParts(string id) =>
-        Assert.Equal(("s", "rg", "mi"), ManagedIdentityResolver.ParseResourceId(id));
+    public void ParseResourceId_ValidId_ReturnsParts(string id)
+    {
+        var parts = ManagedIdentityResolver.ParseResourceId(id);
+
+        Assert.Equal(("s", "rg", "mi"), parts);
+    }
+
+    private string InvalidIdMessage(string id) =>
+        $"Invalid managed identity resource id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{{resourceName}}.";
 }

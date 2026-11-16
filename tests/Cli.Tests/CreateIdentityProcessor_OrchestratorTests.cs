@@ -3,7 +3,9 @@
 
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
+using Moq;
 using static Cli.Tests.IdentityProcessorTestHelpers;
 
 namespace Cli.Tests;
@@ -12,33 +14,41 @@ namespace Cli.Tests;
 // parses both before any request.
 public class CreateIdentityProcessor_OrchestratorTests
 {
-    private static CreateIdentityProcessor_Orchestrator CreateValid()
-    {
-        var processor = CreateProcessor<CreateIdentityProcessor_Orchestrator>();
-        processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroup = "rg1";
-        processor.ResourceName = "id1";
-        processor.Location = "eastus";
-        return processor;
-    }
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     [Fact]
     public async Task ProcessAsync_InvalidTags_ThrowsInvalidInput()
     {
-        var processor = CreateValid();
-        processor.TagsInput = ["badtag-without-equals"];
+        var processor = CreateOrchestrator(tagsInput: ["badtag-without-equals"], resourceRestriction: null);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Invalid dictionary entry 'badtag-without-equals'. Expected KEY=VALUE format.", ex.Message);
+        Assert.Equal(
+            "Invalid dictionary entry 'badtag-without-equals'. Expected KEY=VALUE format.",
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
+    // Malformed JSON surfaces the framework JsonException (a derived type), not a custom message.
     [Fact]
     public async Task ProcessAsync_InvalidResourceRestrictionJson_ThrowsJsonException()
     {
-        var processor = CreateValid();
-        processor.ResourceRestriction = ["{bad-json"];
+        var processor = CreateOrchestrator(tagsInput: null, resourceRestriction: ["{bad-json"]);
 
-        await Assert.ThrowsAnyAsync<JsonException>(processor.ProcessAsync);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.IsAssignableFrom<JsonException>(exception);
     }
+
+    private CreateIdentityProcessor_Orchestrator CreateOrchestrator(string[]? tagsInput, string[]? resourceRestriction) =>
+        Initialize(
+            new CreateIdentityProcessor_Orchestrator
+            {
+                SubscriptionId = TestSubscriptionId,
+                ResourceGroup = "rg1",
+                ResourceName = "id1",
+                Location = "eastus",
+                TagsInput = tagsInput,
+                ResourceRestriction = resourceRestriction,
+            },
+            _mockPipeline);
 }

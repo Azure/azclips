@@ -3,80 +3,95 @@
 
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
+using Moq;
 using static Cli.Tests.IdentityProcessorTestHelpers;
 
 namespace Cli.Tests;
 
-// ManagedIdentityResolverTests covers every input case; these prove the orchestrator calls each check before any request.
+// ManagedIdentityResolverTests and IdentityCliArgumentParserTests cover every input case; these prove the
+// orchestrator calls each check before any write.
 public class UpdateIdentityProcessor_OrchestratorTests
 {
+    private const string ExistingIdentity =
+        """{ "name": "id1", "location": "eastus", "tags": { "env": "dev" }, "properties": { "isolationScope": "None" } }""";
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
+
     [Fact]
     public async Task ProcessAsync_MissingNameAndResourceGroup_ThrowsInvalidInput()
     {
-        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(profile: null);
+        var processor = Initialize(new UpdateIdentityProcessor_Orchestrator(), _mockPipeline);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal(MissingIdentityAddressMessage, ex.Message);
+        Assert.Equal(MissingIdentityAddressMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_InvalidResourceId_ThrowsInvalidInput()
     {
-        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(profile: null);
-        processor.Ids = ["not-a-resource-id"];
+        var processor = Initialize(new UpdateIdentityProcessor_Orchestrator { Ids = ["not-a-resource-id"] }, _mockPipeline);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal(
-            "Invalid managed identity resource id 'not-a-resource-id'. Expected /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{resourceName}.",
-            ex.Message);
+        Assert.Equal(InvalidResourceIdMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
-    // IdentityCliArgumentParserTests covers every tag and resource-restriction case.
+
     [Fact]
     public async Task ProcessAsync_InvalidTags_ThrowsInvalidInput()
     {
-        var processor = CreateValid();
-        processor.TagsInput = ["badtag-without-equals"];
+        var processor = CreateOrchestrator(tagsInput: ["badtag-without-equals"], resourceRestriction: null);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Invalid dictionary entry 'badtag-without-equals'. Expected KEY=VALUE format.", ex.Message);
+        Assert.Equal(
+            "Invalid dictionary entry 'badtag-without-equals'. Expected KEY=VALUE format.",
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
+    // Malformed JSON surfaces the framework JsonException (a derived type), not a custom message.
     [Fact]
     public async Task ProcessAsync_InvalidResourceRestrictionJson_ThrowsJsonException()
     {
-        var processor = CreateValid();
-        processor.ResourceRestriction = ["{bad-json"];
+        var processor = CreateOrchestrator(tagsInput: null, resourceRestriction: ["{bad-json"]);
 
-        await Assert.ThrowsAnyAsync<JsonException>(processor.ProcessAsync);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.IsAssignableFrom<JsonException>(exception);
     }
 
+    // --force-string is only parsed after the current identity is fetched, so the GET is allowed but no write is.
     [Fact]
     public async Task ProcessAsync_InvalidForceString_ThrowsInvalidInput()
     {
-        // --force-string is only parsed after the current identity is fetched, so the GET is allowed.
-        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(
-            GetOnlyPipeline("""{ "name": "id1", "location": "eastus", "tags": { "env": "dev" }, "properties": { "isolationScope": "None" } }"""));
-        processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroup = "rg1";
-        processor.ResourceName = "id1";
-        processor.Set = ["properties.isolationScope=Regional"];
-        processor.ForceString = "maybe";
+        _mockPipeline.RespondToGet(ExistingIdentity);
+        var processor = Initialize(
+            new UpdateIdentityProcessor_Orchestrator
+            {
+                SubscriptionId = TestSubscriptionId,
+                ResourceGroup = "rg1",
+                ResourceName = "id1",
+                Set = ["properties.isolationScope=Regional"],
+                ForceString = "maybe",
+            },
+            _mockPipeline);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Invalid --force-string value 'maybe'.", ex.Message);
+        Assert.Equal("Invalid --force-string value 'maybe'.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
-    private static UpdateIdentityProcessor_Orchestrator CreateValid()
-    {
-        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>();
-        processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroup = "rg1";
-        processor.ResourceName = "id1";
-        return processor;
-    }
+    private UpdateIdentityProcessor_Orchestrator CreateOrchestrator(string[]? tagsInput, string[]? resourceRestriction) =>
+        Initialize(
+            new UpdateIdentityProcessor_Orchestrator
+            {
+                SubscriptionId = TestSubscriptionId,
+                ResourceGroup = "rg1",
+                ResourceName = "id1",
+                TagsInput = tagsInput,
+                ResourceRestriction = resourceRestriction,
+            },
+            _mockPipeline);
 }
