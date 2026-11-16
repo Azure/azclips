@@ -231,7 +231,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
             .AddConstraintClauses(
                 TypeParameterConstraintClause(IdentifierName("TRequest")).AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)),
                 TypeParameterConstraintClause(IdentifierName("TResponse")).AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)))
-            .WithLeadingXmlDoc("Generic processor base: ProcessAsync owns lifecycle events and delegates to ExecuteAsync. Pageable processors override execution and page reading independently of output hooks.")
+            .WithLeadingXmlDoc("Generic processor base: ProcessAsync owns lifecycle events and delegates to ExecuteAsync. Pageable processors supply continuation selectors to ReadPagesAsync and customize execution independently of output hooks.")
             .AddMembers(
                 ArrowMethod("TRequest?", "CreateRequestBody", "default", SyntaxKind.ProtectedKeyword, SyntaxKind.OverrideKeyword)
                     .WithLeadingXmlDoc("Typed request-body seam. Null (no body) by default; write processors override to return their TRequest model. Covariantly overrides the non-generic CreateRequestBody."),
@@ -273,26 +273,36 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                         Publisher.Token.ThrowIfCancellationRequested();
                         using HttpResponseMessage response = await SendAsync();
                         return await ReadResponseAsync(response);
-                        """),
+                        """)
+                    .WithLeadingXmlDoc("Reads one response without following continuation links or tokens."),
                 MethodDeclaration(ParseTypeName("Task<TResponse?>"), Identifier("ReadResponseAsync"))
                     .AddModifiers(Token(SyntaxKind.PrivateKeyword), Token(SyntaxKind.AsyncKeyword))
                     .AddParameterListParameters(Parameter(Identifier("response")).WithType(ParseTypeName("HttpResponseMessage")))
                     .WithRawBody(ReadResponseBody),
                 MethodDeclaration(ParseTypeName("IAsyncEnumerable<TResponse>"), Identifier("ReadPagesAsync"))
-                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
-                    .WithRawBody("""
-                        if (await ReadResponseAsync() is { } body)
-                        {
-                            yield return body;
-                        }
-                        """)
-                    .WithLeadingXmlDoc("Reads pages on demand. The default yields a single response; pageable processors supply the continuation strategy. Cancellation uses Publisher.Token."),
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword))
+                    .AddParameterListParameters(Parameter(Identifier("nextLink")).WithType(ParseTypeName("Func<TResponse, string?>")))
+                    .WithExpressionBody(ArrowExpressionClause(ParseExpression(
+                        $"{paginationType}.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)")))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
+                    .WithLeadingXmlDoc("Reads pages lazily using the required next-link selector and Publisher.Token."),
+                MethodDeclaration(ParseTypeName("IAsyncEnumerable<TResponse>"), Identifier("ReadPagesAsync"))
+                    .AddModifiers(Token(SyntaxKind.ProtectedKeyword))
+                    .AddParameterListParameters(
+                        Parameter(Identifier("continuationToken")).WithType(ParseTypeName("Func<TResponse, string?>")),
+                        Parameter(Identifier("setContinuationToken")).WithType(ParseTypeName("Action<string>")))
+                    .WithExpressionBody(ArrowExpressionClause(ParseExpression(
+                        $"{paginationType}.ReadWithTokenAsync(ReadResponseAsync, continuationToken, setContinuationToken, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)")))
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
+                    .WithLeadingXmlDoc("Reads pages lazily using the required token selector and request-token setter. Cancellation uses Publisher.Token."),
                 MethodDeclaration(ParseTypeName("Task"), Identifier("ExecutePagesAsync"))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.AsyncKeyword))
                     .AddTypeParameterListParameters(TypeParameter("TItem"))
-                    .AddParameterListParameters(Parameter(Identifier("pageItems")).WithType(ParseTypeName("Func<TResponse, IEnumerable<TItem>?>")))
+                    .AddParameterListParameters(
+                        Parameter(Identifier("pages")).WithType(ParseTypeName("IAsyncEnumerable<TResponse>")),
+                        Parameter(Identifier("pageItems")).WithType(ParseTypeName("Func<TResponse, IEnumerable<TItem>?>")))
                     .WithRawBody($$"""
-                        List<TItem> items = await {{paginationType}}.CollectItemsAsync(ReadPagesAsync(), pageItems);
+                        List<TItem> items = await {{paginationType}}.CollectItemsAsync(pages, pageItems);
                         await WriteOutput(items);
                         """)
                     .WithLeadingXmlDoc("Default paged execution collects all items before one write. Override ExecuteAsync to consume pages differently or transform collected items."),

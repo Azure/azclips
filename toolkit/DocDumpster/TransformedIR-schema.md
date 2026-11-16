@@ -331,8 +331,16 @@ in the generator assembly. ExtensionRuntime links that same source to preserve e
 callers without maintaining a second copy. Helper changes ship to generated extensions
 through regeneration and rebuilding.
 
-Generated pageable processors override `ReadPagesAsync` to select the local helper's lazy
-next-link or token iterator, and `ExecuteAsync` to consume it through `ExecutePagesAsync`.
+`ReadResponseAsync()` reads one response without following continuation. `ReadPagesAsync`
+always uses a pagination strategy supplied through required arguments: a next-link
+selector, or a token selector plus request-token setter. There is no parameterless
+single-page fallback. The shared processor base delegates these reads to the extension-local
+helper's lazy iterators; individual processors supply only selectors and token setters.
+Items-only pagination supplies a next-link selector returning `null`, preserving its
+first-page-only behavior.
+
+Generated pageable processors override `ExecuteAsync` to consume the explicitly configured
+pages through `ExecutePagesAsync(pages, pageItems)`, without overriding `ReadPagesAsync`.
 `ProcessAsync` still owns lifecycle events for both CLI and PowerShell. The default
 execution collects all items and writes once, preserving existing output; custom
 execution can collect and transform before output.
@@ -345,7 +353,7 @@ Pagination is no longer generated into `BeforeWriteOutputAsyncAndReturn`; that h
 remains available for single-response output customizations. Existing collection and
 write helpers remain compatible and now consume the same lazy iterators.
 
-For example, the VM list orchestrator overrides `ExecuteAsync` to collect `ReadPagesAsync`,
+For example, the VM list orchestrator overrides `ExecuteAsync` to collect `ReadPagesAsync(nextLink)`,
 then filter by name, enrich only the matching VMs, and write once. It shares the atomic
 VM list processor's next-link strategy without fetching any pages in its output hook.
 Collection finishes before enrichment, so a failed later page produces no partial output

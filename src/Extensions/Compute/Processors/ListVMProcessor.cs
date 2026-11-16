@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors;
@@ -47,11 +46,8 @@ public class ListVMProcessor : ComputeProcessorBase<object, VirtualMachineListRe
         return string.IsNullOrWhiteSpace(Filter) ? uri : $"{uri}&$filter={Uri.EscapeDataString(Filter)}";
     }
 
-    private string? nextLink(VirtualMachineListResult body) => body.NextLink;
+    protected string? nextLink(VirtualMachineListResult body) => body.NextLink;
     private VirtualMachine[]? pageItems(VirtualMachineListResult body) => body.Value;
 
-    protected override IAsyncEnumerable<VirtualMachineListResult> ReadPagesAsync() =>
-        Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline);
-
-    protected override Task ExecuteAsync() => ExecutePagesAsync(pageItems);
+    protected override Task ExecuteAsync() => ExecutePagesAsync(ReadPagesAsync(nextLink), pageItems);
 }

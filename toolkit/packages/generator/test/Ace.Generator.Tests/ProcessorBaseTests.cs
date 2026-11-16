@@ -84,10 +84,14 @@ public sealed class ProcessorBaseTests
         Assert.Contains("BeforeProcessAsync()", src);
         Assert.Contains("BeforeWriteOutputAsyncAndReturn(TResponse? body)", src);
         Assert.Contains("protected virtual async Task ExecuteAsync()", src);
-        Assert.Contains("protected virtual async IAsyncEnumerable<TResponse> ReadPagesAsync()", src);
+        Assert.Contains("protected IAsyncEnumerable<TResponse> ReadPagesAsync(Func<TResponse, string?> nextLink)", src);
+        Assert.Contains("protected IAsyncEnumerable<TResponse> ReadPagesAsync(Func<TResponse, string?> continuationToken, Action<string> setContinuationToken)", src);
+        Assert.DoesNotContain("ReadPagesAsync()", src);
+        Assert.Contains("global::Azure.ElasticSan.Processors.Pagination.ReadWithNextLinkAsync", src);
+        Assert.Contains("global::Azure.ElasticSan.Processors.Pagination.ReadWithTokenAsync", src);
         Assert.Contains("protected async Task ExecutePagesAsync<TItem>", src);
         Assert.Contains("await ExecuteAsync();", src);
-        Assert.Contains("global::Azure.ElasticSan.Processors.Pagination.CollectItemsAsync(ReadPagesAsync(), pageItems)", src);
+        Assert.Contains("global::Azure.ElasticSan.Processors.Pagination.CollectItemsAsync(pages, pageItems)", src);
         Assert.Contains("ReadResponseAsync(HttpResponseMessage response)", src);
         Assert.Contains("return await ReadResponseAsync(response);", src);
         Assert.Contains("TResponse? body = await ReadResponseAsync(response);", src);

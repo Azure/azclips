@@ -152,7 +152,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 
     /// <summary>
     /// Generic compute processor base. ProcessAsync owns lifecycle events; ExecuteAsync
-    /// handles a single response by default. Pageable processors override execution and page reading.
+    /// handles a single response by default. Pageable processors supply continuation selectors to ReadPagesAsync.
     /// </summary>
     public partial class ComputeProcessorBase<TRequest, TResponse> : ComputeProcessorBase
         where TRequest : class
@@ -182,6 +182,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         protected virtual Task<TResponse?> DeserializeResponseAsync(string rawBody) =>
             Task.FromResult(JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions));
 
+        /// <summary>Reads one response without following continuation links or tokens.</summary>
         protected async Task<TResponse?> ReadResponseAsync()
         {
             Publisher.Token.ThrowIfCancellationRequested();
@@ -210,19 +211,18 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
             return body;
         }
 
-        /// <summary>Reads pages on demand using the execution publisher's cancellation token.</summary>
-        protected virtual async IAsyncEnumerable<TResponse> ReadPagesAsync()
-        {
-            if (await ReadResponseAsync() is { } body)
-            {
-                yield return body;
-            }
-        }
+        /// <summary>Reads pages lazily using the required next-link selector and Publisher.Token.</summary>
+        protected IAsyncEnumerable<TResponse> ReadPagesAsync(Func<TResponse, string?> nextLink) =>
+            Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline);
+
+        /// <summary>Reads pages lazily using the required token selector and request-token setter.</summary>
+        protected IAsyncEnumerable<TResponse> ReadPagesAsync(Func<TResponse, string?> continuationToken, Action<string> setContinuationToken) =>
+            Pagination.ReadWithTokenAsync(ReadResponseAsync, continuationToken, setContinuationToken, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline);
 
         /// <summary>Collects all page items before one write. Override ExecuteAsync for other consumption policies.</summary>
-        protected async Task ExecutePagesAsync<TItem>(Func<TResponse, IEnumerable<TItem>?> pageItems)
+        protected async Task ExecutePagesAsync<TItem>(IAsyncEnumerable<TResponse> pages, Func<TResponse, IEnumerable<TItem>?> pageItems)
         {
-            List<TItem> items = await ReadPagesAsync().CollectItemsAsync(pageItems);
+            List<TItem> items = await pages.CollectItemsAsync(pageItems);
             await WriteOutput(items);
         }
 

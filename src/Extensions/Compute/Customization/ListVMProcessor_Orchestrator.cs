@@ -52,7 +52,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         /// </summary>
         protected override async Task ExecuteAsync()
         {
-            List<VirtualMachine> virtualMachines = await ReadPagesAsync()
+            List<VirtualMachine> virtualMachines = await ReadPagesAsync(nextLink)
                 .CollectItemsAsync(pageBody => pageBody.Value);
 
             if (!string.IsNullOrWhiteSpace(Name))

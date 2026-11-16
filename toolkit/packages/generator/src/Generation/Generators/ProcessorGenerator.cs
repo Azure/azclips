@@ -572,7 +572,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     // ── Pagination ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Supplies page selectors, a lazy ReadPagesAsync strategy and an ExecuteAsync override.
+    /// Supplies page selectors and an ExecuteAsync override that configures the base's lazy page reader.
     /// The generated helper owns continuation requests; the base's default paged execution collects
     /// all items before output without performing network operations in an output hook.
     /// </summary>
@@ -610,23 +610,18 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
         yield return MethodDeclaration(ParseTypeName("string?"), Identifier(nextMember))
-            .AddModifiers(Token(SyntaxKind.PrivateKeyword))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword))
             .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType)))
             .WithExpressionBody(ArrowExpressionClause(ParseExpression(nextExpression)))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
         string read = continuation is not null
-            ? $"{context.Placement.PaginationTypeReference}.ReadWithTokenAsync(ReadResponseAsync, continuationToken, token => {continuation.Parameter} = token, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)"
-            : $"{context.Placement.PaginationTypeReference}.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)";
-
-        yield return MethodDeclaration(ParseTypeName($"IAsyncEnumerable<{listResultType}>"), Identifier("ReadPagesAsync"))
-            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
-            .WithExpressionBody(ArrowExpressionClause(ParseExpression(read)))
-            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+            ? $"ReadPagesAsync(continuationToken, token => {continuation.Parameter} = token)"
+            : "ReadPagesAsync(nextLink)";
 
         yield return MethodDeclaration(ParseTypeName("Task"), Identifier("ExecuteAsync"))
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
-            .WithExpressionBody(ArrowExpressionClause(ParseExpression($"ExecutePagesAsync<{itemType}>(pageItems)")))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression($"ExecutePagesAsync<{itemType}>({read}, pageItems)")))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
     }
 

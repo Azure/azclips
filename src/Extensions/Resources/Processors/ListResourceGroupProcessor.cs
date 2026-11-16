@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
@@ -20,12 +19,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
         protected override string CreateRequestUri() =>
             $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups?api-version=2025-04-01";
 
-        private string? nextLink(ResourceGroupListResult body) => body.NextLink;
+        protected string? nextLink(ResourceGroupListResult body) => body.NextLink;
         private ResourceGroup[]? pageItems(ResourceGroupListResult body) => body.Value;
 
-        protected override IAsyncEnumerable<ResourceGroupListResult> ReadPagesAsync() =>
-            Pagination.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline);
-
-        protected override Task ExecuteAsync() => ExecutePagesAsync(pageItems);
+        protected override Task ExecuteAsync() => ExecutePagesAsync(ReadPagesAsync(nextLink), pageItems);
     }
 }

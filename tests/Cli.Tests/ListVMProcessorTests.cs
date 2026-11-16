@@ -207,7 +207,7 @@ public class ListVMProcessorTests
 
     private sealed class InspectableListProcessor : ListVMProcessor
     {
-        public IAsyncEnumerable<VirtualMachineListResult> Pages() => ReadPagesAsync();
+        public IAsyncEnumerable<VirtualMachineListResult> Pages() => ReadPagesAsync(nextLink);
     }
 
     private sealed class HookObservingOrchestrator : ListVMProcessor_Orchestrator

@@ -166,7 +166,7 @@ public class ResourceGroupReadTests
 
     private sealed class InspectableListProcessor : ListResourceGroupProcessor
     {
-        public IAsyncEnumerable<ResourceGroupListResult> Pages() => ReadPagesAsync();
+        public IAsyncEnumerable<ResourceGroupListResult> Pages() => ReadPagesAsync(nextLink);
     }
 
     private sealed class SinglePageListProcessor : ListResourceGroupProcessor
@@ -175,7 +175,7 @@ public class ResourceGroupReadTests
 
         protected override async Task ExecuteAsync()
         {
-            await foreach (ResourceGroupListResult page in ReadPagesAsync())
+            await foreach (ResourceGroupListResult page in ReadPagesAsync(nextLink))
             {
                 await WriteOutput(Assert.IsType<ResourceGroup[]>(page.Value));
                 break;
