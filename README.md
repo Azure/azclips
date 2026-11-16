@@ -15,7 +15,7 @@ The architecture used for these commands allows execution in secure, constrained
 ## Preview capabilities (<sub>[What's new](docs/azure-cli/docs-conceptual/whats-new.md)</sub>)
 
 - **Profile-based login** — sign in and manage which subscription and context your commands run against.
-- **SubscriptionId supported on all commands** - support specifying a different subscription for each command. 
+- **Per-command subscription selection** — specify a different subscription on commands that expose `--subscription-id` (CLI) or `-SubscriptionId` (PowerShell).
 - **Faster tab completion** — press <kbd>Tab</kbd> to complete command groups, subcommands, and parameters, resolved against the installed CLI.
 - **AI-assisted error recovery** — when a command fails, an integrated AI model explains what went wrong and suggests a guided fix. See [AI-based error recovery](./docs/azure-cli/docs-conceptual/ai-based-error-recovery.md).
 
