@@ -1,0 +1,39 @@
+description: "[read/missing-param] disk-list-missing-rg"
+metadata:
+  mode: read
+  failureType: missing-param
+vars:
+  case_id: disk-list-missing-rg
+  command_group: disk
+  goal: List managed disks; the resource group was omitted.
+  command: disk list
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az disk list
+          match: all
+          requiredArguments:
+            - --resource-group
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az disk list
+        - az group list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List managed disks; the resource group was omitted."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - A cryptic api-version error masks a missing resource group.

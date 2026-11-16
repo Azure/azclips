@@ -1,0 +1,46 @@
+description: "[mutate/missing-param] nic-create-missing-subnet"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: nic-create-missing-subnet
+  command_group: network
+  goal: Create NIC azclips-eval-nic on the named VNet.
+  command: network nic create --name azclips-eval-nic --resource-group azclips-test-rg --location eastus --vnet-name azclips-eval-vnet-404
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network nic create
+          match: all
+          requiredArguments:
+            - --subnet
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-nic
+            --resource-group: azclips-test-rg
+            --location: eastus
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network nic create
+        - az network vnet create
+        - az network vnet subnet create
+        - az network vnet show
+        - az network vnet subnet list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create NIC azclips-eval-nic on the named VNet."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Creating the VNet/subnet first is a legitimate prerequisite.

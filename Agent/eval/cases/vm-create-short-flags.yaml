@@ -1,4 +1,8 @@
 description: vm create with short flags -n/-g → plan must use long flags
+metadata:
+  mode: mutate
+  failureType: flag-typo
+  original: true
 vars:
   case_id: vm-create-long-flags
   command_group: vm

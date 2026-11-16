@@ -1,4 +1,8 @@
 description: config get with an unknown key -> provide a usable configuration read path
+metadata:
+  mode: read
+  failureType: invalid-value
+  original: true
 vars:
   case_id: config-get-unknown-key
   command_group: config

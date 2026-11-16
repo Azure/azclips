@@ -1,0 +1,37 @@
+description: "[read/flag-typo] config-get-flag-typo"
+metadata:
+  mode: read
+  failureType: flag-typo
+vars:
+  case_id: config-get-flag-typo
+  command_group: config
+  goal: Read the agent.provider setting.
+  command: config get --kye agent.provider
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az config get
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --key: agent.provider
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az config get
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Read the agent.provider setting."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

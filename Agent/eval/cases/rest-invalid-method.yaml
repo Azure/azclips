@@ -1,4 +1,8 @@
 description: rest with an invalid HTTP method -> corrected to get
+metadata:
+  mode: read
+  failureType: invalid-value
+  original: true
 vars:
   case_id: rest-invalid-method
   command_group: rest

@@ -1,0 +1,43 @@
+description: "[mutate/group-typo] vm-restart-unsupported"
+metadata:
+  mode: mutate
+  failureType: group-typo
+vars:
+  case_id: vm-restart-unsupported
+  command_group: vm
+  goal: Restart the named VM.
+  command: vm restart --name azclips-eval-vm-404 --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm start
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-vm-404
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm stop
+        - az vm deallocate
+        - az vm start
+        - az vm show
+        - az rest
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Restart the named VM."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - This CLI has no vm restart. Stop then start, or a POST to the ARM restart action, is acceptable. Do not invent vm restart.

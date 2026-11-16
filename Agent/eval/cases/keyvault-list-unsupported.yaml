@@ -1,0 +1,36 @@
+description: "[read/group-typo] keyvault-list-unsupported"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: keyvault-list-unsupported
+  command_group: keyvault
+  goal: List key vaults in azclips-test-rg.
+  command: keyvault list --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az rest
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az rest
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List key vaults in azclips-test-rg."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - This CLI has no keyvault list. A GET with the generic REST command on the ARM Microsoft.KeyVault/vaults collection in the same group is the expected path. Do not invent keyvault list.

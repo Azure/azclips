@@ -1,0 +1,42 @@
+description: "[mutate/invalid-value] deployment-create-bad-mode"
+metadata:
+  mode: mutate
+  failureType: invalid-value
+vars:
+  case_id: deployment-create-bad-mode
+  command_group: deployment
+  goal: Deploy the template incrementally.
+  command: deployment group create --resource-group azclips-test-rg --name azclips-eval-web2 --template-file fixtures/web-app.bicep --mode Incrementl
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az deployment group create
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --resource-group: azclips-test-rg
+            --name: azclips-eval-web2
+            --template-file: fixtures/web-app.bicep
+          pathArguments:
+            - --template-file
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az deployment group create
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Deploy the template incrementally."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Must use Incremental or omit --mode; must not switch to Complete.

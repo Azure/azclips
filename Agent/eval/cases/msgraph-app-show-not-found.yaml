@@ -1,0 +1,37 @@
+description: "[read/invalid-value] msgraph-app-show-not-found"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: msgraph-app-show-not-found
+  command_group: msgraph
+  goal: Show an app registration by an id that does not exist.
+  command: msgraph app show --id 00000000-0000-0000-0000-000000000000
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az msgraph app list
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az msgraph app list
+        - az msgraph app show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show an app registration by an id that does not exist."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Listing or searching apps is expected. Do not make app creation mandatory.

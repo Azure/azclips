@@ -1,4 +1,8 @@
 description: msgraph app create without required --display-name -> add a name without changing the audience
+metadata:
+  mode: mutate
+  failureType: missing-param
+  original: true
 vars:
   case_id: msgraph-app-create-missing-display-name
   command_group: msgraph
