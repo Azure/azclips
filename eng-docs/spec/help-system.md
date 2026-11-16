@@ -146,7 +146,9 @@ relatedLinks:
     - az logout
 ---
 
-Description: Multi-paragraph explanation in the body.
+Description: First paragraph of the explanation in the body.
+
+Additional paragraphs can follow after a blank line.
 
 ### Login with subscription id (CLI)
 
@@ -160,6 +162,10 @@ az login --subscription-id 00000000-0000-0000-0000-000000000000
 Connect-AzAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
 ````
+
+Description parsing preserves paragraph breaks and joins wrapped lines within each
+paragraph with spaces. The description ends at the next heading, code fence, or
+end of the file.
 
 **Surface differentiation is driven by the code-fence language tag** (`bash`/`sh` → CLI, `powershell`/`pwsh` → PowerShell). The `(CLI)` / `(PowerShell)` H3 suffix is cosmetic — it disambiguates for the human reader; the parser ignores it.
 
