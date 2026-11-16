@@ -41,7 +41,7 @@ public class EnvironmentProberTests
     [InlineData("{\"error\":\"help_catalog_regeneration_failed\"}")]
     [InlineData("{\"error\":\"help_catalog_unavailable\",\"hint\":\"Run 'az agent tool docs generate' to rebuild the help catalog.\"}")]
     [InlineData("not json")]
-    public async Task CatalogUnreadable_GroupsAreUnknown_AndEnvironmentShowsNeitherLine(string catalog)
+    public async Task CatalogUnreadable_GroupsAreUnknown_AndEnvironmentShowsBothUnknownLines(string catalog)
     {
         var hints = Hints(("vm", "azclips.compute"), ("aks", "azclips.aks"));
         var prober = new EnvironmentProber(new StubProfileService(), flavor: "cli", azclipsVersion: "1",
@@ -52,8 +52,9 @@ public class EnvironmentProberTests
 
         Assert.Null(snapshot.CommandGroups);
         Assert.Null(snapshot.InstallableGroups);
+        Assert.Contains("command-groups: unknown (help catalog could not be read; use get_command to check whether a command exists)\n", block);
+        Assert.Contains("installable-command-groups: unknown\n", block);
         Assert.Contains("</environment>", block);
-        Assert.DoesNotContain("command-groups", block);
     }
 
     [Fact]

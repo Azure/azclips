@@ -115,15 +115,25 @@ public class EnvSnapshotFormatterTests
                     < block.IndexOf("</environment>", StringComparison.Ordinal));
     }
 
-    [Theory]
-    [InlineData("""{ "signedIn": true, "commandGroups": [] }""")]
-    [InlineData("""{ "signedIn": true }""")]
-    public void CommandGroups_EmptyOrMissing_OmitsSection(string json)
+    [Fact]
+    public void CommandGroups_Empty_OmitsSection()
     {
-        var block = EnvSnapshotFormatter.Format(json);
+        var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": [] }""");
 
         Assert.Contains("<environment>", block);
         Assert.DoesNotContain("command-groups", block);
+    }
+
+    [Theory]
+    [InlineData("""{ "signedIn": true }""")]
+    [InlineData("""{ "signedIn": true, "commandGroups": null, "installableGroups": null }""")]
+    public void CommandGroups_Missing_ShowsUnknown(string json)
+    {
+        var block = EnvSnapshotFormatter.Format(json);
+
+        Assert.Contains("command-groups: unknown (help catalog could not be read; use get_command to check whether a command exists)\n", block);
+        Assert.Contains("installable-command-groups: unknown\n", block);
+        Assert.EndsWith("</environment>", block);
     }
 
     [Fact]
@@ -155,7 +165,7 @@ public class EnvSnapshotFormatterTests
     {
         var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": ["vm"] }""");
 
-        Assert.Contains("command-groups", block);
+        Assert.Contains("command-groups (installed; not runnable by themselves)\n  vm\n", block);
         Assert.DoesNotContain("installable-command-groups", block);
     }
 }

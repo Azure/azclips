@@ -50,6 +50,17 @@ internal static class EnvSnapshotFormatter
             sb.Append("  version: ").Append(GetString(root, "azclipsVersion", "unknown")).Append('\n');
             sb.Append("  flavor: ").Append(GetString(root, "flavor", "unknown")).Append('\n');
 
+            // An absent or non-array commandGroups means the help catalog could not be read;
+            // an empty array means it was read and lists no groups.
+            if (!root.TryGetProperty("commandGroups", out var groupsElement)
+                || groupsElement.ValueKind != JsonValueKind.Array)
+            {
+                sb.Append("command-groups: unknown (help catalog could not be read; use get_command to check whether a command exists)\n");
+                sb.Append("installable-command-groups: unknown\n");
+                sb.Append("</environment>");
+                return sb.ToString();
+            }
+
             var groups = GetStrings(root, "commandGroups");
             if (groups.Count > 0)
             {
