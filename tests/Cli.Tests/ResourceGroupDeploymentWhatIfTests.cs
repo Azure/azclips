@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using static Cli.Tests.DeploymentProcessorTestKit;
@@ -86,4 +87,43 @@ public class ResourceGroupDeploymentWhatIfTests
         Assert.Contains("storageAccountName", error.Message);
         Assert.Empty(output.WrittenValues);
     }
+
+    [Fact]
+    public async Task ProcessAsync_InvalidResultFormat_ThrowsInvalidInput()
+    {
+        var processor = WhatIf(ThrowingPipeline(), new FakeOutputHandler());
+        processor.ResultFormat = "ResourceId";
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessAsync_MissingResourceGroupName_ThrowsInvalidInput(string? resourceGroupName)
+    {
+        var processor = WhatIf(ThrowingPipeline(), new FakeOutputHandler());
+        processor.ResourceGroupName = resourceGroupName!;
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("ResourceGroupName must be provided.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_InvalidMode_ThrowsInvalidInput()
+    {
+        var processor = WhatIf(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Mode = "Partial";
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Mode must be either 'Incremental' or 'Complete'.", ex.Message);
+    }
+
+    private static FakeHttpPipeline ThrowingPipeline() =>
+        new((_, _) => throw new InvalidOperationException("Unexpected request."));
 }

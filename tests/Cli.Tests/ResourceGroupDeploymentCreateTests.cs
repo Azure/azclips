@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Net;
+using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using static Cli.Tests.DeploymentProcessorTestKit;
 
@@ -103,4 +104,45 @@ public class ResourceGroupDeploymentCreateTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task ProcessAsync_BothRollbackOptions_ThrowsInvalidInput()
+    {
+        // Current behaviour: the message names PowerShell parameters even for CLI users, and validate throws ArgumentException for the same rule.
+        var processor = Create(ThrowingPipeline(), new FakeOutputHandler());
+        processor.RollbackOnError = true;
+        processor.RollbackToDeploymentName = "previous";
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessAsync_MissingResourceGroupName_ThrowsInvalidInput(string? resourceGroupName)
+    {
+        var processor = Create(ThrowingPipeline(), new FakeOutputHandler());
+        processor.ResourceGroupName = resourceGroupName!;
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("ResourceGroupName must be provided.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_InvalidMode_ThrowsInvalidInput()
+    {
+        var processor = Create(ThrowingPipeline(), new FakeOutputHandler());
+        processor.Mode = "Partial";
+
+        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+
+        Assert.Equal("Mode must be either 'Incremental' or 'Complete'.", ex.Message);
+    }
+
+    private static FakeHttpPipeline ThrowingPipeline() =>
+        new((_, _) => throw new InvalidOperationException("Unexpected request."));
 }
