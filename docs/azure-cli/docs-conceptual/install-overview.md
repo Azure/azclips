@@ -1,17 +1,17 @@
 ---
-title: Install the Azure CLI public preview
-description: Learn how to install the Azure CLI public preview.
+title: Install the Next-Generation Azure CLI public preview
+description: Learn how to install and verify the Next-Generation Azure CLI public preview alongside classic Azure CLI.
 ---
 
-# Install the Azure CLI public preview
+# Install the Next-Generation Azure CLI public preview
 
-The Azure CLI public preview ships as **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). It ships in two flavours:
+The Next-Generation Azure CLI public preview ships as **azcli** — the `az` command-line tool (self-contained; no .NET SDK needed). It ships in two flavours:
 
 - **full** — built-in + add-on extensions bundled.
 - **lean** — built-in extensions only.
 
 > [!NOTE]
-> For the Az PowerShell modules, see the [Azure PowerShell public preview install overview](../../azure-powershell/docs-conceptual/install-overview.md).
+> For the Az PowerShell modules, see the [Next-Generation Azure PowerShell public preview install overview](../../azure-powershell/docs-conceptual/install-overview.md).
 
 ## Install azcli (one command)
 
@@ -60,6 +60,10 @@ By default the installer does **not** modify your `PATH`, so azcli (`az`) instal
   ~/.local/share/azcli/az --help
   ```
 
+  ```powershell
+  & "$env:LOCALAPPDATA\Programs\azcli\az.exe" --help
+  ```
+
 - **Add to `PATH` for this session** (recommended during public preview; does not persist or shadow classic `az` in new shells):
 
   ```bash
@@ -74,6 +78,12 @@ By default the installer does **not** modify your `PATH`, so azcli (`az`) instal
 
 > [!TIP]
 > Want to keep both installed and switch between the classic Azure CLI and the preview build in the same session? See [Switch between the classic Azure CLI and the preview build](./switch-cli-versions.md).
+
+## Sign in and try a command
+
+Continue with [get started with Next-Generation Azure CLI](./getting-started.md) to verify the
+active executable, sign in to Azure, and run a read-only command. Installing the package doesn't
+sign you in to Azure.
 
 ## Uninstall
 

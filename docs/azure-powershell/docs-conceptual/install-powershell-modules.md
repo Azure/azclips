@@ -1,11 +1,13 @@
 ---
-title: Install the Azure PowerShell public preview release
-description: Learn how to install the Az PowerShell modules from the Azure PowerShell public preview release.
+title: Install the Next-Generation Azure PowerShell public preview release
+description: Learn how to install and select the Az modules from the Next-Generation Azure PowerShell public preview release.
 ---
 
-# Install the Azure PowerShell public preview release
+# Install the Next-Generation Azure PowerShell public preview release
 
-> This page covers **azps** (the Az PowerShell modules) — a separate product from azcli. For the CLI, see the [Install Overview](../../azure-cli/docs-conceptual/install-overview.md).
+> This page covers **azps** (the Az PowerShell modules), the PowerShell surface of
+> Next-Generation Azure CLI & Azure PowerShell. For the CLI, see the
+> [installation overview](../../azure-cli/docs-conceptual/install-overview.md).
 
 The Az PowerShell cmdlets ship as NuGet module packages (`Az.*.nupkg`). Each release includes `azps-cmdlets-<version>.tar.gz`, which contains:
 
@@ -86,14 +88,22 @@ After installing the roll-up, start a fresh PowerShell 7.6+ session and explicit
 
 ```powershell
 Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
-Get-Module -Name Az | Select-Object Name, Version
+Get-Module Az, Az.Accounts | Select-Object Name, Version, ModuleBase
 ```
 
-The loaded `Az` version should be in the `0.1.*` range. If you installed a single module instead, replace `Az` in both commands with that module's name, such as `Az.Compute`.
+The loaded `Az` version should be in the `0.1.*` range. If you installed a single module instead,
+replace `Az, Az.Accounts` in the check with that module's name, such as `Az.Compute`, and import
+that module with the same version range. To pin an exact build, use `-RequiredVersion` with the
+installed module's version instead. Leaf module versions can differ from the roll-up version.
 
-The preview installs side by side with classic Azure PowerShell. An unversioned `Import-Module Az` loads the highest installed version, which is classic Az when both are installed. Running a cmdlet before explicitly importing the preview can also autoload classic modules. To change versions, start a new session; see [Switch between classic and preview Azure PowerShell](./switch-azps-versions.md).
+Classic and preview modules share names. An unversioned import loads the highest installed version,
+which is classic Az when both are installed. Running a cmdlet before explicitly importing the
+preview can also autoload classic modules. `Remove-Module` doesn't unload binary assemblies; start
+a new session to switch. See
+[switch between classic and preview modules](./switch-azps-versions.md) for clean-session guidance.
 
-After importing the preview, cmdlets that contact Azure require sign-in (`Connect-AzAccount`) and a subscription.
+Continue with [get started with Next-Generation Azure PowerShell](./getting-started.md) to sign in
+with `Connect-AzAccount`, check your profile, and run a read-only command.
 
 ## Troubleshooting
 
