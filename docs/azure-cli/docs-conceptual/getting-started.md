@@ -67,7 +67,7 @@ The preview implements the following authentication methods:
 | --- | --- |
 | Interactive user | `az login` with `--subscription-id`; optionally specify `--tenant-id`. |
 | Device code | Add `--use-device-code` to user sign-in. |
-| Managed identity | `--identity`; select a user-assigned identity with `--client-id`, `--object-id`, or `--resource-id`. Requires an environment that exposes the identity. |
+| Managed identity | `--identity` with `--subscription-id`; select a user-assigned identity with `--client-id`, `--object-id`, or `--resource-id`. Requires an environment that exposes the identity. |
 | Service principal with a client secret | `--client-id`, `--client-secret`, `--tenant-id`, and `--subscription-id`. |
 | Service principal with workload identity federation (OIDC) | `--service-principal`, `--federated-token`, `--client-id`, `--tenant-id`, and `--subscription-id`. Requires a configured federated credential. |
 
