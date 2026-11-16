@@ -113,42 +113,42 @@ public class RoleAssignmentDeleteTests
     [Fact]
     public async Task Delete_MissingName_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<MissingRequiredArgumentException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
-        });
+        }, "A role assignment name is required. Specify the role assignment name (GUID) to delete.");
     }
 
     [Fact]
     public async Task Delete_NameNotGuid_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Name = "not-a-guid";
-        });
+        }, "The role assignment name 'not-a-guid' must be a GUID.");
     }
 
     [Fact]
     public async Task Delete_ScopeAndResourceGroup_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Scope = $"/subscriptions/{TestSubscriptionId}";
             p.ResourceGroupName = "test-rg";
             p.Name = AssignmentName;
-        });
+        }, "Specify either a scope or a resource group, not both.");
     }
 
     [Fact]
     public async Task Delete_NoScopeAndNoSubscription_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<MissingRequiredArgumentException>(p =>
         {
             // SubscriptionId left empty and no scope provided.
             p.Name = AssignmentName;
-        });
+        }, "A scope is required. Specify a scope or a resource group, or set an active subscription.");
     }
 
     [Fact]
@@ -156,45 +156,45 @@ public class RoleAssignmentDeleteTests
     {
         // Same hardening as create/list: a bound-but-blank scope must not be silently treated as
         // omitted, which would otherwise widen the delete target to the whole subscription.
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Scope = "   ";
             p.Name = AssignmentName;
-        });
+        }, "Scope must not be empty.");
     }
 
     [Fact]
     public async Task Delete_WhitespaceOnlyResourceGroup_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.ResourceGroupName = "   ";
             p.Name = AssignmentName;
-        });
+        }, "Resource group must not be empty.");
     }
 
     [Fact]
     public async Task Delete_EmptyStringScope_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Scope = string.Empty;
             p.Name = AssignmentName;
-        });
+        }, "Scope must not be empty.");
     }
 
     [Fact]
     public async Task Delete_EmptyStringResourceGroup_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.ResourceGroupName = string.Empty;
             p.Name = AssignmentName;
-        });
+        }, "Resource group must not be empty.");
     }
 
     [Theory]
@@ -288,14 +288,31 @@ public class RoleAssignmentDeleteTests
         return (sentUri!, sentMethod!);
     }
 
-    private static async Task AssertThrows(Action<DeleteRoleAssignmentProcessor_Orchestrator> configure)
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessAsync_BlankName_ThrowsMissingRequiredArgument(string name)
+    {
+        DeleteRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(
+            new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Unexpected request.")), new FakeOutputHandler());
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.Name = name;
+
+        MissingRequiredArgumentException ex = await Assert.ThrowsAsync<MissingRequiredArgumentException>(() => processor.ProcessAsync());
+
+        Assert.Equal("A role assignment name is required. Specify the role assignment name (GUID) to delete.", ex.Message);
+    }
+
+    private static async Task AssertThrows<TException>(Action<DeleteRoleAssignmentProcessor_Orchestrator> configure, string expectedMessage)
+        where TException : UsageErrorException
     {
         var output = new FakeOutputHandler();
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
         DeleteRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
         configure(processor);
 
-        UsageErrorException ex = await Assert.ThrowsAnyAsync<UsageErrorException>(() => processor.ProcessAsync());
+        TException ex = await Assert.ThrowsAsync<TException>(() => processor.ProcessAsync());
+        Assert.Equal(expectedMessage, ex.Message);
         Assert.DoesNotContain("--", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
