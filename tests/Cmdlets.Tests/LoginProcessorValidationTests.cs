@@ -807,7 +807,7 @@ public class LoginProcessorValidationTests
     // ── Section 8: tenant/subscription resolution errors (via ProcessAsync) ────────────────────
     // IAuthService and ISubscriptionService are strict and only set up for the calls before the
     // failure, so any extra token or ARM call would throw a different exception and fail the test.
-    // IProfileService is not registered, so a profile save would also fail the test.
+    // IProfileService retains its default file-backed registration; these tests do not guard against profile saves.
 
     private static LoginProcessor ProcessorForResolution(ClientType surface, Mock<IAuthService> auth,
         Mock<ISubscriptionService> subs, LoginProcessor processor)
