@@ -4,6 +4,7 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
@@ -11,6 +12,7 @@ using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 
 namespace Cli.Tests;
 
@@ -25,6 +27,8 @@ public class RoleAssignmentDeleteTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
     private const string AssignmentName = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     [Fact]
     public void CliMetadata_ExposesRoleAssignmentDelete()
@@ -293,14 +297,13 @@ public class RoleAssignmentDeleteTests
     [InlineData("   ")]
     public async Task ProcessAsync_BlankName_ThrowsMissingRequiredArgument(string name)
     {
-        DeleteRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(
-            new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Unexpected request.")), new FakeOutputHandler());
-        processor.SubscriptionId = TestSubscriptionId;
-        processor.Name = name;
+        var processor = ResourcesProcessorMockHelpers.Initialize(new DeleteRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, Name = name }, _mockPipeline);
 
-        MissingRequiredArgumentException ex = await Assert.ThrowsAsync<MissingRequiredArgumentException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("A role assignment name is required. Specify the role assignment name (GUID) to delete.", ex.Message);
+        Assert.Equal(
+            "A role assignment name is required. Specify the role assignment name (GUID) to delete.",
+            Assert.IsType<MissingRequiredArgumentException>(exception).Message);
     }
 
     private static async Task AssertThrows<TException>(Action<DeleteRoleAssignmentProcessor_Orchestrator> configure, string expectedMessage)

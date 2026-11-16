@@ -5,8 +5,10 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 using Xunit;
 
 namespace Cli.Tests;
@@ -20,6 +22,8 @@ namespace Cli.Tests;
 public class RestProcessorTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     private static RestProcessor_Orchestrator CreateProcessor(
         FakeHttpPipeline pipeline,
@@ -522,52 +526,62 @@ public class RestProcessorTests
     {
         var processor = new RestProcessor_Orchestrator();
         var context = new ProcessorContext(
-            ThrowingPipeline(),
-            new FakeEventPublisher(),
-            new FakeAuthHandler(null),
-            new FakeOutputHandler());
+            _mockPipeline.Object,
+            Mock.Of<IEventPublisher>(),
+            Mock.Of<IAuthHandler>(),
+            Mock.Of<IOutputHandler>());
 
-        var ex = Assert.Throws<AzclipsErrorException>(() => processor.Init(context));
+        Exception? exception = Record.Exception(() => processor.Init(context));
 
-        Assert.Equal("No profile is available. Please sign in.", ex.Message);
+        Assert.Equal("No profile is available. Please sign in.", Assert.IsType<AzclipsErrorException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_UnsupportedMethod_ThrowsInvalidInput()
     {
-        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
-        processor.Method = "TRACE";
-        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new RestProcessor_Orchestrator { Method = "TRACE", Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" },
+            _mockPipeline,
+            profile);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Unsupported HTTP method 'TRACE'. Supported methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.", ex.Message);
+        Assert.Equal(
+            "Unsupported HTTP method 'TRACE'. Supported methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.",
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_ByParametersWithoutSubscription_ThrowsNotSignedIn()
     {
-        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler(), subscriptionId: "");
-        processor.ResourceProviderName = "Microsoft.Resources";
-        processor.ResourceType = ["resourceGroups"];
-        processor.ApiVersion = "2021-04-01";
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = "" };
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new RestProcessor_Orchestrator { ResourceProviderName = "Microsoft.Resources", ResourceType = ["resourceGroups"], ApiVersion = "2021-04-01" },
+            _mockPipeline,
+            profile);
 
-        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("No subscription is available to build the ARM URL. Supply SubscriptionId or sign in first.", ex.Message);
+        Assert.Equal(
+            "No subscription is available to build the ARM URL. Supply SubscriptionId or sign in first.",
+            Assert.IsType<AzclipsErrorException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_SubscriptionTokenWithoutSubscription_ThrowsNotSignedIn()
     {
-        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler(), subscriptionId: "");
-        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = "" };
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" },
+            _mockPipeline,
+            profile);
 
-        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
         Assert.Equal(
             "The URL contains '{subscriptionId}' but no subscription is available in the active profile. Sign in first or use an explicit subscription id.",
-            ex.Message);
+            Assert.IsType<AzclipsErrorException>(exception).Message);
     }
 
     [Theory]
@@ -577,25 +591,29 @@ public class RestProcessorTests
     [InlineData("=value")]
     public async Task ProcessAsync_MalformedUriParameter_ThrowsInvalidInput(string parameter)
     {
-        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
-        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
-        processor.UriParameters = [parameter];
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01", UriParameters = [parameter] },
+            _mockPipeline,
+            profile);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.", ex.Message);
+        Assert.Equal($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_UriParameterEmptyName_ThrowsInvalidInput()
     {
-        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
-        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
-        processor.UriParameters = [" =value"];
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01", UriParameters = [" =value"] },
+            _mockPipeline,
+            profile);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Invalid uri parameter ' =value': parameter name cannot be empty.", ex.Message);
+        Assert.Equal("Invalid uri parameter ' =value': parameter name cannot be empty.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -603,29 +621,30 @@ public class RestProcessorTests
     [InlineData("=value")]
     public async Task ProcessAsync_MalformedHeader_ThrowsInvalidInput(string header)
     {
-        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
-        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
-        processor.Headers = [header];
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01", Headers = [header] },
+            _mockPipeline,
+            profile);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal($"Invalid header '{header}'. Expected KEY=VALUE format.", ex.Message);
+        Assert.Equal($"Invalid header '{header}'. Expected KEY=VALUE format.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_HeaderEmptyName_ThrowsInvalidInput()
     {
-        var processor = CreateProcessor(ThrowingPipeline(), new FakeOutputHandler());
-        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
-        processor.Headers = [" =value"];
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01", Headers = [" =value"] },
+            _mockPipeline,
+            profile);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Invalid header ' =value': header name cannot be empty.", ex.Message);
+        Assert.Equal("Invalid header ' =value': header name cannot be empty.", Assert.IsType<InvalidInputException>(exception).Message);
     }
-
-    private static FakeHttpPipeline ThrowingPipeline() =>
-        new((_, _) => throw new InvalidOperationException("Unexpected request."));
 
     private static FakeHttpPipeline CapturingPipeline(Action<Uri?> capture)
     {

@@ -9,16 +9,16 @@ namespace Extensions.Resources.Tests;
 /// <summary>Direct tests for resource group id parsing in <see cref="ResourceGroupIdResolver"/>.</summary>
 public class ResourceGroupIdResolverTests
 {
+    // Not reachable through SetResourceGroupProcessor_Orchestrator, which treats a blank Id as "no address".
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
     public void Parse_BlankId_ThrowsInvalidInput(string? id)
     {
-        // Not reachable through SetResourceGroupProcessor_Orchestrator, which treats a blank Id as "no address".
-        var ex = Assert.Throws<InvalidInputException>(() => ResourceGroupIdResolver.Parse(id!));
+        Exception? exception = Record.Exception(() => ResourceGroupIdResolver.Parse(id!));
 
-        Assert.Equal("Resource group id cannot be empty.", ex.Message);
+        Assert.Equal("Resource group id cannot be empty.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -28,11 +28,11 @@ public class ResourceGroupIdResolverTests
     [InlineData("/subscriptions/sub-1/resourceGroup/rg")]
     public void Parse_MalformedId_ThrowsInvalidInput(string id)
     {
-        var ex = Assert.Throws<InvalidInputException>(() => ResourceGroupIdResolver.Parse(id));
+        Exception? exception = Record.Exception(() => ResourceGroupIdResolver.Parse(id));
 
         Assert.Equal(
             $"Invalid resource group id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}.",
-            ex.Message);
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -40,6 +40,8 @@ public class ResourceGroupIdResolverTests
     [InlineData(" SUBSCRIPTIONS/sub-1/RESOURCEGROUPS/rg/ ")]
     public void Parse_ValidId_ReturnsSubscriptionAndResourceGroup(string id)
     {
-        Assert.Equal(("sub-1", "rg"), ResourceGroupIdResolver.Parse(id));
+        var parts = ResourceGroupIdResolver.Parse(id);
+
+        Assert.Equal(("sub-1", "rg"), parts);
     }
 }

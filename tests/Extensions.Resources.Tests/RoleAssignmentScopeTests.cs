@@ -16,9 +16,9 @@ public class RoleAssignmentScopeTests
     [InlineData("", "")]
     public void Resolve_ScopeAndResourceGroup_ThrowsUsageError(string scope, string resourceGroupName)
     {
-        var ex = Assert.Throws<UsageErrorException>(() => RoleAssignmentScope.Resolve(SubscriptionId, scope, resourceGroupName));
+        Exception? exception = Record.Exception(() => RoleAssignmentScope.Resolve(SubscriptionId, scope, resourceGroupName));
 
-        Assert.Equal("Specify either a scope or a resource group, not both.", ex.Message);
+        Assert.Equal("Specify either a scope or a resource group, not both.", Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Theory]
@@ -26,9 +26,9 @@ public class RoleAssignmentScopeTests
     [InlineData("   ")]
     public void Resolve_BlankScope_ThrowsUsageError(string scope)
     {
-        var ex = Assert.Throws<UsageErrorException>(() => RoleAssignmentScope.Resolve(SubscriptionId, scope, null));
+        Exception? exception = Record.Exception(() => RoleAssignmentScope.Resolve(SubscriptionId, scope, null));
 
-        Assert.Equal("Scope must not be empty.", ex.Message);
+        Assert.Equal("Scope must not be empty.", Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Theory]
@@ -36,9 +36,9 @@ public class RoleAssignmentScopeTests
     [InlineData("   ")]
     public void Resolve_BlankResourceGroup_ThrowsUsageError(string resourceGroupName)
     {
-        var ex = Assert.Throws<UsageErrorException>(() => RoleAssignmentScope.Resolve(SubscriptionId, null, resourceGroupName));
+        Exception? exception = Record.Exception(() => RoleAssignmentScope.Resolve(SubscriptionId, null, resourceGroupName));
 
-        Assert.Equal("Resource group must not be empty.", ex.Message);
+        Assert.Equal("Resource group must not be empty.", Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Theory]
@@ -47,11 +47,11 @@ public class RoleAssignmentScopeTests
     [InlineData("   ")]
     public void Resolve_ResourceGroupWithoutSubscription_ThrowsMissingRequiredArgument(string? subscriptionId)
     {
-        var ex = Assert.Throws<MissingRequiredArgumentException>(() => RoleAssignmentScope.Resolve(subscriptionId, null, "test-rg"));
+        Exception? exception = Record.Exception(() => RoleAssignmentScope.Resolve(subscriptionId, null, "test-rg"));
 
         Assert.Equal(
             "A subscription is required to resolve a resource group scope. Specify a subscription, or set an active subscription.",
-            ex.Message);
+            Assert.IsType<MissingRequiredArgumentException>(exception).Message);
     }
 
     [Theory]
@@ -60,9 +60,11 @@ public class RoleAssignmentScopeTests
     [InlineData("   ")]
     public void Resolve_NoScopeResourceGroupOrSubscription_ThrowsMissingRequiredArgument(string? subscriptionId)
     {
-        var ex = Assert.Throws<MissingRequiredArgumentException>(() => RoleAssignmentScope.Resolve(subscriptionId, null, null));
+        Exception? exception = Record.Exception(() => RoleAssignmentScope.Resolve(subscriptionId, null, null));
 
-        Assert.Equal("A scope is required. Specify a scope or a resource group, or set an active subscription.", ex.Message);
+        Assert.Equal(
+            "A scope is required. Specify a scope or a resource group, or set an active subscription.",
+            Assert.IsType<MissingRequiredArgumentException>(exception).Message);
     }
 
     [Theory]
@@ -70,9 +72,9 @@ public class RoleAssignmentScopeTests
     [InlineData(" //subscriptions/x ")]
     public void Resolve_ScopeWithMultipleLeadingSlashes_ThrowsUsageError(string scope)
     {
-        var ex = Assert.Throws<UsageErrorException>(() => RoleAssignmentScope.Resolve(SubscriptionId, scope, null));
+        Exception? exception = Record.Exception(() => RoleAssignmentScope.Resolve(SubscriptionId, scope, null));
 
-        Assert.Equal($"The scope '{scope.Trim()}' must not start with multiple slashes.", ex.Message);
+        Assert.Equal($"The scope '{scope.Trim()}' must not start with multiple slashes.", Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Theory]
@@ -83,6 +85,8 @@ public class RoleAssignmentScopeTests
     [InlineData(null, null, $"/subscriptions/{SubscriptionId}")]
     public void Resolve_ValidInputs_ReturnsScope(string? scope, string? resourceGroupName, string expected)
     {
-        Assert.Equal(expected, RoleAssignmentScope.Resolve(SubscriptionId, scope, resourceGroupName));
+        string resolvedScope = RoleAssignmentScope.Resolve(SubscriptionId, scope, resourceGroupName);
+
+        Assert.Equal(expected, resolvedScope);
     }
 }

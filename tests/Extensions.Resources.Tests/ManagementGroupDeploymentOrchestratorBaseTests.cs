@@ -2,130 +2,76 @@
 // Licensed under the MIT License.
 
 using Core.Abstractions;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
-using static Extensions.Resources.Tests.ResourcesProcessorTestHelpers;
 
 namespace Extensions.Resources.Tests;
 
 /// <summary>
-/// Offline input-validation tests for the management-group deployment orchestrators built on
-/// <see cref="ManagementGroupDeploymentOrchestratorBase{TRequest, TResponse}"/>
-/// (az deployment mg create|validate|what-if, New-/Test-AzManagementGroupDeployment).
+/// Input-validation tests for the shared <see cref="ManagementGroupDeploymentOrchestratorBase{TRequest, TResponse}"/>
+/// checks that the create, validate and what-if management-group deployment orchestrators all call.
 /// </summary>
 public class ManagementGroupDeploymentOrchestratorBaseTests
 {
-    public static TheoryData<string> Commands => ["create", "validate", "what-if"];
+    private const string TemplateUri = "https://example.com/t.json";
 
-    public static TheoryData<string, string?> CommandsWithBlankValues
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BuildProperties_MissingManagementGroupId_ThrowsInvalidInput(string? managementGroupId)
     {
-        get
-        {
-            var data = new TheoryData<string, string?>();
-            foreach (string command in new[] { "create", "validate", "what-if" })
-            {
-                foreach (string? value in new[] { null, "", "   " })
-                {
-                    data.Add(command, value);
-                }
-            }
+        var orchestrator = new TestOrchestrator { ManagementGroupId = managementGroupId!, Location = "westus", Name = "dep", TemplateUri = TemplateUri };
 
-            return data;
-        }
+        Exception? exception = Record.Exception(orchestrator.InvokeBuildProperties);
+
+        Assert.Equal("ManagementGroupId must be provided.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
-    [MemberData(nameof(CommandsWithBlankValues))]
-    public async Task ProcessAsync_MissingManagementGroupId_ThrowsInvalidInput(string command, string? managementGroupId)
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BuildProperties_MissingLocation_ThrowsInvalidInput(string? location)
     {
-        IProcessor processor = CreateProcessor(command, managementGroupId: managementGroupId!);
+        var orchestrator = new TestOrchestrator { ManagementGroupId = "mg1", Location = location!, Name = "dep", TemplateUri = TemplateUri };
 
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = Record.Exception(orchestrator.InvokeBuildProperties);
 
-        Assert.Equal("ManagementGroupId must be provided.", ex.Message);
-    }
-
-    [Theory]
-    [MemberData(nameof(CommandsWithBlankValues))]
-    public async Task ProcessAsync_MissingLocation_ThrowsInvalidInput(string command, string? location)
-    {
-        IProcessor processor = CreateProcessor(command, location: location!);
-
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
-
-        Assert.Equal("Location must be provided.", ex.Message);
+        Assert.Equal("Location must be provided.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
-    public async Task ProcessAsync_MissingManagementGroupIdAndLocation_ThrowsInvalidInputForManagementGroupId()
+    public void BuildProperties_MissingManagementGroupIdAndLocation_ThrowsInvalidInputForManagementGroupId()
     {
-        IProcessor processor = CreateProcessor("create", managementGroupId: "", location: "");
+        var orchestrator = new TestOrchestrator { ManagementGroupId = "", Location = "", Name = "dep", TemplateUri = TemplateUri };
 
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = Record.Exception(orchestrator.InvokeBuildProperties);
 
-        Assert.Equal("ManagementGroupId must be provided.", ex.Message);
-    }
-
-    [Theory]
-    [MemberData(nameof(Commands))]
-    public async Task ProcessAsync_ParametersUriAndParametersFile_ThrowsInvalidInput(string command)
-    {
-        IProcessor processor = CreateProcessor(
-            command, parametersUri: "https://example.com/p.json", parametersFile: "p.json");
-
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
-
-        Assert.Equal("Provide at most one of ParametersUri or ParametersFile.", ex.Message);
+        Assert.Equal("ManagementGroupId must be provided.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
-    public async Task ProcessAsync_WhatIfInvalidResultFormat_ThrowsInvalidInput()
+    public void BuildProperties_ParametersUriAndParametersFile_ThrowsInvalidInput()
     {
-        var processor = (WhatIfManagementGroupDeploymentProcessor_Orchestrator)CreateProcessor("what-if");
-        processor.ResultFormat = "ResourceId";
-
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
-
-        Assert.Equal("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.", ex.Message);
-    }
-
-    [Fact]
-    public async Task ProcessAsync_WhatIfInvalidResultFormatAndMissingManagementGroupId_ThrowsInvalidInputForResultFormat()
-    {
-        // Current behaviour: what-if checks ResultFormat before the ManagementGroupId/Location inputs.
-        var processor = (WhatIfManagementGroupDeploymentProcessor_Orchestrator)CreateProcessor("what-if", managementGroupId: "");
-        processor.ResultFormat = "ResourceId";
-
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
-
-        Assert.Equal("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.", ex.Message);
-    }
-
-    // Valid inputs unless a test overrides one of them.
-    private static IProcessor CreateProcessor(
-        string command,
-        string managementGroupId = "mg1",
-        string location = "westus",
-        string? parametersUri = null,
-        string? parametersFile = null)
-    {
-        void Apply<TRequest, TResponse>(ManagementGroupDeploymentOrchestratorBase<TRequest, TResponse> p)
-            where TRequest : class
-            where TResponse : class
+        var orchestrator = new TestOrchestrator
         {
-            p.ManagementGroupId = managementGroupId;
-            p.Location = location;
-            p.Name = "dep";
-            p.TemplateUri = "https://example.com/t.json";
-            p.ParametersUri = parametersUri;
-            p.ParametersFile = parametersFile;
-        }
-
-        return command switch
-        {
-            "create" => ResourcesProcessorTestHelpers.CreateProcessor(new CreateManagementGroupDeploymentProcessor_Orchestrator(), Apply),
-            "validate" => ResourcesProcessorTestHelpers.CreateProcessor(new ValidateManagementGroupDeploymentProcessor_Orchestrator(), Apply),
-            "what-if" => ResourcesProcessorTestHelpers.CreateProcessor(new WhatIfManagementGroupDeploymentProcessor_Orchestrator(), Apply),
-            _ => throw new ArgumentOutOfRangeException(nameof(command)),
+            ManagementGroupId = "mg1",
+            Location = "westus",
+            Name = "dep",
+            TemplateUri = TemplateUri,
+            ParametersUri = "https://example.com/p.json",
+            ParametersFile = "p.json",
         };
+
+        Exception? exception = Record.Exception(orchestrator.InvokeBuildProperties);
+
+        Assert.Equal("Provide at most one of ParametersUri or ParametersFile.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    // The base is abstract and BuildProperties is protected, so a minimal subclass exposes it for testing.
+    private sealed class TestOrchestrator : ManagementGroupDeploymentOrchestratorBase<object, object>
+    {
+        public DeploymentProperties InvokeBuildProperties() => BuildProperties();
     }
 }

@@ -16,14 +16,19 @@ public class JmesPathConditionTests
     [InlineData("properties.[")]
     public void Validate_InvalidExpression_ThrowsInvalidInput(string expression)
     {
-        var ex = Assert.Throws<InvalidInputException>(() => JmesPathCondition.Validate(expression));
+        Exception? exception = Record.Exception(() => JmesPathCondition.Validate(expression));
 
-        Assert.StartsWith($"--custom expression '{expression}' is not valid JMESPath: ", ex.Message, StringComparison.Ordinal);
+        Assert.StartsWith(
+            $"--custom expression '{expression}' is not valid JMESPath: ",
+            Assert.IsType<InvalidInputException>(exception).Message,
+            StringComparison.Ordinal);
     }
 
     [Fact]
     public void Validate_ValidExpression_DoesNotThrow()
     {
-        Assert.Null(Record.Exception(() => JmesPathCondition.Validate("properties.provisioningState == 'Succeeded'")));
+        Exception? exception = Record.Exception(() => JmesPathCondition.Validate("properties.provisioningState == 'Succeeded'"));
+
+        Assert.Null(exception);
     }
 }

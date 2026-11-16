@@ -4,6 +4,7 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
@@ -11,6 +12,7 @@ using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 
 namespace Cli.Tests;
 
@@ -26,6 +28,8 @@ public class RoleAssignmentCliTests
     private const string AssigneeObjectId = "11111111-2222-3333-4444-555555555555";
     private const string RoleDefinitionId = "cccccccc-1111-2222-3333-444444444444";
     private const string Scope = "/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourceGroups/test-rg";
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     [Fact]
     public void CliMetadata_ExposesRoleAssignmentList()
@@ -778,81 +782,100 @@ public class RoleAssignmentCliTests
     [Fact]
     public async Task ProcessAsync_AssigneeAndAssigneeObjectId_ThrowsUsageError()
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p =>
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
         {
-            p.Assignee = AssigneeObjectId;
-            p.AssigneeObjectId = AssigneeObjectId;
-        });
+            SubscriptionId = TestSubscriptionId,
+            Assignee = AssigneeObjectId,
+            AssigneeObjectId = AssigneeObjectId,
+        }, _mockPipeline);
 
-        Assert.Equal("Specify only one assignee.", ex.Message);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("Specify only one assignee.", Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_AssigneeObjectIdNotGuid_ThrowsUsageError()
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p => p.AssigneeObjectId = " not-a-guid ");
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, AssigneeObjectId = " not-a-guid " }, _mockPipeline);
 
-        Assert.Equal("The assignee object ID 'not-a-guid' is not a valid object ID (GUID).", ex.Message);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("The assignee object ID 'not-a-guid' is not a valid object ID (GUID).", Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_AssigneeNotGuid_ThrowsUsageError()
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p => p.Assignee = "john@contoso.com");
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, Assignee = "john@contoso.com" }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
         Assert.Equal(
             "The assignee 'john@contoso.com' is not an object ID (GUID). Name, UPN, and service-principal resolution is not yet supported; specify the principal's object ID (GUID).",
-            ex.Message);
+            Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_RoleNotGuid_ThrowsUsageError()
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p => p.RoleDefinitionId = " Reader ");
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, RoleDefinitionId = " Reader " }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
         Assert.Equal(
             "The role 'Reader' is not a role definition ID (GUID). Role name resolution is not yet supported; specify the role definition ID (GUID).",
-            ex.Message);
+            Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_IncludeGroupsWithoutAssignee_ThrowsUsageError()
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p => p.IncludeGroups = true);
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, IncludeGroups = true }, _mockPipeline);
 
-        Assert.Equal("Expanding group memberships requires an assignee. Specify the principal's object ID (GUID).", ex.Message);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal(
+            "Expanding group memberships requires an assignee. Specify the principal's object ID (GUID).",
+            Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_AllWithIncludeInherited_ThrowsUsageError()
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p =>
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
         {
-            p.All = true;
-            p.IncludeInherited = true;
-        });
+            SubscriptionId = TestSubscriptionId,
+            All = true,
+            IncludeInherited = true,
+        }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
         Assert.Equal(
             "Listing every nested scope cannot be combined with including inherited (ancestor) assignments; they widen in opposite directions.",
-            ex.Message);
+            Assert.IsType<UsageErrorException>(exception).Message);
     }
 
+    // Current behaviour: the message names the CLI flag even on the PowerShell surface.
     [Theory]
     [InlineData(Scope, null)]
     [InlineData(null, "test-rg")]
     public async Task ProcessAsync_AllWithScopeOrResourceGroup_ThrowsUsageError(string? scope, string? resourceGroupName)
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p =>
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
         {
-            p.All = true;
-            p.Scope = scope;
-            p.ResourceGroupName = resourceGroupName;
-        });
+            SubscriptionId = TestSubscriptionId,
+            All = true,
+            Scope = scope,
+            ResourceGroupName = resourceGroupName,
+        }, _mockPipeline);
 
-        // Current behaviour: the message names the CLI flag even on the PowerShell surface.
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
         Assert.Equal(
             "--all lists role assignments across the whole subscription and cannot be combined with a scope or resource group.",
-            ex.Message);
+            Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Theory]
@@ -861,42 +884,29 @@ public class RoleAssignmentCliTests
     [InlineData("   ")]
     public async Task ProcessAsync_AllWithoutSubscription_ThrowsMissingRequiredArgument(string? subscriptionId)
     {
-        MissingRequiredArgumentException ex = await ProcessWithThrowingPipelineAsync<MissingRequiredArgumentException>(p =>
-        {
-            p.SubscriptionId = subscriptionId!;
-            p.All = true;
-        });
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = subscriptionId!, All = true }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
         Assert.Equal(
             "A subscription is required to list all role assignments. Specify a subscription, or set an active subscription.",
-            ex.Message);
+            Assert.IsType<MissingRequiredArgumentException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_ScopeAndResourceGroup_ThrowsUsageError()
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p =>
+        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
         {
-            p.Scope = Scope;
-            p.ResourceGroupName = "test-rg";
-        });
+            SubscriptionId = TestSubscriptionId,
+            Scope = Scope,
+            ResourceGroupName = "test-rg",
+        }, _mockPipeline);
 
-        Assert.Equal("Specify either a scope or a resource group, not both.", ex.Message);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("Specify either a scope or a resource group, not both.", Assert.IsType<UsageErrorException>(exception).Message);
     }
-
-    private static async Task<TException> ProcessWithThrowingPipelineAsync<TException>(Action<ListRoleAssignmentProcessor_Orchestrator> configure)
-        where TException : Exception
-    {
-        ListRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(
-            new ListRoleAssignmentProcessor_Orchestrator(),
-            new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Unexpected request.")),
-            new FakeOutputHandler());
-        processor.SubscriptionId = TestSubscriptionId;
-        configure(processor);
-
-        return await Assert.ThrowsAsync<TException>(() => processor.ProcessAsync());
-    }
-
     private static async Task<Uri?> CaptureUri(Action<ListRoleAssignmentProcessor_Orchestrator> configure)
     {
         Uri? sentUri = null;        var output = new FakeOutputHandler();

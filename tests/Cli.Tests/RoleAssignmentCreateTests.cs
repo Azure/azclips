@@ -13,6 +13,7 @@ using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 
 namespace Cli.Tests;
 
@@ -29,6 +30,8 @@ public class RoleAssignmentCreateTests
     private const string AssigneeObjectId = "11111111-2222-3333-4444-555555555555";
     private const string RoleDefinitionId = "b24988ac-6180-42a0-ab88-20f7382dd24c";
     private const string AssignmentName = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     [Fact]
     public void CliMetadata_ExposesRoleAssignmentCreate()
@@ -921,14 +924,16 @@ public class RoleAssignmentCreateTests
     [Fact]
     public async Task ProcessAsync_AssigneeObjectIdNotGuid_ThrowsUsageError()
     {
-        UsageErrorException ex = await ProcessWithThrowingPipelineAsync<UsageErrorException>(p =>
+        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
         {
-            p.SubscriptionId = TestSubscriptionId;
-            p.AssigneeObjectId = " not-a-guid ";
-            p.RoleDefinitionId = RoleDefinitionId;
-        });
+            SubscriptionId = TestSubscriptionId,
+            AssigneeObjectId = " not-a-guid ",
+            RoleDefinitionId = RoleDefinitionId,
+        }, _mockPipeline);
 
-        Assert.Equal("The assignee object ID 'not-a-guid' is not a valid object ID (GUID).", ex.Message);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("The assignee object ID 'not-a-guid' is not a valid object ID (GUID).", Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Theory]
@@ -936,14 +941,18 @@ public class RoleAssignmentCreateTests
     [InlineData("   ")]
     public async Task ProcessAsync_BlankAssigneeObjectId_ThrowsMissingRequiredArgument(string assigneeObjectId)
     {
-        MissingRequiredArgumentException ex = await ProcessWithThrowingPipelineAsync<MissingRequiredArgumentException>(p =>
+        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
         {
-            p.SubscriptionId = TestSubscriptionId;
-            p.AssigneeObjectId = assigneeObjectId;
-            p.RoleDefinitionId = RoleDefinitionId;
-        });
+            SubscriptionId = TestSubscriptionId,
+            AssigneeObjectId = assigneeObjectId,
+            RoleDefinitionId = RoleDefinitionId,
+        }, _mockPipeline);
 
-        Assert.Equal("A principal is required. Specify the principal's object ID (GUID) to assign the role to.", ex.Message);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal(
+            "A principal is required. Specify the principal's object ID (GUID) to assign the role to.",
+            Assert.IsType<MissingRequiredArgumentException>(exception).Message);
     }
 
     [Theory]
@@ -951,14 +960,16 @@ public class RoleAssignmentCreateTests
     [InlineData("   ")]
     public async Task ProcessAsync_BlankRole_ThrowsMissingRequiredArgument(string role)
     {
-        MissingRequiredArgumentException ex = await ProcessWithThrowingPipelineAsync<MissingRequiredArgumentException>(p =>
+        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
         {
-            p.SubscriptionId = TestSubscriptionId;
-            p.AssigneeObjectId = AssigneeObjectId;
-            p.RoleDefinitionId = role;
-        });
+            SubscriptionId = TestSubscriptionId,
+            AssigneeObjectId = AssigneeObjectId,
+            RoleDefinitionId = role,
+        }, _mockPipeline);
 
-        Assert.Equal("A role is required. Specify the role definition ID (GUID).", ex.Message);
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("A role is required. Specify the role definition ID (GUID).", Assert.IsType<MissingRequiredArgumentException>(exception).Message);
     }
 
     private static async Task<(Uri Uri, HttpMethod Method, JsonElement Body)> Capture(Action<NewRoleAssignmentProcessor_Orchestrator> configure)
@@ -994,16 +1005,6 @@ public class RoleAssignmentCreateTests
         Assert.Equal(expectedMessage, ex.Message);
         Assert.DoesNotContain("--", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
-    }
-
-    private static async Task<TException> ProcessWithThrowingPipelineAsync<TException>(Action<NewRoleAssignmentProcessor_Orchestrator> configure)
-        where TException : Exception
-    {
-        NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(
-            new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Unexpected request.")), new FakeOutputHandler());
-        configure(processor);
-
-        return await Assert.ThrowsAsync<TException>(() => processor.ProcessAsync());
     }
 
     private static NewRoleAssignmentProcessor_Orchestrator CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)

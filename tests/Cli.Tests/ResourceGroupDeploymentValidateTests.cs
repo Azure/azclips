@@ -4,8 +4,10 @@
 using System.Net;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 using static Cli.Tests.DeploymentProcessorTestKit;
 
 namespace Cli.Tests;
@@ -17,6 +19,8 @@ namespace Cli.Tests;
 public sealed class ResourceGroupDeploymentValidateTests : IDisposable
 {
     private readonly List<string> _tempFiles = [];
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     public void Dispose() => _tempFiles.ForEach(File.Delete);
 
@@ -160,15 +164,27 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
         Assert.Equal(0, pipeline.SendCount);
     }
 
+    // Current behaviour: validate throws ArgumentException where create throws InvalidInputException, and the message names PowerShell parameters even for CLI users.
     [Fact]
     public async Task ProcessAsync_BothRollbackOptions_ThrowsArgumentException()
     {
-        // Current behaviour: validate throws ArgumentException where create throws InvalidInputException, and the message names PowerShell parameters even for CLI users.
-        var processor = Validate(ThrowingPipeline(), new FakeOutputHandler(), p => p.RollbackOnError = true);
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new TestResourceGroupDeploymentProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = "test-rg",
+                RollbackOnError = true,
+                RollbackToDeploymentName = "previous",
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
 
-        ArgumentException ex = await Assert.ThrowsAsync<ArgumentException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.", ex.Message);
+        Assert.Equal(
+            "Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.",
+            Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
@@ -177,25 +193,39 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
     [InlineData("   ")]
     public async Task ProcessAsync_MissingResourceGroupName_ThrowsInvalidInput(string? resourceGroupName)
     {
-        var processor = Validate(ThrowingPipeline(), new FakeOutputHandler(), p => p.ResourceGroupName = resourceGroupName!);
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new TestResourceGroupDeploymentProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = resourceGroupName!,
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
 
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("ResourceGroupName must be provided.", ex.Message);
+        Assert.Equal("ResourceGroupName must be provided.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_InvalidMode_ThrowsInvalidInput()
     {
-        var processor = Validate(ThrowingPipeline(), new FakeOutputHandler(), p => p.Mode = "Partial");
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new TestResourceGroupDeploymentProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = "test-rg",
+                Mode = "Partial",
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
 
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Mode must be either 'Incremental' or 'Complete'.", ex.Message);
+        Assert.Equal("Mode must be either 'Incremental' or 'Complete'.", Assert.IsType<InvalidInputException>(exception).Message);
     }
-
-    private static FakeHttpPipeline ThrowingPipeline() =>
-        new((_, _) => throw new InvalidOperationException("Unexpected request."));
 
     private static readonly Func<HttpRequestMessage, HttpResponseMessage> s_ok =
         _ => Status(HttpStatusCode.OK, """{"properties":{"provisioningState":"Succeeded"}}""");

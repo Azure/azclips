@@ -23,11 +23,11 @@ public class DeploymentIdResolverTests
     [InlineData("/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/deployments/dep")]
     public void Parse_MalformedId_ThrowsInvalidOperation(string id)
     {
-        var ex = Assert.Throws<InvalidOperationException>(() => DeploymentIdResolver.Parse(id));
+        Exception? exception = Record.Exception(() => DeploymentIdResolver.Parse(id));
 
         Assert.Equal(
             $"Invalid deployment id '{id}'. Expected /subscriptions/{{subscriptionId}}/resourceGroups/{{resourceGroupName}}/providers/Microsoft.Resources/deployments/{{deploymentName}}.",
-            ex.Message);
+            Assert.IsType<InvalidOperationException>(exception).Message);
     }
 
     [Theory]
@@ -35,9 +35,12 @@ public class DeploymentIdResolverTests
     [InlineData(" SUBSCRIPTIONS/sub-1/RESOURCEGROUPS/rg/PROVIDERS/microsoft.resources/DEPLOYMENTS/dep/ ")]
     public void Parse_ValidId_ReturnsParts(string id)
     {
-        Assert.Equal(("sub-1", "rg", "dep"), DeploymentIdResolver.Parse(id));
+        var parts = DeploymentIdResolver.Parse(id);
+
+        Assert.Equal(("sub-1", "rg", "dep"), parts);
     }
 
+    // Current behaviour: malformed ids surface as InvalidOperationException rather than InvalidInputException.
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -46,11 +49,11 @@ public class DeploymentIdResolverTests
     [InlineData(ResourceGroupDeploymentId)]
     public void ParseManagementGroup_MalformedId_ThrowsInvalidOperation(string id)
     {
-        var ex = Assert.Throws<InvalidOperationException>(() => DeploymentIdResolver.ParseManagementGroup(id));
+        Exception? exception = Record.Exception(() => DeploymentIdResolver.ParseManagementGroup(id));
 
         Assert.Equal(
             $"Invalid deployment id '{id}'. Expected /providers/Microsoft.Management/managementGroups/{{managementGroupId}}/providers/Microsoft.Resources/deployments/{{deploymentName}}.",
-            ex.Message);
+            Assert.IsType<InvalidOperationException>(exception).Message);
     }
 
     [Theory]
@@ -58,6 +61,8 @@ public class DeploymentIdResolverTests
     [InlineData(" PROVIDERS/microsoft.management/MANAGEMENTGROUPS/mg1/providers/Microsoft.Resources/deployments/dep/ ")]
     public void ParseManagementGroup_ValidId_ReturnsParts(string id)
     {
-        Assert.Equal(("mg1", "dep"), DeploymentIdResolver.ParseManagementGroup(id));
+        var parts = DeploymentIdResolver.ParseManagementGroup(id);
+
+        Assert.Equal(("mg1", "dep"), parts);
     }
 }

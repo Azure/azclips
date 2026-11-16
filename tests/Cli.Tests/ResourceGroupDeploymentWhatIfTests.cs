@@ -3,8 +3,10 @@
 
 using System.Net;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 using static Cli.Tests.DeploymentProcessorTestKit;
 
 namespace Cli.Tests;
@@ -16,6 +18,8 @@ namespace Cli.Tests;
 public class ResourceGroupDeploymentWhatIfTests
 {
     private const string PollUri = "https://management.azure.com/subscriptions/x/operationresults/whatif-op?api-version=2025-04-01";
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     private static NewResourceGroupDeploymentWhatIfProcessor_Orchestrator WhatIf(FakeHttpPipeline pipeline, FakeOutputHandler output) =>
         Configure(new NewResourceGroupDeploymentWhatIfProcessor_Orchestrator(), pipeline, output, p =>
@@ -91,12 +95,22 @@ public class ResourceGroupDeploymentWhatIfTests
     [Fact]
     public async Task ProcessAsync_InvalidResultFormat_ThrowsInvalidInput()
     {
-        var processor = WhatIf(ThrowingPipeline(), new FakeOutputHandler());
-        processor.ResultFormat = "ResourceId";
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new NewResourceGroupDeploymentWhatIfProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = "test-rg",
+                ResultFormat = "ResourceId",
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
 
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.", ex.Message);
+        Assert.Equal(
+            "ResultFormat must be one of 'ResourceIdOnly' or 'FullResourcePayloads'.",
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -105,25 +119,37 @@ public class ResourceGroupDeploymentWhatIfTests
     [InlineData("   ")]
     public async Task ProcessAsync_MissingResourceGroupName_ThrowsInvalidInput(string? resourceGroupName)
     {
-        var processor = WhatIf(ThrowingPipeline(), new FakeOutputHandler());
-        processor.ResourceGroupName = resourceGroupName!;
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new NewResourceGroupDeploymentWhatIfProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = resourceGroupName!,
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
 
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("ResourceGroupName must be provided.", ex.Message);
+        Assert.Equal("ResourceGroupName must be provided.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_InvalidMode_ThrowsInvalidInput()
     {
-        var processor = WhatIf(ThrowingPipeline(), new FakeOutputHandler());
-        processor.Mode = "Partial";
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new NewResourceGroupDeploymentWhatIfProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = "test-rg",
+                Mode = "Partial",
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
 
-        InvalidInputException ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Mode must be either 'Incremental' or 'Complete'.", ex.Message);
+        Assert.Equal("Mode must be either 'Incremental' or 'Complete'.", Assert.IsType<InvalidInputException>(exception).Message);
     }
-
-    private static FakeHttpPipeline ThrowingPipeline() =>
-        new((_, _) => throw new InvalidOperationException("Unexpected request."));
 }
