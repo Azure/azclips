@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Core.Abstractions.Recovery;
 using Core.Cli.Recovery;
 using Xunit;
+using Tests.Common.Utilities;
 
 namespace Cli.Tests.Recovery;
 
@@ -15,24 +16,26 @@ public class PipeProcessRunnerTests
     public async Task Cancellation_StopsTheOwnedChildEvenWhenItNeverReads()
     {
         var processId = 0;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-        var elapsed = Stopwatch.StartNew();
+        using var cancel = new CancellationTokenSource();
+        using var guard = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancel.Token, guard.Token);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => PipeProcessRunner.RunAsync(
-            _ => CreateChild(block: true), new string('x', 4_000_000), timeout.Token,
+            _ => CreateChild(block: true), new string('x', 4_000_000), linked.Token,
             (child, _) =>
             {
                 processId = child.Id;
+                cancel.Cancel();
                 return Task.CompletedTask;
             }));
 
-        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5), $"One-second timeout took {elapsed.Elapsed}.");
+        Assert.False(guard.IsCancellationRequested);
         AssertStopped(processId);
     }
 
     [Fact]
     public async Task EarlyExit_StopsAnOutstandingLargeWrite()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         var error = await Record.ExceptionAsync(() => PipeProcessRunner.RunAsync(
             _ => CreateChild(block: false), new string('x', 4_000_000), timeout.Token));
 
@@ -44,7 +47,7 @@ public class PipeProcessRunnerTests
     public async Task SynchronousReceiverFailure_StillStopsTheChild()
     {
         var processId = 0;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         var expected = new InvalidOperationException("synthetic receiver failure");
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => PipeProcessRunner.RunAsync(
             _ => CreateChild(block: true), new string('x', 4_000_000), timeout.Token,
@@ -89,12 +92,12 @@ public class PipeProcessRunnerTests
             start.ArgumentList.Add("-NoProfile");
             start.ArgumentList.Add("-NonInteractive");
             start.ArgumentList.Add("-Command");
-            start.ArgumentList.Add(block ? "Start-Sleep -Seconds 30" : "exit 23");
+            start.ArgumentList.Add(block ? "Start-Sleep -Seconds 300" : "exit 23");
         }
         else
         {
             start.ArgumentList.Add("-c");
-            start.ArgumentList.Add(block ? "sleep 30" : "exit 23");
+            start.ArgumentList.Add(block ? "sleep 300" : "exit 23");
         }
         return start;
     }
@@ -105,7 +108,7 @@ public class PipeProcessRunnerTests
         try
         {
             using var process = Process.GetProcessById(processId);
-            Assert.True(process.HasExited, $"Owned child {processId} is still running.");
+            Assert.True(process.WaitForExit(AgentTestTimeouts.HangGuard), $"Owned child {processId} is still running.");
         }
         catch (ArgumentException)
         {

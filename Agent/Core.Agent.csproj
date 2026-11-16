@@ -11,7 +11,7 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904;GHCP001</WarningsNotAsErrors>
+    <WarningsNotAsErrors>NU1900;NU1901;NU1902;NU1903;NU1904;GHCP001</WarningsNotAsErrors>
     <ExtName>Core.Agent</ExtName>
     <!-- Compile-time marker for AgentInstallLayout. Packaging scripts publish
          with /p:IsPackagedBuild=true; dev `dotnet build` / `dotnet run` / F5
@@ -23,6 +23,7 @@
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\Shared.props" />
+  <Import Project="$(MSBuildThisFileDirectory)Targets\CopilotCli.targets" />
 
   <ItemGroup>
     <Compile Remove="tests\**" />
@@ -42,8 +43,8 @@
     <Content Remove="Tools\**" />
     <EmbeddedResource Remove="Tools\**" />
 
-    <!-- eval/ holds the promptfoo-based evaluation harness (test-only, run via
-         its own script). Exclude so it never ships in the packaged agent. -->
+    <!-- eval/ holds evaluation case data (test-only). Exclude so it never ships
+         in the packaged agent. -->
     <Compile Remove="eval\**" />
     <None Remove="eval\**" />
     <Content Remove="eval\**" />

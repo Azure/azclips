@@ -24,64 +24,82 @@ The Az PowerShell cmdlets ship as NuGet module packages (`Az.*.nupkg`). Each rel
 
 Check your version with `$PSVersionTable.PSVersion`. Install or update PowerShell from <https://aka.ms/powershell> if needed.
 
-## Install with the bundled script
+## Install with the bootstrap
 
 All steps below run in **PowerShell 7.6+**.
 
-Download the bundle from the latest release using your authenticated GitHub CLI (`gh`). (Or download `azps-cmdlets-<version>.tar.gz` manually from the repo's [GitHub Releases](https://github.com/Azure/azclips/releases) page.)
-
-Your GitHub account must have access to the repository and release assets for either download
-method. Signing in to GitHub doesn't grant repository access or sign you in to Azure.
+The bootstrap downloads the latest release and invokes its bundled module installer. `tar` must be available on `PATH`.
 
 ```powershell
-gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber
+# Linux / macOS / WSL / Windows (PowerShell 7.6+)
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps1 -ErrorAction Stop | iex
 ```
 
-Extract it:
+The bootstrap installs the `Az` roll-up and its dependencies for the current user by default. It uses a unique temporary local PSRepository and removes that repository and the extracted files afterward.
+
+### Alternative: download and run
+
+Use this optional workflow to inspect the script before running it or to pass installer parameters.
+Download the script:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path azps-cmdlets | Out-Null
-$bundle = Get-ChildItem azps-cmdlets-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-tar -xzf $bundle.FullName -C azps-cmdlets
+# Linux / macOS / WSL / Windows (PowerShell 7.6+)
+Invoke-WebRequest https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps1 -OutFile ./azps-install.ps1 -ErrorAction Stop
 ```
 
-Install it (registers the extracted folder as a temporary local repository and installs the `Az` roll-up and all `Az.*` dependencies for the current user):
+After a successful download, review the script, then run:
 
 ```powershell
-./azps-cmdlets/InstallModule.ps1
+./azps-install.ps1
 ```
 
-### Script options
+### Bootstrap options
 
 | Parameter | Default | Purpose |
 | --- | --- | --- |
 | `-ModuleName` | `Az` | Install a single module instead of the roll-up, e.g. `-ModuleName Az.Compute`. |
 | `-RequiredVersion` | highest packaged version of the module selected by `-ModuleName` | Pin a specific version. |
 | `-Scope` | `CurrentUser` | Use `AllUsers` for a machine-wide install (needs elevation). |
-| `-RepositoryName` | `LocalAzclips` | Name of the temporary local PSRepository. |
+| `-RepositoryName` | unique `AzclipsInstall-...` name | Name of the temporary local PSRepository; must not already exist. |
 
 Example — install just the Compute module for all users:
 
 ```powershell
-./azps-cmdlets/InstallModule.ps1 -ModuleName Az.Compute -Scope AllUsers
+./azps-install.ps1 -ModuleName Az.Compute -Scope AllUsers
 ```
+
+## Manual / offline installation
+
+Download `azps-cmdlets-<version>.tar.gz` from [GitHub Releases](https://github.com/Azure/azclips/releases). Use a fresh extraction directory for each release:
+
+```powershell
+New-Item -ItemType Directory -Path azps-cmdlets | Out-Null
+$bundle = Get-Item ./azps-cmdlets-<version>.tar.gz
+tar -xzf $bundle.FullName -C azps-cmdlets
+if ($LASTEXITCODE -ne 0) { throw 'PowerShell bundle extraction failed.' }
+./azps-cmdlets/InstallModule.ps1
+```
+
+Replace `<version>` with the downloaded filename's version. The bundled helper accepts the same module/version/scope parameters, but its repository-name default is `LocalAzclips`. After installation, run `Unregister-PSRepository -Name LocalAzclips` before removing the extracted directory.
 
 ## Verify
 
-Start a fresh PowerShell session and explicitly import the version reported by the installer.
-For the roll-up, replace `<preview-module-version>` with the installed `Az` version:
+After installing the roll-up, start a fresh PowerShell 7.6+ session and explicitly load the preview:
 
 ```powershell
-Get-Module Az -ListAvailable | Select-Object Name, Version, ModuleBase
-Import-Module Az -RequiredVersion <preview-module-version>
+Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
 Get-Module Az, Az.Accounts | Select-Object Name, Version, ModuleBase
 ```
 
-If you installed a single module, import that module by name and its own installed version instead.
-Leaf module versions can differ from the roll-up version.
+The loaded `Az` version should be in the `0.1.*` range. If you installed a single module instead,
+replace `Az, Az.Accounts` in the check with that module's name, such as `Az.Compute`, and import
+that module with the same version range. To pin an exact build, use `-RequiredVersion` with the
+installed module's version instead. Leaf module versions can differ from the roll-up version.
 
-Classic and preview modules share names. An unversioned import can select classic modules, and
-`Remove-Module` doesn't unload binary assemblies. See
+Classic and preview modules share names. An unversioned import loads the highest installed version,
+which is classic Az when both are installed. Running a cmdlet before explicitly importing the
+preview can also autoload classic modules. `Remove-Module` doesn't unload binary assemblies; start
+a new session to switch. See
 [switch between classic and preview modules](./switch-azps-versions.md) for clean-session guidance.
 
 Continue with [get started with Next-Generation Azure PowerShell](./getting-started.md) to sign in
@@ -94,5 +112,7 @@ with `Connect-AzAccount`, check your profile, and run a read-only command.
 | Module fails to import / load error | Confirm PowerShell 7.6+ (`$PSVersionTable.PSVersion`). 7.5 and 5.1 cannot load these cmdlets. |
 | `Register-PSRepository` says the repo already exists | Run `Unregister-PSRepository -Name LocalAzclips`, then retry (the bundled script does this automatically). |
 | `Install-Module` cannot find the module | Run it from the extracted `azps-cmdlets` folder, or pass the correct `-Repository`/`SourceLocation` path. |
-| Command conflicts with an existing Az install | Start a fresh PowerShell process and import the preview by version before running any Az cmdlet. `-AllowClobber` permits installation of overlapping commands; it doesn't switch loaded assemblies. |
+| Classic Az loads instead of the preview | Start a fresh PowerShell 7.6+ session and explicitly import the preview with the version constraint shown above before running any Az cmdlets. |
 | Need a machine-wide install | Use `-Scope AllUsers` from an elevated PowerShell session. |
+| Release lookup returns HTTP 403 or 429 | Check GitHub's response for an API rate limit; retry after it resets, or download the bundle manually from GitHub Releases. |
+| Bootstrap says the repository already exists | Choose a different `-RepositoryName`; the bootstrap does not replace existing repositories. |

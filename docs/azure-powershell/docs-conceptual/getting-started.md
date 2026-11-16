@@ -13,17 +13,16 @@ or workflow.
 ## Install and verify the preview
 
 Follow the [installation overview](./install-overview.md) to install the preview modules.
-The documented download flow uses an authenticated GitHub CLI (`gh`) session and requires access
-to the repository and release assets. GitHub sign-in is separate from Azure sign-in.
+The installer downloads release assets from GitHub without requiring GitHub CLI (`gh`) sign-in.
+Installing the preview doesn't sign you in to Azure.
 
 Start a fresh PowerShell 7.6 or later session. Check the installed versions, then explicitly import
-the preview version reported by the bundled installer. Replace `<preview-module-version>` with
-that version:
+the preview `0.1.*` range:
 
 ```powershell
 $PSVersionTable.PSVersion
 Get-Module Az -ListAvailable | Select-Object Name, Version, ModuleBase
-Import-Module Az -RequiredVersion <preview-module-version>
+Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
 Get-Module Az, Az.Accounts | Select-Object Name, Version, ModuleBase
 Get-Command Connect-AzAccount | Select-Object Name, Source, Version
 ```
@@ -132,7 +131,7 @@ If you encounter an issue:
 1. Reproduce the issue, if possible.
 1. Collect any relevant error messages or command output.
 1. Search [existing issues][01], then use the appropriate bug report, feature request, or feedback
-   template if you have repository access.
+   template in the GitHub repository. Submitting an issue requires a GitHub account.
 
 When reporting an issue, include:
 
@@ -147,8 +146,7 @@ When reporting an issue, include:
 - Any relevant error messages
 
 Remove secrets, tokens, usernames, subscription IDs, tenant IDs, and other sensitive information
-from commands, output, logs, and screenshots before submitting. If you can't access the repository
-or issue templates, the GitHub feedback route isn't available to your account.
+from commands, output, logs, and screenshots before submitting.
 
 ## Known preview limitations
 

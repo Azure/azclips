@@ -64,7 +64,7 @@ trap cleanup EXIT
 
 # Run unattended: on a command ERROR az normally hands off to the interactive
 # agent-mode TUI. Disable the agent so failures surface as non-zero exits.
-"$AZ" config set --key agent.enabled --value false
+"$AZ" config set --key agent.recovery.trigger --value off
 
 if [[ -n "$TENANT_ID" ]]; then
   echo "=== [login] ==="

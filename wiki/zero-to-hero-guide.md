@@ -660,7 +660,7 @@ sequenceDiagram
     participant FE as FileExporter
     participant P as az process (finally)
     participant UP as az --upload-telemetry
-    participant AM as Azure Monitor
+    participant Aria as Aria / OneCollector
     CMD->>TS: StartActivity(names, success/fail)
     TS->>F: apply property/activity-name allow-list
     F->>FE: write sanitized trace to ~/.azclips/trace
@@ -668,7 +668,7 @@ sequenceDiagram
     P->>UP: Process.Start (detached, fire-and-forget)
     P-->>CMD: user's shell prompt returns immediately
     UP->>FE: read pending traces
-    UP->>AM: send
+    UP->>Aria: send
 ```
 
 The point of the detached uploader: **the user never waits on telemetry.** If the upload fails, traces stay on disk and go out on the next run (`Program.cs:436`).

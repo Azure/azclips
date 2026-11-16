@@ -73,4 +73,12 @@ describe("command pagination", () => {
     const { items: _items, nextLink: _nextLink, ...rest } = pagination;
     expect(IRCommandPaginationSchema.safeParse({ ...rest, itemsPath: [id("Page.items")] }).success).toBe(false);
   });
+
+  it("carries a continuation token as its response property and the parameter that sends it back", () => {
+    const { nextLink: _nextLink, ...itemsOnly } = pagination;
+    const tokenPaged = { ...itemsOnly, continuationToken: { response: { property: id("Page.nextMarker"), via: [] }, parameter: "Marker" } };
+    expect(IRCommandPaginationSchema.parse(JSON.parse(JSON.stringify(tokenPaged)))).toEqual(tokenPaged);
+    // A step follows one strategy.
+    expect(IRCommandPaginationSchema.safeParse({ ...tokenPaged, nextLink: pagination.nextLink }).success).toBe(false);
+  });
 });

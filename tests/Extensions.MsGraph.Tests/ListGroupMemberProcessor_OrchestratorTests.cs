@@ -105,10 +105,9 @@ public class ListGroupMemberProcessor_OrchestratorTests
     }
 
     [Fact]
-    public async Task ProcessAsync_GroupDisplayNameWins_WhenBothProvided()
+    public async Task ProcessAsync_WhenBothIdentifiersProvided_ShouldThrowBeforeHttp()
     {
-        var pipeline = PipelineForResolution(
-            $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"Sales\"}}]}}");
+        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
         var orch = new ListGroupMemberProcessor_Orchestrator
         {
             Group = "Marketing",
@@ -116,13 +115,8 @@ public class ListGroupMemberProcessor_OrchestratorTests
         };
         orch.WithCapturingContext(pipeline, NoOpPublisher());
 
-        await orch.ProcessAsync();
-
-        // The exact-name path should be used, so the list filter uses eq (not startswith).
-        var listUri = pipeline.Sent[0].RequestUri!.OriginalString;
-        Assert.Contains(Uri.EscapeDataString("displayName eq 'Sales'"), listUri);
-        Assert.DoesNotContain("startswith", listUri);
-        Assert.DoesNotContain("Marketing", listUri);
+        await Assert.ThrowsAsync<InvalidInputException>(() => orch.ProcessAsync());
+        Assert.Empty(pipeline.Sent);
     }
 
     [Fact]

@@ -40,7 +40,6 @@ public class VirtualMachineBenchmarks : PSBenchmarkBase
             ("VmSize", "Standard_D2s_v5"),
             ("AdminUsername", "benchadmin"),
             ("AdminPassword", "Benchmark!Pass123"),
-            ("NetworkInterfaceName", $"bench-nic-{n}"),
             ("VirtualNetworkName", $"bench-vnet-{n}"));
     }
 

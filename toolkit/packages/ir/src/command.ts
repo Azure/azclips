@@ -412,7 +412,30 @@ export type IRCommandPagination = {
   /** The response-model property carrying the continuation link, when the spec declares one. */
   nextLink?: IRPropertyRef | undefined;
   nextLinkVerb?: "GET" | "POST" | undefined;
+  /**
+   * Token-driven paging, when the spec declares a continuation token instead of a link.
+   * Mutually exclusive with `nextLink`: a step follows one or the other.
+   */
+  continuationToken?: IRCommandContinuationToken | undefined;
 };
+
+/**
+ * Both ends of a continuation token: where the response carries it, and which command
+ * parameter sends it back. The next page is the same request with that parameter set.
+ */
+export type IRCommandContinuationToken = {
+  /** The response-model property carrying the token for the next page. */
+  response: IRPropertyRef;
+  /** The command parameter's `name` the token is sent back in. */
+  parameter: string;
+};
+
+export const IRCommandContinuationTokenSchema: z.ZodType<IRCommandContinuationToken> = z
+  .object({
+    response: IRPropertyRefSchema,
+    parameter: z.string().min(1),
+  })
+  .strict();
 
 export const IRCommandPaginationSchema: z.ZodType<IRCommandPagination> = z
   .object({
@@ -420,8 +443,13 @@ export const IRCommandPaginationSchema: z.ZodType<IRCommandPagination> = z
     items: IRPropertyRefSchema,
     nextLink: IRPropertyRefSchema.optional(),
     nextLinkVerb: z.enum(["GET", "POST"]).optional(),
+    continuationToken: IRCommandContinuationTokenSchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine((pagination) => pagination.nextLink === undefined || pagination.continuationToken === undefined, {
+    message: "Pagination follows either a next link or a continuation token, not both.",
+    path: ["continuationToken"],
+  });
 
 // ─── Steps ──────────────────────────────────────────────────────────────
 
@@ -680,6 +708,16 @@ export const IRCommandSchema: z.ZodType<IRCommand> = z
       };
       checkEntries(step.request.query, "query");
       checkEntries(step.request.headers, "headers");
+      // The next page sets this parameter, so the processor has to have it.
+      if (step.pagination?.continuationToken !== undefined) {
+        requireDeclared(step.pagination.continuationToken.parameter, [
+          "steps",
+          stepIndex,
+          "pagination",
+          "continuationToken",
+          "parameter",
+        ]);
+      }
     });
 
     // A parameter set exists because parameters declare membership in it, so a

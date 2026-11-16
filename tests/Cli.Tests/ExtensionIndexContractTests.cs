@@ -28,12 +28,17 @@ public class ExtensionIndexContractTests
         "Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex 'rest' [profile]",
         "Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex 'Invoke-AzRestMethod' [Profile]",
 
+        // Existing MsGraph PowerShell aliases exposed when all extension projects became copy-local.
+        "Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex 'Get-AzMsGraphGroup_Get' [ObjectId]: alias 'Id' is documented but absent from ParameterAliases",
+        "Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex 'Get-AzMsGraphGroup_DisplayNameStartsWith' [DisplayNameStartsWith]: alias 'SearchString' is documented but absent from ParameterAliases",
+        "Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex 'Get-AzMsGraphGroupMember_ObjectId' [GroupObjectId]: alias 'Id' is documented but absent from ParameterAliases",
+        "Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex 'Get-AzMsGraphGroupMember_ObjectId' [GroupObjectId]: alias 'ObjectId' is documented but absent from ParameterAliases",
     ];
 
     private static List<string> Unexpected(IEnumerable<string> problems) =>
         problems.Where(problem => !KnownIssues.Any(problem.StartsWith)).ToList();
 
-    private static IEnumerable<(string Index, IExtensionIndex Instance)> Indexes()
+    internal static IEnumerable<(string Index, IExtensionIndex Instance)> Indexes()
     {
         var directory = Path.GetDirectoryName(typeof(ExtensionIndexContractTests).Assembly.Location)!;
         foreach (var path in Directory.EnumerateFiles(directory, "Microsoft.Azure.Azclips.Extensions.*.dll"))

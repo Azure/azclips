@@ -75,7 +75,7 @@ public static class MarkdownHelpParser
         return string.Empty;
     }
 
-    /// <summary>Enumerates <c>### Title</c> + fenced-code-block pairs in document order. Whitespace-only command bodies are skipped.</summary>
+    /// <summary>Enumerates <c>### Title</c> + fenced-code-block pairs in document order. Commands use LF line endings; whitespace-only bodies are skipped.</summary>
     public static IEnumerable<MarkdownHelpExample> EnumerateExamples(string? content)
     {
         if (string.IsNullOrEmpty(content))
@@ -87,7 +87,7 @@ public static class MarkdownHelpParser
         {
             var title = match.Groups["title"].Value.Trim();
             var language = match.Groups["lang"].Value.Trim();
-            var command = match.Groups["command"].Value.Trim();
+            var command = match.Groups["command"].Value.ReplaceLineEndings("\n").Trim();
             if (command.Length == 0)
             {
                 continue;

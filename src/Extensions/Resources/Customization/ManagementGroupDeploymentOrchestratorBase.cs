@@ -3,6 +3,7 @@
 
 using System.Collections;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.ExtensionRuntime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
@@ -19,6 +20,14 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
     where TResponse : class
 {
     private readonly DeploymentRequestBuilder requestBuilder = new();
+
+    // The generated deployment models carry fields ARM rejects even when null (e.g. externalInputDefinitions),
+    // so omit nulls; child processors inherit these options through CreateExtendedProcessor.
+    protected override void AfterInit()
+    {
+        base.AfterInit();
+        JsonOptions = new JsonSerializerOptions(JsonOptions) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+    }
 
     public string ManagementGroupId { get; set; } = string.Empty;
 
@@ -83,7 +92,7 @@ public abstract class ManagementGroupDeploymentOrchestratorBase<TRequest, TRespo
                 Tags = deployment.Tags,
                 Properties = new DeploymentProperties
                 {
-                    Mode = DeploymentMode.Incremental,
+                    Mode = nameof(DeploymentMode.Incremental),
                     Template = deployment.Properties.Template,
                     TemplateLink = deployment.Properties.TemplateLink,
                     Parameters = deployment.Properties.Parameters,

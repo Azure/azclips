@@ -10,6 +10,7 @@ using Core.Agent.AgentMode;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using GitHub.Copilot;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -126,13 +127,12 @@ public class RecoveryInputTests
             input.DisposeLocalCopyOfClientHandle();
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try
             {
                 await JsonSerializer.SerializeAsync(input, CreateRequest(),
-                    cancellationToken: timeout.Token);
+                    cancellationToken: CancellationToken.None).WithAgentHangGuard();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync(timeout.Token);
+                await process.WaitForExitAsync().WithAgentHangGuard();
             }
             finally
             {
@@ -198,14 +198,13 @@ public class RecoveryInputTests
             input.DisposeLocalCopyOfClientHandle();
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             try
             {
                 await JsonSerializer.SerializeAsync(input,
                     CreateRequest() with { Trigger = RecoveryTrigger.Manual, SessionStyle = "oneshot" },
-                    cancellationToken: timeout.Token);
+                    cancellationToken: CancellationToken.None).WithAgentHangGuard();
                 await input.DisposeAsync();
-                await process.WaitForExitAsync(timeout.Token);
+                await process.WaitForExitAsync().WithAgentHangGuard();
             }
             finally
             {
@@ -255,7 +254,7 @@ public class RecoveryInputTests
             var state = new SessionState { IsOneShot = !settings.IsInteractive };
             var result = await PreToolUseHook.HandleAsync(
                 new PreToolUseHookInput { ToolName = tool, ToolArgs = JsonSerializer.SerializeToElement(new { command = "az vm show" }) },
-                "az", new ConsoleApprovalPrompt(), state, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2));
+                "az", new ConsoleApprovalPrompt(), state, CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Equal("deny", result?.PermissionDecision);
         }

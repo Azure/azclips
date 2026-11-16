@@ -1,6 +1,6 @@
 ---
 title: Telemetry & Observability
-description: The Core.Telemetry subsystem — how Azclips captures OpenTelemetry activities, scrubs them for privacy, buffers them to disk, and replays them to Azure Monitor from a detached background process.
+description: The Core.Telemetry subsystem — how Azclips captures OpenTelemetry activities, scrubs them for privacy, buffers them to disk, and replays them to Aria from a detached background process.
 outline: deep
 ---
 
@@ -8,10 +8,10 @@ outline: deep
 
 ## Overview — why this design
 
-Azclips is a short-lived command-line process: a single `az` invocation may last only milliseconds, yet its telemetry must reach Azure Monitor reliably without adding user-visible latency. `Core.Telemetry` reconciles three competing goals:
+Azclips is a short-lived command-line process: a single `az` invocation may last only milliseconds, yet its telemetry must reach Aria reliably without adding user-visible latency. `Core.Telemetry` reconciles three competing goals:
 
 1. **Privacy first.** Only command *names*, parameter *names*, success/failure, and basic environment data leave the machine — never parameter values, URLs, or other personal content (`README.md:153`). This is enforced structurally by allow-list processors, not by trusting call sites.
-2. **Zero blocking on exit.** The CLI must not wait on a network round-trip to App Insights. Activities are exported synchronously to *local files*, and a **detached** background process replays them later (`src/CLI/Program.cs`).
+2. **Zero blocking on exit.** The CLI must not wait on a network round-trip to Aria. Activities are exported synchronously to *local files*, and a **detached** background process replays them later (`src/CLI/Program.cs`).
 3. **Uniform capture.** Everything is a `System.Diagnostics.Activity` (an OpenTelemetry span). Any code that wraps work in `using var _ = source.StartActivity(...)` is captured automatically (`eng-docs/spec/telemetry.md`).
 
 Telemetry is built on OpenTelemetry for .NET and is **on by default**; opt out with `telemetry.enabled=false` (`README.md:157-166`). Targets `net10.0`; the internal assembly namespace is `Azclips`.
@@ -73,7 +73,7 @@ address and machine name; it is not an anonymous per-command random value
 The PowerShell client is long-lived: one process serves many cmdlets, each opening its own
 root activity. Module import happens once, before any of them, so it is emitted as its own
 trace rather than nested under a cmdlet — attaching backdated phases to a cmdlet root would
-put a child before its parent, which renders incorrectly in Jaeger and Application Insights.
+put a child before its parent, which renders incorrectly in trace viewers such as Jaeger.
 
 ```
 PowerShell.Activity.Root          importKind = cold | warm
@@ -118,8 +118,8 @@ returns a never-empty set of targets:
 
 | Build | Default targets | Notes |
 | --- | --- | --- |
-| Debug | Local **and** Remote | Jaeger for fast feedback, Azure Monitor to prove the remote path still works |
-| Release | Remote | Unchanged from previous behaviour |
+| Debug | Local **and** Remote | Jaeger for fast feedback, Aria for the remote path |
+| Release | Remote | Aria/OneCollector only |
 
 In a Debug build the default can be overridden with `AZCLIPS_TELEMETRY_TARGET`, which accepts
 exactly `local`, `remote`, or `both`. Anything else — including an empty value — falls back to the
@@ -127,7 +127,7 @@ compiled default. There is no `none`: disabling remote export while developing i
 `AZCLIPS_TELEMETRY_TARGET=local`, and disabling telemetry entirely is `telemetry.enabled=false`.
 
 ```bash
-# Debug only: stop sending your local runs to Application Insights.
+# Debug only: stop sending your local runs to Aria.
 AZCLIPS_TELEMETRY_TARGET=local az group list
 ```
 
@@ -137,7 +137,7 @@ deliberate: once the resolver can express more than one target, honouring the va
 would let anything able to set an environment variable redirect a user's telemetry to a local
 collector, on a port that `AZCLIPS_OTLP_PORT` also controls.
 
-Because Debug spans go to the same Application Insights resource as production traffic, and no tag
+Because Debug spans go to the same Aria collectors as production traffic, and no tag
 distinguishes them, locating your own runs means correlating on `InstallationId`. Marking dev traffic
 with a build-configuration tag is deferred: the value is available from
 `AssemblyConfigurationAttribute`, and the key would also need adding to
@@ -194,7 +194,7 @@ sequenceDiagram
     participant Exp as FileExporter
     participant Disk as ~/.azclips/traces
     participant Up as az --upload-telemetry (detached)
-    participant AM as Azure Monitor
+    participant Aria as Aria / OneCollector
     Cmd->>Exp: activity OnEnd (filtered)
     Exp->>Disk: append traces-{traceId}.log
     Cmd->>Cmd: dispose DI, return exit code
@@ -203,8 +203,8 @@ sequenceDiagram
     Up->>Disk: claim .log -> rename .uploading (TraceFileStore)
     Up->>Up: parse batches, group by service.name (TraceUploader)
     Up->>Up: topologically order + remap SpanIds (TraceReplayer)
-    Up->>AM: replay + ForceFlush(10s) (TracerProviderExportSink)
-    AM-->>Up: flush ok
+    Up->>Aria: replay + ForceFlush(10s) (TracerProviderExportSink)
+    Aria-->>Up: flush ok
     Up->>Disk: delete uploaded files
 ```
 
@@ -214,11 +214,11 @@ sequenceDiagram
 
 - **Stale reclaim** — `.uploading` files older than 5 minutes (from a crashed uploader) are renamed back to `.log`.
 - **Atomic claim** — each `.log` is renamed to `.uploading` before reading, so concurrent uploaders and in-flight writers never process the same file. This claim protocol is owned by `TraceFileStore.ClaimPending` (`src/Core/Core.Telemetry/TraceFileStore.cs`).
-- **Group by service** — `TraceUploader.Run` groups traces by original `service.name` so each replays with the correct `cloud_RoleName` (CLI vs PowerShell) in App Insights (`src/Core/Core.Telemetry/TraceUploader.cs`).
+- **Group by service** — `TraceUploader.Run` groups traces by original `service.name` so each replays under its original service identity (CLI vs PowerShell) (`src/Core/Core.Telemetry/TraceUploader.cs`).
 - **Hierarchy-preserving replay** — because the OTel API assigns fresh SpanIds, `TraceReplayer.ReplayEntries` topologically orders parents-before-children and rewrites each child's parent context to the parent's *new* SpanId, keeping the original `TraceId` and tree intact (`src/Core/Core.Telemetry/TraceReplayer.cs`).
 - **Delete only on success** — `TracerProviderExportSink.TryExport` returns false on a failed flush, leaving files on disk for `TraceUploader.Run` to retry on the next attempt. With more than one target it builds **one provider per target** and flushes each independently, then reports the verdict of the highest-ranked target present (Remote outranks Local). A stopped Jaeger container therefore never pins trace files on a developer's machine, while a developer who asked for local-only still gets retries.
 
-The Azure Monitor destination is a hard-coded connection string in `WellKnownEndpoints` (`src/Core/Core.Telemetry/WellKnownEndpoints.cs`), used by both Debug and Release builds. Note the uploader itself only runs when the host executable is `az`/`az.exe`, so in-process benchmark runs never attempt to flush (`src/CLI/Program.cs`).
+Aria connection-string resolution and EU/ROW collector endpoints are defined in `WellKnownEndpoints` (`src/Core/Core.Telemetry/WellKnownEndpoints.cs`). Live providers route each activity; replay groups use their recorded region. Note the uploader itself only runs when the host executable is `az`/`az.exe`, so in-process benchmark runs never attempt to flush (`src/CLI/Program.cs`).
 
 ## Local timing — `TimingActivityListener`
 
@@ -237,7 +237,7 @@ az config set --key telemetry.enabled --value false
 Set-AzConfig -Key telemetry.enabled -Value false
 ```
 
-With telemetry disabled, the client keeps the base `DefaultTelemetryProvider` whose `TracerProvider` is `TracerProvider.Default` — activities may start but nothing is exported to disk or Azure Monitor (`src/Core/Core.Telemetry/DefaultTelemetryProvider.cs:18-22`).
+With telemetry disabled, the client keeps the base `DefaultTelemetryProvider` whose `TracerProvider` is `TracerProvider.Default` — activities may start but nothing is exported to disk or Aria (`src/Core/Core.Telemetry/DefaultTelemetryProvider.cs:18-22`).
 
 ## References
 
@@ -250,7 +250,7 @@ With telemetry disabled, the client keeps the base `DefaultTelemetryProvider` wh
 - `src/Core/Core.Telemetry/TraceFileFormat.cs` — on-disk batch format, shared by writer and reader
 - `src/Core/Core.Telemetry/TraceReplayer.cs` — hierarchy-preserving replay
 - `src/Core/Core.Telemetry/TraceUploader.cs` / `TelemetryUpload.cs` — orchestration and composition root
-- `src/Core/Core.Telemetry/DirectTelemetrySender.cs`, `WellKnownEndpoints.cs` — direct export + Azure Monitor endpoint
+- `src/Core/Core.Telemetry/DirectTelemetrySender.cs`, `WellKnownEndpoints.cs` — direct export + Aria endpoints
 - `src/Core/Core.Telemetry/TimingActivityListener.cs`, `DIRegisterExtensions.cs` — local timing + DI wiring
 - `src/CLI/Program.cs` — root activity, `--upload-telemetry`, detached spawn
 - `eng-docs/spec/telemetry.md`, `README.md:151-166` — telemetry spec and opt-out

@@ -43,7 +43,11 @@ Keychain, libsecret, or DPAPI as before.
 ## Sign in and save a profile
 
 Use `Connect-AzAccount` with the `-OutProfile` parameter to sign in and save the result as a named
-profile. Specify the tenant and subscription you want the profile to use:
+profile.
+Initial sign-in requires an explicit `-SubscriptionId`; login does not inherit
+argument defaults from the active profile.
+
+Specify the tenant and subscription you want the profile to use:
 
 ```powershell
 Connect-AzAccount -TenantId <tenant-id> -SubscriptionId <subscription-id> -OutProfile personal

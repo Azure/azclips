@@ -2,9 +2,13 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Text.RegularExpressions;
+using Markdig;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 
 namespace Azclips.Help.Tool.Validation
 {
@@ -23,6 +27,22 @@ namespace Azclips.Help.Tool.Validation
     /// </summary>
     public sealed class PowerShellExampleSyntaxValidator
     {
+        private static readonly MarkdownPipeline s_markdownPipeline = new MarkdownPipelineBuilder()
+            .UsePreciseSourceLocation()
+            .Build();
+
+        private static readonly Regex s_frontmatterRegex = new(
+            @"\A---[ \t]*\r?\n(?<fields>[\s\S]*?)^---[ \t]*(?:\r?\n|\z)",
+            RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+        private static readonly Regex s_dateFieldRegex = new(
+            @"^[ \t]*ms\.date[ \t]*:[ \t]*(?<value>[^\r\n]*)",
+            RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+        private static readonly Regex s_dateValueRegex = new(
+            @"^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}$",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
         // Common parameters that every advanced cmdlet inherits. Mirrors the list azure-powershell's
         // ExampleAnalyzer/utils.ps1 whitelists.
         private static readonly HashSet<string> s_commonParameters = new(StringComparer.OrdinalIgnoreCase)
@@ -133,8 +153,51 @@ namespace Azclips.Help.Tool.Validation
             {
                 report.AddError(
                     ProblemIds.PSL12_FillPlaceholder,
-                    $"Help file contains scaffolded placeholder '{token}'. Replace with real content (parameter description, notes, or related links) before merging.",
+                    $"Help file contains scaffolded placeholder '{token}'. Replace with real content (parameter description, notes, or related links) before merging. For optional sections such as Notes, remove the placeholder if no content applies; retain the heading.",
                     $"{filePath}:{lineNumber}");
+            }
+
+            var frontmatter = s_frontmatterRegex.Match(content);
+            if (frontmatter.Success)
+            {
+                var fields = frontmatter.Groups["fields"];
+                foreach (Match date in s_dateFieldRegex.Matches(fields.Value))
+                {
+                    var value = date.Groups["value"].Value.Trim();
+                    var comment = Regex.Match(value, @"[ \t]+#", RegexOptions.CultureInvariant);
+                    if (comment.Success)
+                    {
+                        value = value[..comment.Index];
+                    }
+                    if (value.Length >= 2 && ((value[0] == '"' && value[^1] == '"') ||
+                                              (value[0] == '\'' && value[^1] == '\'')))
+                    {
+                        value = value[1..^1];
+                    }
+
+                    if (!s_dateValueRegex.IsMatch(value) ||
+                        !DateOnly.TryParseExact(value, ["M/d/yyyy", "M/dd/yyyy", "MM/d/yyyy", "MM/dd/yyyy"],
+                            CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                    {
+                        var line = 1 + content.AsSpan(0, fields.Index + date.Index).Count('\n');
+                        report.AddError(
+                            ProblemIds.PSL17_InvalidDate,
+                            "Invalid ms.date. Use a valid date in M/D/YYYY format, such as 10/09/2026.",
+                            $"{filePath}:{line}");
+                    }
+                }
+            }
+
+            var document = Markdown.Parse(content, s_markdownPipeline);
+            foreach (var link in document.Descendants<LinkInline>())
+            {
+                if (!link.IsImage && string.IsNullOrWhiteSpace(link.Url))
+                {
+                    report.AddError(
+                        ProblemIds.PSL16_EmptyLinkTarget,
+                        "Markdown link has an empty destination. Provide a URL or relative path, or remove the link entry if it is not useful. Optional sections such as Related Links may be left empty.",
+                        $"{filePath}:{link.Line + 1}");
+                }
             }
 
             var fenceCount = 0;

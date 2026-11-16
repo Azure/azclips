@@ -600,10 +600,4 @@ The public IP address that was created.
 
 ## NOTES
 
-Generated help for network.
-
 ## RELATED LINKS
-
-
-- [Online Version]()
-

@@ -1,0 +1,16 @@
+schema-version: 1
+
+# Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
+output-dir: .                            # default: this file's folder
+tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/main/specification/storage/data-plane
+# additional-directories:                # folders the compile needs, not under tsp-location
+#   - ../Shared                          # relative to tsp-location, or absolute
+entrypoints:                             # relative to tsp-location
+  - path: ./FileStorage
+    api-version: 2027-03-07
+
+# Document facts: what the spec cannot provide; seed-ir writes them into the IR's target.
+service-name: StorageFile
+root-namespace: Microsoft.Azure.AzClips.Extensions.StorageFile
+project-name: Microsoft.Azure.AzClips.Extensions.StorageFile
+description: Storage file extension for AzClips

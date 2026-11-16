@@ -44,7 +44,7 @@ public class SensitiveHttpDiagnosticsTests
                 });
             });
         var page = new PaginationPage(["first"], nextLink);
-        var collecting = page.CollectWithPaginationAsync(value => value.Items, value => value.NextLink,
+        var collecting = page.CollectWithNextLinkAsync(value => value.Items, value => value.NextLink,
             () => Task.FromResult(new HttpRequestMessage(HttpMethod.Get, "https://fixture.invalid/first")),
             publisher.Object, pipeline.Object, new System.Text.Json.JsonSerializerOptions());
 

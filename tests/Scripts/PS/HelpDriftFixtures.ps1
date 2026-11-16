@@ -228,6 +228,60 @@ Invoke-Scenario -Name 'schema-corrupt' `
     } `
     -ExpectPsl 'PSL1[34]_'
 
+# Exercise the authored descriptions without loading product modules or running their commands.
+pwsh -NoProfile -Command {
+    param($root)
+    $ErrorActionPreference = 'Stop'
+    Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
+    $sentence = 'Runs the command in a mode that only reports what would happen without performing the actions.'
+    $paths = @(
+        'Accounts/help/Connect-AzAccount.md',
+        'Accounts/help/Disconnect-AzAccount.md',
+        'Compute/help/New-AzVM.md',
+        'Compute/help/Remove-AzVM.md',
+        'Config/help/Set-AzConfig.md',
+        'Config/help/Remove-AzConfig.md',
+        'Resources/help/New-AzResourceGroup.md'
+    )
+    $temp = Join-Path ([IO.Path]::GetTempPath()) ("help-whatif-" + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $temp | Out-Null
+    try {
+        foreach ($relative in $paths) {
+            $source = Join-Path $root "src/PS/$relative"
+            $name = [IO.Path]::GetFileNameWithoutExtension($source)
+            $path = Join-Path $temp "$name.md"
+            $help = Import-MarkdownCommandHelp -LiteralPath $source
+            $description = ($help.Parameters | Where-Object Name -eq 'WhatIf').Description
+            if ($description.Trim() -cne $sentence) { throw "Noncanonical source WhatIf description: $name" }
+
+            # Only the standard WhatIf merge is under test; avoid product imports and metadata drift.
+            Set-Item -Path "Function:$name" -Value { [CmdletBinding(SupportsShouldProcess)] param() }
+            try {
+                New-MarkdownCommandHelp -CommandInfo (Get-Command $name) -OutputFolder $temp -Force | Out-Null
+                $fixture = Import-MarkdownCommandHelp -LiteralPath $path
+                ($fixture.Parameters | Where-Object Name -eq 'WhatIf').Description = $description
+                $fixture | Export-MarkdownCommandHelp -OutputFolder $temp -Force | Out-Null
+                foreach ($round in 1..2) {
+                    Update-MarkdownCommandHelp -Path $path -NoBackup | Out-Null
+                    $updated = Import-MarkdownCommandHelp -LiteralPath $path
+                    $actual = ($updated.Parameters | Where-Object Name -eq 'WhatIf').Description
+                    if ($actual -cne $description) { throw "$name WhatIf changed after refresh $round" }
+                    $occurrences = [regex]::Matches($actual, [regex]::Escape($sentence)).Count
+                    if ($occurrences -ne 1) { throw "$name has $occurrences WhatIf sentences after refresh $round" }
+                }
+                Write-Host "[$name WhatIf repeated refresh] PASS"
+            }
+            finally {
+                Remove-Item -LiteralPath "Function:$name"
+            }
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $temp -Recurse -Force
+    }
+} -Args $repoRoot.Path
+if ($LASTEXITCODE -ne 0) { throw "WhatIf repeated-refresh regression failed (exit $LASTEXITCODE)" }
+
 Write-Host "All HelpDrift scenarios passed."
 # Explicit exit 0: the last Invoke-Scenario invokes the gate which exits 1 on the schema-corrupt
 # scenario (asserted-away as expected). Without this, $LASTEXITCODE bleeds into the script's own

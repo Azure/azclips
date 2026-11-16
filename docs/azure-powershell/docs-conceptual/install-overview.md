@@ -12,49 +12,40 @@ The Next-Generation Azure PowerShell public preview ships as **azps** — the Az
 
 ## Install azps (one command)
 
-Download the module bundle from [GitHub Releases](https://github.com/Azure/azclips/releases)
-using your authenticated GitHub CLI (`gh`) session.
-
-> [!IMPORTANT]
-> These steps require your GitHub account to have access to the repository and release assets.
-> A GitHub sign-in alone doesn't grant repository access. If the repository or release isn't visible
-> to your account, these download commands won't work.
+The installer downloads the latest release from [GitHub Releases](https://github.com/Azure/azclips/releases).
 
 **Prerequisites:**
 
 - [PowerShell 7.6+](https://aka.ms/powershell)
-- [GitHub CLI](https://cli.github.com/) signed in (`gh auth login`)
+- `tar` available on `PATH` to extract the bundle
 
-**Download and install:**
+**Linux / macOS / WSL / Windows** (run inside PowerShell 7.6+, `pwsh`):
 
 ```powershell
-gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber
-New-Item -ItemType Directory -Force -Path azps-cmdlets | Out-Null
-$bundle = Get-ChildItem azps-cmdlets-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-tar -xzf $bundle.FullName -C azps-cmdlets
-./azps-cmdlets/InstallModule.ps1
+# Linux / macOS / WSL / Windows (PowerShell 7.6+)
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps1 -ErrorAction Stop | iex
 ```
+
+The bootstrap downloads and extracts the bundle into a temporary directory, invokes its `InstallModule.ps1` helper for the current user, and removes its temporary repository and files afterward.
+
+For module/version/scope options or manual/offline installation, see the [module installation guide](./install-powershell-modules.md).
 
 ## Verify
 
-Start a fresh PowerShell 7.6 or later session. Replace `<preview-module-version>` with the `Az`
-version reported by `InstallModule.ps1`, not a classic Az version:
+Start a fresh PowerShell 7.6+ session and explicitly load the preview:
 
 ```powershell
-Get-Module -Name Az -ListAvailable | Select-Object Name, Version, ModuleBase
-Import-Module -Name Az -RequiredVersion <preview-module-version>
+Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
 Get-Module -Name Az, Az.Accounts | Select-Object Name, Version, ModuleBase
 ```
 
-Classic and preview modules share module and cmdlet names. An unversioned `Import-Module Az`
-can select classic modules. Choose a version before running any Az cmdlet, and start a new
-PowerShell process to switch. See [switch between classic and preview modules](./switch-azps-versions.md).
+The loaded `Az` version should be in the `0.1.*` range. The preview installs side by side with classic Azure PowerShell. An unversioned `Import-Module Az` loads the highest installed version, which is classic Az when both are installed. Running a cmdlet before explicitly importing the preview can also autoload classic modules. To change versions, start a new session; see [Switch between classic and preview Azure PowerShell](./switch-azps-versions.md).
 
 ## Sign in and try a command
 
 Continue with [get started with Next-Generation Azure PowerShell](./getting-started.md) to sign in
-to Azure, check your active profile, and run a read-only command. GitHub authentication used to
-download the bundle doesn't sign you in to Azure.
+to Azure, check your active profile, and run a read-only command. Installing the bundle doesn't
+sign you in to Azure.
 
 ## Other install scenarios
 
