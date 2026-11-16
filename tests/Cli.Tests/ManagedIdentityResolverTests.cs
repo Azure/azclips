@@ -46,8 +46,13 @@ public class ManagedIdentityResolverTests
     [Theory]
     [InlineData("not-a-resource-id")]
     [InlineData("/subscriptions/s/resourceGroups/rg")]
-    [InlineData("/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm")]
     [InlineData("/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi/extra")]
+    // Eight segments with exactly one wrong, so each segment check is pinned on its own.
+    [InlineData("/subscription/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi")]
+    [InlineData("/subscriptions/s/resourceGroup/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi")]
+    [InlineData("/subscriptions/s/resourceGroups/rg/provider/Microsoft.ManagedIdentity/userAssignedIdentities/mi")]
+    [InlineData("/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/userAssignedIdentities/mi")]
+    [InlineData("/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/systemAssignedIdentities/mi")]
     public void ParseResourceId_InvalidFormat_ThrowsInvalidInput(string id)
     {
         var ex = Assert.Throws<InvalidInputException>(() => ManagedIdentityResolver.ParseResourceId(id));
