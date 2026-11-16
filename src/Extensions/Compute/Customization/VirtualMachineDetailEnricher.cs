@@ -14,8 +14,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
     /// <item><description><see cref="ApplyInstanceView"/> flattens the instance view — <c>--show-details</c> and list <c>-Status</c>.</description></item>
     /// </list>
     /// <c>Get-AzVM -Status</c> for one VM uses only <see cref="ResolveExpand"/>, through
-    /// <c>GetVMInstanceViewProcessor_Orchestrator</c>, which keeps the instance view intact.
-    /// Extracted from <c>GetVMProcessor_Orchestrator</c> so the CLI and PowerShell detail views
+    /// <c>GetVirtualMachinesInstanceViewProcessor_Orchestrator</c>, which keeps the instance view intact.
+    /// Extracted from <c>GetVirtualMachinesProcessor_Orchestrator</c> so the CLI and PowerShell detail views
     /// cannot drift apart.
     /// </summary>
     internal static class VirtualMachineDetailEnricher
@@ -38,37 +38,37 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         /// summary fields legacy <c>az vm show -d</c> produces. Blank entries are skipped so a VM
         /// without a public IP yields "" rather than ",".
         /// </summary>
-        internal static async Task ApplyNetworkAsync(ComputeProcessorBase owner, VirtualMachine vm)
+        internal static async Task ApplyNetworkAsync(ProcessorBase owner, VirtualMachine vm)
         {
             var privateIps = new List<string>();
             var publicIps = new List<string>();
             var fqdns = new List<string>();
             var macAddresses = new List<string>();
 
-            foreach (var nicReference in vm.Properties?.NetworkProfile?.NetworkInterfaces ?? [])
+            foreach (var nicReference in vm.NetworkProfileNetworkInterfaces ?? [])
             {
                 var nicId = VirtualMachineIdResolver.ParseResourceId(
-                    nicReference.Id, "Microsoft.Network", "networkInterfaces", "Network interface", "networkInterfaceName");
+                    nicReference.Id!, "Microsoft.Network", "networkInterfaces", "Network interface", "networkInterfaceName");
 
-                using HttpResponseMessage nicResponse = await owner.CreateExtendedProcessor<GetNetworkInterfaceProcessor>(p =>
+                using HttpResponseMessage nicResponse = await owner.CreateChild<GetNetworkInterfacesProcessor>(p =>
                 {
                     p.SubscriptionId = nicId.SubscriptionId;
                     p.ResourceGroupName = nicId.ResourceGroupName;
-                    p.Name = nicId.Name;
+                    p.NetworkInterfaceName = nicId.Name;
                 }).SendAsync();
 
-                if (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(owner.JsonOptions) is not { } nic)
+                if (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(owner.Json) is not { } nic)
                 {
                     continue;
                 }
 
-                Collect(macAddresses, nic.Properties?.MacAddress);
+                Collect(macAddresses, nic.MacAddress);
 
-                foreach (var ipConfiguration in nic.Properties?.IPConfigurations ?? [])
+                foreach (var ipConfiguration in nic.IpConfigurations ?? [])
                 {
-                    Collect(privateIps, ipConfiguration.Properties?.PrivateIPAddress);
+                    Collect(privateIps, ipConfiguration.PrivateIPAddress);
 
-                    if (ipConfiguration.Properties?.PublicIPAddress?.Id is not { } publicIpReference)
+                    if (ipConfiguration.PublicIpAddressId is not { } publicIpReference)
                     {
                         continue;
                     }
@@ -76,20 +76,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
                     var publicIpId = VirtualMachineIdResolver.ParseResourceId(
                         publicIpReference, "Microsoft.Network", "publicIPAddresses", "Public IP address", "publicIpAddressName");
 
-                    using HttpResponseMessage publicIpResponse = await owner.CreateExtendedProcessor<GetPublicIPAddressProcessor>(p =>
+                    using HttpResponseMessage publicIpResponse = await owner.CreateChild<GetPublicIPAddressesProcessor>(p =>
                     {
                         p.SubscriptionId = publicIpId.SubscriptionId;
                         p.ResourceGroupName = publicIpId.ResourceGroupName;
-                        p.Name = publicIpId.Name;
+                        p.PublicIpAddressName = publicIpId.Name;
                     }).SendAsync();
 
-                    if (await publicIpResponse.Content.ReadFromJsonAsync<PublicIPAddress>(owner.JsonOptions) is not { } publicIp)
+                    if (await publicIpResponse.Content.ReadFromJsonAsync<PublicIPAddress>(owner.Json) is not { } publicIp)
                     {
                         continue;
                     }
 
-                    Collect(publicIps, publicIp.Properties?.IpAddress);
-                    Collect(fqdns, publicIp.Properties?.DnsSettings?.Fqdn);
+                    Collect(publicIps, publicIp.IpAddress);
+                    Collect(fqdns, publicIp.DnsSettingsFqdn);
                 }
             }
 
@@ -112,7 +112,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         /// once the power state has been read out. <paramref name="includeStatusFields"/> adds the
         /// four fields only the list forms of <c>Get-AzVM -Status</c> surface; <c>--show-details</c>
         /// passes false. <c>Get-AzVM -Status</c> for one VM never comes here: it goes through
-        /// <c>GetVMInstanceViewProcessor_Orchestrator</c>, which keeps the instance view intact.
+        /// <c>GetVirtualMachinesInstanceViewProcessor_Orchestrator</c>, which keeps the instance view intact.
         /// </summary>
         internal static void ApplyInstanceView(VirtualMachine vm, bool includeStatusFields)
         {

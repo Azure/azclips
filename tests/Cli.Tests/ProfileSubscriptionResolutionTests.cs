@@ -1,5 +1,4 @@
 using Core.Abstractions;
-using Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Xunit;
 
@@ -12,12 +11,6 @@ namespace Cli.Tests;
 public class ProfileSubscriptionResolutionTests
 {
     private sealed class TestResourceProcessor : ResourcesProcessorBase<object, object>
-    {
-        public void SetProfile(Profile? profile) => ResolvedProfile = profile;
-        //public void Resolve() => ResolveSubscriptionId();
-    }
-
-    private sealed class TestComputeProcessor : ComputeProcessorBase<object, object>
     {
         public void SetProfile(Profile? profile) => ResolvedProfile = profile;
         //public void Resolve() => ResolveSubscriptionId();

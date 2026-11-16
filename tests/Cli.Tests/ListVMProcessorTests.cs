@@ -12,18 +12,18 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Offline tests for <see cref="ListVMProcessor"/>. The ARM list endpoint returns an envelope
+/// Offline tests for <see cref="ListVirtualMachinesProcessor"/>. The ARM list endpoint returns an envelope
 /// <c>{ "value": [...] }</c>; the processor unwraps it and writes the flat VM array (regression:
 /// it previously deserialized the envelope into a single VM, so non-empty resource groups
-/// appeared to contain no VMs). Pagination is intentionally not followed yet.
+/// appeared to contain no VMs).
 /// </summary>
-public class ListVMProcessorTests
+public class ListVirtualMachinesProcessorTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
 
-    private static ListVMProcessor CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
+    private static ListVirtualMachinesProcessor CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
     {
-        var processor = new ListVMProcessor();
+        var processor = new ListVirtualMachinesProcessor();
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         var context = new ProcessorContext(
             pipeline,
@@ -32,6 +32,7 @@ public class ListVMProcessorTests
             output,
             Profile: profile);
         processor.Init(context);
+        processor.SubscriptionId = TestSubscriptionId;
         processor.ResourceGroupName = "my-rg";
         return processor;
     }
