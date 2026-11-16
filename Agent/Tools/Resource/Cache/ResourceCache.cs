@@ -267,7 +267,7 @@ public sealed class ResourceCache
     private const double MinSimilarity = 0.75;
 
     // Similarity = 1 - Levenshtein / max(len), case-insensitive. Keeps rows at or above
-    // MinSimilarity, ordered by similarity then name. 1.0 is "exact", anything lower "similar".
+    // MinSimilarity, ordered by similarity then name. 1.0 means identical.
     private static IReadOnlyList<MatchResult> RankByName(
         IEnumerable<CachedResource> candidates,
         string? namePattern,
@@ -279,7 +279,7 @@ public sealed class ResourceCache
         {
             return candidates
                 .Take(top)
-                .Select(c => new MatchResult(c, "scope-only", 1.0))
+                .Select(c => new MatchResult(c, 1.0))
                 .ToList();
         }
 
@@ -290,7 +290,7 @@ public sealed class ResourceCache
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Resource.Name, StringComparer.OrdinalIgnoreCase)
             .Take(top)
-            .Select(x => new MatchResult(x.Resource, x.Score == 1.0 ? "exact" : "similar", x.Score))
+            .Select(x => new MatchResult(x.Resource, x.Score))
             .ToList();
     }
 
@@ -299,9 +299,9 @@ public sealed class ResourceCache
 
     /// <summary>
     /// Resolves an identifier to a single resource. <paramref name="nameOrId"/>
-    /// can be a full ARM id or a name. An exact name match wins (throws
-    /// <see cref="AmbiguousMatchException"/> when several resources share it);
-    /// otherwise returns the most similar candidate, or null when none qualify.
+    /// can be a full ARM id or a name. Only a name identical to the resource name
+    /// (case-insensitive, score 1.0) matches; throws <see cref="AmbiguousMatchException"/>
+    /// when several resources share it. Returns null otherwise.
     /// </summary>
     public CachedResource? ResolveResource(string nameOrId, string? kind, ScopeFilter? scope)
     {
@@ -315,20 +315,13 @@ public sealed class ResourceCache
             if (_rgByIdCi.TryGetValue(nameOrId, out var byRgId)) return CacheKinds.ProjectResourceGroup(byRgId);
         }
 
-        // 2) Single FindResources call — rows are ordered by similarity, so exact
-        // matches (similarity 1.0) come first.
-        var matches = FindResources(nameOrId, kind, scope, top: 25);
-        if (matches.Count == 0) return null;
-
-        if (matches[0].Match == "exact")
-        {
-            var exact = matches.Where(m => m.Match == "exact").ToList();
-            if (exact.Count == 1) return exact[0].Resource;
-            throw new AmbiguousMatchException(exact.Select(m => m.Resource.Id).ToList());
-        }
-
-        // 3) No exact match: take the most similar candidate.
-        return matches[0].Resource;
+        // 2) Identical names only (score 1.0); rows are ordered by score, so they come first.
+        var exact = FindResources(nameOrId, kind, scope, top: 25)
+            .Where(m => m.Score == 1.0)
+            .ToList();
+        if (exact.Count == 0) return null;
+        if (exact.Count == 1) return exact[0].Resource;
+        throw new AmbiguousMatchException(exact.Select(m => m.Resource.Id).ToList());
     }
 
     public CachedResourceGroup? ResolveResourceGroup(string nameOrId, ScopeFilter? scope)
@@ -473,7 +466,7 @@ public sealed class ResourceCache
 public sealed record CacheStats(
     int Tenants, int Subscriptions, int ResourceGroups, int Resources, DateTime? LoadedAtUtc);
 
-public sealed record MatchResult(CachedResource Resource, string Match, double Score);
+public sealed record MatchResult(CachedResource Resource, double Score);
 
 public sealed class TreeNode
 {

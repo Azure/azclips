@@ -56,7 +56,6 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         var top = Assert.Single(hits);
         Assert.Equal("zhoxing-test", top.Resource.Name);
         Assert.Equal("Microsoft.Resources/resourceGroups", top.Resource.Type);
-        Assert.Equal("exact", top.Match);
         Assert.Equal(1.0, top.Score);
     }
 
@@ -72,7 +71,6 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
         var top = Assert.Single(hits);
         Assert.Equal("zhoxing-test", top.Resource.Name);
-        Assert.Equal("similar", top.Match);
         Assert.Equal(0.923, top.Score, 3);
     }
 
@@ -129,7 +127,7 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
             kind: "resource", scope: null, top: 5);
 
         var top = Assert.Single(hits);
-        Assert.Equal("exact", top.Match);
+        Assert.Equal(1.0, top.Score);
         Assert.Equal("openclaw-zhoxing-260307", top.Resource.Name);
         Assert.Equal("microsoft.botservice/botservices", top.Resource.Type);
     }
@@ -146,7 +144,7 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         // "Sub B" is 0.8 similar, so it follows the exact match.
         Assert.Equal(new[] { "Sub A", "Sub B" }, hits.Select(h => h.Resource.Name));
         var top = hits[0];
-        Assert.Equal("exact", top.Match);
+        Assert.Equal(1.0, top.Score);
         Assert.Equal("Microsoft.Subscription", top.Resource.Type);
     }
 
@@ -197,13 +195,13 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
     // ── Similarity ranking: 1 - Levenshtein / max(len), keep >= 0.75 ──
 
     [Theory]
-    [InlineData("azclips-test-rg", "azclips-test-rg", 1.0, "exact")]
-    [InlineData("AZCLIPS-Test-RG", "azclips-test-rg", 1.0, "exact")]
-    [InlineData("azclips-tset-rg", "azclips-test-rg", 0.867, "similar")]
-    [InlineData("prd-rg", "prod-rg", 0.857, "similar")]
-    [InlineData("abxd", "abcd", 0.75, "similar")]
+    [InlineData("azclips-test-rg", "azclips-test-rg", 1.0)]
+    [InlineData("AZCLIPS-Test-RG", "azclips-test-rg", 1.0)]
+    [InlineData("azclips-tset-rg", "azclips-test-rg", 0.867)]
+    [InlineData("prd-rg", "prod-rg", 0.857)]
+    [InlineData("abxd", "abcd", 0.75)]
     public void FindResources_SimilarityAtOrAboveThreshold_Matches(
-        string pattern, string name, double score, string match)
+        string pattern, string name, double score)
     {
         var cache = CacheWithResourceGroups(name);
 
@@ -211,7 +209,6 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
         var top = Assert.Single(hits);
         Assert.Equal(name, top.Resource.Name);
-        Assert.Equal(match, top.Match);
         Assert.Equal(score, top.Score, 3);
     }
 
@@ -238,7 +235,6 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
         Assert.Equal(new[] { "web1", "web2" }, hits.Select(h => h.Resource.Name));
         Assert.All(hits, h => Assert.Equal(0.75, h.Score, 3));
-        Assert.All(hits, h => Assert.Equal("similar", h.Match));
     }
 
     [Fact]
@@ -264,27 +260,144 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
     }
 
     [Fact]
-    public async Task FindResourcesTool_ReturnsMatchKindAndOrderedCandidates()
+    public async Task FindResourcesTool_ReturnsScoredOrderedCandidates()
     {
-        var cache = CacheWithResourceGroups("web2", "web1", "Web");
-        var tools = new CachedResourceTools(new ArmDetailsClient(new StubAuthService()),
-            new StubProfileService(seedDefault: false), activityCreator: null, cache);
+        var tools = ToolsFor(CacheWithResourceGroups("web2", "web1", "Web"));
 
-        var output = (await tools.FindResources.InvokeAsync(new AIFunctionArguments
+        using var doc = await InvokeAsync(tools.FindResources, new AIFunctionArguments
         {
             ["namePattern"] = "web", ["kind"] = "resourceGroup", ["top"] = 10,
-        }))!.ToString()!;
+        });
 
-        using var doc = JsonDocument.Parse(output);
-        var rows = doc.RootElement.GetProperty("matches").EnumerateArray()
-            .Select(m => (m.GetProperty("name").GetString(), m.GetProperty("matchKind").GetString(),
-                m.GetProperty("score").GetDouble()))
-            .ToArray();
-        Assert.Equal(new (string?, string?, double)[]
-        {
-            ("Web", "exact", 1.0), ("web1", "similar", 0.75), ("web2", "similar", 0.75),
-        }, rows);
+        var matches = doc.RootElement.GetProperty("matches").EnumerateArray().ToArray();
+        Assert.Equal(new (string?, double)[] { ("Web", 1.0), ("web1", 0.75), ("web2", 0.75) },
+            matches.Select(m => (m.GetProperty("name").GetString(), m.GetProperty("score").GetDouble())));
+        Assert.All(matches, m => Assert.False(m.TryGetProperty("matchKind", out _)));
         Assert.Equal(3, doc.RootElement.GetProperty("matchCount").GetInt32());
+    }
+
+    // ── Resolution: identical name (case-insensitive) or full ARM id only ──
+
+    [Fact]
+    public void ResolveResource_IdenticalNameIgnoringCase_ReturnsHit()
+    {
+        var cache = CacheWithResources(("rg1", "web1a"), ("rg1", "web1b"));
+
+        var hit = cache.ResolveResource("WEB1A", kind: null, scope: null);
+
+        Assert.Equal("web1a", hit?.Name);
+    }
+
+    [Fact]
+    public void ResolveResource_NearName_ReturnsNull()
+    {
+        var cache = CacheWithResources(("rg1", "web1a"), ("rg1", "web1b"));
+
+        Assert.Null(cache.ResolveResource("web1", kind: null, scope: null));
+    }
+
+    [Fact]
+    public void ResolveResource_ArmId_ReturnsHit()
+    {
+        var cache = CacheWithResources(("rg1", "web1a"), ("rg1", "web1b"));
+
+        var hit = cache.ResolveResource(ResourceId("rg1", "web1b"), kind: null, scope: null);
+
+        Assert.Equal("web1b", hit?.Name);
+    }
+
+    [Fact]
+    public void ResolveResource_SeveralIdenticalNames_ThrowsAmbiguous()
+    {
+        var cache = CacheWithResources(("rg1", "web1"), ("rg2", "web1"));
+
+        var ex = Assert.Throws<AmbiguousMatchException>(
+            () => cache.ResolveResource("web1", kind: null, scope: null));
+
+        Assert.Equal(2, ex.CandidateIds.Count);
+    }
+
+    [Fact]
+    public async Task GetResourceDetails_IdenticalName_ReturnsCacheRow()
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a"), ("rg1", "web1b")));
+
+        using var doc = await InvokeAsync(tools.GetResourceDetails,
+            new AIFunctionArguments { ["nameOrId"] = "web1a" });
+
+        Assert.Equal(ResourceId("rg1", "web1a"),
+            doc.RootElement.GetProperty("cache").GetProperty("id").GetString());
+    }
+
+    [Fact]
+    public async Task GetResourceDetails_ArmId_ReturnsCacheRow()
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a"), ("rg1", "web1b")));
+
+        using var doc = await InvokeAsync(tools.GetResourceDetails,
+            new AIFunctionArguments { ["nameOrId"] = ResourceId("rg1", "web1b") });
+
+        Assert.Equal("web1b", doc.RootElement.GetProperty("cache").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task GetResourceDetails_NearName_ReturnsNotFoundWithScoredOrderedSuggestions()
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1b"), ("rg1", "web1a")));
+
+        using var doc = await InvokeAsync(tools.GetResourceDetails,
+            new AIFunctionArguments { ["nameOrId"] = "web1", ["kind"] = "resource" });
+
+        Assert.Equal("not_found", doc.RootElement.GetProperty("error").GetString());
+        Assert.Equal(new (string?, double)[] { ("web1a", 0.8), ("web1b", 0.8) },
+            doc.RootElement.GetProperty("suggestions").EnumerateArray()
+                .Select(m => (m.GetProperty("name").GetString(), m.GetProperty("score").GetDouble())));
+    }
+
+    [Fact]
+    public async Task GetResourceDetails_SeveralIdenticalNames_ReturnsAmbiguousMatch()
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1"), ("rg2", "web1")));
+
+        using var doc = await InvokeAsync(tools.GetResourceDetails,
+            new AIFunctionArguments { ["nameOrId"] = "web1" });
+
+        Assert.Equal("ambiguous_match", doc.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task GetResourceTree_IdenticalName_ReturnsTree()
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a"), ("rg1", "web1b")));
+
+        using var doc = await InvokeAsync(tools.GetResourceTree,
+            new AIFunctionArguments { ["nameOrId"] = "web1a", ["kind"] = "resource" });
+
+        Assert.Equal(ResourceId("rg1", "web1a"),
+            doc.RootElement.GetProperty("tree").GetProperty("id").GetString());
+    }
+
+    [Fact]
+    public async Task GetResourceTree_ArmId_ReturnsTree()
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a"), ("rg1", "web1b")));
+
+        using var doc = await InvokeAsync(tools.GetResourceTree,
+            new AIFunctionArguments { ["nameOrId"] = ResourceId("rg1", "web1b"), ["kind"] = "resource" });
+
+        Assert.Equal("web1b", doc.RootElement.GetProperty("tree").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task GetResourceTree_NearName_ReturnsNotFound()
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a"), ("rg1", "web1b")));
+
+        using var doc = await InvokeAsync(tools.GetResourceTree,
+            new AIFunctionArguments { ["nameOrId"] = "web1", ["kind"] = "resource" });
+
+        Assert.Equal(nameof(InvalidOperationException), doc.RootElement.GetProperty("error").GetString());
+        Assert.Equal("resource 'web1' not found in cache.", doc.RootElement.GetProperty("message").GetString());
     }
 
     // ── Cache miss is not a panic signal ──
@@ -376,9 +489,27 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         return new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
     }
 
+    // Replaces the resources with the given web sites (all in SubA) and the resource groups with theirs.
+    private ResourceCache CacheWithResources(params (string ResourceGroup, string Name)[] sites)
+    {
+        CacheWithResourceGroups(sites.Select(s => s.ResourceGroup).Distinct().ToArray());
+        WriteEnvelope("resources.json", sites.Select(s => Resource(s.ResourceGroup, s.Name)).ToArray(), TenantId);
+        return new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+    }
+
+    private static CachedResourceTools ToolsFor(ResourceCache cache) =>
+        new(new ArmDetailsClient(new StubAuthService()),
+            new StubProfileService(seedDefault: false), activityCreator: null, cache);
+
+    private static async Task<JsonDocument> InvokeAsync(AIFunction tool, AIFunctionArguments args) =>
+        JsonDocument.Parse((await tool.InvokeAsync(args))!.ToString()!);
+
+    private static string ResourceId(string resourceGroup, string name) =>
+        $"/subscriptions/{SubA}/resourceGroups/{resourceGroup}/providers/microsoft.web/sites/{name}";
+
     private static object Resource(string resourceGroup, string name) => new
     {
-        id = $"/subscriptions/{SubA}/resourceGroups/{resourceGroup}/providers/microsoft.web/sites/{name}",
+        id = ResourceId(resourceGroup, name),
         name,
         type = "microsoft.web/sites",
         location = "westus",

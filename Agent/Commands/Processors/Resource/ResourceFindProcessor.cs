@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
 {
     public class ResourceFindProcessor : AgentProcessorBase
     {
-        [ArgumentInfo(Required = true, Description = @"Name pattern to match. Returns names with similarity >= 0.75 (1 - Levenshtein distance / longer length, case-insensitive), most similar first; similarity 1.0 is an exact match.", SerializedName = @"name")]
+        [ArgumentInfo(Required = true, Description = @"Name pattern to match. Returns names with similarity >= 0.75 (1 - Levenshtein distance / longer length, case-insensitive), most similar first; each result carries its score, and 1.0 means the name is identical.", SerializedName = @"name")]
         public string Name { get; set; } = string.Empty;
 
         [ArgumentInfo(Required = false, Description = @"Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched.", SerializedName = @"kind")]

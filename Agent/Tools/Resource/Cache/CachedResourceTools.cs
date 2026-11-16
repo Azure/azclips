@@ -34,7 +34,7 @@ public sealed class CachedResourceTools
     {
     }
 
-    // cache: the cache find_resources reads; null reads ResourceCache.Current.
+    // cache: the cache the tools read; null reads ResourceCache.Current.
     internal CachedResourceTools(
         ArmDetailsClient armDetails, IProfileService profileService,
         Func<string, IDisposable?>? activityCreator, ResourceCache? cache)
@@ -55,7 +55,7 @@ public sealed class CachedResourceTools
                 "not found, did you mean rg-foo-eastus?'). Returns up to N candidates " +
                 "ranked by name similarity (1 - edit distance / longer name length, case-insensitive), " +
                 "keeping only candidates with similarity >= 0.75, ties ordered by name. " +
-                "matchKind is 'exact' for similarity 1.0, otherwise 'similar'. " +
+                "Each candidate carries its score; score 1.0 means the name is identical. " +
                 "Cache-only, no network call.",
         });
 
@@ -66,7 +66,9 @@ public sealed class CachedResourceTools
                 $"`kind` is one of: {CacheKinds.KindList}, and identifies what type of node " +
                 "to root the tree at. Use to answer 'what's in subscription X' or " +
                 "'what's in RG Y'. maxDepth limits expansion to avoid returning " +
-                "megabytes. Resources are leaves with no further children in this view.",
+                "megabytes. Resources are leaves with no further children in this view. " +
+                "Resolves only an identical name (score 1.0, case-insensitive) or a full ARM id; " +
+                "call find_resources first to get the exact name.",
         });
 
         GetResourceDetails = AIFunctionFactory.Create(GetResourceDetailsAsync, new AIFunctionFactoryOptions
@@ -79,7 +81,9 @@ public sealed class CachedResourceTools
                 "aren't in the cache (e.g. properties, provisioningState, endpoints, " +
                 "encryption settings) — that triggers one extra ARM GET (~200-500ms). " +
                 "Default live=false; pick live=true when answering the user genuinely " +
-                "needs deeper detail.",
+                "needs deeper detail. Resolves only an identical name (score 1.0, " +
+                "case-insensitive) or a full ARM id; anything else returns not_found with " +
+                "find_resources candidates and their scores.",
         });
 
         All = new[] { FindResources, GetResourceTree, GetResourceDetails };
@@ -122,7 +126,7 @@ public sealed class CachedResourceTools
 
     [Description("Search local cache for resources by name similarity.")]
     private async Task<string> FindResourcesAsync(
-        [Description("Name pattern. Candidates with similarity >= 0.75 (1 - edit distance / longer length), most similar first; exact or similar.")]
+        [Description("Name pattern. Candidates with similarity >= 0.75 (1 - edit distance / longer length), most similar first; score 1.0 means identical.")]
         string namePattern,
         [Description("Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched and results merged by score.")]
         string? kind = null,
@@ -158,7 +162,7 @@ public sealed class CachedResourceTools
             ? new ScopeFilter(subscription, resourceGroup)
             : null;
 
-        var cache = _cache ?? ResourceCache.Current;
+        var cache = Cache;
         var stats = cache.Stats();
         var matches = cache.FindResources(namePattern, kind, filter, top);
 
@@ -175,14 +179,13 @@ public sealed class CachedResourceTools
                 resourceGroup = m.Resource.ResourceGroup,
                 subscriptionId = m.Resource.SubscriptionId,
                 id = m.Resource.Id,
-                matchKind = m.Match,
                 score = Math.Round(m.Score, 3),
             }).ToArray(),
         };
         var json = JsonSerializer.Serialize(result, Json);
         var summary = matches.Count == 0
             ? "matchCount=0"
-            : $"matchCount={matches.Count} — top: {matches[0].Resource.Name} ({matches[0].Match}, score={Math.Round(matches[0].Score, 3)})";
+            : $"matchCount={matches.Count} — top: {matches[0].Resource.Name} (score={Math.Round(matches[0].Score, 3)})";
         scope.SetResult(summary);
         scope.RecordResponse(matches.Count == 0 ? "not_found" : "found");
         return json;
@@ -234,7 +237,7 @@ public sealed class CachedResourceTools
                 _ => throw new ArgumentException($"Unknown kind '{kind}'."),
             };
 
-            var tree = ResourceCache.Current.GetTree(root.id, root.kindNorm, root.name, maxDepth);
+            var tree = Cache.GetTree(root.id, root.kindNorm, root.name, maxDepth);
             json = JsonSerializer.Serialize(new { root = root.kindNorm, maxDepth = maxDepth, tree }, Json);
             summary = $"root={root.kindNorm}:{root.name} depth={maxDepth}";
             scope.RecordResponse("found");
@@ -258,7 +261,7 @@ public sealed class CachedResourceTools
 
     [Description("Return cache row + optionally one live ARM GET for one item.")]
     private async Task<string> GetResourceDetailsAsync(
-        [Description("Name or full ARM id. Use kind/scope to disambiguate.")]
+        [Description("Identical name (case-insensitive) or full ARM id. Use kind/scope to disambiguate.")]
         string nameOrId,
         [Description("Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched.")]
         string? kind = null,
@@ -297,15 +300,15 @@ public sealed class CachedResourceTools
         string summary;
         try
         {
-            var hit = ResourceCache.Current.ResolveResource(nameOrId, kind, filter);
+            var hit = Cache.ResolveResource(nameOrId, kind, filter);
             if (hit is null)
             {
-                var suggestions = ResourceCache.Current.FindResources(nameOrId, kind, filter, top: 5);
+                var suggestions = Cache.FindResources(nameOrId, kind, filter, top: 5);
                 json = JsonSerializer.Serialize(new
                 {
                     error = "not_found",
                     nameOrId,
-                    suggestions = suggestions.Select(m => new { m.Resource.Name, m.Resource.Id, m.Match, score = Math.Round(m.Score, 3) }),
+                    suggestions = suggestions.Select(m => new { m.Resource.Name, m.Resource.Id, score = Math.Round(m.Score, 3) }),
                 }, Json);
                 summary = suggestions.Count == 0
                     ? "not_found, suggestions=0"
@@ -370,11 +373,13 @@ public sealed class CachedResourceTools
         string.IsNullOrWhiteSpace(kind) ? "kind=any"
         : CacheKinds.TryResolve(kind, out _) ? $"kind={kind.ToLowerInvariant()}" : "kind=invalid";
 
+    private ResourceCache Cache => _cache ?? ResourceCache.Current;
+
     // ── kind resolvers ──
 
-    private static (string id, string kind, string name) ResolveTenant(string nameOrId)
+    private (string id, string kind, string name) ResolveTenant(string nameOrId)
     {
-        var t = ResourceCache.Current.Tenants
+        var t = Cache.Tenants
             .FirstOrDefault(t => string.Equals(t.TenantId, nameOrId, StringComparison.OrdinalIgnoreCase)
                               || string.Equals(t.DisplayName, nameOrId, StringComparison.OrdinalIgnoreCase)
                               || string.Equals(t.DefaultDomain, nameOrId, StringComparison.OrdinalIgnoreCase));
@@ -382,23 +387,23 @@ public sealed class CachedResourceTools
         return (t.TenantId, "tenant", t.DisplayName ?? t.TenantId);
     }
 
-    private static (string id, string kind, string name) ResolveSub(string nameOrId)
+    private (string id, string kind, string name) ResolveSub(string nameOrId)
     {
-        var s = ResourceCache.Current.ResolveSubscription(nameOrId)
+        var s = Cache.ResolveSubscription(nameOrId)
             ?? throw new InvalidOperationException($"subscription '{nameOrId}' not found in cache.");
         return (s.SubscriptionId, "subscription", s.DisplayName ?? s.SubscriptionId);
     }
 
-    private static (string id, string kind, string name) ResolveRg(string nameOrId, ScopeFilter? scope)
+    private (string id, string kind, string name) ResolveRg(string nameOrId, ScopeFilter? scope)
     {
-        var rg = ResourceCache.Current.ResolveResourceGroup(nameOrId, scope)
+        var rg = Cache.ResolveResourceGroup(nameOrId, scope)
             ?? throw new InvalidOperationException($"resource group '{nameOrId}' not found in cache.");
         return (rg.Id, "resourceGroup", rg.Name);
     }
 
-    private static (string id, string kind, string name) ResolveRes(string nameOrId, ScopeFilter? scope)
+    private (string id, string kind, string name) ResolveRes(string nameOrId, ScopeFilter? scope)
     {
-        var r = ResourceCache.Current.ResolveResource(nameOrId, kind: null, scope)
+        var r = Cache.ResolveResource(nameOrId, kind: null, scope)
             ?? throw new InvalidOperationException($"resource '{nameOrId}' not found in cache.");
         return (r.Id, "resource", r.Name);
     }
