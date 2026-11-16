@@ -341,6 +341,10 @@ first-page-only behavior.
 
 Generated pageable processors override `ExecuteAsync` to consume the explicitly configured
 pages through `ExecutePagesAsync(pages, pageItems)`, without overriding `ReadPagesAsync`.
+If a command or endpoint parameter is named `ExecuteAsync`, codegen chooses an unused
+execution-hook name (`ExecuteAsync2`, etc.) across the extension, using it in the base,
+pageable overrides, and lifecycle call. Parameter names, wire bindings, and continuation
+token assignments remain unchanged.
 `ProcessAsync` still owns lifecycle events for both CLI and PowerShell. The default
 execution collects all items and writes once, preserving existing output; custom
 execution can collect and transform before output.

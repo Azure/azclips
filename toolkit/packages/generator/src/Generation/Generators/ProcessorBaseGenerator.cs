@@ -48,7 +48,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         yield return new GeneratedFile(
             context.Placement.ProcessorFile(BaseTypeName),
             Emit(ns, ServerSupport.Dominant(context.Ir), ServerSupport.Inputs(context.Ir), AuthSupport.Dominant(context.Ir),
-                context.Placement.PaginationTypeReference),
+                context.Placement.PaginationHelperTypeReference, context.Placement.ExecuteMethodName),
             BaseTypeName);
     }
 
@@ -57,7 +57,8 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         ServerSupport.ResolvedEndpoint? endpoint,
         IReadOnlyList<string> endpointInputs,
         AuthSupport.ResolvedAuth? auth,
-        string paginationType)
+        string paginationHelperType,
+        string executeMethodName)
     {
         CompilationUnitSyntax unit = CompilationUnit()
             .AddUsings(
@@ -75,7 +76,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(NameEquals(IdentifierName("ProfileModel")), ParseName("Core.Abstractions.Profile")))
             .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace))
-                .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass(paginationType)))
+                .AddMembers(MarkerBaseClass(endpoint, endpointInputs, auth), GenericBaseClass(paginationHelperType, executeMethodName)))
             .NormalizeWhitespace()
             .FixNormalizerSpacing();
 
@@ -223,7 +224,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
 
     // ── The generic base: typed body seam + the standard ProcessAsync pipeline ──────────────
 
-    private static ClassDeclarationSyntax GenericBaseClass(string paginationType) =>
+    private static ClassDeclarationSyntax GenericBaseClass(string paginationHelperType, string executeMethodName) =>
         ClassDeclaration(BaseTypeName)
             .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword))
             .AddTypeParameterListParameters(TypeParameter("TRequest"), TypeParameter("TResponse"))
@@ -231,7 +232,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
             .AddConstraintClauses(
                 TypeParameterConstraintClause(IdentifierName("TRequest")).AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)),
                 TypeParameterConstraintClause(IdentifierName("TResponse")).AddConstraints(ClassOrStructConstraint(SyntaxKind.ClassConstraint)))
-            .WithLeadingXmlDoc("Generic processor base: ProcessAsync owns lifecycle events and delegates to ExecuteAsync. Pageable processors supply continuation selectors to ReadPagesAsync and customize execution independently of output hooks.")
+            .WithLeadingXmlDoc($"Generic processor base: ProcessAsync owns lifecycle events and delegates to {executeMethodName}. Pageable processors supply continuation selectors to ReadPagesAsync and customize execution independently of output hooks.")
             .AddMembers(
                 ArrowMethod("TRequest?", "CreateRequestBody", "default", SyntaxKind.ProtectedKeyword, SyntaxKind.OverrideKeyword)
                     .WithLeadingXmlDoc("Typed request-body seam. Null (no body) by default; write processors override to return their TRequest model. Covariantly overrides the non-generic CreateRequestBody."),
@@ -283,7 +284,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword))
                     .AddParameterListParameters(Parameter(Identifier("nextLink")).WithType(ParseTypeName("Func<TResponse, string?>")))
                     .WithExpressionBody(ArrowExpressionClause(ParseExpression(
-                        $"{paginationType}.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)")))
+                        $"{paginationHelperType}.ReadWithNextLinkAsync(ReadResponseAsync, nextLink, CreateRequestMessage, JsonOptions, Publisher, HttpPipeline)")))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
                     .WithLeadingXmlDoc("Reads pages lazily using the required next-link selector and Publisher.Token."),
                 MethodDeclaration(ParseTypeName("IAsyncEnumerable<TResponse>"), Identifier("ReadPagesAsync"))
@@ -292,7 +293,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                         Parameter(Identifier("continuationToken")).WithType(ParseTypeName("Func<TResponse, string?>")),
                         Parameter(Identifier("setContinuationToken")).WithType(ParseTypeName("Action<string>")))
                     .WithExpressionBody(ArrowExpressionClause(ParseExpression(
-                        $"{paginationType}.ReadWithTokenAsync(ReadResponseAsync, continuationToken, setContinuationToken, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)")))
+                        $"{paginationHelperType}.ReadWithTokenAsync(ReadResponseAsync, continuationToken, setContinuationToken, CreateRequestMessage, DeserializeResponseAsync, Publisher, HttpPipeline)")))
                     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken))
                     .WithLeadingXmlDoc("Reads pages lazily using the required token selector and request-token setter. Cancellation uses Publisher.Token."),
                 MethodDeclaration(ParseTypeName("Task"), Identifier("ExecutePagesAsync"))
@@ -302,11 +303,11 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                         Parameter(Identifier("pages")).WithType(ParseTypeName("IAsyncEnumerable<TResponse>")),
                         Parameter(Identifier("pageItems")).WithType(ParseTypeName("Func<TResponse, IEnumerable<TItem>?>")))
                     .WithRawBody($$"""
-                        List<TItem> items = await {{paginationType}}.CollectItemsAsync(pages, pageItems);
+                        List<TItem> items = await {{paginationHelperType}}.CollectItemsAsync(pages, pageItems);
                         await WriteOutput(items);
                         """)
-                    .WithLeadingXmlDoc("Default paged execution collects all items before one write. Override ExecuteAsync to consume pages differently or transform collected items."),
-                MethodDeclaration(ParseTypeName("Task"), Identifier("ExecuteAsync"))
+                    .WithLeadingXmlDoc($"Default paged execution collects all items before one write. Override {executeMethodName} to consume pages differently or transform collected items."),
+                MethodDeclaration(ParseTypeName("Task"), Identifier(executeMethodName))
                     .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.VirtualKeyword), Token(SyntaxKind.AsyncKeyword))
                     .WithRawBody("""
                         using HttpResponseMessage response = await SendAsync();
@@ -318,7 +319,7 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
                         """),
                 MethodDeclaration(ParseTypeName("Task"), Identifier("ProcessAsync"))
                     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.OverrideKeyword), Token(SyntaxKind.AsyncKeyword))
-                    .WithRawBody(GenericProcessAsyncBody));
+                    .WithRawBody(GenericProcessAsyncBody(executeMethodName)));
 
     private static MethodDeclarationSyntax CreateExtendedProcessorMethod() =>
         MethodDeclaration(ParseTypeName("T"), Identifier("CreateExtendedProcessor"))
@@ -522,12 +523,12 @@ internal sealed class ProcessorBaseGenerator : IArtifactGenerator
         return body;
         """;
 
-    private const string GenericProcessAsyncBody = """
+    private static string GenericProcessAsyncBody(string executeMethodName) => $$"""
         try
         {
             await BeforeProcessAsync();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
-            await ExecuteAsync();
+            await {{executeMethodName}}();
         }
         finally
         {

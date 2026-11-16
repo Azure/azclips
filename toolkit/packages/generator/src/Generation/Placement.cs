@@ -37,11 +37,14 @@ internal sealed class Placement
             .Select(model => model.Name.Identifier())
             .Concat(ir.Commands.Select(command => command.Name + "Processor"))
             .ToHashSet(StringComparer.Ordinal);
-        PaginationTypeName = "Pagination";
-        for (int suffix = 2; occupiedNames.Contains(PaginationTypeName); suffix++)
-        {
-            PaginationTypeName = $"Pagination{suffix}";
-        }
+        PaginationHelperTypeName = UnusedName("Pagination", occupiedNames);
+
+        var parameterNames = ir.Commands
+            .SelectMany(command => command.Parameters)
+            .Select(parameter => parameter.Name)
+            .Concat(ServerSupport.Inputs(ir))
+            .ToHashSet(StringComparer.Ordinal);
+        ExecuteMethodName = UnusedName("ExecuteAsync", parameterNames);
     }
 
     /// <summary>Root namespace of the generated code, dotted.</summary>
@@ -66,14 +69,27 @@ internal sealed class Placement
     public string ProcessorsNamespace => $"{RootNamespace}.{ProcessorsDirectory}";
 
     /// <summary>Helper name that does not shadow a service model or duplicate a class-map key.</summary>
-    public string PaginationTypeName { get; }
+    public string PaginationHelperTypeName { get; }
 
     /// <summary>Fully qualified helper reference, unaffected by processor parameter names.</summary>
-    public string PaginationTypeReference => $"global::{ProcessorsNamespace}.{PaginationTypeName}";
+    public string PaginationHelperTypeReference => $"global::{ProcessorsNamespace}.{PaginationHelperTypeName}";
+
+    /// <summary>Shared execution-hook name that preserves command and endpoint parameter names.</summary>
+    public string ExecuteMethodName { get; }
 
     /// <summary>Output path for one model file.</summary>
     public string ModelFile(string typeName) => $"{ModelsDirectory}/{typeName}.cs";
 
     /// <summary>Output path for one processor file.</summary>
     public string ProcessorFile(string typeName) => $"{ProcessorsDirectory}/{typeName}.cs";
+
+    private static string UnusedName(string name, ISet<string> occupiedNames)
+    {
+        string candidate = name;
+        for (int suffix = 2; occupiedNames.Contains(candidate); suffix++)
+        {
+            candidate = $"{name}{suffix}";
+        }
+        return candidate;
+    }
 }

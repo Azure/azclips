@@ -773,6 +773,69 @@ public sealed class CSharpClientGeneratorTests
         CompilePaging(result, writer, "Pagination4");
     }
 
+    [Theory]
+    [InlineData("nextLink", "ExecuteAsync")]
+    [InlineData("nextLink", "ReadPagesAsync")]
+    [InlineData("nextLink", "ReadResponseAsync")]
+    [InlineData("nextLink", "ExecutePagesAsync")]
+    [InlineData("queryToken", "ExecuteAsync")]
+    [InlineData("queryToken", "ReadPagesAsync")]
+    [InlineData("queryToken", "ReadResponseAsync")]
+    [InlineData("queryToken", "ExecutePagesAsync")]
+    [InlineData("headerToken", "ExecuteAsync")]
+    [InlineData("headerToken", "ReadPagesAsync")]
+    [InlineData("headerToken", "ReadResponseAsync")]
+    [InlineData("headerToken", "ExecutePagesAsync")]
+    public async Task Generate_Paging_PreservesParametersNamedAfterExecutionMethods(string strategy, string parameterName)
+    {
+        TransformedIR ir = PagingIr(strategy, markerParameter: parameterName);
+        if (strategy == "nextLink")
+        {
+            ir.Commands[0].Parameters = [Commands.Parameter(parameterName,
+                Commands.FromHeader(OperationId("p.seam")), required: false)];
+            ir.Commands[0].Steps[0].Request!.Headers =
+            [
+                .. ir.Commands[0].Steps[0].Request!.Headers,
+                Commands.Supplied("x-seam", parameterName),
+            ];
+        }
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
+            scenario: $"{nameof(Generate_Paging_PreservesParametersNamedAfterExecutionMethods)}_{strategy}_{parameterName}");
+
+        Assert.Empty(result.Diagnostics);
+        byte[] assembly = CompilePaging(result, writer);
+        await RunGeneratedPagingAsync(assembly, strategy, failLaterPage: false, collidingParameter: parameterName);
+        Assert.Contains($"public string? {parameterName}", writer.Files.Source(result, "ListProcessor"));
+        Assert.Equal(parameterName, Assert.Single(ir.Commands[0].Parameters).Name);
+    }
+
+    [Fact]
+    public async Task Generate_Paging_ExecutionNameAvoidsOtherCommandsParametersAndOccupiedSuffixes()
+    {
+        TransformedIR ir = PagingIr("queryToken");
+        ir.Commands =
+        [
+            .. ir.Commands,
+            Commands.Atomic("Get", ServerId(), OperationId("get"),
+                parameters:
+                [
+                    Commands.Parameter("ExecuteAsync", Commands.FromQuery(OperationId("p.execute"))),
+                    Commands.Parameter("ExecuteAsync2", Commands.FromQuery(OperationId("p.execute2"))),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
+            scenario: nameof(Generate_Paging_ExecutionNameAvoidsOtherCommandsParametersAndOccupiedSuffixes));
+
+        Assert.Empty(result.Diagnostics);
+        byte[] assembly = CompilePaging(result, writer);
+        Assert.Contains("protected override Task ExecuteAsync3()", writer.Files.Source(result, "ListProcessor"));
+        Assert.Contains("protected virtual async Task ExecuteAsync3()", writer.Files.Source(result, "ProcessorBase"));
+        Assert.Contains("await ExecuteAsync3();", writer.Files.Source(result, "ProcessorBase"));
+        await RunGeneratedPagingAsync(assembly, "queryToken", failLaterPage: false);
+    }
+
     private static TransformedIR PagingIr(string strategy, string pageName = "Page", string markerParameter = "Marker")
     {
         bool headerToken = strategy == "headerToken";
@@ -1164,7 +1227,7 @@ public sealed class CSharpClientGeneratorTests
         return output.ToArray();
     }
 
-    private static async Task RunGeneratedPagingAsync(byte[] assemblyBytes, string strategy, bool failLaterPage, bool malformedFirstPage = false, bool stopAfterFirstPage = false, string pageTypeName = "Page", string helperName = "Pagination", bool singleResponse = false)
+    private static async Task RunGeneratedPagingAsync(byte[] assemblyBytes, string strategy, bool failLaterPage, bool malformedFirstPage = false, bool stopAfterFirstPage = false, string pageTypeName = "Page", string helperName = "Pagination", bool singleResponse = false, string? collidingParameter = null)
     {
         bool headerToken = strategy == "headerToken";
         bool nextLink = strategy == "nextLink";
@@ -1178,6 +1241,13 @@ public sealed class CSharpClientGeneratorTests
             Assert.Equal("Contoso.Clients.Processors", helper.Namespace);
             var processorType = Assert.Single(assembly.GetTypes(), type => type.Name == "ListProcessor");
             var processor = Assert.IsAssignableFrom<IProcessor>(Activator.CreateInstance(processorType));
+            const string seamHeader = "retained +/&=";
+            if (nextLink && collidingParameter is not null)
+            {
+                var property = processorType.GetProperty(collidingParameter);
+                Assert.NotNull(property);
+                property.SetValue(processor, seamHeader);
+            }
             var pageReaders = processorType.GetMethods(
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 .Where(method => method.Name == "ReadPagesAsync").ToArray();
@@ -1213,6 +1283,10 @@ public sealed class CSharpClientGeneratorTests
                     }
                     Assert.Equal(expectedUri, request.RequestUri!.AbsoluteUri);
                     Assert.Equal("retained", Assert.Single(request.Headers.GetValues("x-test")));
+                    if (nextLink && collidingParameter is not null)
+                    {
+                        Assert.Equal(seamHeader, Assert.Single(request.Headers.GetValues("x-seam")));
+                    }
                     string? sentToken = request.Headers.TryGetValues("x-marker", out var values)
                         ? Assert.Single(values)
                         : null;
@@ -1303,6 +1377,12 @@ public sealed class CSharpClientGeneratorTests
             {
                 await processor.ProcessAsync();
                 Assert.Equal(names, Assert.IsType<List<string>>(Assert.Single(written)));
+                if (!nextLink && collidingParameter is not null)
+                {
+                    var property = processorType.GetProperty(collidingParameter);
+                    Assert.NotNull(property);
+                    Assert.Equal(markers[^1], property.GetValue(processor));
+                }
             }
 
             int count = malformedFirstPage || stopAfterFirstPage || singleResponse ? 1 : failLaterPage ? 2 : 3;

@@ -619,7 +619,7 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             ? $"ReadPagesAsync(continuationToken, token => {continuation.Parameter} = token)"
             : "ReadPagesAsync(nextLink)";
 
-        yield return MethodDeclaration(ParseTypeName("Task"), Identifier("ExecuteAsync"))
+        yield return MethodDeclaration(ParseTypeName("Task"), Identifier(context.Placement.ExecuteMethodName))
             .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
             .WithExpressionBody(ArrowExpressionClause(ParseExpression($"ExecutePagesAsync<{itemType}>({read}, pageItems)")))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
