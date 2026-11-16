@@ -27,7 +27,7 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 ## Getting started
 
 1. **Install** — follow the [Azure CLI install overview](docs/azure-cli/docs-conceptual/install-overview.md) or the [Azure PowerShell install overview](docs/azure-powershell/docs-conceptual/install-overview.md) for Windows, Linux, and macOS. Packages ship via [GitHub Releases](https://github.com/Azure/azclips/releases). The scripted install steps use an authenticated [GitHub CLI](https://cli.github.com/) session; manual download options are also documented. The PowerShell modules require **PowerShell 7.6+**.
-2. **Verify** — for the CLI, follow the install guide's full-path or session `PATH` instructions, then run `az --version` to check the preview build rather than an existing classic CLI installation. For PowerShell, follow the install guide's module verification steps.
+2. **Verify** — for the CLI, follow the install guide's session `PATH` instructions, then run `az --version` to check the preview build rather than an existing classic CLI installation. If you choose the full-path option instead, invoke the preview executable by full path with `--version` and use that full path for the CLI commands below. For PowerShell, follow the install guide's module verification steps.
 3. **Sign in** — run `az login` for the CLI or `Connect-AzAccount` for PowerShell.
 4. **Explore supported commands**
    - CLI: `config`, `deployment`, `disk`, `extension`, `group`, `login`, `logout`, `profile`, `rest`, and `vm`
