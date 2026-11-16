@@ -13,59 +13,85 @@ public class CertificateCommandInputsTests
     [InlineData(" ")]
     [InlineData("bad_name")]
     [InlineData("caf\u00e9")]
-    public void Validate_InvalidName_Throws(string? name)
+    public void Validate_InvalidName_ThrowsArgumentException(string? name)
     {
-        var ex = Assert.Throws<ArgumentException>(() => CertificateCommandInputs.Validate(name!));
+        Exception? exception = Record.Exception(() => CertificateCommandInputs.Validate(name!));
 
-        Assert.Equal(NameMessage, ex.Message);
+        Assert.Equal(NameMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
-    public void Validate_NameOf128Characters_Throws()
+    public void Validate_NameOf128Characters_ThrowsArgumentException()
     {
-        var ex = Assert.Throws<ArgumentException>(() => CertificateCommandInputs.Validate(new string('a', 128)));
+        string name = new('a', 128);
 
-        Assert.Equal(NameMessage, ex.Message);
+        Exception? exception = Record.Exception(() => CertificateCommandInputs.Validate(name));
+
+        Assert.Equal(NameMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
     [InlineData(1)]
     [InlineData(127)]
-    public void Validate_NameAtLengthBoundary_DoesNotThrow(int length) =>
-        Assert.Null(Record.Exception(() => CertificateCommandInputs.Validate(new string('a', length))));
+    public void Validate_NameAtLengthBoundary_DoesNotThrow(int length)
+    {
+        string name = new('a', length);
+
+        Exception? exception = Record.Exception(() => CertificateCommandInputs.Validate(name));
+
+        Assert.Null(exception);
+    }
 
     // Current behaviour: the pattern's '$' anchor also matches before a single trailing newline.
     [Fact]
-    public void Validate_NameWithSingleTrailingNewline_DoesNotThrow() =>
-        Assert.Null(Record.Exception(() => CertificateCommandInputs.Validate("test\n")));
+    public void Validate_NameWithSingleTrailingNewline_DoesNotThrow()
+    {
+        string name = "test\n";
+
+        Exception? exception = Record.Exception(() => CertificateCommandInputs.Validate(name));
+
+        Assert.Null(exception);
+    }
 
     [Theory]
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("bad-version")]
     [InlineData("v\u00e9")]
-    public void Validate_InvalidVersion_Throws(string version)
+    public void Validate_InvalidVersion_ThrowsArgumentException(string version)
     {
-        var ex = Assert.Throws<ArgumentException>(() => CertificateCommandInputs.Validate("test", version));
+        Exception? exception = Record.Exception(() => CertificateCommandInputs.Validate("test", version));
 
-        Assert.Equal(VersionMessage, ex.Message);
+        Assert.Equal(VersionMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
-    public void Validate_VersionOf65Characters_Throws()
+    public void Validate_VersionOf65Characters_ThrowsArgumentException()
     {
-        var ex = Assert.Throws<ArgumentException>(() => CertificateCommandInputs.Validate("test", new string('a', 65)));
+        string version = new('a', 65);
 
-        Assert.Equal(VersionMessage, ex.Message);
+        Exception? exception = Record.Exception(() => CertificateCommandInputs.Validate("test", version));
+
+        Assert.Equal(VersionMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("a")]
-    public void Validate_NullOrValidVersion_DoesNotThrow(string? version) =>
-        Assert.Null(Record.Exception(() => CertificateCommandInputs.Validate("test", version)));
+    public void Validate_NullOrValidVersion_DoesNotThrow(string? version)
+    {
+        Exception? exception = Record.Exception(() => CertificateCommandInputs.Validate("test", version));
+
+        Assert.Null(exception);
+    }
 
     [Fact]
-    public void Validate_VersionOf64Characters_DoesNotThrow() =>
-        Assert.Null(Record.Exception(() => CertificateCommandInputs.Validate("test", new string('a', 64))));
+    public void Validate_VersionOf64Characters_DoesNotThrow()
+    {
+        string version = new('a', 64);
+
+        Exception? exception = Record.Exception(() => CertificateCommandInputs.Validate("test", version));
+
+        Assert.Null(exception);
+    }
 }

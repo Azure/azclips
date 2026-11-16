@@ -1,13 +1,21 @@
-using System.Text.Json;
+using System.Text.Json.Nodes;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.KeyVault.Customization;
+using Moq;
 using static Extensions.KeyVault.Tests.KeyVaultCommandTestHelpers;
 
 namespace Extensions.KeyVault.Tests;
 
 public class UpdateSecretCommandTests
 {
+    private const string DateMessage = "Dates must be UTC timestamps between 1970 and January 2038 supported by the selected API.";
+
+    // Strict: a request the test did not set up throws MockException, so a test that gets its expected
+    // exception also proves no unexpected request was sent.
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = CreatePipelineMock();
+
     [Fact]
-    public async Task InheritedAttributesArePreserved()
+    public async Task ProcessAsync_InheritedAttributesAndTags_SendsThemInBody()
     {
         var command = new UpdateSecretCommand
         {
@@ -15,95 +23,169 @@ public class UpdateSecretCommandTests
             SecretAttributesNotBefore = 1700000000, SecretAttributesExpires = 1800000000,
             Tags = new Dictionary<string, string> { ["source"] = "inherited" }
         };
-        Initialize(command, "{}", async request =>
-        {
-            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
-            var attributes = body.RootElement.GetProperty("attributes");
-            Assert.False(attributes.GetProperty("enabled").GetBoolean());
-            Assert.Equal(1700000000, attributes.GetProperty("nbf").GetInt32());
-            Assert.Equal(1800000000, attributes.GetProperty("exp").GetInt32());
-            Assert.Equal("inherited", body.RootElement.GetProperty("tags").GetProperty("source").GetString());
-        });
+        List<string?> sentBodies = _mockPipeline.RespondWith("{}");
+        Initialize(command, _mockPipeline);
+
         await command.ProcessAsync();
+
+        Assert.Equal((false, 1700000000, 1800000000, "inherited"), AttributesAndTagSummary(sentBodies.Single()));
     }
 
     [Fact]
-    public async Task InheritedEmptyTagsAreAnUpdate()
+    public async Task ProcessAsync_InheritedEmptyTags_SendsEmptyTags()
     {
         var command = new UpdateSecretCommand { SecretName = "test", Tags = new Dictionary<string, string>() };
-        Initialize(command, "{}", async request =>
-        {
-            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
-            Assert.Empty(body.RootElement.GetProperty("tags").EnumerateObject());
-        });
+        List<string?> sentBodies = _mockPipeline.RespondWith("{}");
+        Initialize(command, _mockPipeline);
+
         await command.ProcessAsync();
+
+        Assert.Empty(JsonNode.Parse(sentBodies.Single()!)!["tags"]!.AsObject());
     }
 
     [Fact]
-    public async Task ExplicitConvenienceInputOverridesOnlyThatAttribute()
+    public async Task ProcessAsync_EnabledWithInheritedAttributes_OverridesOnlyEnabled()
     {
         var command = new UpdateSecretCommand
         {
             SecretName = "test", SecretAttributesEnabled = false, Enabled = "true",
             SecretAttributesExpires = 1800000000
         };
-        Initialize(command, "{}", async request =>
-        {
-            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
-            Assert.True(body.RootElement.GetProperty("attributes").GetProperty("enabled").GetBoolean());
-            Assert.Equal(1800000000, body.RootElement.GetProperty("attributes").GetProperty("exp").GetInt32());
-        });
+        List<string?> sentBodies = _mockPipeline.RespondWith("{}");
+        Initialize(command, _mockPipeline);
+
         await command.ProcessAsync();
+
+        Assert.Equal((true, 1800000000), EnabledAndExpires(sentBodies.Single()));
     }
 
     [Fact]
-    public async Task UpdateDoesNotSendValueOrUnspecifiedAttributes()
+    public async Task ProcessAsync_EnabledOnly_SendsPatchRequest()
     {
         var command = new UpdateSecretCommand { SecretName = "test", Enabled = "false" };
-        Initialize(command, "{}", async request =>
-        {
-            Assert.Equal(HttpMethod.Patch, request.Method);
-            using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
-            Assert.False(json.RootElement.TryGetProperty("value", out _));
-            Assert.False(json.RootElement.TryGetProperty("tags", out _));
-            Assert.False(json.RootElement.GetProperty("attributes").GetProperty("enabled").GetBoolean());
-            Assert.Single(json.RootElement.GetProperty("attributes").EnumerateObject());
-        });
+        _mockPipeline.RespondWith("{}");
+        Initialize(command, _mockPipeline);
+
         await command.ProcessAsync();
+
+        Assert.Equal([HttpMethod.Patch], _mockPipeline.SentRequests().Select(r => r.Method));
     }
 
     [Fact]
-    public Task SecretName_IsValidated() =>
-        AssertRejectedBeforeNetworkAsync(new UpdateSecretCommand { SecretName = "bad_name", Enabled = "true" },
-            "Secret names must contain 1-127 letters, digits or hyphens.");
+    public async Task ProcessAsync_EnabledOnly_OmitsValueAndTags()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", Enabled = "false" };
+        List<string?> sentBodies = _mockPipeline.RespondWith("{}");
+        Initialize(command, _mockPipeline);
+
+        await command.ProcessAsync();
+
+        Assert.Empty(JsonNode.Parse(sentBodies.Single()!)!.AsObject().Select(p => p.Key).Intersect(["value", "tags"]));
+    }
 
     [Fact]
-    public Task SecretVersion_IsValidated() =>
-        AssertRejectedBeforeNetworkAsync(new UpdateSecretCommand { SecretName = "test", SecretVersion = "bad-version", Enabled = "true" },
-            "Secret version must be an alphanumeric version identifier.");
+    public async Task ProcessAsync_EnabledOnly_SendsOnlyEnabledAttribute()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", Enabled = "false" };
+        List<string?> sentBodies = _mockPipeline.RespondWith("{}");
+        Initialize(command, _mockPipeline);
+
+        await command.ProcessAsync();
+
+        Assert.Equal("""{"enabled":false}""", JsonNode.Parse(sentBodies.Single()!)!["attributes"]!.ToJsonString());
+    }
 
     [Fact]
-    public Task Enabled_IsValidated() =>
-        AssertRejectedBeforeNetworkAsync(new UpdateSecretCommand { SecretName = "test", Enabled = "maybe" },
-            "Enabled must be true or false.");
+    public async Task ProcessAsync_InvalidSecretName_ThrowsArgumentException()
+    {
+        var command = new UpdateSecretCommand { SecretName = "bad_name", Enabled = "true" };
+        Initialize(command, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(command.ProcessAsync);
+
+        Assert.Equal("Secret names must contain 1-127 letters, digits or hyphens.", Assert.IsType<ArgumentException>(exception).Message);
+    }
 
     [Fact]
-    public Task Expires_IsValidated() =>
-        AssertRejectedBeforeNetworkAsync(new UpdateSecretCommand { SecretName = "test", Expires = "not-a-date" },
-            "Dates must be UTC timestamps between 1970 and January 2038 supported by the selected API.");
+    public async Task ProcessAsync_InvalidSecretVersion_ThrowsArgumentException()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", SecretVersion = "bad-version", Enabled = "true" };
+        Initialize(command, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(command.ProcessAsync);
+
+        Assert.Equal("Secret version must be an alphanumeric version identifier.", Assert.IsType<ArgumentException>(exception).Message);
+    }
 
     [Fact]
-    public Task NotBefore_IsValidated() =>
-        AssertRejectedBeforeNetworkAsync(new UpdateSecretCommand { SecretName = "test", NotBefore = "not-a-date" },
-            "Dates must be UTC timestamps between 1970 and January 2038 supported by the selected API.");
+    public async Task ProcessAsync_InvalidEnabled_ThrowsArgumentException()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", Enabled = "maybe" };
+        Initialize(command, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(command.ProcessAsync);
+
+        Assert.Equal("Enabled must be true or false.", Assert.IsType<ArgumentException>(exception).Message);
+    }
 
     [Fact]
-    public Task Tags_IsValidated() =>
-        AssertRejectedBeforeNetworkAsync(new UpdateSecretCommand { SecretName = "test", TagsInput = ["novalue"] },
-            "Tags must use NAME=VALUE syntax.");
+    public async Task ProcessAsync_InvalidExpires_ThrowsArgumentException()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", Expires = "not-a-date" };
+        Initialize(command, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(command.ProcessAsync);
+
+        Assert.Equal(DateMessage, Assert.IsType<ArgumentException>(exception).Message);
+    }
 
     [Fact]
-    public Task NoChanges_ThrowsBeforeNetwork() =>
-        AssertRejectedBeforeNetworkAsync(new UpdateSecretCommand { SecretName = "test" },
-            "Specify at least one attribute, content type or tag update.");
+    public async Task ProcessAsync_InvalidNotBefore_ThrowsArgumentException()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", NotBefore = "not-a-date" };
+        Initialize(command, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(command.ProcessAsync);
+
+        Assert.Equal(DateMessage, Assert.IsType<ArgumentException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_TagWithoutValue_ThrowsArgumentException()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test", TagsInput = ["novalue"] };
+        Initialize(command, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(command.ProcessAsync);
+
+        Assert.Equal("Tags must use NAME=VALUE syntax.", Assert.IsType<ArgumentException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_NoChanges_ThrowsArgumentException()
+    {
+        var command = new UpdateSecretCommand { SecretName = "test" };
+        Initialize(command, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(command.ProcessAsync);
+
+        Assert.Equal("Specify at least one attribute, content type or tag update.", Assert.IsType<ArgumentException>(exception).Message);
+    }
+
+    private (bool Enabled, int NotBefore, int Expires, string Source) AttributesAndTagSummary(string? sentBody)
+    {
+        JsonNode body = JsonNode.Parse(sentBody!)!;
+        JsonNode attributes = body["attributes"]!;
+        return (
+            attributes["enabled"]!.GetValue<bool>(),
+            attributes["nbf"]!.GetValue<int>(),
+            attributes["exp"]!.GetValue<int>(),
+            body["tags"]!["source"]!.GetValue<string>());
+    }
+
+    private (bool Enabled, int Expires) EnabledAndExpires(string? sentBody)
+    {
+        JsonNode attributes = JsonNode.Parse(sentBody!)!["attributes"]!;
+        return (attributes["enabled"]!.GetValue<bool>(), attributes["exp"]!.GetValue<int>());
+    }
 }

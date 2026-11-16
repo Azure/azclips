@@ -16,141 +16,193 @@ public class SecretCommandInputsTests
     [InlineData(" ")]
     [InlineData("bad_name")]
     [InlineData("caf\u00e9")]
-    public void ValidateName_InvalidName_Throws(string name)
+    public void ValidateName_InvalidName_ThrowsArgumentException(string name)
     {
-        var ex = Assert.Throws<ArgumentException>(() => SecretCommandInputs.ValidateName(name));
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateName(name));
 
-        Assert.Equal(NameMessage, ex.Message);
+        Assert.Equal(NameMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
-    public void ValidateName_NameOf128Characters_Throws()
+    public void ValidateName_NameOf128Characters_ThrowsArgumentException()
     {
-        var ex = Assert.Throws<ArgumentException>(() => SecretCommandInputs.ValidateName(new string('a', 128)));
+        string name = new('a', 128);
 
-        Assert.Equal(NameMessage, ex.Message);
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateName(name));
+
+        Assert.Equal(NameMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
     [InlineData(1)]
     [InlineData(127)]
-    public void ValidateName_NameAtLengthBoundary_DoesNotThrow(int length) =>
-        Assert.Null(Record.Exception(() => SecretCommandInputs.ValidateName(new string('a', length))));
+    public void ValidateName_NameAtLengthBoundary_DoesNotThrow(int length)
+    {
+        string name = new('a', length);
+
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateName(name));
+
+        Assert.Null(exception);
+    }
 
     // Current behaviour: no null guard, so the framework ArgumentNullException surfaces.
     [Fact]
     public void ValidateName_Null_ThrowsArgumentNullException()
     {
-        var ex = Assert.Throws<ArgumentNullException>(() => SecretCommandInputs.ValidateName(null!));
+        string name = null!;
 
-        Assert.Equal("Value cannot be null. (Parameter 'input')", ex.Message);
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateName(name));
+
+        Assert.Equal("Value cannot be null. (Parameter 'input')", Assert.IsType<ArgumentNullException>(exception).Message);
     }
 
     // Current behaviour: the pattern's '$' anchor also matches before a single trailing newline.
     [Fact]
-    public void ValidateName_SingleTrailingNewline_DoesNotThrow() =>
-        Assert.Null(Record.Exception(() => SecretCommandInputs.ValidateName("test\n")));
+    public void ValidateName_SingleTrailingNewline_DoesNotThrow()
+    {
+        string name = "test\n";
+
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateName(name));
+
+        Assert.Null(exception);
+    }
 
     [Theory]
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("bad-version")]
     [InlineData("v\u00e9")]
-    public void ValidateVersion_InvalidVersion_Throws(string version)
+    public void ValidateVersion_InvalidVersion_ThrowsArgumentException(string version)
     {
-        var ex = Assert.Throws<ArgumentException>(() => SecretCommandInputs.ValidateVersion(version));
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateVersion(version));
 
-        Assert.Equal(VersionMessage, ex.Message);
+        Assert.Equal(VersionMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
-    public void ValidateVersion_VersionOf65Characters_Throws()
+    public void ValidateVersion_VersionOf65Characters_ThrowsArgumentException()
     {
-        var ex = Assert.Throws<ArgumentException>(() => SecretCommandInputs.ValidateVersion(new string('a', 65)));
+        string version = new('a', 65);
 
-        Assert.Equal(VersionMessage, ex.Message);
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateVersion(version));
+
+        Assert.Equal(VersionMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("a")]
-    public void ValidateVersion_NullOrValid_DoesNotThrow(string? version) =>
-        Assert.Null(Record.Exception(() => SecretCommandInputs.ValidateVersion(version)));
+    public void ValidateVersion_NullOrValid_DoesNotThrow(string? version)
+    {
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateVersion(version));
+
+        Assert.Null(exception);
+    }
 
     [Fact]
-    public void ValidateVersion_VersionOf64Characters_DoesNotThrow() =>
-        Assert.Null(Record.Exception(() => SecretCommandInputs.ValidateVersion(new string('a', 64))));
+    public void ValidateVersion_VersionOf64Characters_DoesNotThrow()
+    {
+        string version = new('a', 64);
+
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidateVersion(version));
+
+        Assert.Null(exception);
+    }
 
     [Theory]
     [InlineData(0)]
     [InlineData(26)]
-    public void ValidatePageSize_OutOfRange_Throws(int pageSize)
+    public void ValidatePageSize_OutOfRange_ThrowsArgumentException(int pageSize)
     {
-        var ex = Assert.Throws<ArgumentException>(() => SecretCommandInputs.ValidatePageSize(pageSize));
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidatePageSize(pageSize));
 
-        Assert.Equal(PageSizeMessage, ex.Message);
+        Assert.Equal(PageSizeMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData(1)]
     [InlineData(25)]
-    public void ValidatePageSize_InRangeOrNull_DoesNotThrow(int? pageSize) =>
-        Assert.Null(Record.Exception(() => SecretCommandInputs.ValidatePageSize(pageSize)));
+    public void ValidatePageSize_InRangeOrNull_DoesNotThrow(int? pageSize)
+    {
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ValidatePageSize(pageSize));
+
+        Assert.Null(exception);
+    }
 
     [Theory]
     [InlineData("maybe")]
     [InlineData("")]
     [InlineData("1")]
-    public void ParseEnabled_InvalidValue_Throws(string enabled)
+    public void ParseEnabled_InvalidValue_ThrowsArgumentException(string enabled)
     {
-        var ex = Assert.Throws<ArgumentException>(() => SecretCommandInputs.ParseEnabled(enabled));
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ParseEnabled(enabled));
 
-        Assert.Equal(EnabledMessage, ex.Message);
+        Assert.Equal(EnabledMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
     [InlineData("true", true)]
     [InlineData("false", false)]
     [InlineData(null, null)]
-    public void ParseEnabled_ValidOrNull_ReturnsValue(string? enabled, bool? expected) =>
-        Assert.Equal(expected, SecretCommandInputs.ParseEnabled(enabled));
+    public void ParseEnabled_ValidOrNull_ReturnsValue(string? enabled, bool? expected)
+    {
+        bool? result = SecretCommandInputs.ParseEnabled(enabled);
+
+        Assert.Equal(expected, result);
+    }
 
     [Theory]
     [InlineData("not-a-date")]
     [InlineData("")]
     [InlineData("1969-12-31T23:59:59Z")]
     [InlineData("2038-01-19T03:14:08Z")]
-    public void ParseTime_InvalidOrOutOfRangeDate_Throws(string text)
+    public void ParseTime_InvalidOrOutOfRangeDate_ThrowsArgumentException(string text)
     {
-        var ex = Assert.Throws<ArgumentException>(() => SecretCommandInputs.ParseTime(text));
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ParseTime(text));
 
-        Assert.Equal(DateMessage, ex.Message);
+        Assert.Equal(DateMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
     [InlineData("1970-01-01T00:00:00Z", 0)]
     [InlineData("2038-01-19T03:14:07Z", int.MaxValue)]
     [InlineData(null, null)]
-    public void ParseTime_BoundaryOrNull_ReturnsUnixSeconds(string? text, int? expected) =>
-        Assert.Equal(expected, SecretCommandInputs.ParseTime(text));
+    public void ParseTime_BoundaryOrNull_ReturnsUnixSeconds(string? text, int? expected)
+    {
+        int? result = SecretCommandInputs.ParseTime(text);
+
+        Assert.Equal(expected, result);
+    }
 
     [Theory]
     [InlineData("novalue")]
     [InlineData("=value")]
     [InlineData("")]
-    public void ParseTags_InvalidTag_Throws(string tag)
+    public void ParseTags_InvalidTag_ThrowsArgumentException(string tag)
     {
-        var ex = Assert.Throws<ArgumentException>(() => SecretCommandInputs.ParseTags([tag]));
+        Exception? exception = Record.Exception(() => SecretCommandInputs.ParseTags([tag]));
 
-        Assert.Equal(TagsMessage, ex.Message);
+        Assert.Equal(TagsMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
-    public void ParseTags_NameValue_ReturnsPair() =>
-        Assert.Equal(new Dictionary<string, string> { ["k"] = "v" }, SecretCommandInputs.ParseTags(["k=v"]));
+    public void ParseTags_NameValue_ReturnsPair()
+    {
+        string[] tags = ["k=v"];
+
+        var result = SecretCommandInputs.ParseTags(tags);
+
+        Assert.Equal(new Dictionary<string, string> { ["k"] = "v" }, result);
+    }
 
     [Fact]
-    public void ParseTags_Null_ReturnsNull() =>
-        Assert.Null(SecretCommandInputs.ParseTags(null));
+    public void ParseTags_Null_ReturnsNull()
+    {
+        string[]? tags = null;
+
+        var result = SecretCommandInputs.ParseTags(tags);
+
+        Assert.Null(result);
+    }
 }
