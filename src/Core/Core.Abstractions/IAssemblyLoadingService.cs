@@ -12,6 +12,9 @@ namespace Core.Abstractions;
 /// </summary>
 public interface IAssemblyLoadingService
 {
+    /// <summary>Returns the current client product version.</summary>
+    string GetProductVersion();
+
     /// <summary>
     /// Loads an extension assembly by name, optionally targeting a specific version.
     /// Throws an exception if the extension cannot be found by any loader.

@@ -160,7 +160,7 @@ public sealed class ProcessorBaseTests
             });
 
         Assert.Contains("protected virtual string Endpoint => $\"https://{AccountName}.example.com\";", src);
-        Assert.Contains("public string AccountName { get; set; } = string.Empty;", src);
+        Assert.Contains("public virtual string AccountName { get; set; } = string.Empty;", src);
         Assert.DoesNotContain("management.azure.com", src);
     }
 
@@ -170,8 +170,8 @@ public sealed class ProcessorBaseTests
         // Nothing to derive at all, so the endpoint is a plain input rather than a fabricated default.
         string src = await EmitBaseAsync(nameof(Endpoint_Itself_Becomes_A_Public_Input_When_The_Ir_Declares_No_Server));
 
-        Assert.Contains("public string Endpoint { get; set; } = string.Empty;", src);
-        Assert.DoesNotContain("virtual string Endpoint", src);
+        Assert.Contains("public virtual string Endpoint { get; set; } = string.Empty;", src);
+        Assert.DoesNotContain("protected virtual string Endpoint", src);
         Assert.DoesNotContain("management.azure.com", src);
     }
 

@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Reflection;
 using System.Runtime.InteropServices;
 using Core.Abstractions;
 using Core.Configuration.Options;
@@ -19,20 +18,18 @@ namespace Core.Cli.Version;
 /// </remarks>
 internal static class VersionInformationProvider
 {
-    public static VersionInformation Gather(IConfigurationService configurationService)
+    public static VersionInformation Gather(IConfigurationService configurationService, IAssemblyLoadingService assemblyLoadingService)
     {
         ArgumentNullException.ThrowIfNull(configurationService);
+        ArgumentNullException.ThrowIfNull(assemblyLoadingService);
 
         return new VersionInformation
         {
-            AzCli = GetAzCliVersion(Assembly.GetEntryAssembly()),
+            AzCli = assemblyLoadingService.GetProductVersion(),
             Runtime = GetRuntimeInformation(),
             Paths = GetConfigurationPaths(configurationService)
         };
     }
-
-    private static string GetAzCliVersion(Assembly? entryAssembly) =>
-        AssemblyVersionProvider.GetVersion(entryAssembly);
 
     private static RuntimeInfo GetRuntimeInformation()
     {

@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.AssemblyLoading;
 using Tests.Common.Utilities;
 
 namespace Core.Telemetry.Tests;
@@ -41,7 +42,9 @@ internal sealed class TelemetryLayerTestEnvironment : IAsyncDisposable
         "resource show", "tenant-test", "subscription-test", UploadRegion.EU);
 
     internal TelemetryLayerScopeFactory NewFactory(TelemetryLayer layer) => new(
-        new FixedDirectory(Root), Configuration, new TelemetryLayerCatalog([layer]), Options);
+        new FixedDirectory(Root), Configuration,
+        new AssemblyLoadingService(new DefaultAssemblyLoadingProvider(), new DefaultAssemblyVersionProvider()),
+        new TelemetryLayerCatalog([layer]), Options);
 
     internal LayerTelemetryScope Create(
         TelemetryInvocationContext? context = null,

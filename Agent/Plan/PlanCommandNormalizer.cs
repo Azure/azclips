@@ -10,7 +10,7 @@ namespace Core.Agent.Plan;
 /// form into its plan, so the step would not run as written.
 ///
 /// A step counts as an azclips command only when its words before the first option
-/// are a full command name from the live help catalog (<c>az agent tool help</c>, the
+/// are a full command name from the live help catalog (<c>az agent tool docs list</c>, the
 /// <c>list_commands</c> source), followed by at most one value. The catalog lists every
 /// installed extension, so new command groups and extensions count without a code
 /// change. Prose ("Use a strong password ...", "network security group must ...",
@@ -74,7 +74,7 @@ internal static class PlanCommandNormalizer
         return match;
     }
 
-    // The CLI command names (cliName) in the JSON that `az agent tool help` prints,
+    // The CLI command names (cliName) in the JSON that `az agent tool docs list` prints,
     // skipping commands that only have a PowerShell name. Null when the output is an
     // error payload (shell_out_timeout, ...) or not a catalog.
     internal static IReadOnlyList<string>? ReadCommandNames(string? catalogJson)

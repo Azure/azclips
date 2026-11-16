@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Security;
+using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
@@ -78,9 +79,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
                 if (_profile is null)
                 {
-                    var (signInCommand, _) = SignInGuidance();
                     throw AzclipsErrorException.UsageError(
-                        $"No signed-in context is available. Run '{signInCommand}' to sign in (or set an active profile), then retry.");
+                        $"No signed-in context is available. Run '{InteractiveSignInCommand()}' to sign in (or set an active profile), then retry.");
                 }
                 Profile profile = _profile;
 
@@ -92,6 +92,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 
                 var authService = AzclipsServiceProvider.GetRequiredService<IAuthService>();
                 string targetTenant = explicitTenant ?? profile.TenantId;
+                // get-access-token operates in the active profile's context, so the reported subscription
+                // always comes from that profile. Unlike classic `az` (which caches every subscription at
+                // login and can resolve an arbitrary --subscription to its owning tenant offline), AzCLIPS
+                // keeps only the single active profile, so there is no --subscription input to honor here;
+                // switch subscription with login/profile set, which resolves the owning tenant correctly.
+                string? subscription = string.IsNullOrEmpty(profile.SubscriptionId) ? null : profile.SubscriptionId;
                 AuthResult authResult;
                 try
                 {
@@ -122,21 +128,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                             ex);
                     }
 
-                    var (signInCommand, tenantFlag) = SignInGuidance();
                     throw AzclipsErrorException.NotSignedIn(
                         $"Could not acquire an access token for tenant '{targetTenant}'. {ex.Message} "
                         + "You may not be signed in to that tenant, or it requires additional sign-in "
-                        + "(for example, multifactor authentication or a conditional access policy). "
-                        + $"Run '{signInCommand} {tenantFlag} {targetTenant}' to authenticate, then retry.",
+                        + "(for example, multi-factor authentication or a conditional access policy). "
+                        + $"Run '{InteractiveSignInCommand(targetTenant, string.Equals(targetTenant, profile.TenantId, StringComparison.OrdinalIgnoreCase) ? subscription : "<subscription-id>")}' to authenticate, then retry.",
                         innerException: ex);
                 }
-
-                // get-access-token operates in the active profile's context, so the reported subscription
-                // always comes from that profile. Unlike classic `az` (which caches every subscription at
-                // login and can resolve an arbitrary --subscription to its owning tenant offline), AzCLIPS
-                // keeps only the single active profile, so there is no --subscription input to honor here;
-                // switch subscription with login/profile set, which resolves the owning tenant correctly.
-                string? subscription = string.IsNullOrEmpty(profile.SubscriptionId) ? null : profile.SubscriptionId;
 
                 string? userId = !string.IsNullOrEmpty(profile.UserPrincipalName)
                     ? profile.UserPrincipalName
@@ -194,16 +192,23 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         }
 
         /// <summary>
-        /// Returns the sign-in command and tenant flag for the caller's surface (CLI <c>az login</c> /
+        /// Returns the sign-in command with optional parameters for the caller's surface (CLI <c>az login</c> /
         /// <c>--tenant-id</c> vs PowerShell <c>Connect-AzAccount</c> / <c>-TenantId</c>) so error
         /// guidance is actionable on either front end.
         /// </summary>
-        private static (string SignInCommand, string TenantFlag) SignInGuidance()
+        private static string InteractiveSignInCommand(string? tenantId = null, string? subscriptionId = null)
         {
             var clientType = AzclipsServiceProvider.GetRequiredService<ClientMetadata>().ClientType;
-            return clientType == ClientType.PowerShell
-                ? ("Connect-AzAccount", "-TenantId")
-                : ("az login", "--tenant-id");
+            var command = new string[] { clientType == ClientType.PowerShell ? "Connect-AzAccount" : "az login" };
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                command = [..command, clientType == ClientType.PowerShell ? "-TenantId" : "--tenant-id", tenantId];
+            }
+            if (!string.IsNullOrEmpty(subscriptionId))
+            {
+                command = [..command, clientType == ClientType.PowerShell ? "-SubscriptionId" : "--subscription-id", subscriptionId];
+            }
+            return string.Join(' ', command);
         }
 
         /// <summary>
@@ -221,13 +226,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             // A user-assigned managed identity is selected by a stored client/object/resource id. Carry
             // that selector into the guidance so re-establishing the context targets the same identity,
             // instead of falling back to the system-assigned identity (which could restore a different
-            // account). System-assigned profiles have no selector and use the bare command.
+            // account). System-assigned profiles have no selector.
             var (idType, idValue) = ManagedIdentityIdCodec.Parse(profile.ManagedIdentityId);
-            if (string.IsNullOrEmpty(idValue))
-            {
-                return command;
-            }
-
             string? selectorFlag = idType switch
             {
                 ManagedIdentityIdType.ClientId => isPowerShell ? "-ClientId" : "--client-id",
@@ -236,7 +236,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                 _ => null,
             };
 
-            return selectorFlag is null ? command : $"{command} {selectorFlag} {idValue}";
+            if (selectorFlag is not null && !string.IsNullOrEmpty(idValue))
+            {
+                command = $"{command} {selectorFlag} {idValue}";
+            }
+
+            string subscriptionFlag = isPowerShell ? "-SubscriptionId" : "--subscription-id";
+            string subscriptionId = string.IsNullOrEmpty(profile.SubscriptionId)
+                ? "<subscription-id>"
+                : profile.SubscriptionId;
+            return $"{command} {subscriptionFlag} {subscriptionId}";
         }
 
         /// <summary>

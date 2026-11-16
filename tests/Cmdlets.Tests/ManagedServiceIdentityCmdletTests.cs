@@ -255,6 +255,41 @@ public class ManagedServiceIdentityCmdletTests
     }
 
     [Fact]
+    public void CommandExecution_New_ForwardsAudienceUnderProcessorPropertyName()
+    {
+        var invocation = InvokeAndCaptureInvocation(
+            typeof(NewAzFederatedIdentityCredentialCmdlet),
+            "New-AzFederatedIdentityCredential",
+            ("SubscriptionId", "sub-1"),
+            ("ResourceGroupName", "rg1"),
+            ("IdentityName", "id1"),
+            ("Name", "fic1"),
+            ("Audience", new[] { "api://AzureADTokenExchange" }));
+
+        // The binder looks up "Audience" (the PS parameter name) to apply the
+        // string[] -> List<string> conversion onto processor.Audiences; a literal
+        // "Audiences" key here bypasses that lookup and fails binding.
+        Assert.Equal(new[] { "api://AzureADTokenExchange" }, invocation.Parameters["Audience"]);
+        Assert.False(invocation.Parameters.ContainsKey("Audiences"));
+    }
+
+    [Fact]
+    public void CommandExecution_Update_ForwardsAudienceUnderProcessorPropertyName()
+    {
+        var invocation = InvokeAndCaptureInvocation(
+            typeof(UpdateAzFederatedIdentityCredentialCmdlet),
+            "Update-AzFederatedIdentityCredential",
+            ("SubscriptionId", "sub-1"),
+            ("ResourceGroupName", "rg1"),
+            ("IdentityName", "id1"),
+            ("Name", "fic1"),
+            ("Audience", new[] { "api://CustomAudience" }));
+
+        Assert.Equal(new[] { "api://CustomAudience" }, invocation.Parameters["Audience"]);
+        Assert.False(invocation.Parameters.ContainsKey("Audiences"));
+    }
+
+    [Fact]
     public void CommandExecution_Remove_RoutesToDeleteCommand()
     {
         var invocation = InvokeAndCaptureInvocation(

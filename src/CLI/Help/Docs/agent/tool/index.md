@@ -10,13 +10,13 @@ Description: The `az agent tool` command group exposes the azclips agent's inter
 ### Capture the current environment snapshot
 
 ```bash
-az agent tool env
+az agent tool env show
 ```
 
 ### Look up help for a specific command
 
 ```bash
-az agent tool help --name "vm create"
+az agent tool docs show --name "vm create"
 ```
 
 ### Find a resource by name

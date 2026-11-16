@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Resources.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Resources
-ms.date: 10-09-2026
+ms.date: 10/09/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzResourceGroupDeployment
 ---
@@ -427,5 +427,5 @@ The target resource group must already exist. Use `New-AzResourceGroup` to creat
 ## RELATED LINKS
 
 
-- [New-AzResourceGroup]()
-- [Get-AzResourceGroup]()
+- [New-AzResourceGroup](./New-AzResourceGroup.md)
+- [Get-AzResourceGroup](./Get-AzResourceGroup.md)

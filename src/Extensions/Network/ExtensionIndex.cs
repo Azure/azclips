@@ -874,9 +874,21 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
         // resolves the named profile before the processor runs.
         static ExtensionIndex()
         {
-            foreach (var metadata in s_cliTable.Values)
+            foreach (var (key, metadata) in s_cliTable.ToList())
             {
                 metadata.Parameters.TryAdd("profile", new ParameterMetadata("Profile", "profile", typeof(string), "Use the named profile for this command (overrides the active profile).", IsRequired: false, Aliases: [], AllowedValues: []));
+
+                // The CLI only enforces required arguments through parameter sets. Every Network CLI command has a
+                // single syntax, so derive one Default set from its parameters, after the --profile injection above.
+                s_cliTable[key] = metadata with
+                {
+                    ParameterSets = new Dictionary<string, ParameterSetMetadata>
+                    {
+                        ["Default"] = new("Default", IsDefault: true, Parameters: metadata.Parameters.Values.ToDictionary(
+                            parameter => parameter.Name,
+                            parameter => new ParameterReference(parameter.Name, parameter.IsRequired))),
+                    },
+                };
             }
             foreach (var metadata in s_psTable.Values)
             {

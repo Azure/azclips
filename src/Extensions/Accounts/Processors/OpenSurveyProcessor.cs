@@ -17,8 +17,9 @@ public class OpenSurveyProcessor : ProfileProcessorBase
     {
         await Publisher.Publish(Events.ProcessorProcessAsyncStart);
 
-        using Process process = Process.Start(CreateStartInfo())
-            ?? throw new InvalidOperationException($"Could not open the system browser to '{AccountsLinks.Survey}'.");
+        var startInfo = CreateStartInfo();
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException($"Could not open the system browser to '{startInfo.FileName}'.");
 
         await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
     }

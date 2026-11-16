@@ -48,7 +48,7 @@ public sealed class HelpCatalogProvider
         _configuration = configuration;
         _cacheDirectory = cacheDirectory ?? HomePaths.GetDefaultAgentHelpDirectory();
         _regenerate = regenerate ?? (ct => ShellOutHelper.InvokeAzAsync(
-            _azExePath, ["agent", "tool", "help", "generate"], ct));
+            _azExePath, ["agent", "tool", "docs", "generate"], ct));
     }
 
     public async Task<string> ListJsonAsync(CancellationToken ct = default) =>
@@ -204,7 +204,7 @@ public sealed class HelpCatalogProvider
     private static string ErrorJson(Exception exception) => JsonSerializer.Serialize(new
     {
         error = exception is CatalogException catalog ? catalog.Code : "help_catalog_read_failed",
-        hint = "Run 'az agent tool help generate' to rebuild the help catalog.",
+        hint = "Run 'az agent tool docs generate' to rebuild the help catalog.",
     }, s_json);
 
     private sealed class CatalogException(string code) : Exception

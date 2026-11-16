@@ -235,9 +235,4 @@ Returned only when `-PassThru` is specified: `$true` once the virtual network ha
 
 ## NOTES
 
-Generated help for network.
-
 ## RELATED LINKS
-
-
-- [Online Version]()

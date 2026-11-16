@@ -5,7 +5,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Net.NetworkInformation;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Core.Abstractions;
@@ -15,7 +14,6 @@ namespace Core.Telemetry;
 public static class TelemetryPropertyResolver
 {
     private static readonly Lazy<string> _installationId = new(ComputeInstallationId);
-    private static readonly Lazy<string> _productVersion = new(ResolveProductVersion);
     private static readonly Lazy<string> _telemetryVersion = new(ResolveTelemetryVersion);
     private static readonly Lazy<string> _operatingSystemType = new(ResolveOSType);
     private static readonly Lazy<string> _operatingSystemVersion = new(ResolveOSVersion);
@@ -23,7 +21,6 @@ public static class TelemetryPropertyResolver
     private static readonly Lazy<string> _shellType = new(ResolveShellType);
 
     public static string InstallationId => _installationId.Value;
-    public static string ProductVersion => _productVersion.Value;
     public static string TelemetryVersion => _telemetryVersion.Value;
     public static string OperatingSystemType => _operatingSystemType.Value;
     public static string OperatingSystemVersion => _operatingSystemVersion.Value;
@@ -62,12 +59,6 @@ public static class TelemetryPropertyResolver
             // to an empty seed so Id remains stable rather than failing telemetry.
         }
         return string.Empty;
-    }
-
-    private static string ResolveProductVersion()
-    {
-        var assembly = Assembly.GetEntryAssembly() ?? typeof(TelemetryPropertyResolver).Assembly;
-        return AssemblyVersionProvider.GetVersion(assembly, "0.0.0");
     }
 
     private static string ResolveTelemetryVersion()

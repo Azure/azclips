@@ -32,8 +32,8 @@ internal sealed record BuiltinEndpoint(string Url, string Source, string? Bounda
 /// </remarks>
 internal static class BuiltinEndpointResolver
 {
-    internal const string PpeEastUs = "https://azclis-copilot-apim-ppe-eus.azure-api.net/azclips/openai/";
-    internal const string PpeWestEurope = "https://azclis-copilot-apim-ppe-weu.azure-api.net/azclips/openai/";
+    internal const string ProdEastUs = "https://azclis-copilot-apim-prod-eus.azure-api.net/azclips/openai/";
+    internal const string ProdWestEurope = "https://azclis-copilot-apim-prod-weu.azure-api.net/azclips/openai/";
 
     internal const string BoundarySource = "boundary";
 
@@ -66,8 +66,8 @@ internal static class BuiltinEndpointResolver
     {
         var global = string.Equals(boundary, "Global", StringComparison.OrdinalIgnoreCase);
         var url = global
-            ? Override(options?.GlobalEndpoint, "agent.builtin.globalEndpoint", GlobalHosts, PpeEastUs, reportWarning)
-            : Override(options?.EuEndpoint, "agent.builtin.euEndpoint", EuHosts, PpeWestEurope, reportWarning);
+            ? Override(options?.GlobalEndpoint, "agent.builtin.globalEndpoint", GlobalHosts, ProdEastUs, reportWarning)
+            : Override(options?.EuEndpoint, "agent.builtin.euEndpoint", EuHosts, ProdWestEurope, reportWarning);
         return new BuiltinEndpoint(
             url,
             BoundarySource,

@@ -3,6 +3,7 @@
 
 using Core.Cli.Output;
 using Core.Cli.Parser;
+using Core.Cli.Help;
 using Core.Runtime;
 
 namespace Cli.Tests.Configuration;
@@ -118,6 +119,49 @@ public class ColorPolicyTests
         Assert.Equal(
             CliOutputFormatter.FormatValue(value, OutputFormat.Json, allowsColor),
             CliOutputFormatter.FormatValue(value, OutputFormat.Jsonc, allowsColor));
+    }
+
+    [Theory]
+    [InlineData(ColorMode.Auto, false)]
+    [InlineData(ColorMode.Auto, true)]
+    [InlineData(ColorMode.Always, false)]
+    [InlineData(ColorMode.Always, true)]
+    [InlineData(ColorMode.Never, false)]
+    [InlineData(ColorMode.Never, true)]
+    public void ConsoleFailure_SuppressesStyling_EvenWhenForced(ColorMode mode, bool forceColor)
+    {
+        using var _ = new EnvScope(("NO_COLOR", null), ("FORCE_COLOR", forceColor ? "1" : null), ("TERM", null));
+        using var __ = new ModeScope(mode);
+        using var errors = new StringWriter();
+        var supportsColor = WindowsConsole.Initialize(false, false, _ => 5, errors);
+
+        ColorPolicy.Initialize(mode, supportsColor);
+
+        Assert.False(ColorPolicy.ShouldEmitColor(targetIsRedirected: false));
+        Assert.False(ColorPolicy.ShouldEmitColor(targetIsRedirected: true));
+        Assert.False(RuntimeHelpDispatcher.ShouldBoldHeaders(Console.Out));
+        Assert.False(RuntimeHelpDispatcher.ShouldBoldHeaders(Console.Error));
+        var value = new { Name = "rg1" };
+        var allowsColor = ColorPolicy.ShouldEmitColor(Console.IsOutputRedirected);
+        Assert.Equal(
+            CliOutputFormatter.FormatValue(value, OutputFormat.Json),
+            CliOutputFormatter.FormatValue(value, OutputFormat.Jsonc, allowsColor));
+        Assert.Equal(
+            CliOutputFormatter.FormatValue(value, OutputFormat.Yaml),
+            CliOutputFormatter.FormatValue(value, OutputFormat.Yamlc, allowsColor));
+        Assert.NotEmpty(errors.ToString());
+    }
+
+    [Fact]
+    public void Initialize_SupportedConsoleRestoresStyling()
+    {
+        using var _ = new EnvScope(("NO_COLOR", null), ("FORCE_COLOR", "1"));
+        using var __ = new ModeScope(ColorMode.Auto);
+        ColorPolicy.Initialize(ColorMode.Auto, supportsColor: false);
+
+        ColorPolicy.Initialize(ColorMode.Auto);
+
+        Assert.True(ColorPolicy.ShouldEmitColor(targetIsRedirected: false));
     }
 
     // Saves and restores env vars around a test. Restoring on Dispose keeps process-wide state clean

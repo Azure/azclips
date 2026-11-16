@@ -48,7 +48,8 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
         TelemetryLayerScopeOptions options,
         bool disabled,
         bool unavailable,
-        Action? releaseSource)
+        Action? releaseSource,
+        string productVersion)
     {
         Layer = layer;
         Context = context;
@@ -85,7 +86,8 @@ public sealed class LayerTelemetryScope : ITelemetryLayerScope, ITelemetryActivi
 
         Telemetry = new TelemetryService(_provider, configuration, ClientType.CLI,
             new TelemetryServiceSettings(
-                layer.ServiceName, !disabled && !_unavailable, OwnsProvider: false, layer.NameFilter, this));
+                layer.ServiceName, !disabled && !_unavailable, OwnsProvider: false, layer.NameFilter, this),
+            productVersion);
     }
 
     public TelemetryLayer Layer { get; }

@@ -7,7 +7,7 @@ namespace Core.Agent.Tools.Help
 {
     /// <summary>
     /// Pure command-lookup helpers over a set of <see cref="HelpManifest"/> — the
-    /// name-matching backbone of <c>az agent tool help --name &lt;x&gt;</c>. Extracted
+    /// name-matching backbone of <c>az agent tool docs show --name &lt;x&gt;</c>. Extracted
     /// from the CLI processor so the lookup/suggestion contracts are unit
     /// testable without the processor's assembly-loading dependencies.
     /// </summary>

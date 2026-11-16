@@ -257,7 +257,7 @@ public class GetAccessTokenProcessorTests
             ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"), out _);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
-        Assert.Contains("az login --identity", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("az login --identity --subscription-id sub-1", ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("--tenant-id", ex.Message, StringComparison.Ordinal);
         // The underlying cause is preserved for diagnosis.
         Assert.Contains("IMDS endpoint unavailable", ex.Message, StringComparison.Ordinal);
@@ -277,7 +277,7 @@ public class GetAccessTokenProcessorTests
             ProfileWith(AuthMethod.ManagedIdentity, tenantId: "mi-tenant"), out _);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
-        Assert.Contains("Connect-AzAccount -Identity", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Connect-AzAccount -Identity -SubscriptionId sub-1", ex.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("-TenantId", ex.Message, StringComparison.Ordinal);
     }
 
@@ -298,7 +298,7 @@ public class GetAccessTokenProcessorTests
                 managedIdentityId: "MSIClient@11111111-1111-1111-1111-111111111111"), out _);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
-        Assert.Contains("az login --identity --client-id 11111111-1111-1111-1111-111111111111", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("az login --identity --client-id 11111111-1111-1111-1111-111111111111 --subscription-id sub-1", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -316,7 +316,26 @@ public class GetAccessTokenProcessorTests
                 managedIdentityId: "MSIResource@/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi"), out _);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
-        Assert.Contains("Connect-AzAccount -Identity -ResourceId /subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Connect-AzAccount -Identity -ResourceId /subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi -SubscriptionId sub-1", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, "az login --identity --subscription-id <subscription-id>")]
+    [InlineData(ClientType.PowerShell, "Connect-AzAccount -Identity -SubscriptionId <subscription-id>")]
+    public async Task ProcessAsync_ManagedIdentityWithoutSubscriptionFails_GuidanceRequiresSubscription(
+        ClientType surface, string expectedCommand)
+    {
+        var auth = new Mock<IAuthService>();
+        auth.Setup(a => a.AcquireTokenSilentlyAsync(
+                It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
+            .ThrowsAsync(new Exception("IMDS endpoint unavailable."));
+        InitDi(surface, auth.Object);
+        var profile = new Profile { AuthMethod = AuthMethod.ManagedIdentity, SubscriptionId = "" };
+        var processor = InitProcessor(new GetAccessTokenProcessor(), profile, out _);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains(expectedCommand, ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

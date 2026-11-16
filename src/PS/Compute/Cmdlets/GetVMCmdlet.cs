@@ -18,33 +18,45 @@ public class GetVMCmdlet : PSCmdlet
     private IEngine engine = null!;
 
     [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = false)]
     [Parameter(ParameterSetName = "List", Mandatory = false)]
     [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
     [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
     [Parameter(ParameterSetName = "Id", Mandatory = false)]
+    [Parameter(ParameterSetName = "IdStatus", Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = true)]
     [Parameter(ParameterSetName = "List", Mandatory = false)]
     public string ResourceGroupName { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = true)]
     [Parameter(ParameterSetName = "ListByName", Mandatory = true)]
     public string? Name { get; set; }
 
     [Parameter(ParameterSetName = "ListLocation", Mandatory = true)]
     public string Location { get; set; } = "";
 
+    // Mandatory in GetStatus and IdStatus, so PowerShell picks those sets exactly when -Status is bound
+    // for one VM, even as -Status:$false. Legacy treats a false switch as absent, so ProcessRecord routes
+    // it back to the plain Get and Id keys.
     [Parameter(ParameterSetName = "List", Mandatory = false)]
     [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
     [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = true)]
+    [Parameter(ParameterSetName = "IdStatus", Mandatory = true)]
     public SwitchParameter Status { get; set; }
 
     [Parameter(ParameterSetName = "Id", Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
+    [Parameter(ParameterSetName = "IdStatus", Mandatory = true, Position = 0, ValueFromPipelineByPropertyName = true)]
     public string Id { get; set; } = "";
 
     [Parameter(ParameterSetName = "Get", Mandatory = false)]
+    [Parameter(ParameterSetName = "GetStatus", Mandatory = false)]
     [Parameter(ParameterSetName = "Id", Mandatory = false)]
+    [Parameter(ParameterSetName = "IdStatus", Mandatory = false)]
     [Parameter(ParameterSetName = "List", Mandatory = false)]
     [Parameter(ParameterSetName = "ListByName", Mandatory = false)]
     [Parameter(ParameterSetName = "ListLocation", Mandatory = false)]
@@ -89,12 +101,19 @@ public class GetVMCmdlet : PSCmdlet
         {
             parameters.Add(nameof(UserData), true);
         }
-        if (Status.IsPresent)
+        // For one VM, -Status selects the GetStatus or IdStatus key, whose command always returns the
+        // instance view, so only the list forms take it as a parameter.
+        if (Status.IsPresent && ParameterSetName is "List" or "ListByName" or "ListLocation")
         {
             parameters.Add(nameof(Status), true);
         }
 
-        var parameterSetName = ParameterSetName;
+        var parameterSetName = ParameterSetName switch
+        {
+            "GetStatus" when !Status.IsPresent => "Get",
+            "IdStatus" when !Status.IsPresent => "Id",
+            var name => name,
+        };
         var commandName = $"Get-AzVM_{parameterSetName}";
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Profile)))
         {

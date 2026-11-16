@@ -242,7 +242,7 @@ Get-ChildItem -Path $AgentPublishDir -Directory -Recurse |
     ForEach-Object { Remove-Item -Path $_.FullName -Force }
 
 # 6. Clean up the Agent extension top level: drop anything that's already
-#    covered by deps (dep dlls), the CLI root (Core.* / ExtensionRuntime),
+#    covered by the CLI root (Core.* / ExtensionRuntime),
 #    or is a non-shipping artifact (.pdb / .dll.config / stray runtimeconfig).
 #    A normal extension directory ships just the extension's own dll + deps.json
 #    + docs (Help/, prompts/); the packaging side-effects that pull in ~40 extra
@@ -259,10 +259,11 @@ foreach ($file in Get-ChildItem -Path $AgentExtensionDir -File) {
     # Agent-only project dlls we deliberately placed flat here (for the CLI
     # extension loader) must NOT be cleaned up, even though deps/ has a twin.
     if ($flatKeptAtExtTop.ContainsKey($name)) { continue }
-    # Any dll that's byte-identical to a copy at the CLI root or under
-    # deps is redundant; the extension loader falls back to the host
-    # anyway. .pdb / .dll.config / extension .runtimeconfig.json aren't
-    # shipping payload either.
+    # A dll byte-identical to a copy at the CLI root is redundant: the
+    # extension loader falls back to the host. A twin under deps/ does not
+    # count, because the extension loader never probes deps/.
+    # .pdb / .dll.config / extension .runtimeconfig.json aren't shipping
+    # payload either.
     $isDeletable = $false
     if ($name -like '*.pdb' -or $name -like '*.dll.config' -or $name -eq 'Microsoft.Azure.Azclips.Extensions.Agent.runtimeconfig.json') {
         $isDeletable = $true
@@ -271,11 +272,6 @@ foreach ($file in Get-ChildItem -Path $AgentExtensionDir -File) {
         $rootTwin = Join-Path $CliPublishDir $name
         if ((Test-Path -Path $rootTwin -PathType Leaf) -and
             ((Get-Sha256Hex -Path $file.FullName) -eq (Get-Sha256Hex -Path $rootTwin))) {
-            $isDeletable = $true
-        }
-        elseif (Get-ChildItem -Path $depsDir -Filter $name -Recurse -File -ErrorAction SilentlyContinue |
-                Where-Object { (Get-Sha256Hex -Path $_.FullName) -eq (Get-Sha256Hex -Path $file.FullName) } |
-                Select-Object -First 1) {
             $isDeletable = $true
         }
     }

@@ -300,7 +300,8 @@ which is why the processor base needs no `TError` generics.
 ### Pagination
 
 ```ts
-IRCommandPagination = { itemType, items: IRPropertyRef, nextLink?: IRPropertyRef, nextLinkVerb? }
+IRCommandPagination = { itemType, items: IRPropertyRef, nextLink?: IRPropertyRef, nextLinkVerb?, continuationToken?: IRCommandContinuationToken }
+IRCommandContinuationToken = { response: IRPropertyRef, parameter: string }   // parameter: an IRCommandParameter name
 IRPropertyRef       = { property: IRId, via: IRId[] }   // via: containers, outermost first
 ```
 
@@ -309,6 +310,12 @@ segments against the model's `wireName`s: the leaf `property`, plus the `via`
 containers walked to reach it — empty when the leaf sits on the response model itself. `IRPageableSemantics` records wire paths,
 which leaves the generator PascalCasing each segment and hoping it matches an emitted
 member — a heuristic made fragile by flattening's renames.
+
+A step follows at most one strategy: `nextLink` (a URL to fetch) or `continuationToken`
+(a response property whose value is set on the command `parameter` before the request is
+rebuilt). The token is resolved only when there is no next link, and only for a body-bound
+response token and a string query or header parameter; otherwise `create-command` warns
+`paging-continuation-unresolved` and keeps items-only pagination (first page).
 
 ## Dialects
 

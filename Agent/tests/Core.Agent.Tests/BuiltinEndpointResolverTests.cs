@@ -9,8 +9,8 @@ namespace Core.Agent.Tests;
 
 public class BuiltinEndpointResolverTests
 {
-    private const string EastUsHost = "azclis-copilot-apim-ppe-eus.azure-api.net";
-    private const string WestEuropeHost = "azclis-copilot-apim-ppe-weu.azure-api.net";
+    private const string EastUsHost = "azclis-copilot-apim-prod-eus.azure-api.net";
+    private const string WestEuropeHost = "azclis-copilot-apim-prod-weu.azure-api.net";
 
     [Theory]
     [InlineData("Global")]
@@ -74,14 +74,14 @@ public class BuiltinEndpointResolverTests
 
         var endpoint = BuiltinEndpointResolver.Choose(boundary, options, warnings.Add);
 
-        Assert.Equal(global ? BuiltinEndpointResolver.PpeEastUs : BuiltinEndpointResolver.PpeWestEurope, endpoint.Url);
+        Assert.Equal(global ? BuiltinEndpointResolver.ProdEastUs : BuiltinEndpointResolver.ProdWestEurope, endpoint.Url);
         Assert.Contains(key, Assert.Single(warnings));
     }
 
     [Theory]
-    [InlineData("Global", BuiltinEndpointResolver.PpeEastUs)]
-    [InlineData("EU", BuiltinEndpointResolver.PpeWestEurope)]
-    [InlineData(null, BuiltinEndpointResolver.PpeWestEurope)]
+    [InlineData("Global", BuiltinEndpointResolver.ProdEastUs)]
+    [InlineData("EU", BuiltinEndpointResolver.ProdWestEurope)]
+    [InlineData(null, BuiltinEndpointResolver.ProdWestEurope)]
     public void UnsetOverride_UsesTheDefault(string? boundary, string expected)
     {
         var warnings = new List<string>();

@@ -69,6 +69,9 @@ public class Program
             return 0;
         }
 
+        var supportsColor = WindowsConsole.Initialize();
+        ColorPolicy.Initialize(ColorMode.Auto, supportsColor);
+
         // Developer UI-print probe. Renders a sample block for triaging terminal
         // wrap / encoding / alignment. Runs before DI so it stays independent.
         int? printProbeExit = PrintProbe.TryHandle(args, Console.Out);
@@ -124,7 +127,6 @@ public class Program
         {
             _logger = AzclipsServiceProvider.GetRequiredService<ILoggingService>();
             _configurationService = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
-            _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
         }
 
         Activity? activity = null;
@@ -155,12 +157,13 @@ public class Program
             using (performance.Measure("AzureCLI.Startup.Telemetry"))
             using (debugTiming.MeasureLocal("AzureCLI.Startup.Telemetry"))
             {
+                _telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
                 invocationTelemetryEnabled = _configurationService.GetConfiguration<TelemetryOptions>().Enabled;
                 var coreOptions = _configurationService.GetConfiguration<CoreOptions>();
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 _sessionDebug = sessionSettings.LogLevel == LogLevel.Debug;
-                ColorPolicy.Initialize(sessionSettings.Color);
+                ColorPolicy.Initialize(sessionSettings.Color, supportsColor);
                 streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query, debugTiming);
                 if (LoggingPolicy.IsEnabled(sessionSettings.LogLevel, LogSeverity.Debug))
                 {
@@ -453,7 +456,9 @@ public class Program
         using (var _ = _telemetryService!.StartActivity("AzureCLI.DispatchVersion"))
         using (debugTiming.MeasureLocal("AzureCLI.DispatchVersion"))
         {
-            var exit = new RuntimeVersionDispatcher(_configurationService!, Console.Out).Render(version.Format, query);
+            var exit = new RuntimeVersionDispatcher(
+                _configurationService!, Console.Out, AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>())
+                .Render(version.Format, query);
             activity?.SetStatus(ActivityStatusCode.Ok, "Version requested");
             return exit;
         }
@@ -702,7 +707,7 @@ public class Program
 
 
     /// <summary>
-    /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.
+    /// Spawns a detached background process to upload buffered telemetry to Aria.
     /// Fire-and-forget: the CLI exits immediately without waiting for the upload.
     /// </summary>
     private static void SpawnTelemetryUploader(ProcessStartInfo? startInfo)

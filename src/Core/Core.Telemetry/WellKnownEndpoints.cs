@@ -10,9 +10,6 @@ public static class WellKnownEndpoints
     private const string AriaDevelopmentConnectionString =
         "InstrumentationKey=ed2a860010bd41fd9879264d51e4e5c8-eb93fa08-79a9-48c9-b84b-9a55a6d403af-7285";
 
-    public const string AzureMonitorConnectionString =
-        "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
-
     public static string AriaConnectionString { get; } = ResolveAriaConnectionString();
 
     /// <summary>

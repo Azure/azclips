@@ -9,6 +9,14 @@ Azure CLI private preview stores user-scope configuration in a global JSON file.
 
 Configuration follows strict precedence: **command args > environment variables > global config > defaults**.
 
+On Windows, the CLI enables ANSI processing for console stdout and stderr so that
+help headings and colored output render in standalone Windows consoles as well as
+Windows Terminal. This does not change the color policy or enable styling for
+redirected output: `core.output.color`, `NO_COLOR`, and `FORCE_COLOR` still control
+whether styling is emitted. If Windows rejects console initialization on either
+stream, the CLI writes a warning to stderr and uses plain output for that
+invocation, even if `core.output.color=always` or `FORCE_COLOR` requests styling.
+
 ## Valid Configuration Keys
 
 | Key                                           | Type   | Default            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -101,9 +109,9 @@ gateway. The Agent always chooses the gateway from your tenant's data boundary:
 
 | Tenant data boundary | Gateway |
 | -------------------- | ------- |
-| `Global` | East US (`azclis-copilot-apim-ppe-eus.azure-api.net`) |
-| `EU` | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
-| Not known | West Europe (`azclis-copilot-apim-ppe-weu.azure-api.net`) |
+| `Global` | East US (`azclis-copilot-apim-prod-eus.azure-api.net`) |
+| `EU` | West Europe (`azclis-copilot-apim-prod-weu.azure-api.net`) |
+| Not known | West Europe (`azclis-copilot-apim-prod-weu.azure-api.net`) |
 
 The boundary is "not known" when the lookup fails or times out. It is also not
 known for managed identity sign-in, because that profile has no tenant ID.

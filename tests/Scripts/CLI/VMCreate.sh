@@ -209,11 +209,10 @@ create_vm()
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --size Standard_D2ls_v7 \
+        --size Standard_D2ds_v6 \
         --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis \
         --admin-password "$ADMIN_PASSWORD" \
-        --network-interface-name "$name-nic" \
         --virtual-network-name "$name-vnet" \
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "$name-subnet" \
@@ -229,7 +228,7 @@ create_network_vm()
     "$AZ" vm create \
         --subscription-id "$SUBSCRIPTION_ID" \
         --resource-group "$RESOURCE_GROUP" \
-        --name "$name" --location "$LOCATION" --size Standard_D2ls_v7 \
+        --name "$name" --location "$LOCATION" --size Standard_D2ds_v6 \
         --image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest \
         --admin-username Artemis --admin-password "$ADMIN_PASSWORD" \
         --output json "$@"
@@ -260,7 +259,7 @@ check_no_network_side_effects()
             --query 'json.value[].name' --output tsv)
         then
             fail "$name: could not list $type"
-        elif grep -Fxiq -e "$name-nic" -e "${name}NSG" -e "${name}PublicIP" -e "$name-vnet" <<< "$names"
+        elif grep -Fxiq -e "${name}VMNic" -e "${name}NSG" -e "${name}PublicIP" -e "$name-vnet" <<< "$names"
         then
             fail "$name: unexpected generated resource in $type"
         fi
@@ -277,11 +276,10 @@ create_ssh_vm()
         --resource-group "$RESOURCE_GROUP" \
         --name "$name" \
         --location "$LOCATION" \
-        --size Standard_D2ls_v7 \
+        --size Standard_D2ds_v6 \
         --image Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest \
         --admin-username azadmin \
         --ssh-key-values "$SSH_PUBLIC_KEY" \
-        --network-interface-name "$name-nic" \
         --virtual-network-name "$name-vnet" \
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "$name-subnet" \
@@ -304,7 +302,6 @@ create_cvm()
         --os-disk-security-encryption-type "$CVM_OS_DISK_SECURITY_ENCRYPTION_TYPE" \
         --admin-username Artemis \
         --admin-password "$ADMIN_PASSWORD" \
-        --network-interface-name "$name-nic" \
         --virtual-network-name "$name-vnet" \
         --address-prefixes 10.0.0.0/16 \
         --subnet-names "$name-subnet" \
@@ -402,7 +399,7 @@ check_public_ip()
     fi
 }
 
-# The NIC <vm>-nic must reference the NSG expected_id, compared case-insensitively because ARM
+# The NIC <vm>VMNic must reference the NSG expected_id, compared case-insensitively because ARM
 # can return the resource group in another case. That NSG must hold exactly one rule, equal to
 # expected_rule, and carry the azclips-smoke tag expected_tag when one is given.
 check_nsg()
@@ -412,14 +409,14 @@ check_nsg()
     local nsg_url actual_id rule_count actual_rule actual_tag
     nsg_url=$(network_url networkSecurityGroups "$nsg_name")
 
-    if ! actual_id=$("$AZ" rest --method GET --uri "$(network_url networkInterfaces "$vm-nic")" --query json.properties.networkSecurityGroup.id --output tsv 2>&1)
+    if ! actual_id=$("$AZ" rest --method GET --uri "$(network_url networkInterfaces "${vm}VMNic")" --query json.properties.networkSecurityGroup.id --output tsv 2>&1)
     then
-        fail "$label: could not read NIC '$vm-nic': $actual_id"
+        fail "$label: could not read NIC '${vm}VMNic': $actual_id"
         return
     fi
     if [[ "$(lowercase "$actual_id")" != "$(lowercase "$expected_id")" ]]
     then
-        fail "$label: NIC '$vm-nic' references NSG '$actual_id', expected '$expected_id'"
+        fail "$label: NIC '${vm}VMNic' references NSG '$actual_id', expected '$expected_id'"
         return
     fi
 
@@ -445,7 +442,7 @@ check_nsg()
         fi
     fi
 
-    echo "OK: $label: NIC '$vm-nic' uses NSG '$nsg_name', whose only rule is '$expected_rule'"
+    echo "OK: $label: NIC '${vm}VMNic' uses NSG '$nsg_name', whose only rule is '$expected_rule'"
 }
 
 # The network resource <type>/<name> must carry the azclips-smoke tag expected_tag.
@@ -513,7 +510,7 @@ then
     else
         fail "default: VM '$DEFAULT_VM' azclips-smoke tag '$vm_tag' did not match '$VM_TAG'"
     fi
-    check_network_tag "default" networkInterfaces "$DEFAULT_VM-nic" "$VM_TAG"
+    check_network_tag "default" networkInterfaces "${DEFAULT_VM}VMNic" "$VM_TAG"
     check_network_tag "default" virtualNetworks "$DEFAULT_VM-vnet" "$VM_TAG"
 else
     fail "default: vm create failed"
@@ -626,10 +623,10 @@ then
             then
                 subnet_args=(--subnet "$EXISTING_NIC_SUBNET" --virtual-network-name "$EXISTING_NIC_VNET")
             fi
-            if create_network_vm "$vm" --network-interface-name "$vm-nic" \
+            if create_network_vm "$vm" \
                 "${subnet_args[@]}" --public-ip-address "" --nic-delete-option Delete >/dev/null
             then
-                actual_subnet=$("$AZ" rest --method GET --uri "$(network_url networkInterfaces "$vm-nic")" \
+                actual_subnet=$("$AZ" rest --method GET --uri "$(network_url networkInterfaces "${vm}VMNic")" \
                     --query 'json.properties.ipConfigurations[0].properties.subnet.id' --output tsv) \
                     || fail "$vm: could not read created NIC"
                 [[ "$(lowercase "$actual_subnet")" == "$(lowercase "$EXISTING_NIC_SUBNET_ID")" ]] \
@@ -639,7 +636,7 @@ then
                 actual_reference=$("$AZ" rest --method GET --uri "$vm_url" \
                     --query "join('|', [to_string(length(json.properties.networkProfile.networkInterfaces)), json.properties.networkProfile.networkInterfaces[0].id, json.properties.networkProfile.networkInterfaces[0].properties.deleteOption])" --output tsv) \
                     || fail "$vm: could not read VM NIC reference"
-                expected_reference="1|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/$vm-nic|Delete"
+                expected_reference="1|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces/${vm}VMNic|Delete"
                 [[ "$(lowercase "$actual_reference")" == "$(lowercase "$expected_reference")" ]] \
                     || fail "$vm: unexpected VM NIC reference '$actual_reference'"
             else
@@ -651,7 +648,7 @@ then
         [[ "$vnet_tag" == "network-selection" ]] || fail "subnet selection: existing VNet was overwritten"
 
         missing_subnet_id="${EXISTING_NIC_SUBNET_ID}-missing"
-        if error=$(create_network_vm "$MISSING_SUBNET_VM" --network-interface-name "$MISSING_SUBNET_VM-nic" \
+        if error=$(create_network_vm "$MISSING_SUBNET_VM" \
             --subnet "$missing_subnet_id" 2>&1)
         then
             fail "missing subnet: expected failure"

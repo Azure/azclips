@@ -114,7 +114,7 @@ The snapshot harness is a hand-rolled `SnapshotAssert.Matches(name, actual)`: it
 
 ## Benchmarking with BenchmarkDotNet
 
-`tests/Benchmark` is an executable (`OutputType=Exe`) BenchmarkDotNet 0.13.12 project that references the real CLI, Runtime, DI, and Resources projects plus `Tests.Common` (`tests/Benchmark/Benchmark.csproj:4-8,17-25`). It measures cold-start and command execution for both the CLI and PowerShell surfaces, selectable via a `--product` filter, with `--local` and `--ci` modes controlling output paths and App Insights upload (`tests/Benchmark/Program.cs:22-42`).
+`tests/Benchmark` is an executable (`OutputType=Exe`) BenchmarkDotNet 0.13.12 project that references the real CLI, Runtime, DI, and Resources projects plus `Tests.Common` (`tests/Benchmark/Benchmark.csproj:4-8,17-25`). It measures cold-start and command execution for both the CLI and PowerShell surfaces, selectable via a `--product` filter. Results are always local artifacts; `--ci` selects a stable output path, and `--local`/`-l` remain compatibility flags (`tests/Benchmark/Program.cs:22-42`).
 
 Authentication is the deliberate exception. `IAuthService` is **not** stubbed, because a real `az`
 invocation pays to read the MSAL token cache off disk and the benchmarks are meant to include that

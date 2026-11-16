@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
+using UserAssignedIdentity = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models.UserAssignedIdentity;
 using Tests.Recording;
 using Tests.Common.Recording;
 

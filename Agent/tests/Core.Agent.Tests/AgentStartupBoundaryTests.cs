@@ -13,8 +13,8 @@ namespace Core.Agent.Tests;
 public class AgentStartupBoundaryTests
 {
     [Theory]
-    [InlineData("EU", "Global", BuiltinEndpointResolver.PpeWestEurope)]
-    [InlineData("Global", "EU", BuiltinEndpointResolver.PpeEastUs)]
+    [InlineData("EU", "Global", BuiltinEndpointResolver.ProdWestEurope)]
+    [InlineData("Global", "EU", BuiltinEndpointResolver.ProdEastUs)]
     public async Task RecoveryProfile_DrivesBothTokenAndModelBoundary(
         string commandBoundary, string activeBoundary, string expectedEndpoint)
     {
@@ -293,7 +293,7 @@ public class AgentStartupBoundaryTests
         Assert.Equal(1, auth.AcquireCount);
         Assert.Equal(1, lookup.Calls);
         Assert.Equal(CountingAuthService.IssuedToken, acquired?.AccessToken);
-        Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.PpeEastUs, endpoint.Url);
+        Assert.Equal(Core.Agent.Providers.BuiltinEndpointResolver.ProdEastUs, endpoint.Url);
     }
 
     [Fact]

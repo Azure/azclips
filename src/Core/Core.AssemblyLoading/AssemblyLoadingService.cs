@@ -2,13 +2,16 @@
 // Licensed under the MIT License.
 
 using System.Reflection;
-using System.Runtime.InteropServices;
 using Core.Abstractions;
 
 namespace Core.AssemblyLoading
 {
-    public class AssemblyLoadingService(IAssemblyLoadingProvider provider): IAssemblyLoadingService
+    public class AssemblyLoadingService(
+        IAssemblyLoadingProvider provider,
+        IProductVersionProvider versionProvider) : IAssemblyLoadingService
     {
+        public string GetProductVersion() => versionProvider.ProductVersion;
+
         //TODO(Yabo): Properly handle ALC, for now only CLI use ALC but create new ALC on every extension loading
         // this works for single command scenario but not optimal in interactive mode.
         // Assembly loading service should implement async

@@ -1,8 +1,5 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-
-using Microsoft.Azure.Azclips.Extensions.MsGraph;
-
 namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 {
     /// <summary>
