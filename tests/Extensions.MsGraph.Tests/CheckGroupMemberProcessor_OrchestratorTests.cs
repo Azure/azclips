@@ -7,7 +7,6 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 using Moq;
 
 namespace Extensions.MsGraph.Tests;
-
 /// <summary>
 /// Tests the customization layer <see cref="CheckGroupMemberProcessor_Orchestrator"/> adds on top
 /// of the atomic <c>CheckGroupMemberProcessor</c>: display-name-prefix resolution to a single
@@ -16,124 +15,100 @@ namespace Extensions.MsGraph.Tests;
 public class CheckGroupMemberProcessor_OrchestratorTests
 {
     private const string GroupId = "11111111-2222-3333-4444-555555555555";
+    private const string OtherGroupId = "66666666-7777-8888-9999-aaaaaaaaaaaa";
     private const string MemberId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    private const string GroupsUri = "https://graph.microsoft.com/v1.0/groups";
+    private const string MembershipCheckUri = $"https://graph.microsoft.com/v1.0/directoryObjects/{MemberId}/checkMemberGroups";
+    private const string MembershipCheckBody = $"{{\"value\":[\"{GroupId}\"]}}";
 
-    private static IEventPublisher NoOpPublisher() => Mock.Of<IEventPublisher>();
+    // Strict: a request the test did not set up throws MockException, so a test that gets its expected
+    // InvalidInputException also proves no unexpected request was sent.
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
+    private readonly IEventPublisher _mockPublisher = Mock.Of<IEventPublisher>();
 
     [Fact]
-    public async Task SendAsync_WithGuid_ShouldSkipResolutionAndPost()
+    public async Task SendAsync_GroupIsObjectId_SendsOnlyMembershipCheck()
     {
-        var pipeline = new FakeGraphHttpPipeline(
-            request => FakeGraphHttpPipeline.JsonResponse("{\"value\":[\"" + GroupId + "\"]}"));
-        var orch = new CheckGroupMemberProcessor_Orchestrator
-        {
-            Group = GroupId,
-            MemberId = MemberId,
-        }.WithFakeContext(pipeline, NoOpPublisher());
+        _mockPipeline.RespondTo("/checkMemberGroups", MembershipCheckBody);
+        var orchestrator = CreateOrchestrator(group: GroupId, memberId: MemberId);
 
-        using var _ = await orch.InvokeSendAsync();
+        using HttpResponseMessage response = await orchestrator.InvokeSendAsync();
 
-        var sent = Assert.Single(pipeline.Sent);
-        Assert.Equal(HttpMethod.Post, sent.Method);
-        Assert.Equal(
-            $"https://graph.microsoft.com/v1.0/directoryObjects/{MemberId}/checkMemberGroups",
-            sent.RequestUri!.ToString());
+        Assert.Equal([$"POST {MembershipCheckUri}"], _mockPipeline.RequestLines());
     }
 
     [Fact]
-    public async Task SendAsync_WithDisplayNamePrefix_ShouldResolveThenPost()
+    public async Task SendAsync_GroupIsDisplayNamePrefix_LooksUpGroupThenSendsMembershipCheck()
     {
-        var listBody = $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"Sales\"}}]}}";
-        var pipeline = new FakeGraphHttpPipeline(request =>
-        {
-            var path = request.RequestUri!.AbsolutePath;
-            if (path.EndsWith("/v1.0/groups", StringComparison.Ordinal))
-            {
-                return FakeGraphHttpPipeline.JsonResponse(listBody);
-            }
-            return FakeGraphHttpPipeline.JsonResponse("{\"value\":[\"" + GroupId + "\"]}");
-        });
+        _mockPipeline.RespondTo("/v1.0/groups", GroupList("Sales"));
+        _mockPipeline.RespondTo("/checkMemberGroups", MembershipCheckBody);
+        var orchestrator = CreateOrchestrator(group: "Sales", memberId: MemberId);
 
-        var orch = new CheckGroupMemberProcessor_Orchestrator
-        {
-            Group = "Sales",
-            MemberId = MemberId,
-        }.WithFakeContext(pipeline, NoOpPublisher());
+        using HttpResponseMessage response = await orchestrator.InvokeSendAsync();
 
-        using var _ = await orch.InvokeSendAsync();
-
-        Assert.Equal(2, pipeline.Sent.Count);
-        Assert.Contains(Uri.EscapeDataString("startswith(displayName,'Sales')"), pipeline.Sent[0].RequestUri!.OriginalString);
-        Assert.Equal(HttpMethod.Post, pipeline.Sent[1].Method);
-        Assert.EndsWith($"/directoryObjects/{MemberId}/checkMemberGroups", pipeline.Sent[1].RequestUri!.AbsolutePath);
-    }
-
-    // Fails the test with a different exception if the orchestrator sends any request.
-    private static FakeGraphHttpPipeline NoRequestPipeline() =>
-        new(_ => throw new InvalidOperationException("Unexpected request."));
-
-    // Answers only the group lookup; the membership check request fails the test.
-    private static FakeGraphHttpPipeline LookupOnlyPipeline(string listResponseBody) =>
-        new(request => request.RequestUri!.AbsolutePath.EndsWith("/v1.0/groups", StringComparison.Ordinal)
-            ? FakeGraphHttpPipeline.JsonResponse(listResponseBody)
-            : throw new InvalidOperationException("Unexpected request."));
-
-    [Fact]
-    public async Task SendAsync_MissingGroup_ThrowsBeforeHttp()
-    {
-        var orch = new CheckGroupMemberProcessor_Orchestrator
-        {
-            Group = "",
-            MemberId = MemberId,
-        }.WithFakeContext(NoRequestPipeline(), NoOpPublisher());
-
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-
-        Assert.Equal("Group is required.", ex.Message);
+        Assert.Equal([$"GET {GroupsUri}", $"POST {MembershipCheckUri}"], _mockPipeline.RequestLines());
     }
 
     [Fact]
-    public async Task SendAsync_MissingMemberId_ThrowsBeforeHttp()
+    public async Task SendAsync_GroupIsDisplayNamePrefix_LooksUpGroupWithStartsWithFilter()
     {
-        var orch = new CheckGroupMemberProcessor_Orchestrator
-        {
-            Group = GroupId,
-            MemberId = "",
-        }.WithFakeContext(NoRequestPipeline(), NoOpPublisher());
+        _mockPipeline.RespondTo("/v1.0/groups", GroupList("Sales"));
+        _mockPipeline.RespondTo("/checkMemberGroups", MembershipCheckBody);
+        var orchestrator = CreateOrchestrator(group: "Sales", memberId: MemberId);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+        using HttpResponseMessage response = await orchestrator.InvokeSendAsync();
 
-        Assert.Equal("MemberId is required to check group membership.", ex.Message);
+        Assert.Equal("startswith(displayName,'Sales')", _mockPipeline.QueryValue(0, "$filter"));
     }
 
     [Fact]
-    public async Task SendAsync_ResolutionReturnsNoMatches_ThrowsNotFound()
+    public async Task SendAsync_MissingGroup_ThrowsInvalidInput()
     {
-        var orch = new CheckGroupMemberProcessor_Orchestrator
-        {
-            Group = "Nope",
-            MemberId = MemberId,
-        }.WithFakeContext(LookupOnlyPipeline("{\"value\":[]}"), NoOpPublisher());
+        var orchestrator = CreateOrchestrator(group: "", memberId: MemberId);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+        Exception? exception = await Record.ExceptionAsync(orchestrator.InvokeSendAsync);
 
-        Assert.Equal("Group 'Nope' is not found in Graph.", ex.Message);
+        Assert.Equal("Group is required.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
-    public async Task SendAsync_ResolutionReturnsMultipleMatches_ThrowsAmbiguous()
+    public async Task SendAsync_MissingMemberId_ThrowsInvalidInput()
     {
-        var orch = new CheckGroupMemberProcessor_Orchestrator
-        {
-            Group = "Sales",
-            MemberId = MemberId,
-        }.WithFakeContext(LookupOnlyPipeline(
-            "{\"value\":[" +
-            "{\"id\":\"11111111-2222-3333-4444-555555555555\",\"displayName\":\"Sales-North\"}," +
-            "{\"id\":\"66666666-7777-8888-9999-aaaaaaaaaaaa\",\"displayName\":\"Sales-South\"}]}"), NoOpPublisher());
+        var orchestrator = CreateOrchestrator(group: GroupId, memberId: "");
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
+        Exception? exception = await Record.ExceptionAsync(orchestrator.InvokeSendAsync);
 
-        Assert.Equal("More than one group matched 'Sales'. Use the object id instead.", ex.Message);
+        Assert.Equal("MemberId is required to check group membership.", Assert.IsType<InvalidInputException>(exception).Message);
     }
-}
+
+    [Fact]
+    public async Task SendAsync_GroupNotFound_ThrowsInvalidInput()
+    {
+        _mockPipeline.RespondTo("/v1.0/groups", "{\"value\":[]}");
+        var orchestrator = CreateOrchestrator(group: "Nope", memberId: MemberId);
+
+        Exception? exception = await Record.ExceptionAsync(orchestrator.InvokeSendAsync);
+
+        Assert.Equal("Group 'Nope' is not found in Graph.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task SendAsync_GroupMatchesMany_ThrowsInvalidInput()
+    {
+        _mockPipeline.RespondTo("/v1.0/groups", $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"Sales-North\"}},{{\"id\":\"{OtherGroupId}\",\"displayName\":\"Sales-South\"}}]}}");
+        var orchestrator = CreateOrchestrator(group: "Sales", memberId: MemberId);
+
+        Exception? exception = await Record.ExceptionAsync(orchestrator.InvokeSendAsync);
+
+        Assert.Equal("More than one group matched 'Sales'. Use the object id instead.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    private CheckGroupMemberProcessor_Orchestrator CreateOrchestrator(string group, string memberId)
+    {
+        var orchestrator = new CheckGroupMemberProcessor_Orchestrator { Group = group, MemberId = memberId };
+        orchestrator.WithFakeContext(_mockPipeline.Object, _mockPublisher);
+        return orchestrator;
+    }
+
+    private string GroupList(string displayName) =>
+        $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"{displayName}\"}}]}}";}
