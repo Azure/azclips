@@ -17,17 +17,20 @@ public sealed class SelectedExtensionLocations
     private readonly ConcurrentDictionary<string, (string Version, string Location)> _selected =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly object _packageIdsLock = new();
-    private List<string> _packageIds = [];
+    private List<(string PackageId, HashSet<string>? Verbs)> _packages = [];
 
     /// <summary>Package ids routing selected, one per package, in selection order.</summary>
-    public IReadOnlyList<string> PackageIds
+    public IReadOnlyList<string> PackageIds => GetPackageIds(verb: null);
+
+    internal IReadOnlyList<string> GetPackageIds(string? verb)
     {
-        get
+        lock (_packageIdsLock)
         {
-            lock (_packageIdsLock)
-            {
-                return _packageIds.ToArray();
-            }
+            // Older callers without ownership metadata retain the broad-selection fallback.
+            return _packages
+                .Where(package => verb is null || package.Verbs is null || package.Verbs.Contains(verb))
+                .Select(package => package.PackageId)
+                .ToArray();
         }
     }
 
@@ -35,16 +38,19 @@ public sealed class SelectedExtensionLocations
     {
         lock (_packageIdsLock)
         {
-            _packageIds = [];
+            _packages = [];
             _selected.Clear();
         }
     }
 
     public void Record(string packageIdOrName, string? version, string? location)
+        => Record(packageIdOrName, version, location, verbs: null);
+
+    internal void Record(string packageIdOrName, string? version, string? location, IEnumerable<string>? verbs)
     {
         lock (_packageIdsLock)
         {
-            _packageIds.Add(packageIdOrName);
+            _packages.Add((packageIdOrName, verbs?.ToHashSet(StringComparer.OrdinalIgnoreCase)));
         }
 
         if (location is not null)

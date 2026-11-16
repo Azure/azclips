@@ -489,9 +489,9 @@ public class Program
             var renderer = new RuntimeHelpDispatcher(engine, streams, output)
             {
                 Performance = debugTiming,
-                SelectedPackageIds = () => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+                SelectedPackageIds = verb => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
                     AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>(),
-                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>()),
+                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>(), verb),
             };
             if (help.Path.Count == 0)
             {
