@@ -27,11 +27,6 @@
       "_justification": "PowerShell help examples assign the literal placeholder password 'P@ssw0rd-replace-me!' to $adminPassword; not a real credential."
     },
     {
-      "file": "\\Agent\\eval\\run-evaluation.test.js",
-      "hash": "61IEs9qY+2WeUN8NmyQYW2uIMPwb4/FsBVyU0Nz5jtM=",
-      "_justification": "Test input with dummy 'user:hidden' URL credentials used to verify credential redaction in recorded settings; not a real credential."
-    },
-    {
       "file": "\\tests\\Benchmark\\PS\\VirtualMachineBenchmarks.cs",
       "hash": "CpibArNpM0XN6TEe6kMtb/Edr5df6bg5Rlg7HxX4OZA=",
       "_justification": "Benchmarking vm creation scenarios end to end. This is not a real credential."

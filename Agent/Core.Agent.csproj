@@ -43,8 +43,8 @@
     <Content Remove="Tools\**" />
     <EmbeddedResource Remove="Tools\**" />
 
-    <!-- eval/ holds the promptfoo-based evaluation harness (test-only, run via
-         its own script). Exclude so it never ships in the packaged agent. -->
+    <!-- eval/ holds evaluation case data (test-only). Exclude so it never ships
+         in the packaged agent. -->
     <Compile Remove="eval\**" />
     <None Remove="eval\**" />
     <Content Remove="eval\**" />
