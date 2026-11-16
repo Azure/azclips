@@ -90,7 +90,7 @@ Start here, then follow the pointers into `./docs`.
 This is a public preview — expect rough edges and change between builds.
 
 - The preview focuses on **interactive user scenarios**. Non-interactive auth methods — Resource Owner Password Credentials (ROPC), service principals, and managed identities — aren't supported yet.
-- Supported shells are **PowerShell 7+, bash, and zsh**. The Azure PowerShell modules require **PowerShell 7.6+**. Windows PowerShell 5.1 and the PowerShell ISE aren't supported.
+- Supported shells are **PowerShell 7.6+, bash, and zsh**. Windows PowerShell 5.1 and the PowerShell ISE aren't supported.
 - Next-Generation Azure CLI & Azure PowerShell installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
 - Commands, behavior, and packaging may change without notice during the preview.
 
