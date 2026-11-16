@@ -1,0 +1,46 @@
+
+name: Bug bash B006 - sign in with service principal, powershell
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sign-in-with-sp:
+    runs-on: windows-latest
+    environment: b006 
+
+    steps:
+      - uses: actions/checkout@v7
+    
+      # azps bundles everything, no lean/full split. pin exact version so it doesn't
+      # get shadowed by the runner's pre-installed classic Az module.
+      - name: Install PS modules
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path azps-cmdlets | Out-Null
+          $bundle = Get-ChildItem azps-cmdlets-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          tar -xzf $bundle.FullName -C azps-cmdlets
+          ./azps-cmdlets/InstallModule.ps1
+          $azVersion = (Get-ChildItem azps-cmdlets/Az.*.nupkg | Select-Object -First 1).BaseName -replace '^Az\.', ''
+          "AZ_VERSION=$azVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: login
+        shell: pwsh
+        run: |
+          Import-Module Az -RequiredVersion $env:AZ_VERSION
+          $secret = ConvertTo-SecureString -String "${{ secrets.AZURE_CLIENT_SECRET }}" -AsPlainText
+          Connect-AzAccount `
+            -ClientId "${{ vars.AZURE_CLIENT_ID }}" `
+            -ClientSecret $secret `
+            -TenantId "${{ vars.AZURE_TENANT_ID }}" `
+            -SubscriptionId "${{ vars.AZURE_SUBSCRIPTION_ID }}"
+
+      - name: Run commands
+        shell: pwsh
+        run: |
+          Import-Module Az -RequiredVersion $env:AZ_VERSION
+          Get-AzResourceGroup
+          Get-AzVM
