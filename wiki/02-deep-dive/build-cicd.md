@@ -125,12 +125,19 @@ There is no single `scripts/deploy.sh`; distribution is a layered set of shell/P
 
 ## Continuous integration
 
+PowerShell package validation runs shared install and uninstall phases across a
+generated distribution matrix. Install checks that every packaged module imports at
+its exact packaged version, exports its manifest cmdlets, and has help examples;
+unsupported canary combinations remain nonblocking.
+See the [PowerShell package validation guide](https://github.com/Azure/azclips/blob/main/devops/scripts/packaging/powershell/README.md)
+for phase contracts, limited alpha coverage, local invocation, cleanup behavior,
+and offline regression fixtures.
+
 CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** produces signed, distributable releases.
 
 | Workflow | System | Trigger | Purpose |
 | --- | --- | --- | --- |
 | `build-and-test.yml` | GitHub | PR to `main`, dispatch | Restore/build/test `azclips.slnx`, CLI + PowerShell E2E smoke, help validation, help-tool tests |
-| `build.yml` | GitHub | push/PR `main` | Windows Debug+Release matrix build & package |
 | `benchmark.yml` / `benchmark-comment.yml` | GitHub | push/PR touching `src/**`, `tests/Benchmark/**`, `global.json`, `azclips.slnx` | Run CLI+PS benchmarks, gate at 115% of baseline, publish dashboard |
 | `extension-test-coverage.yml` | GitHub | Relevant push/PR paths, dispatch | Advisory command-surface attribution report, separate from merge-gating product tests |
 | `refresh-recordings.yml` | GitHub | See workflow configuration | Refresh recorded scenario evidence |

@@ -75,7 +75,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
                 p.Properties = properties;
             });
 
-            using HttpResponseMessage response = await validator.SendAsync();
+            using HttpResponseMessage response = await validator.SendAsyncAllowBadRequest();
             string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
             if (!string.IsNullOrWhiteSpace(body)
                 && JsonSerializer.Deserialize<DeploymentValidateResult>(body, JsonOptions)?.Error is { } error)

@@ -17,10 +17,10 @@ internal static class FailureHistoryTestWorker
         if (args.Length != 4)
             return 64;
         var (directory, mode, ready, release) = (args[0], args[1], args[2], args[3]);
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(120));
         var token = deadline.Token;
-        // Cold processes queue on the lock longer than the production two-second budget.
-        var files = new FailureHistoryFiles(directory, lockTimeout: TimeSpan.FromSeconds(10), replace: (source, target) =>
+        // Cold processes can queue on the lock far longer than the production two-second budget.
+        var files = new FailureHistoryFiles(directory, lockTimeout: TimeSpan.FromSeconds(60), replace: (source, target) =>
         {
             if (mode == "crash-before-replace")
             {
@@ -80,6 +80,7 @@ internal static class FailureHistoryTestWorker
             case "stderr-hang":
                 stderr.Write("partial-diagnostic-before-hang");
                 stderr.Flush();
+                SignalWritten();
                 await Task.Delay(Timeout.Infinite);
                 return 0;
             case "stderr-utf8-hang":
@@ -87,6 +88,7 @@ internal static class FailureHistoryTestWorker
                 var raw = Console.OpenStandardError();
                 raw.Write(System.Text.Encoding.UTF8.GetBytes(new string('é', 2048)));
                 raw.Flush();
+                SignalWritten();
                 await Task.Delay(Timeout.Infinite);
                 return 0;
             case "stderr-early-exit":
@@ -97,6 +99,15 @@ internal static class FailureHistoryTestWorker
                 return 64;
         }
     }
+
+    // Tells the test that the partial stderr has been written, so it can cancel the save.
+    private static void SignalWritten()
+    {
+        if (Environment.GetEnvironmentVariable(WrittenFileVariable) is { Length: > 0 } path)
+            File.WriteAllText(path, "written");
+    }
+
+    internal const string WrittenFileVariable = "AZCLIPS_TEST_STDERR_WRITTEN_FILE";
 
     private sealed class OfflineKeyStore : IFailureHistoryKeyStore
     {

@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -22,9 +21,16 @@ public static class FileLock
     /// Waits up to <paramref name="wait"/> for the lock. Returns <c>null</c> when it is still
     /// held by another process; a zero wait tries once. Dispose the stream to release the lock.
     /// With <paramref name="ownerOnly"/>, on Unix the directory is created 0700 and the lock file 0600.
+    /// <paramref name="timeProvider"/> measures the wait (default <see cref="TimeProvider.System"/>).
     /// </summary>
-    public static async Task<FileStream?> TryAcquireAsync(string lockPath, TimeSpan wait, CancellationToken ct = default, bool ownerOnly = false)
+    public static Task<FileStream?> TryAcquireAsync(string lockPath, TimeSpan wait, CancellationToken ct = default, bool ownerOnly = false)
+        => TryAcquireAsync(lockPath, wait, ct, ownerOnly, timeProvider: null);
+
+    /// <inheritdoc cref="TryAcquireAsync(string, TimeSpan, CancellationToken, bool)"/>
+    public static async Task<FileStream?> TryAcquireAsync(
+        string lockPath, TimeSpan wait, CancellationToken ct, bool ownerOnly, TimeProvider? timeProvider)
     {
+        timeProvider ??= TimeProvider.System;
         var directory = Path.GetDirectoryName(lockPath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
@@ -43,7 +49,7 @@ public static class FileLock
         if (ownerOnly && !OperatingSystem.IsWindows())
             options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
-        var stopwatch = Stopwatch.StartNew();
+        var started = timeProvider.GetTimestamp();
         while (true)
         {
             ct.ThrowIfCancellationRequested();
@@ -51,9 +57,9 @@ public static class FileLock
             {
                 return new FileStream(lockPath, options);
             }
-            catch (IOException) when (stopwatch.Elapsed < wait)
+            catch (IOException) when (timeProvider.GetElapsedTime(started) < wait)
             {
-                await Task.Delay(RetryDelay, ct).ConfigureAwait(false);
+                await Task.Delay(RetryDelay, timeProvider, ct).ConfigureAwait(false);
             }
             catch (IOException)
             {
@@ -63,7 +69,10 @@ public static class FileLock
     }
 
     public static FileStream? TryAcquire(string lockPath, TimeSpan wait, bool ownerOnly = false)
-        => TryAcquireAsync(lockPath, wait, ownerOnly: ownerOnly).GetAwaiter().GetResult();
+        => TryAcquire(lockPath, wait, ownerOnly, timeProvider: null);
+
+    public static FileStream? TryAcquire(string lockPath, TimeSpan wait, bool ownerOnly, TimeProvider? timeProvider)
+        => TryAcquireAsync(lockPath, wait, CancellationToken.None, ownerOnly, timeProvider).GetAwaiter().GetResult();
 
     /// <summary>Reads a JSON object without locking; a missing or unreadable file yields an empty object.</summary>
     public static JsonObject ReadJson(string path)
@@ -89,8 +98,12 @@ public static class FileLock
     /// the lock is not obtained within <paramref name="wait"/> (default <see cref="DefaultWait"/>).
     /// </summary>
     public static bool UpdateJson(string path, Action<JsonObject> update, TimeSpan? wait = null)
+        => UpdateJson(path, update, wait, timeProvider: null);
+
+    /// <inheritdoc cref="UpdateJson(string, Action{JsonObject}, TimeSpan?)"/>
+    public static bool UpdateJson(string path, Action<JsonObject> update, TimeSpan? wait, TimeProvider? timeProvider)
     {
-        using var gate = TryAcquire($"{path}.lock", wait ?? DefaultWait);
+        using var gate = TryAcquire($"{path}.lock", wait ?? DefaultWait, ownerOnly: false, timeProvider);
         if (gate is null)
             return false;
 

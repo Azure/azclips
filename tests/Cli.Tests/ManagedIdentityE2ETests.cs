@@ -18,6 +18,7 @@ namespace Cli.Tests;
 /// <para>
 /// These tests isolate the CLI subprocess's state with <c>AZCLIPS_HOME</c>, so login and logout
 /// never touch the developer's real profile store on any platform.
+/// A test-only CLI host mocks ARM subscription access alongside the mock IMDS endpoint.
 /// </para>
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
@@ -104,56 +105,45 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         }
     }
 
-    /// <summary>Runs the CLI subprocess against the mock IMDS endpoint.</summary>
+    /// <summary>Runs the CLI subprocess against mock IMDS and ARM endpoints.</summary>
     private async Task<int> RunCliAsync(string cliBinary, params string[] args)
     {
+        var repoRoot = Directory.GetParent(ResolveArtifactsDirectory())!.Parent!.FullName;
+        var worker = Path.Combine(repoRoot, "tests", "Fixtures", "ManagedIdentityCli", "bin",
+            BuildConfiguration, "net10.0", "ManagedIdentity.TestWorker.dll");
+        Assert.True(File.Exists(worker), $"Test worker not found: {worker}. Build Cli.Tests first.");
         var psi = new ProcessStartInfo
         {
-            FileName = cliBinary,
+            FileName = "dotnet",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
         };
-
-        // route MI calls to the mock server
         psi.Environment["AZURE_POD_IDENTITY_AUTHORITY_HOST"] = _imds!.Url;
-
         psi.Environment[HomePaths.HomeOverrideVariable] = _profileDirectory;
-
+        psi.ArgumentList.Add(worker);
+        psi.ArgumentList.Add(Path.GetDirectoryName(cliBinary)!);
         foreach (var arg in args)
         {
             psi.ArgumentList.Add(arg);
         }
+        await File.WriteAllTextAsync(Path.Combine(_profileDirectory, "config.json"),
+            """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
 
         using var process = new Process { StartInfo = psi };
-        var output = new StringBuilder();
-        var error = new StringBuilder();
-
-        process.OutputDataReceived += (sender, e) =>
+        process.OutputDataReceived += (_, e) =>
         {
-            if (e.Data != null)
-            {
-                output.AppendLine(e.Data);
-                Console.WriteLine($"[CLI OUT] {e.Data}");
-            }
+            if (e.Data is not null) Console.WriteLine($"[CLI OUT] {e.Data}");
         };
-
-        process.ErrorDataReceived += (sender, e) =>
+        process.ErrorDataReceived += (_, e) =>
         {
-            if (e.Data != null)
-            {
-                error.AppendLine(e.Data);
-                Console.WriteLine($"[CLI ERR] {e.Data}");
-            }
+            if (e.Data is not null) Console.WriteLine($"[CLI ERR] {e.Data}");
         };
-
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-
         await process.WaitForExitAsync();
-
         return process.ExitCode;
     }
 
@@ -298,7 +288,8 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         var objectId = "22222222-2222-2222-2222-222222222222";
 
         var exitCode = await RunCliAsync(
-            cliBinary, "login", "--identity", "--client-id", clientId, "--object-id", objectId);
+            cliBinary, "login", "--identity", "--subscription-id", MockSubscriptionId,
+            "--client-id", clientId, "--object-id", objectId);
 
         Assert.NotEqual(0, exitCode);
     }

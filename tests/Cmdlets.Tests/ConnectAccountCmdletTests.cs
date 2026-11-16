@@ -26,6 +26,81 @@ public class ConnectAccountCmdletTests
     private const string ValidClientId = "aaaaaaaa-1111-1111-1111-111111111111";
 
     [Theory]
+    [InlineData(null)]
+    [InlineData("SubscriptionId")]
+    [InlineData("Subscription")]
+    public void CommandExecution_ProfileReauth_ShouldRejectExplicitButNotDefaultSubscription(string? subscriptionParameter)
+    {
+        using var fixture = new LoginCmdletFixture();
+        fixture.Shell.AddParameter("Profile", "existing");
+        if (subscriptionParameter is not null)
+        {
+            fixture.Shell.AddParameter(subscriptionParameter, ValidSubscriptionId);
+        }
+
+        Assert.Empty(fixture.Shell.Invoke());
+        Assert.Empty(fixture.Shell.Streams.Error);
+        var invocation = Assert.IsType<CommandInvocation>(fixture.Invocation);
+        var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
+        var processor = new LoginProcessor();
+        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata,
+            new Profile { SubscriptionId = ValidSubscriptionId });
+
+        if (subscriptionParameter is null)
+        {
+            Assert.True(string.IsNullOrEmpty(processor.SubscriptionId));
+            Assert.Equal("ProfileReauth", LoginProcessorTestHelpers.ResolveParameterSet(processor));
+        }
+        else
+        {
+            var ex = Assert.Throws<InvalidInputException>(() => LoginProcessorTestHelpers.ResolveParameterSet(processor));
+            Assert.Contains("does not allow [-SubscriptionId]", ex.Message, StringComparison.Ordinal);
+        }
+    }
+
+    [Theory]
+    [InlineData("Identity", false)]
+    [InlineData("Identity", true)]
+    [InlineData("MSI", false)]
+    [InlineData("MSI", true)]
+    [InlineData("ManagedIdentity", false)]
+    [InlineData("ManagedIdentity", true)]
+    [InlineData("ManagedService", false)]
+    [InlineData("ManagedService", true)]
+    public void CommandExecution_ManagedIdentity_ShouldRequireExplicitSubscription(string identityAlias, bool omitSubscription)
+    {
+        using var fixture = new LoginCmdletFixture();
+        fixture.Shell.AddParameter(identityAlias);
+        if (!omitSubscription)
+        {
+            fixture.Shell.AddParameter("Subscription", ValidSubscriptionId);
+        }
+
+        Assert.Empty(fixture.Shell.Invoke());
+        Assert.Empty(fixture.Shell.Streams.Error);
+        var invocation = Assert.IsType<CommandInvocation>(fixture.Invocation);
+        var metadata = new ExtensionIndex().GetCommandMetadata("Connect-AzAccount", ClientType.PowerShell);
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
+        var processor = new LoginProcessor();
+        service.BindArgumentsToProcessor(processor, invocation.Parameters, metadata,
+            new Profile { SubscriptionId = ValidSubscriptionId });
+
+        Assert.True(processor.Identity);
+        if (omitSubscription)
+        {
+            Assert.True(string.IsNullOrEmpty(processor.SubscriptionId));
+            var ex = Assert.Throws<InvalidInputException>(() => LoginProcessorTestHelpers.ResolveParameterSet(processor));
+            Assert.Contains("missing mandatory [-SubscriptionId]", ex.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Equal(ValidSubscriptionId, processor.SubscriptionId);
+            Assert.Equal("ManagedIdentity", LoginProcessorTestHelpers.ResolveParameterSet(processor));
+        }
+    }
+
+    [Theory]
     [InlineData("Credential", typeof(PSCredential))]
     [InlineData("ClientSecret", typeof(SecureString))]
     public void Cmdlet_ShouldExposeSecureSecretParameters(string name, Type expectedType)

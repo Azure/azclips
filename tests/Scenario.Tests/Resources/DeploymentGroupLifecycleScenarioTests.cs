@@ -27,7 +27,8 @@ public sealed class DeploymentGroupLifecycleScenarioTests
     private const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     private const string ResourceGroupName = "scenario-deployment-lifecycle-rg";
     private const string MissingResourceGroupName = "scenario-deployment-missing-rg";
-    // Fixed so the validate URI matches on replay; without --name the command generates a GUID.
+    // Fixed so the validate URI matches on replay; without --name the command names the
+    // deployment after the temp template file, which differs on every run.
     private const string DeploymentName = "scenario-deployment";
     private const string BaselineDeploymentName = "scenario-baseline-deployment";
     private const string MissingDeploymentName = "scenario-missing-deployment";
@@ -103,14 +104,15 @@ public sealed class DeploymentGroupLifecycleScenarioTests
         }
     }
 
-    // Without --name the command posts to a new GUID, which no recording can match on replay,
-    // so this test returns a canned ARM response instead of calling Azure.
+    // Without --name the command names the deployment after the template file. This test
+    // returns a canned ARM response instead of calling Azure.
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
-    public void ValidateWithoutName_PostsToGeneratedDeploymentName(ClientType surface)
+    public void ValidateWithoutName_PostsToTemplateFileName(ClientType surface)
     {
-        string template = Path.GetTempFileName();
+        string directory = Directory.CreateTempSubdirectory().FullName;
+        string template = Path.Combine(directory, "main.json");
         File.WriteAllText(template, EmptyTemplate);
         try
         {
@@ -124,12 +126,62 @@ public sealed class DeploymentGroupLifecycleScenarioTests
             }
 
             var request = http.Captured[0];
-            const string Suffix = "/validate?api-version=2025-04-01";
             Assert.Equal("POST", request.Method);
-            Assert.StartsWith(DeploymentsUri, request.Uri);
-            Assert.EndsWith(Suffix, request.Uri);
-            var name = request.Uri[DeploymentsUri.Length..^Suffix.Length];
-            Assert.True(Guid.TryParse(name, out _), $"Expected a generated GUID deployment name, got '{name}'.");
+            Assert.Equal(DeploymentsUri + "main/validate?api-version=2025-04-01", request.Uri);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    // ARM validate results under Location are one-shot: re-reading the terminal result can answer
+    // 404. Validation (and create's preflight) must stop polling at the first non-202.
+    [Theory]
+    [InlineData(ClientType.CLI, false)]
+    [InlineData(ClientType.PowerShell, false)]
+    [InlineData(ClientType.CLI, true)]
+    [InlineData(ClientType.PowerShell, true)]
+    public void Validate_PollsLocationWithoutExtraFinalGet(ClientType surface, bool create)
+    {
+        const string OperationResults = "https://management.azure.com/operationResults/";
+        const string L1 = OperationResults + "l1";
+        const string L2 = OperationResults + "l2";
+        string template = Path.GetTempFileName();
+        File.WriteAllText(template, EmptyTemplate);
+        try
+        {
+            var http = new CapturingTracingInterceptor(request =>
+            {
+                static HttpResponseMessage Accepted(string location)
+                {
+                    var response = new HttpResponseMessage(HttpStatusCode.Accepted);
+                    response.Headers.Location = new Uri(location);
+                    response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.Zero);
+                    return response;
+                }
+
+                string uri = request.RequestUri!.AbsoluteUri;
+                string ok = $$$"""{"properties":{"provisioningState":"{{{State.Succeeded}}}"}}""";
+                return (request.Method.Method, uri) switch
+                {
+                    ("POST", _) => Accepted(L1),
+                    ("GET", L1) => Accepted(L2),
+                    ("GET", L2) or ("PUT", _) or ("GET", DeploymentsUri + DeploymentName + "?api-version=2025-04-01") =>
+                        new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(ok, Encoding.UTF8, "application/json") },
+                    _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+                };
+            });
+            using (var host = new ScenarioHost(surface, http, extensions: s_extensions))
+            {
+                var target = new Target(host, surface, SubscriptionId, ResourceGroupName);
+                _ = create ? CreateDeployment(target, DeploymentName, template, rollbackOnError: false) : Validate(target, template, DeploymentName);
+            }
+
+            // Create's own PUT (and its LRO GET) follows; only the validate traffic matters here.
+            string[] expected = ["POST", "GET " + L1, "GET " + L2];
+            Assert.Equal(expected, http.Captured.Where(r => r.Method == "POST" || r.Uri.StartsWith(OperationResults)).Select(r => r.Method == "GET" ? $"GET {r.Uri}" : r.Method));
+            Assert.Equal(create, http.Captured.Any(r => r.Method == "PUT"));
         }
         finally
         {

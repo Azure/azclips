@@ -26,6 +26,7 @@
         var leafKeyPattern = new Regex(@"\[\s*""([^""]+)""\s*\]", RegexOptions.Multiline);
 
         var leafToPackage = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var verbOwners = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         var duplicates = new List<string>();
         var orphanLeaves = new List<string>();
 
@@ -83,12 +84,17 @@
 
               var text = File.ReadAllText(cs);
 
-              // Bare-verb entries from [ExtensionVerb("...")] decls.
+              // Namespace declarations may be shared; only command leaves have exclusive owners.
               foreach (Match m in verbAttrPattern.Matches(text))
               {
                 var v = m.Groups[1].Value.Trim();
                 projectVerbs.Add(v);
-                Add(v, packageId);
+                if (!verbOwners.TryGetValue(v, out var owners))
+                {
+                  owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                  verbOwners[v] = owners;
+                }
+                owners.Add(packageId);
               }
 
               // Full-path leaves from s_cliTable initializers.
@@ -114,6 +120,19 @@
                 orphanLeaves.Add(
                   $"  '{leaf}' in '{packageId}' (first token '{firstToken}' is not declared via [ExtensionVerb]; declared verbs: [{string.Join(", ", projectVerbs)}])");
               }
+            }
+          }
+        }
+
+        // Keep unambiguous group hints without choosing an arbitrary package for a shared group.
+        // An actual root command already in leafToPackage remains authoritative.
+        foreach (var verb in verbOwners)
+        {
+          if (verb.Value.Count == 1 && !leafToPackage.ContainsKey(verb.Key))
+          {
+            foreach (var packageId in verb.Value)
+            {
+              Add(verb.Key, packageId);
             }
           }
         }

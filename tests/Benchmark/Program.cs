@@ -23,20 +23,18 @@ public class Program
     {
         // Parse arguments
         var productFilter = ParseProductFilter(args);
-        var localMode = ParseLocalMode(args);
         var ciMode = ParseCiMode(args);
         var extensionFilter = ParseExtensionFilter(args);
         var listMode = ParseListMode(args);
 
         if (ciMode)
         {
-            localMode = true;
-            Console.WriteLine("[Benchmark] CI mode: --local is implied and outputs use a stable path");
+            Console.WriteLine("[Benchmark] CI mode: outputs use a stable path");
         }
 
-        if (localMode)
+        if (ParseLocalMode(args))
         {
-            Console.WriteLine("[Benchmark] Local mode: App Insights upload will be skipped");
+            Console.WriteLine("[Benchmark] --local/-l is accepted for compatibility; results are always local artifacts");
         }
 
         if (listMode)
@@ -104,20 +102,7 @@ public class Program
 
         // Generate charts (local artifacts) for whatever did succeed — gives the
         // human at the terminal the full picture even on a partial failure.
-        var chartData = ChartGenerator.Generate(artifactsPath, timestamp, summaries);
-
-        // Export to App Insights for historical data (skip in local mode)
-        if (!localMode)
-        {
-            if (!ExportToAppInsights(chartData, timestamp))
-            {
-                failures.Add("[AppInsights] export failed");
-            }
-        }
-        else
-        {
-            Console.WriteLine("[AppInsights] Skipped (local mode)");
-        }
+        ChartGenerator.Generate(artifactsPath, timestamp, summaries);
 
         if (failures.Count == 0)
         {
@@ -177,28 +162,6 @@ public class Program
         }
 
         return failures;
-    }
-
-    /// <summary>
-    /// Export benchmark metrics to Application Insights.
-    /// </summary>
-    /// <returns>
-    /// <c>true</c> when the export completed without error; <c>false</c> when an
-    /// exception was caught. The friendly error message is still printed either way.
-    /// </returns>
-    private static bool ExportToAppInsights(List<ChartDataPoint> chartData, string timestamp)
-    {
-        try
-        {
-            using var exporter = new AppInsightsExporter();
-            exporter.Export(chartData, timestamp);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[AppInsights] Export failed: {ex.Message}");
-            return false;
-        }
     }
 
     /// <summary>

@@ -1,0 +1,27 @@
+description: rest with an invalid HTTP method -> corrected to get
+vars:
+  case_id: rest-invalid-method
+  command_group: rest
+  goal: fetch is not a supported HTTP method; use GET or its supported default and preserve the resource-group URI in the active subscription.
+  command: rest --method fetch --uri https://management.azure.com/subscriptions/{{subscription_id}}/resourcegroups?api-version=2021-04-01
+assert:
+  - type: javascript
+    value: file://assertions/rest-read.js:restReadAssertion
+    metric: command-set
+    config:
+      checkName: Preserve the requested URI
+      expectedUri: https://management.azure.com/subscriptions/{{subscription_id}}/resourcegroups?api-version=2021-04-01
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Read-only HTTP request
+      allowedCommands:
+        - az rest
+      allowedArguments:
+        - --method
+        - --uri
+      optionalArgumentValues:
+        --method: GET
+      validateSubscription: true
+  - recoveryQuality: rest

@@ -331,15 +331,17 @@ Nothing is invented. The generator has no built-in host:
 | IR server | emitted on the base |
 |---|---|
 | endpoint pinned (literal, or a template whose parameters all have defaults) | `protected virtual string Endpoint => "https://…";` |
-| template with a parameter the spec gives **no** default (`https://{vaultName}.vault.azure.net`) | `protected virtual string Endpoint => $"https://{VaultName}…";` plus `public string VaultName { get; set; } = string.Empty;` |
-| no usable server at all | `public string Endpoint { get; set; } = string.Empty;` |
+| template with a parameter the spec gives **no** default (`https://{vaultName}.vault.azure.net`) | `protected virtual string Endpoint => $"https://{VaultName}…";` plus `public virtual string VaultName { get; set; } = string.Empty;` |
+| no usable server at all | `public virtual string Endpoint { get; set; } = string.Empty;` |
 
 An undefaulted server parameter is something only the caller can supply, so it
 becomes a **public** input on the base — which is also what puts it in front of
 argument binding and help. Because it lives on the base, a processor whose own
 path/query parameter shares that name does not redeclare it: a server parameter
 and a path parameter of the same name are the same value, and redeclaring would
-hide the inherited member.
+hide the inherited member. Public base members (these inputs and `Profile`) are
+`virtual` so a derived processor can override one to attach its own attributes,
+such as per-dialect visibility.
 
 ### Service authentication
 

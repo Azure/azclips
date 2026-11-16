@@ -68,11 +68,11 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string AdminUsername { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string AdminPassword { get; set; } = "";
 
-    [Parameter(Mandatory = true, ParameterSetName = NewNetworkInterfaceParameterSet)]
-    public string NetworkInterfaceName { get; set; } = "";
+    [Parameter(Mandatory = false)]
+    public string[]? SshKeyValues { get; set; }
 
     [Parameter(Mandatory = false, ParameterSetName = NewNetworkInterfaceParameterSet)]
     public string VirtualNetworkName { get; set; } = "";
@@ -128,8 +128,8 @@ public class NewVMCmdlet : PSCmdlet
             { "ResourceGroupName", ResourceGroupName },
             { "VmSize", VmSize },
             { "AdminUsername", AdminUsername },
-            { "AdminPassword", AdminPassword },
         };
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(AdminPassword)))                  { parameters.Add("AdminPassword", AdminPassword); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))                 { parameters.Add("SubscriptionId", SubscriptionId); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Zone)))                           { parameters.Add("Zone", Zone!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(StorageSku)))                     { parameters.Add("StorageSku", StorageSku!); }
@@ -140,7 +140,10 @@ public class NewVMCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(OSDiskSecureVMDiskEncryptionSet))){ parameters.Add("OsDiskSecureVMDiskEncryptionSet", OSDiskSecureVMDiskEncryptionSet!); }
         if (EnableSecureBoot.HasValue)                                                        { parameters.Add("EnableSecureBoot", EnableSecureBoot.Value); }
         if (EnableVtpm.HasValue)                                                              { parameters.Add("EnableVtpm", EnableVtpm.Value); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceName)))           { parameters.Add("NetworkInterfaceName", NetworkInterfaceName); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SshKeyValues)) && SshKeyValues is not null)
+        {
+            parameters.Add("SshKeyValues", SshKeyValues.Select(ResolveSshKeyValue).ToList());
+        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(VirtualNetworkName)))             { parameters.Add("VirtualNetworkName", VirtualNetworkName); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetName)))                     { parameters.Add("SubnetName", SubnetName!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkInterfaceId)))             { parameters.Add("NetworkInterfaceIds", NetworkInterfaceId!.ToList()); }
@@ -168,6 +171,24 @@ public class NewVMCmdlet : PSCmdlet
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();
+    }
+
+    private string ResolveSshKeyValue(string sshKeyValue)
+    {
+        if (string.IsNullOrWhiteSpace(sshKeyValue))
+        {
+            return sshKeyValue;
+        }
+
+        try
+        {
+            string resolvedPath = SessionState.Path.GetUnresolvedProviderPathFromPSPath(sshKeyValue);
+            return File.Exists(resolvedPath) ? resolvedPath : sshKeyValue;
+        }
+        catch (System.Management.Automation.DriveNotFoundException)
+        {
+            return sshKeyValue;
+        }
     }
 
     protected override void EndProcessing()

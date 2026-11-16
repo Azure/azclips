@@ -247,9 +247,8 @@ public class SessionConfigTests
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             var pending = config.OnPermissionRequest!(
                 new PermissionRequestRead { Path = template, Intention = "Read the template" }, default!);
-            // A read that went to the approval prompt would wait there until the session ends.
-            Assert.True(pending == await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(10))),
-                "The read of the named file went to the approval prompt.");
+            // The handler approves the named file synchronously; a read sent to the approval prompt stays pending.
+            Assert.True(pending.IsCompletedSuccessfully, "The read of the named file went to the approval prompt.");
             Assert.Equal(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce().Kind, (await pending).Kind);
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 

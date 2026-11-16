@@ -18,3 +18,15 @@ az msgraph group show --group 11111111-2222-3333-4444-555555555555
 ```bash
 az msgraph group show --group Sales
 ```
+
+### Show a group with selected fields only
+
+```bash
+az msgraph group show --group Sales --select id displayName mailNickname
+```
+
+### Show a group with selected fields plus default fields
+
+```bash
+az msgraph group show --group Sales --select id displayName mailNickname --append-selected
+```

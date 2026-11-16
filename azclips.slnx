@@ -55,12 +55,14 @@
     <Project Path="tools/Help/Azclips.Help.Tool.Tests/Azclips.Help.Tool.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Fixtures/">
+    <Project Path="tests/Fixtures/ManagedIdentityCli/ManagedIdentity.TestWorker.csproj" />
     <Project Path="tests/Fixtures/SharedAlpha/Azclips.Tests.Fixtures.SharedAlpha.csproj" />
     <Project Path="tests/Fixtures/SharedBeta/Azclips.Tests.Fixtures.SharedBeta.csproj" />
     <Project Path="tests/Fixtures/Malformed/Azclips.Tests.Fixtures.Malformed.csproj" />
     <Project Path="tests/Fixtures/ExtraVerb/Azclips.Tests.Fixtures.ExtraVerb.csproj" />
     <Project Path="tests/Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj" />
     <Project Path="tests/Fixtures/FakeAgent/FakeAgent.csproj" />
+    <Project Path="tests/Fixtures/WindowsConsoleWorker/WindowsConsole.TestWorker.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/MsGraph/" />
   <Folder Name="/tools/">

@@ -68,14 +68,14 @@ authority when no tenant is supplied — not a fixed corporate tenant
 | --- | --- | --- |
 | Browser | `az login --subscription-id <sub>` | System browser with account selection |
 | Device code | `az login --use-device-code --subscription-id <sub>` | Verification URL and code printed to the console |
-| System-assigned managed identity | `az login --identity` | Platform credential endpoint |
-| User-assigned managed identity | `az login --identity --client-id <client>` | Platform endpoint with one identity selector; object ID or resource ID are alternatives |
+| System-assigned managed identity | `az login --identity --subscription-id <sub>` | Platform credential endpoint |
+| User-assigned managed identity | `az login --identity --client-id <client> --subscription-id <sub>` | Platform endpoint with one identity selector; object ID or resource ID are alternatives |
 | Federated service principal | `az login --service-principal --client-id <client> --federated-token <assertion> --tenant-id <tenant> --subscription-id <sub>` | Confidential client with an OIDC assertion |
 | Client-secret service principal | `az login --service-principal --client-id <client> --client-secret <secret> --tenant-id <tenant> --subscription-id <sub>` | Confidential client with a secret |
 
-The required combinations are defined by `LoginProcessor.DefineParameterSets`; managed identity
-allows an optional subscription, whereas browser, device-code, and new service-principal logins
-require one. Managed identity accepts at most one user-assigned selector
+The required combinations are defined by `LoginProcessor.DefineParameterSets`; managed identity,
+browser, device-code, and new service-principal logins require an explicitly supplied subscription ID.
+Login does not inherit argument defaults from the active profile. Managed identity accepts at most one user-assigned selector
 (`src/Extensions/Accounts/Processors/LoginProcessor.cs:119`,
 `src/Extensions/Accounts/Processors/LoginProcessor.cs:426`).
 

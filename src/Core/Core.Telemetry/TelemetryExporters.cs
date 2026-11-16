@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -53,14 +52,7 @@ internal static class TelemetryExporters
         {
             builder.AddOtlpExporter(options => options.Endpoint = LocalOtlpEndpointResolver.Resolve());
         }
-        else if (target == TelemetryTarget.Remote)
-        {
-            builder.AddAzureMonitorTraceExporter(options =>
-            {
-                options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
-            });
-        }
-        else
+        else if (target != TelemetryTarget.Remote)
         {
             throw new ArgumentOutOfRangeException(nameof(target), target, null);
         }

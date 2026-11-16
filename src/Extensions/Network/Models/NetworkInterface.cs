@@ -14,7 +14,7 @@ public partial class NetworkInterface
 
     /// <summary>The name of the network interface.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]

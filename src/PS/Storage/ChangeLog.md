@@ -17,6 +17,16 @@
 -->
 ## Upcoming Release
 
+## Version 0.1.2
+* Added Blob Storage data-plane cmdlets
+    - `New-AzStorageContainer`, `Remove-AzStorageContainer`
+    - `Get-AzStorageBlob`, `Remove-AzStorageBlob`, `Set-AzStorageBlobContent`, `Get-AzStorageBlobContent`, `Start-AzStorageBlobCopy`, `Copy-AzStorageBlob`
+* Added Azure Files data-plane cmdlets
+    - `New-AzStorageShare`, `Get-AzStorageShare`, `Update-AzStorageShare`, `Remove-AzStorageShare`
+    - `New-AzStorageDirectory`, `Get-AzStorageDirectory`, `Remove-AzStorageDirectory`
+    - `New-AzStorageFile`, `Get-AzStorageFile`, `Remove-AzStorageFile`, `Set-AzStorageFileContent`, `Get-AzStorageFileContent`, `Start-AzStorageFileCopy`
+* Data-plane cmdlets authenticate with `-StorageAccountName` and `-StorageAccountKey`, or with `-SasToken`
+
 ## Version 0.1.0
 
 * First preview

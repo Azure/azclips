@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
 using Tests.Common.Stubs;
 using Xunit;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -48,7 +49,7 @@ public class ArmCacheRefresherTests
             cacheRoot: tempDir.Path);
 
         refresher.KickAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         while (refresher.ActiveTaskCount > 0)
             await Task.Delay(10, timeout.Token);
         Assert.Null(refresher.LastError);

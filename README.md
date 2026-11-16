@@ -18,9 +18,9 @@ The architecture used for these commands allows execution in secure, constrained
 ## Preview capabilities (<sub>[What's new](docs/azure-cli/docs-conceptual/whats-new.md)</sub>)
 
 - **Profile-based login** — sign in and manage which subscription and context your commands run against.
-- **Single sign-on (SSO)** — one `az login` is shared between Azure PowerShell and native `az` commands in the same session; no re-authentication when switching.
+- **Per-command subscription selection** — specify a different subscription on commands that expose `--subscription-id` (CLI) or `-SubscriptionId` (PowerShell).
 - **Faster tab completion** — press <kbd>Tab</kbd> to complete command groups, subcommands, and parameters, resolved against the installed CLI.
-- **AI-powered error recovery** — when a command fails, an integrated AI model explains what went wrong and suggests a guided fix. See [AI-based error recovery](./docs/azure-cli/docs-conceptual/ai-based-error-recovery.md).
+- **AI-assisted error recovery** — when a command fails, an integrated AI model explains what went wrong and suggests a guided fix. See [AI-based error recovery](./docs/azure-cli/docs-conceptual/ai-based-error-recovery.md).
 
 Plus the basics: install, `az --help`, `az --version` and `az config`.
 
@@ -33,6 +33,7 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
    - CLI: `config`, `deployment`, `disk`, `extension`, `group`, `login`, `logout`, `profile`, `rest`, and `vm`
    - PowerShell: **Accounts**, **Resources**, **Compute**, and **Config**
    - Use `az --help` and `Get-Command -Module Az.*` to explore installed commands.
+   - Additional commands will continue to be added in regular updates.
 
 > `az` installs side-by-side with the classic `azure-cli` and does **not** modify your `PATH` by default. See the [install overview](docs/azure-cli/docs-conceptual/install-overview.md) for PATH and offline options.
 
@@ -44,17 +45,6 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 az login --subscription-id <id> --out-profile prod  # save a named profile
 az profile list                                     # list profiles
 az profile set prod                                 # switch the active profile
-```
-
-**Azure PowerShell ↔ native SSO** — sign in once, then use both surfaces in the same session, no re-auth:
-
-```bash
-az login --subscription-id <id>   # sign in once
-az group list       # native az command — already authenticated
-```
-
-```powershell
-Get-AzResourceGroup   # Azure PowerShell — same session, no re-login
 ```
 
 **Tab completion** — type a partial command and press <kbd>Tab</kbd>:
@@ -122,7 +112,6 @@ For security vulnerabilities, follow the [Security Policy](SECURITY.md) instead 
 ```
 azclips/
 ├── Agent/            # Agent host, chat/agent-mode entry, hooks, and tools
-├── assets/           # Shared static assets
 ├── build/            # Build scripts (build.ps1, module staging, help gen)
 ├── devops/           # DevOps helper scripts
 ├── docs/             # Documentation (getting-started & reference), being consolidated

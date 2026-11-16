@@ -161,7 +161,6 @@ try
         -VmSize $vmSize `
         -AdminUsername Artemis `
         -AdminPassword $env:AZCLIPS_VM_ADMIN_PASSWORD `
-        -NetworkInterfaceName "azclips-vmshow-nic-$suffix" `
         -VirtualNetworkName "azclips-vmshow-vnet-$suffix" `
         -AddressPrefixes "10.0.0.0/16" `
         -SubnetNames "azclips-vmshow-subnet-$suffix" `

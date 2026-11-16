@@ -186,7 +186,7 @@ jobs:
     - ${{ if eq(parameters.esrp_enable_strong_name_signing, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Strong-name Sign PowerShell Module DLL Payloads
-        condition: eq(variables['HasStrongNamePayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasStrongNamePayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -219,7 +219,7 @@ jobs:
             ]
       - task: PowerShell@2
         displayName: Restore Strong-name Signed PowerShell Module DLLs
-        condition: eq(variables['HasStrongNamePayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasStrongNamePayload'], 'true'))
         inputs:
           targetType: inline
           pwsh: true
@@ -246,7 +246,7 @@ jobs:
             Write-Host "Restored strong-name signed DLLs into extracted PowerShell module packages: $($strongNameMap.Count)"
     - task: EsrpCodeSigning@6
       displayName: Authenticode Sign PowerShell Module Payloads
-      condition: eq(variables['HasPowerShellPayload'], 'true')
+      condition: and(succeeded(), eq(variables['HasPowerShellPayload'], 'true'))
       inputs:
         ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
         AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -290,7 +290,7 @@ jobs:
           ]
     - task: EsrpCodeSigning@6
       displayName: Authenticode Sign PowerShell Module Binary Payloads
-      condition: eq(variables['HasFirstPartyPayload'], 'true')
+      condition: and(succeeded(), eq(variables['HasFirstPartyPayload'], 'true'))
       inputs:
         ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
         AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -332,7 +332,7 @@ jobs:
     - ${{ if eq(parameters.esrp_enable_non_azclips_dll_signing, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Optional Co-sign PowerShell Module Third-Party DLLs
-        condition: eq(variables['HasThirdPartyDllPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasThirdPartyDllPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -375,7 +375,7 @@ jobs:
             ]
       - task: PowerShell@2
         displayName: Restore Co-signed PowerShell Module Third-Party DLLs
-        condition: eq(variables['HasThirdPartyDllPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasThirdPartyDllPayload'], 'true'))
         inputs:
           targetType: inline
           pwsh: true
@@ -403,7 +403,7 @@ jobs:
     - ${{ if eq(parameters.esrp_enable_payload_verify, true) }}:
       - task: EsrpCodeSigning@6
         displayName: ESRP Verify PowerShell Module Payloads
-        condition: eq(variables['HasPowerShellPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasPowerShellPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -437,7 +437,7 @@ jobs:
             ]
       - task: EsrpCodeSigning@6
         displayName: ESRP Verify PowerShell Module Binary Payloads
-        condition: eq(variables['HasFirstPartyPayload'], 'true')
+        condition: and(succeeded(), eq(variables['HasFirstPartyPayload'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -468,7 +468,7 @@ jobs:
             ]
     - task: PowerShell@2
       displayName: Repack Payload-signed PowerShell Module Packages
-      condition: eq(variables['HasNupkg'], 'true')
+      condition: and(succeeded(), eq(variables['HasNupkg'], 'true'))
       inputs:
         targetType: inline
         pwsh: true
@@ -497,7 +497,7 @@ jobs:
           }
     - task: EsrpCodeSigning@6
       displayName: NuGet Sign PowerShell Module Package Wrappers
-      condition: eq(variables['HasNupkg'], 'true')
+      condition: and(succeeded(), eq(variables['HasNupkg'], 'true'))
       inputs:
         ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
         AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -527,7 +527,7 @@ jobs:
     - ${{ if eq(parameters.esrp_enable_nuget_verify, true) }}:
       - task: EsrpCodeSigning@6
         displayName: ESRP Verify PowerShell Module Package Wrappers
-        condition: eq(variables['HasNupkg'], 'true')
+        condition: and(succeeded(), eq(variables['HasNupkg'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'

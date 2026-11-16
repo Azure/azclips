@@ -10,7 +10,7 @@ public partial class SubnetListResult
 {
     /// <summary>The Subnet items on this page</summary>
     [JsonPropertyName("value")]
-    public IList<Subnet> Value { get; set; }
+    public IList<Subnet> Value { get; set; } = null !;
 
     /// <summary>The link to the next page of items</summary>
     [JsonPropertyName("nextLink")]

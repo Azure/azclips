@@ -80,7 +80,6 @@ trap cleanup EXIT
     --size Standard_D2s_v3 \
     --admin-username Artemis \
     --admin-password "$ADMIN_PASSWORD" \
-    --network-interface-name "azclips-vmlist-nic-$SUFFIX" \
     --virtual-network-name "azclips-vmlist-vnet-$SUFFIX" \
     --address-prefixes 10.0.0.0/16 \
     --subnet-names "azclips-vmlist-subnet-$SUFFIX" \

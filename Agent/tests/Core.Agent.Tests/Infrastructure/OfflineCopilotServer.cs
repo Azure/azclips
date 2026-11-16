@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using GitHub.Copilot;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -359,7 +360,7 @@ internal sealed class OfflineCopilotServer : IAsyncDisposable
         _listener.Stop();
         try
         {
-            await _run.WaitAsync(TimeSpan.FromSeconds(10));
+            await _run.WaitAsync(AgentTestTimeouts.HangGuard);
         }
         // One predicate for both filters. They used to list different sets, so
         // ObjectDisposedException was "expected shutdown" in the loop -- deliberately not caught
