@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Core.Abstractions;
 
@@ -283,9 +283,8 @@ public sealed class ResourceCache
                 .ToList();
         }
 
-        var patLower = pat.ToLowerInvariant();
         return candidates
-            .Select(c => (Resource: c, Score: Similarity(c.Name.ToLowerInvariant(), patLower)))
+            .Select(c => (Resource: c, Score: Similarity(c.Name, pat)))
             .Where(x => x.Score >= MinSimilarity)
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Resource.Name, StringComparer.OrdinalIgnoreCase)
@@ -295,7 +294,7 @@ public sealed class ResourceCache
     }
 
     private static double Similarity(string a, string b) =>
-        1.0 - (Lev(a, b) / (double)Math.Max(a.Length, b.Length));
+        1.0 - (Lev(a.ToLowerInvariant(), b.ToLowerInvariant()) / (double)Math.Max(a.Length, b.Length));
 
     /// <summary>
     /// Resolves an identifier to a single resource. <paramref name="nameOrId"/>
@@ -316,6 +315,7 @@ public sealed class ResourceCache
         }
 
         // 2) Identical names only (score 1.0); rows are ordered by score, so they come first.
+        if (string.IsNullOrWhiteSpace(nameOrId)) return null;
         var exact = FindResources(nameOrId, kind, scope, top: 25)
             .Where(m => m.Score == 1.0)
             .ToList();

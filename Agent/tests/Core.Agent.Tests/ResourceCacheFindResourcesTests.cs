@@ -296,6 +296,16 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         Assert.Null(cache.ResolveResource("web1", kind: null, scope: null));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void ResolveResource_EmptyName_ReturnsNull(string name)
+    {
+        var cache = CacheWithResources(("rg1", "web1a"));
+
+        Assert.Null(cache.ResolveResource(name, kind: null, scope: null));
+    }
+
     [Fact]
     public void ResolveResource_ArmId_ReturnsHit()
     {
