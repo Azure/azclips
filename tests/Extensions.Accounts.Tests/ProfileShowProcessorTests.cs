@@ -14,34 +14,20 @@ namespace Extensions.Accounts.Tests;
 [Collection("Azclips Service Provider Tests")]
 public class ProfileShowProcessorTests : IDisposable
 {
-    public void Dispose() => AzclipsServiceProvider.Dispose();
-
-    private static ProfileShowProcessor CreateProcessor(string name, bool active)
-    {
-        var processor = new ProfileShowProcessor { Name = name, Active = active };
-        typeof(ProfileProcessorBase)
-            .GetField("Publisher", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .SetValue(processor, Mock.Of<IEventPublisher>());
-        return processor;
-    }
-
     // Strict: a profile lookup the test did not set up throws MockException instead of the expected error.
-    private static void InitDi(Mock<IProfileService> profiles)
-    {
-        AzclipsServiceProvider.Dispose();
-        AzclipsServiceProvider.OverrideRegistration(services => services.AddSingleton(profiles.Object));
-        AzclipsServiceProvider.Initialize(
-            new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
-    }
+    private readonly Mock<IProfileService> _mockProfiles = new(MockBehavior.Strict);
+    private readonly IEventPublisher _mockPublisher = Mock.Of<IEventPublisher>();
+
+    public void Dispose() => AzclipsServiceProvider.Dispose();
 
     [Fact]
     public async Task ProcessAsync_NameAndActive_ThrowsInvalidInput()
     {
-        InitDi(new Mock<IProfileService>(MockBehavior.Strict));
+        ProfileShowProcessor processor = CreateProcessor(name: "prod", active: true);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => CreateProcessor("prod", active: true).ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Specify either a profile name or --active, not both.", ex.Message);
+        Assert.Equal("Specify either a profile name or --active, not both.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -50,24 +36,35 @@ public class ProfileShowProcessorTests : IDisposable
     [InlineData("   ", false)]
     public async Task ProcessAsync_NoActiveProfile_ThrowsNotSignedIn(string name, bool active)
     {
-        var profiles = new Mock<IProfileService>(MockBehavior.Strict);
-        profiles.Setup(p => p.GetActiveProfileAsync(It.IsAny<CancellationToken>())).ReturnsAsync((Profile?)null);
-        InitDi(profiles);
+        _mockProfiles.Setup(p => p.GetActiveProfileAsync(It.IsAny<CancellationToken>())).ReturnsAsync((Profile?)null);
+        ProfileShowProcessor processor = CreateProcessor(name: name, active: active);
 
-        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => CreateProcessor(name, active).ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("No active profile is set.", ex.Message);
+        Assert.Equal("No active profile is set.", Assert.IsType<AzclipsErrorException>(exception).Message);
     }
 
     [Fact]
     public async Task ProcessAsync_ProfileDoesNotExist_ThrowsProfileNotFound()
     {
-        var profiles = new Mock<IProfileService>(MockBehavior.Strict);
-        profiles.Setup(p => p.GetProfileAsync("missing", It.IsAny<CancellationToken>())).ReturnsAsync((Profile?)null);
-        InitDi(profiles);
+        _mockProfiles.Setup(p => p.GetProfileAsync("missing", It.IsAny<CancellationToken>())).ReturnsAsync((Profile?)null);
+        ProfileShowProcessor processor = CreateProcessor(name: "missing", active: false);
 
-        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => CreateProcessor("missing", active: false).ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Profile 'missing' does not exist.", ex.Message);
+        Assert.Equal("Profile 'missing' does not exist.", Assert.IsType<AzclipsErrorException>(exception).Message);
+    }
+
+    private ProfileShowProcessor CreateProcessor(string name, bool active)
+    {
+        AzclipsServiceProvider.Dispose();
+        AzclipsServiceProvider.OverrideRegistration(services => services.AddSingleton(_mockProfiles.Object));
+        AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
+
+        var processor = new ProfileShowProcessor { Name = name, Active = active };
+        typeof(ProfileProcessorBase)
+            .GetField("Publisher", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(processor, _mockPublisher);
+        return processor;
     }
 }

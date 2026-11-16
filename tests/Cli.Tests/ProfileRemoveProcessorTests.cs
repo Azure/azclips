@@ -118,9 +118,10 @@ public class ProfileRemoveProcessorTests
     public async Task ProcessAsync_ProfileDoesNotExist_ThrowsProfileNotFound()
     {
         InitDi();
+        ProfileRemoveProcessor processor = CreateProcessor("missing");
 
-        var ex = await Assert.ThrowsAsync<AzclipsErrorException>(() => CreateProcessor("missing").ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal("Profile 'missing' does not exist.", ex.Message);
+        Assert.Equal("Profile 'missing' does not exist.", Assert.IsType<AzclipsErrorException>(exception).Message);
     }
 }

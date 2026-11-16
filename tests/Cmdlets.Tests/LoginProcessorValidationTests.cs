@@ -360,24 +360,34 @@ public class LoginProcessorValidationTests
         Assert.DoesNotContain(forbidden, ex.Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData(ClientType.CLI, nameof(LoginProcessor.ClientId), "11111111-1111-1111-1111-11111111111")]
-    [InlineData(ClientType.PowerShell, nameof(LoginProcessor.ObjectId), "11111111-1111-1111-1111-11111111111Z")]
-    public async Task ProcessAsync_NonGuidIdentitySelector_ThrowsInvalidInput(
-        ClientType surface, string property, string value)
+    [Fact]
+    public async Task ProcessAsync_NonGuidClientId_ThrowsInvalidInput()
     {
-        var auth = new Mock<IAuthService>(MockBehavior.Strict);
-        InitDi(surface, auth: auth.Object);
-        var processor = new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId };
-        typeof(LoginProcessor).GetProperty(property)!.SetValue(processor, value);
-        var publisher = new Mock<IEventPublisher>();
-        publisher.SetReturnsDefault(Task.CompletedTask);
-        SetBaseField(processor, "Publisher", publisher.Object);
-        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+        LoginProcessor processor = CreateProcessAsyncProcessor(
+            surface: ClientType.CLI,
+            processor: new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ClientId = "11111111-1111-1111-1111-11111111111" },
+            mockAuth: new Mock<IAuthService>(MockBehavior.Strict));
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
-        Assert.Equal($"usage error: '{FlagFor(surface, property)}' must be a GUID. '{value}' is not.", ex.Message);
+        Assert.Equal(
+            "usage error: '--client-id' must be a GUID. '11111111-1111-1111-1111-11111111111' is not.",
+            Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_NonGuidObjectId_ThrowsInvalidInput()
+    {
+        LoginProcessor processor = CreateProcessAsyncProcessor(
+            surface: ClientType.PowerShell,
+            processor: new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ObjectId = "11111111-1111-1111-1111-11111111111Z" },
+            mockAuth: new Mock<IAuthService>(MockBehavior.Strict));
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal(
+            "usage error: '-ObjectId' must be a GUID. '11111111-1111-1111-1111-11111111111Z' is not.",
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -437,34 +447,22 @@ public class LoginProcessorValidationTests
     }
 
     [Theory]
-    [InlineData(ClientType.CLI, true, true, false)]
-    [InlineData(ClientType.PowerShell, false, true, true)]
+    [InlineData(ClientType.CLI, "22222222-2222-2222-2222-222222222222", "33333333-3333-3333-3333-333333333333", null)]
+    [InlineData(ClientType.PowerShell, null, "33333333-3333-3333-3333-333333333333", "/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi")]
     public async Task ProcessAsync_MultipleManagedIdentitySelectors_ThrowsInvalidInput(
-        ClientType surface, bool clientId, bool objectId, bool resourceId)
+        ClientType surface, string? clientId, string? objectId, string? resourceId)
     {
-        var auth = new Mock<IAuthService>(MockBehavior.Strict);
-        InitDi(surface, auth: auth.Object);
-        var processor = new LoginProcessor
-        {
-            Identity = true,
-            SubscriptionId = ValidSubscriptionId,
-            ClientId = clientId ? "22222222-2222-2222-2222-222222222222" : null,
-            ObjectId = objectId ? "33333333-3333-3333-3333-333333333333" : null,
-            ResourceId = resourceId
-                ? "/subscriptions/s/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi"
-                : null,
-        };
-        var publisher = new Mock<IEventPublisher>();
-        publisher.SetReturnsDefault(Task.CompletedTask);
-        SetBaseField(processor, "Publisher", publisher.Object);
-        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+        LoginProcessor processor = CreateProcessAsyncProcessor(
+            surface: surface,
+            processor: new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId, ClientId = clientId, ObjectId = objectId, ResourceId = resourceId },
+            mockAuth: new Mock<IAuthService>(MockBehavior.Strict));
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
         Assert.Equal(
             $"usage error: Provide only one of '{FlagFor(surface, nameof(LoginProcessor.ClientId))}', "
             + $"'{FlagFor(surface, nameof(LoginProcessor.ObjectId))}', '{FlagFor(surface, nameof(LoginProcessor.ResourceId))}'.",
-            ex.Message);
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -809,61 +807,84 @@ public class LoginProcessorValidationTests
     // failure, so any extra token or ARM call would throw a different exception and fail the test.
     // IProfileService retains its default file-backed registration; these tests do not guard against profile saves.
 
-    private static LoginProcessor ProcessorForResolution(ClientType surface, Mock<IAuthService> auth,
-        Mock<ISubscriptionService> subs, LoginProcessor processor)
-    {
-        auth.Setup(a => a.LoginAsync(It.IsAny<LoginRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(FakeAuthResult());
-        InitDi(surface, auth: auth.Object, subs: subs.Object);
-        var publisher = new Mock<IEventPublisher>();
-        publisher.SetReturnsDefault(Task.CompletedTask);
-        SetBaseField(processor, "Publisher", publisher.Object);
-        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
-        return processor;
-    }
-
     [Theory]
     [InlineData(ClientType.CLI)]
     [InlineData(ClientType.PowerShell)]
     public async Task ProcessAsync_SubscriptionTenantLookupFails_ThrowsInvalidInput(ClientType surface)
     {
-        var auth = new Mock<IAuthService>(MockBehavior.Strict);
-        var subs = new Mock<ISubscriptionService>(MockBehavior.Strict);
-        subs.Setup(s => s.ResolveSubscriptionTenantAsync("token", ValidSubscriptionId, It.IsAny<CancellationToken>()))
+        var mockSubscriptions = new Mock<ISubscriptionService>(MockBehavior.Strict);
+        mockSubscriptions.Setup(s => s.ResolveSubscriptionTenantAsync("token", ValidSubscriptionId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("ARM down"));
-        var processor = ProcessorForResolution(
-            surface, auth, subs, new LoginProcessor { SubscriptionId = ValidSubscriptionId });
+        LoginProcessor processor = CreateProcessAsyncProcessor(
+            surface: surface,
+            processor: new LoginProcessor { SubscriptionId = ValidSubscriptionId },
+            mockAuth: SignedInAuthMock(),
+            mockSubscriptions: mockSubscriptions);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
         Assert.Equal(
             $"Failed to resolve subscription tenant: Could not determine the tenant that owns subscription '{ValidSubscriptionId}': ARM down "
             + "The profile was not saved to avoid persisting an unverified tenant. "
             + $"Retry, or specify the tenant explicitly with '{FlagFor(surface, nameof(LoginProcessor.TenantId))} <tenantId>'.",
-            ex.Message);
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ProcessAsync_SubscriptionAccessFails_ThrowsInvalidInput(bool managedIdentity)
+    [Fact]
+    public async Task ProcessAsync_SubscriptionAccessFailsWithTenant_ThrowsInvalidInput()
     {
-        var auth = new Mock<IAuthService>(MockBehavior.Strict);
-        var subs = new Mock<ISubscriptionService>(MockBehavior.Strict);
-        subs.Setup(s => s.GetSubscriptionByIdAsync("token", ValidSubscriptionId, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new HttpRequestException("Forbidden"));
-        var processor = ProcessorForResolution(
-            ClientType.CLI,
-            auth,
-            subs,
-            managedIdentity
-                ? new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId }
-                : new LoginProcessor { TenantId = "22222222-2222-2222-2222-222222222222", SubscriptionId = ValidSubscriptionId });
+        LoginProcessor processor = CreateProcessAsyncProcessor(
+            surface: ClientType.CLI,
+            processor: new LoginProcessor { TenantId = "22222222-2222-2222-2222-222222222222", SubscriptionId = ValidSubscriptionId },
+            mockAuth: SignedInAuthMock(),
+            mockSubscriptions: ForbiddenSubscriptionMock());
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
         Assert.Equal(
             $"Failed to access subscription '{ValidSubscriptionId}': Forbidden. Make sure the subscription ID is correct and you have the necessary permissions.",
-            ex.Message);
+            Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ManagedIdentitySubscriptionAccessFails_ThrowsInvalidInput()
+    {
+        LoginProcessor processor = CreateProcessAsyncProcessor(
+            surface: ClientType.CLI,
+            processor: new LoginProcessor { Identity = true, SubscriptionId = ValidSubscriptionId },
+            mockAuth: SignedInAuthMock(),
+            mockSubscriptions: ForbiddenSubscriptionMock());
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal(
+            $"Failed to access subscription '{ValidSubscriptionId}': Forbidden. Make sure the subscription ID is correct and you have the necessary permissions.",
+            Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    private LoginProcessor CreateProcessAsyncProcessor(
+        ClientType surface, LoginProcessor processor, Mock<IAuthService> mockAuth, Mock<ISubscriptionService>? mockSubscriptions = null)
+    {
+        InitDi(surface, auth: mockAuth.Object, subs: mockSubscriptions?.Object);
+        var mockPublisher = new Mock<IEventPublisher>();
+        mockPublisher.SetReturnsDefault(Task.CompletedTask);
+        SetBaseField(processor, "Publisher", mockPublisher.Object);
+        InvokePrivate(processor, "ConfigureParameterSets", Array.Empty<object?>());
+        return processor;
+    }
+
+    private Mock<IAuthService> SignedInAuthMock()
+    {
+        var mockAuth = new Mock<IAuthService>(MockBehavior.Strict);
+        mockAuth.Setup(a => a.LoginAsync(It.IsAny<LoginRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync(FakeAuthResult());
+        return mockAuth;
+    }
+
+    private Mock<ISubscriptionService> ForbiddenSubscriptionMock()
+    {
+        var mockSubscriptions = new Mock<ISubscriptionService>(MockBehavior.Strict);
+        mockSubscriptions.Setup(s => s.GetSubscriptionByIdAsync("token", ValidSubscriptionId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("Forbidden"));
+        return mockSubscriptions;
     }
 }
