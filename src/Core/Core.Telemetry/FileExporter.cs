@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
+using System.Text.Json;
 using Core.Abstractions;
 using OpenTelemetry;
 
@@ -14,12 +15,19 @@ internal class FileExporter : BaseExporter<Activity>
 {
     private static readonly DefaultTelemetryPropertyFilter AllowedTags = new();
     private readonly string _rootDirectory;
+    private readonly bool _keepAllData;
     private string? _filePath;
     private readonly object _lock = new();
 
-    public FileExporter(string rootDirectory)
+    /// <param name="rootDirectory">The folder trace files are written to.</param>
+    /// <param name="keepAllData">
+    /// Writes every tag, event attribute and the status description. Only for the local-only
+    /// trace folder, which nothing but a local-collector uploader reads.
+    /// </param>
+    public FileExporter(string rootDirectory, bool keepAllData = false)
     {
         _rootDirectory = rootDirectory ?? throw new ArgumentNullException(nameof(rootDirectory));
+        _keepAllData = keepAllData;
     }
 
     public override ExportResult Export(in Batch<Activity> batch)
@@ -37,6 +45,11 @@ internal class FileExporter : BaseExporter<Activity>
                 // live parent Activity objects that AriaActivityExporter could traverse later.
                 var tags = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
                 AllowedTags.MergeAllowedTags(activity, tags);
+                if (_keepAllData)
+                {
+                    foreach (var tag in activity.TagObjects)
+                        tags[tag.Key] = tag.Value;
+                }
                 var dataBoundary = DataBoundaryRouting.ResolveUploadRegion(activity).ToDataBoundary();
                 tags[TelemetryTags.DataBoundary] = dataBoundary;
 
@@ -54,11 +67,11 @@ internal class FileExporter : BaseExporter<Activity>
                     dataBoundary,
                     entraObjectId = ResolveTag(activity, TelemetryTags.EntraObjectId),
                     tags = tags.ToArray(),
-                    events = GetEvents(activity),
+                    events = GetEvents(activity, _keepAllData),
                     resource = GetResource(activity)
                 };
 
-                traces.Add(trace);
+                traces.Add(_keepAllData ? WithStatusDescription(trace, activity.StatusDescription) : trace);
             }
 
             // An empty batch (unlikely) leaves nothing to write, and the TraceId that names the
@@ -113,7 +126,7 @@ internal class FileExporter : BaseExporter<Activity>
         return null;
     }
 
-    private static List<object> GetEvents(Activity activity)
+    private static List<object> GetEvents(Activity activity, bool keepAllData)
     {
         var events = new List<object>();
         foreach (var evt in activity.Events)
@@ -122,15 +135,28 @@ internal class FileExporter : BaseExporter<Activity>
             {
                 Name = evt.Name,
                 Timestamp = evt.Timestamp.ToString("O"),
-                Attributes = evt.Tags
-                    .Select(tag => tag.Key == "exception.type"
-                        ? new KeyValuePair<string, object?>(TelemetryTags.ExceptionType, tag.Value)
-                        : tag)
-                    .Where(tag => AllowedTags.IsAllowed(tag.Key))
-                    .ToArray()
+                Attributes = keepAllData
+                    ? evt.Tags.ToArray()
+                    : evt.Tags
+                        .Select(tag => tag.Key == "exception.type"
+                            ? new KeyValuePair<string, object?>(TelemetryTags.ExceptionType, tag.Value)
+                            : tag)
+                        .Where(tag => AllowedTags.IsAllowed(tag.Key))
+                        .ToArray()
             });
         }
         return events;
+    }
+
+    // Status text is free-form error detail, so only the local-only folder carries it.
+    private static object WithStatusDescription(object trace, string? statusDescription)
+    {
+        if (statusDescription is null)
+            return trace;
+
+        var node = JsonSerializer.SerializeToNode(trace)!.AsObject();
+        node["statusDescription"] = statusDescription;
+        return node;
     }
 
     private static Dictionary<string, object> GetResource(Activity activity)

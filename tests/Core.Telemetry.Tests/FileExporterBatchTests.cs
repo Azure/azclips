@@ -223,4 +223,55 @@ public class FileExporterBatchTests
             DirectoryUtils.TryDeleteDirectory(directory);
         }
     }
+
+    [Fact]
+    public void Export_ShouldKeepTagsEventsAndStatusText_WhenRulesAreBypassed()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-file-exporter-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var source = new ActivitySource(SourceName);
+            var builder = Sdk.CreateTracerProviderBuilder()
+                .AddSource(SourceName)
+                .SetSampler(new AlwaysOnSampler());
+            new FileTelemetrySender(new FixedTraceDirectory(directory), bypassRules: true)
+                .ConfigureExporter(builder);
+
+            using (var provider = builder.Build())
+            {
+                using var activity = source.StartActivity("request");
+                Assert.NotNull(activity);
+                activity.SetTag("url.full", "https://example.com/subscriptions/sub-id");
+                activity.SetStatus(ActivityStatusCode.Error, "status detail");
+                activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
+                {
+                    { "exception.type", "System.Net.Http.HttpRequestException" },
+                    { "exception.message", "message detail" },
+                }));
+            }
+
+            var entry = Assert.Single(TraceFileFormat.Parse(File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)))));
+            var attributes = Assert.Single(entry.Events.EnumerateArray()).GetProperty("Attributes");
+
+            Assert.Equal("https://example.com/subscriptions/sub-id", entry.GetStringTag("url.full"));
+            Assert.Equal("status detail", entry.StatusDescription);
+            Assert.Contains(attributes.EnumerateArray(), attribute =>
+                attribute.GetProperty("Key").GetString() == "exception.message"
+                && attribute.GetProperty("Value").GetString() == "message detail");
+            Assert.Contains(attributes.EnumerateArray(), attribute =>
+                attribute.GetProperty("Key").GetString() == "exception.type");
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
+
+    private sealed class FixedTraceDirectory(string directory) : ITraceDirectoryProvider
+    {
+        public string GetTraceDirectory() => directory;
+    }
 }
