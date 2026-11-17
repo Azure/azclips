@@ -37,7 +37,8 @@ whether telemetry is emitted at all.
 With `AZCLIPS_TELEMETRY_TARGET=local`, Jaeger is the only destination, so a Debug build switches
 the telemetry privacy rules off. Jaeger then shows every span, every tag (including `url.full`),
 status descriptions, exception messages and stack traces, and real parameter values in
-`commandParameters`. Take care when screen sharing or recording.
+`commandParameters`. Agent telemetry (`az agent` and AI recovery) still keeps the Agent layer's own
+allowlists. Take care when screen sharing or recording.
 
 - The default `both` mode and `remote` mode stay filtered. Release builds never bypass the rules.
 - The CLI and TUI buffer local-mode traces in `~/.azclips/traces-local` (or
@@ -96,10 +97,11 @@ wordmark or styling, edit the `sub_filter` rule in `nginx.conf`.
 4. Open http://localhost:16686, pick the service, and confirm the trace/spans appear.
 5. Set `AZCLIPS_TELEMETRY_TARGET=remote`, re-run, and confirm the trace does **not** appear locally.
 6. Set `AZCLIPS_TELEMETRY_TARGET=local`, re-run `az group list`, and confirm the HTTP span shows
-   `url.full` and the root span shows real values in `commandParameters`.
+   `url.full`.
 7. Run a command that fails, for example `az group show --name azclips-does-not-exist`, and confirm
-   the root span shows the error as its status description. Failures that record an exception
-   event also show `exception.message` and `exception.stacktrace`.
+   the root span shows the error as its status description and the real value
+   `azclips-does-not-exist` in `commandParameters`. Failures that record an exception event also
+   show `exception.message` and `exception.stacktrace`.
 8. Confirm the new files went to `~/.azclips/traces-local` and nothing new appeared in
    `~/.azclips/traces`.
 9. In a new PowerShell session, set `$env:AZCLIPS_TELEMETRY_TARGET = 'local'` before

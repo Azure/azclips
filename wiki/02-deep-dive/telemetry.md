@@ -151,12 +151,15 @@ values from them: `BypassesRules`, which is true only for exactly `[Local]` and 
 Release, and the trace folder. PowerShell keeps the module's assemblies loaded after
 `Remove-Module`, so there the mode stays fixed until the session ends. When the rules are bypassed:
 
-- `RegisterTelemetryServices` doesn't register the name and property filter processors, so every
-  span, tag and status description is kept.
+- `RegisterTelemetryServices` doesn't register the name and property filter processors, so the
+  CLI, TUI and PowerShell pipelines keep every span, tag and status description.
 - `HttpActivityEnricher` leaves HTTP exception messages and stack traces in place.
 - `commandParameters` holds real values (`-name value`) instead of `-name ***`.
 - `FileExporter` writes every tag a span sets, every event attribute, and the status description.
 - The CLI/TUI trace files, upload holds and uploader use `traces-local` instead of `traces`.
+
+Agent-layer telemetry (`TelemetryLayers.Agent`) keeps its own name and property allowlists, so its
+files in `traces-local` stay filtered.
 
 The separate folder is what keeps this data local. Every uploader drains `traces` and sends it to
 its own targets, and `commandParameters` is on Aria's allow-list. A Release `az`, an older build,

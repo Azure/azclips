@@ -105,7 +105,8 @@ a confirmed ARM boundary. Internal routing and process-handoff contexts retain t
 Neither `uploadRegion` nor `dataBoundaryOutcome` is allowed in new trace tags.
 
 Debug builds whose only target is the local collector (`AZCLIPS_TELEMETRY_TARGET=local`) skip
-the allowlist and the other privacy rules. See
+the allowlist and the other privacy rules in the CLI, TUI and PowerShell pipelines. Agent-layer
+telemetry keeps its own allowlists. See
 [local mode](../../wiki/02-deep-dive/telemetry.md#local-mode).
 
 | Tag                       | Source | Description |
