@@ -313,6 +313,33 @@ public sealed class PersistenceTelemetryTests
         }
     }
 
+    [Fact]
+    public void Uploader_LeavesTheLocalTraceFolderUntouched_WhenRulesAreNotBypassed()
+    {
+        var root = NewRoot();
+        try
+        {
+            // The shared queue exists, so the uploader scans it instead of returning early.
+            Directory.CreateDirectory(Path.Combine(root, HomePaths.TraceDirectoryName));
+            var localQueue = Path.Combine(root, "traces-local");
+            Directory.CreateDirectory(localQueue);
+            var localTrace = Path.Combine(localQueue, TraceFileStore.FileNameFor(new string('b', 32)));
+            const string LocalContent = "an unfiltered trace from a local-mode run";
+            File.WriteAllText(localTrace, LocalContent);
+
+            var sink = new RecordingSink();
+            new TelemetryUpload(new FilePersistenceStore(root), bypassRules: false, sink).RunPending();
+
+            Assert.Equal(0, sink.Count);
+            Assert.True(File.Exists(localTrace));
+            Assert.Equal(LocalContent, File.ReadAllText(localTrace));
+        }
+        finally
+        {
+            DeleteRoot(root);
+        }
+    }
+
     private static string NewRoot() =>
         Path.Combine(Path.GetTempPath(), "telemetry-persistence-" + Guid.NewGuid().ToString("N"));
 

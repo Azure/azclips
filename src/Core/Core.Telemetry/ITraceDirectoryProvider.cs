@@ -9,6 +9,8 @@ namespace Core.Telemetry;
 /// <remarks>
 /// Overrides trace writes only. Reservations and uploads use the persistence root,
 /// so a test or benchmark writer override cannot redirect the upload queue.
+/// An override must never point at the shared upload queue: a process that bypasses the
+/// telemetry rules writes unfiltered values that only the local-only folder may hold.
 /// </remarks>
 public interface ITraceDirectoryProvider
 {
