@@ -55,12 +55,7 @@ az pro<Tab>         # completes to: az profile
 
 Enable it for bash, zsh, or PowerShell — see [tab completion](docs/azure-cli/docs-conceptual/install-cli-completions.md).
 
-**AI-powered error recovery** — when a command fails, the AI explains the cause and suggests a fix:
-
-```bash
-az profile set does-not-exist
-# → what went wrong, a suggested plan / next actions, and values to review.
-```
+**AI-powered error recovery** — when a command fails, the AI explains the cause and suggests a fix. See [AI-based error recovery](https://learn.microsoft.com/cli/azure/ai-based-error-recovery?view=azure-cli-preview).
 
 ## Documentation
 
