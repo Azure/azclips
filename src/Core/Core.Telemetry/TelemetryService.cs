@@ -4,6 +4,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Collections;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -184,7 +185,8 @@ public class TelemetryService : ITelemetryService
             rootActivity?.SetTag(TelemetryTags.CommandExtensionName, commandInvocation.ModuleName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleVersion))
             rootActivity?.SetTag(TelemetryTags.CommandExtensionVersion, commandInvocation.ModuleVersion);
-        rootActivity?.SetTag(TelemetryTags.CommandParameters, FormatParameters(commandInvocation.Parameters));
+        rootActivity?.SetTag(TelemetryTags.CommandParameters,
+            FormatParameters(commandInvocation.Parameters, TelemetryTargetResolver.BypassesRules));
 
         return rootActivity;
     }
@@ -214,7 +216,7 @@ public class TelemetryService : ITelemetryService
     }
 
     //todo: inject as dependency as paramformatter
-    private static string FormatParameters(IDictionary<string, object>? parameters)
+    internal static string FormatParameters(IDictionary<string, object>? parameters, bool revealValues)
     {
         if (parameters is null || parameters.Count == 0) return string.Empty;
 
@@ -224,10 +226,24 @@ public class TelemetryService : ITelemetryService
         {
             if (string.IsNullOrEmpty(kvp.Key)) continue;
             if (sb.Length > 0) sb.Append(' ');
-            sb.Append('-').Append(kvp.Key).Append(' ').Append(MaskedValue);
+            sb.Append('-').Append(kvp.Key);
+            // Real values only ever reach the local collector; see TelemetryTargetResolver.BypassesRules.
+            var value = revealValues ? FormatValue(kvp.Value) : MaskedValue;
+            if (value.Length > 0) sb.Append(' ').Append(value);
         }
         return sb.ToString();
     }
+
+    private static string FormatValue(object? value) => value switch
+    {
+        null => string.Empty,
+        string text => text,
+        IEnumerable items => string.Join(',', items.Cast<object?>().Select(FormatScalar)),
+        _ => FormatScalar(value),
+    };
+
+    private static string FormatScalar(object? value) =>
+        Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
 
     public void Dispose()
     {
