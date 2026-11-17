@@ -1,0 +1,144 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System.Text.Json;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.Engine;
+using Moq;
+using ManagedServiceIdentityIndex = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex;
+
+namespace Cli.Tests.Commands.ManagedIdentity;
+
+/// <summary>
+/// Runs managed identity CLI commands through the real engine and checks the error for each rejected input. The wire
+/// mock is strict with no responses, so each test also proves no request was sent.
+/// </summary>
+public sealed class IdentityCommandTests : IDisposable
+{
+    private const string ExtensionName = "ManagedServiceIdentity";
+
+    private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
+    private readonly List<object> _output = [];
+    private readonly Engine _engine;
+
+    public IdentityCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(ManagedServiceIdentityIndex).Assembly, _mockWire);
+
+    public void Dispose() => _engine.Dispose();
+
+    // ── identity show / update / delete ────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public async Task RunAsync_NameWithoutResourceGroup_ThrowsInvalidInput(string command)
+    {
+        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--name", "id"], _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal("Provide either --ids, or both --name and --resource-group.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_ShowBlankName_ThrowsInvalidInput()
+    {
+        using ISession session = _engine.OpenCliSession(ExtensionName, "identity show", ["--name", " ", "--resource-group", "rg"], _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal("Provide either --ids, or both --name and --resource-group.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public async Task RunAsync_InvalidResourceId_ThrowsInvalidInput(string command)
+    {
+        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--ids", "/subscriptions/x/resourceGroups/rg"], _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal(
+            "Invalid managed identity resource id '/subscriptions/x/resourceGroups/rg'. Expected /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{resourceName}.",
+            Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_ShowBlankId_ThrowsInvalidInput()
+    {
+        using ISession session = _engine.OpenCliSession(ExtensionName, "identity show", ["--ids", " "], _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal("Identity resource id cannot be empty.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    // ── identity create / update tags and resource restriction ─────────────────────────────────
+
+    [Theory]
+    [InlineData("identity create", new[] { "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "env" })]
+    [InlineData("identity update", new[] { "--name", "id", "--resource-group", "rg", "--tags", "env" })]
+    public async Task RunAsync_TagWithoutValue_ThrowsInvalidInput(string command, string[] args)
+    {
+        using ISession session = _engine.OpenCliSession(ExtensionName, command, args, _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal("Invalid dictionary entry 'env'. Expected KEY=VALUE format.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_CreateTagWithBlankKey_ThrowsInvalidInput()
+    {
+        using ISession session = _engine.OpenCliSession(
+            ExtensionName, "identity create", ["--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", " =test"], _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal("Invalid dictionary entry ' =test'. Keys cannot be empty.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_CreateJsonTagWithBlankKey_ThrowsInvalidInput()
+    {
+        using ISession session = _engine.OpenCliSession(
+            ExtensionName, "identity create", ["--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "{\"\":\"test\"}"], _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal("Invalid dictionary entry. Keys cannot be empty.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    // Current behaviour: malformed JSON tags surface the raw System.Text.Json error instead of a usage error.
+    [Fact]
+    public async Task RunAsync_CreateMalformedJsonTags_ThrowsJsonException()
+    {
+        using ISession session = _engine.OpenCliSession(
+            ExtensionName, "identity create", ["--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "{bad"], _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal(
+            "'b' is an invalid start of a property name. Expected a '\"'. Path: $ | LineNumber: 0 | BytePositionInLine: 1.",
+            Assert.IsType<JsonException>(exception).Message);
+    }
+
+    // Current behaviour: a malformed JSON resource restriction surfaces the raw System.Text.Json reader error
+    // (an internal JsonException subtype, hence IsAssignableFrom) instead of a usage error.
+    [Theory]
+    [InlineData("identity create", new[] { "--name", "id", "--resource-group", "rg", "--location", "westus", "--resource-restriction", "{bad" })]
+    [InlineData("identity update", new[] { "--name", "id", "--resource-group", "rg", "--resource-restriction", "{bad" })]
+    public async Task RunAsync_MalformedJsonResourceRestriction_ThrowsJsonException(string command, string[] args)
+    {
+        using ISession session = _engine.OpenCliSession(ExtensionName, command, args, _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal(
+            "'b' is an invalid start of a property name. Expected a '\"'. LineNumber: 0 | BytePositionInLine: 1.",
+            Assert.IsAssignableFrom<JsonException>(exception).Message);
+    }
+}
