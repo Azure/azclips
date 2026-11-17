@@ -28,4 +28,18 @@ public class TelemetryServiceParameterFormattingTests
             "-name my-rg -tags env=dev,team=cli -count 3 -switch",
             TelemetryService.FormatParameters(Parameters, revealValues: true));
     }
+
+    [Fact]
+    public void FormatParameters_FlattensNestedCliValues_WhenRulesAreBypassed()
+    {
+        var cliParameters = new Dictionary<string, object>
+        {
+            ["name"] = new List<List<string>> { new() { "my-rg" } },
+            ["tags"] = new List<List<string>> { new() { "a=1", "b=2" }, new() { "c=3" } },
+        };
+
+        Assert.Equal(
+            "-name my-rg -tags a=1,b=2,c=3",
+            TelemetryService.FormatParameters(cliParameters, revealValues: true));
+    }
 }

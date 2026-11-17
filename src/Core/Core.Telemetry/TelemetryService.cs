@@ -238,7 +238,7 @@ public class TelemetryService : ITelemetryService
     {
         null => string.Empty,
         string text => text,
-        IEnumerable items => string.Join(',', items.Cast<object?>().Select(FormatScalar)),
+        IEnumerable items => string.Join(',', items.Cast<object?>().Select(FormatValue)),
         _ => FormatScalar(value),
     };
 
