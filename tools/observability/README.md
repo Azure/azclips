@@ -37,8 +37,11 @@ whether telemetry is emitted at all.
 With `AZCLIPS_TELEMETRY_TARGET=local`, Jaeger is the only destination, so a Debug build switches
 the telemetry privacy rules off. Jaeger then shows every span, every tag (including `url.full`),
 status descriptions, exception messages and stack traces, and real parameter values in
-`commandParameters`. Agent telemetry (`az agent` and AI recovery) still keeps the Agent layer's own
-allowlists. Take care when screen sharing or recording.
+`commandParameters`. Telemetry recorded through `TelemetryLayers.Agent` keeps its own allowlists,
+but the CLI's own spans for `az agent` commands and AI recovery don't. Secret values such as
+`--password` appear in Jaeger and sit in plain text in `traces-local` until they're uploaded, and
+TUI files stay there until the next local-mode `az` run. Take care when screen sharing or
+recording.
 
 - The default `both` mode and `remote` mode stay filtered. Release builds never bypass the rules.
 - The CLI and TUI buffer local-mode traces in `~/.azclips/traces-local` (or

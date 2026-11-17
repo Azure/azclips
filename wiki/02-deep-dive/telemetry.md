@@ -168,7 +168,7 @@ or a Debug build in `both` mode never reads `traces-local`. .NET's own query-str
 
 ## Privacy model — the allow-list processors
 
-Two `BaseProcessor<Activity>` implementations run on `OnEnd` of every activity and are registered for all clients via `RegisterTelemetryServices` (`src/Core/Core.Telemetry/DIRegisterExtensions.cs:19-28`). They implement a **deny-by-default** model: anything not explicitly allowed is dropped. Neither processor is registered in [local mode](#local-mode).
+Two `BaseProcessor<Activity>` implementations run on `OnEnd` of every activity and are registered for all clients via `RegisterTelemetryServices` (`src/Core/Core.Telemetry/DIRegisterExtensions.cs:19-39`). They implement a **deny-by-default** model: anything not explicitly allowed is dropped. Neither processor is registered in [local mode](#local-mode).
 
 | Processor | Filter | Effect |
 | --- | --- | --- |
@@ -190,7 +190,7 @@ These are activity-tag filters, not a blanket guarantee about arbitrary event pa
 Authentication cleanup deliberately avoids unbounded exception text in logged activity events
 (`src/Core/Core.Authentication/MsalAuthService.cs:152`).
 
-Even parameter **values** are masked at the source: `TelemetryService.FormatParameters` renders every parameter as `-name ***`, so a command's shape is captured without any argument content (`src/Core/Core.Telemetry/TelemetryService.cs:81-94`). Dropped counts are tracked internally but never logged — surfacing a dropped key could itself leak the existence of a sensitive tag (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilterProcessor.cs:23-28`).
+Even parameter **values** are masked at the source: `TelemetryService.FormatParameters` renders every parameter as `-name ***` outside [local mode](#local-mode), so a command's shape is captured without any argument content (`src/Core/Core.Telemetry/TelemetryService.cs:219-235`). Dropped counts are tracked internally but never logged — surfacing a dropped key could itself leak the existence of a sensitive tag (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilterProcessor.cs:23-28`).
 
 ## Async export path
 
