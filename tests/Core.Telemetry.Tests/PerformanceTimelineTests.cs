@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Core.Telemetry.Tests;
 
@@ -19,25 +20,27 @@ public class PerformanceTimelineTests
     public void Replay_EmitsMeasuredPhaseWithItsRecordedDuration()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(Enclosing);
+        // A fake clock keeps the recorded duration exact; a real one would also count however
+        // long a loaded CI runner takes to reschedule this thread, which has exceeded 5 s.
+        var clock = new FakeTimeProvider();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
 
         using (timeline.Measure("CLI.Performance.Container"))
         {
-            Thread.Sleep(20);
+            clock.Advance(TimeSpan.FromMilliseconds(20));
         }
 
         timeline.Replay(telemetry);
 
         var container = Assert.Single(telemetry.Stopped, a => a.OperationName == "CLI.Performance.Container");
-        // Sleep(20) can overshoot on Windows' ~15.6ms timer, so assert a floor, not equality.
-        Assert.InRange(container.Duration.TotalMilliseconds, 15d, 5000d);
+        Assert.Equal(TimeSpan.FromMilliseconds(20), container.Duration);
     }
 
     [Fact]
     public void Replay_WrapsPhasesInAnEnclosingPerformanceSpan()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(Enclosing);
+        var timeline = new PerformanceTimeline(Enclosing, TimeProvider.System);
 
         using (timeline.Measure("CLI.Performance.Container"))
         {
@@ -55,7 +58,7 @@ public class PerformanceTimelineTests
         // The CLI and the PowerShell module share this type; each supplies its own
         // "{ClientType}.Performance" name. A hard-coded name would silently mislabel one.
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline("PowerShell.Performance");
+        var timeline = new PerformanceTimeline("PowerShell.Performance", TimeProvider.System);
 
         using (timeline.Measure("PowerShell.Performance.Container"))
         {
@@ -71,7 +74,7 @@ public class PerformanceTimelineTests
     public void Replay_SequentialMeasures_BecomeSiblings()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(Enclosing);
+        var timeline = new PerformanceTimeline(Enclosing, TimeProvider.System);
 
         using (timeline.Measure("first"))
         {
@@ -93,7 +96,7 @@ public class PerformanceTimelineTests
     public void Replay_NestedMeasures_BecomeNestedSpans()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(Enclosing);
+        var timeline = new PerformanceTimeline(Enclosing, TimeProvider.System);
 
         using (timeline.Measure("outer"))
         using (timeline.Measure("inner"))
@@ -113,7 +116,7 @@ public class PerformanceTimelineTests
     {
         using var telemetry = new RecordingTelemetryService();
 
-        new PerformanceTimeline(Enclosing).Replay(telemetry);
+        new PerformanceTimeline(Enclosing, TimeProvider.System).Replay(telemetry);
 
         Assert.Empty(telemetry.Stopped);
     }
@@ -123,7 +126,7 @@ public class PerformanceTimelineTests
     {
         // With telemetry.enabled=false every StartActivity returns null. Replay must
         // tolerate that rather than NullReferenceException on the way out.
-        var timeline = new PerformanceTimeline(Enclosing);
+        var timeline = new PerformanceTimeline(Enclosing, TimeProvider.System);
 
         using (timeline.Measure("CLI.Performance.Container"))
         {
@@ -135,18 +138,20 @@ public class PerformanceTimelineTests
     [Fact]
     public void StartedAt_IsCapturedAtConstruction()
     {
-        var beforeConstruction = DateTime.UtcNow;
-        var timeline = new PerformanceTimeline(Enclosing);
-        var afterConstruction = DateTime.UtcNow;
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero));
+        var timeline = new PerformanceTimeline(Enclosing, clock);
+        clock.Advance(TimeSpan.FromSeconds(1));
 
-        Assert.InRange(timeline.StartedAt, beforeConstruction, afterConstruction);
+        Assert.Equal(new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc), timeline.StartedAt);
+        // A non-UTC kind would be read as local time when backdating the root activity.
+        Assert.Equal(DateTimeKind.Utc, timeline.StartedAt.Kind);
     }
 
     [Fact]
     public void OutOfOrderDisposal_DoesNotCorruptParenting()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(Enclosing);
+        var timeline = new PerformanceTimeline(Enclosing, TimeProvider.System);
 
         var a = timeline.Measure("a");
         var b = timeline.Measure("b");
@@ -167,16 +172,17 @@ public class PerformanceTimelineTests
     public void EnclosingSpanCoversAllPhases()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(Enclosing);
+        var clock = new FakeTimeProvider();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
 
         using (timeline.Measure("first"))
         {
-            Thread.Sleep(10);
+            clock.Advance(TimeSpan.FromMilliseconds(10));
         }
 
         using (timeline.Measure("second"))
         {
-            Thread.Sleep(10);
+            clock.Advance(TimeSpan.FromMilliseconds(10));
         }
 
         timeline.Replay(telemetry);
@@ -193,27 +199,31 @@ public class PerformanceTimelineTests
     public void Replay_LeakedMeasureHandle_DoesNotEmitNegativeDuration()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(Enclosing);
+        var clock = new FakeTimeProvider();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
 
         // Deliberately never disposed.
         timeline.Measure("leaked");
+        clock.Advance(TimeSpan.FromMilliseconds(5));
 
         timeline.Replay(telemetry);
 
+        // A handle that was never disposed ends at replay time.
         var leaked = Assert.Single(telemetry.Stopped, a => a.OperationName == "leaked");
-        Assert.True(leaked.Duration >= TimeSpan.Zero);
+        Assert.Equal(TimeSpan.FromMilliseconds(5), leaked.Duration);
     }
 
     [Fact]
     public void Replay_EmitsTelemetryHandoffPhaseWithRecordedDuration()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(Enclosing);
+        var clock = new FakeTimeProvider();
+        var timeline = new PerformanceTimeline(Enclosing, clock);
 
         using (timeline.Measure("CLI.Performance.Telemetry"))
         {
             using var root = telemetry.StartRootActivity(timeline.StartedAt);
-            Thread.Sleep(20);
+            clock.Advance(TimeSpan.FromMilliseconds(20));
             timeline.Replay(telemetry);
         }
 
@@ -221,7 +231,7 @@ public class PerformanceTimelineTests
             telemetry.Stopped,
             a => a.OperationName == "CLI.Performance.Telemetry");
 
-        Assert.InRange(handoff.Duration.TotalMilliseconds, 15d, 5000d);
+        Assert.Equal(TimeSpan.FromMilliseconds(20), handoff.Duration);
     }
 
     /// <summary>ITelemetryService backed by a real ActivitySource plus a listener, so

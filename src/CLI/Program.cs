@@ -59,7 +59,7 @@ public class Program
 
     private static async Task<int> RunCliAsync(string[] args, CommandTimingRecorder debugTiming, Action<Action<string>> setTimingWriter)
     {
-        var performance = new PerformanceTimeline("AzureCLI.Startup");
+        var performance = new PerformanceTimeline("AzureCLI.Startup", TimeProvider.System);
         using var startup = debugTiming.MeasureLocal("Init/startup");
         bool isBareInvocation = args.Length == 0;
 
