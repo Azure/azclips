@@ -14,14 +14,25 @@ public sealed class TelemetryUpload
     private readonly TraceUploader _uploader;
 
     public TelemetryUpload(IPersistenceStore persistence)
-        : this(persistence, new TracerProviderExportSink(TelemetryTargetResolver.Resolve()))
+        : this(persistence, TelemetryTargetResolver.BypassesRules,
+            new TracerProviderExportSink(TelemetryTargetResolver.Resolve()))
     {
     }
 
     internal TelemetryUpload(IPersistenceStore persistence, ITraceExportSink sink)
+        : this(persistence, TelemetryTargetResolver.BypassesRules, sink)
+    {
+    }
+
+    /// <param name="bypassRules">
+    /// Selects the local-only folder, which holds unfiltered traces. Only a process whose sole
+    /// target is the local collector may pass true.
+    /// </param>
+    internal TelemetryUpload(IPersistenceStore persistence, bool bypassRules, ITraceExportSink sink)
     {
         _uploader = new TraceUploader(
-            new TraceFileStore(persistence.GetFilePath(HomePaths.TraceDirectoryName)), sink);
+            new TraceFileStore(persistence.GetFilePath(TelemetryTargetResolver.TraceDirectoryNameFor(bypassRules))),
+            sink);
     }
 
     /// <summary>

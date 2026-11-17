@@ -266,6 +266,53 @@ public sealed class PersistenceTelemetryTests
         }
     }
 
+    [Fact]
+    public void BypassedWriterReservationsAndUploader_UseOnlyTheLocalTraceFolder()
+    {
+        var root = NewRoot();
+        try
+        {
+            var persistence = new FilePersistenceStore(root);
+            var localQueue = Path.Combine(root, "traces-local");
+            var sharedQueue = Path.Combine(root, HomePaths.TraceDirectoryName);
+            Directory.CreateDirectory(sharedQueue);
+            var sharedTrace = Path.Combine(sharedQueue, TraceFileStore.FileNameFor(new string('a', 32)));
+            File.WriteAllText(sharedTrace, "a pending trace from a normal run");
+
+            var reservation = new TelemetryUploadReservation(persistence, bypassRules: true);
+            var sender = new FileTelemetrySender(new DefaultTraceDirectoryProvider(persistence, bypassRules: true));
+            using var source = new ActivitySource(nameof(BypassedWriterReservationsAndUploader_UseOnlyTheLocalTraceFolder));
+            var builder = Sdk.CreateTracerProviderBuilder().AddSource(source.Name);
+            sender.ConfigureExporter(builder);
+            string invocationId;
+            using (builder.Build())
+            {
+                using var activity = source.StartActivity("test-command");
+                Assert.NotNull(activity);
+                var context = TelemetryInvocationContext.Capture(activity, true);
+                invocationId = context.InvocationId;
+                Assert.True(reservation.Begin(context));
+            }
+            reservation.MarkReady(invocationId);
+
+            Assert.Single(Directory.GetFiles(localQueue, "traces-*.log"));
+            Assert.Single(Directory.GetFiles(localQueue, "traces-hold-*.json"));
+            Assert.Empty(Directory.GetFiles(sharedQueue, "traces-hold-*.json"));
+
+            var sink = new RecordingSink();
+            new TelemetryUpload(persistence, bypassRules: true, sink).RunPending();
+
+            Assert.Equal(1, sink.Count);
+            Assert.Empty(Directory.GetFiles(localQueue, "traces-*.log"));
+            Assert.Empty(Directory.GetFiles(localQueue, "traces-hold-*.json"));
+            Assert.True(File.Exists(sharedTrace));
+        }
+        finally
+        {
+            DeleteRoot(root);
+        }
+    }
+
     private static string NewRoot() =>
         Path.Combine(Path.GetTempPath(), "telemetry-persistence-" + Guid.NewGuid().ToString("N"));
 

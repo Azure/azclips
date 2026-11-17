@@ -15,8 +15,25 @@ public interface ITraceDirectoryProvider
     string GetTraceDirectory();
 }
 
-/// <summary>The shared per-user trace directory.</summary>
-public sealed class DefaultTraceDirectoryProvider(IPersistenceStore persistence) : ITraceDirectoryProvider
+/// <summary>
+/// The per-user trace directory: the shared queue, or the local-only folder when telemetry rules
+/// are bypassed.
+/// </summary>
+public sealed class DefaultTraceDirectoryProvider : ITraceDirectoryProvider
 {
-    public string GetTraceDirectory() => persistence.GetFilePath(HomePaths.TraceDirectoryName);
+    private readonly IPersistenceStore _persistence;
+    private readonly string _directoryName;
+
+    public DefaultTraceDirectoryProvider(IPersistenceStore persistence)
+        : this(persistence, TelemetryTargetResolver.BypassesRules)
+    {
+    }
+
+    internal DefaultTraceDirectoryProvider(IPersistenceStore persistence, bool bypassRules)
+    {
+        _persistence = persistence;
+        _directoryName = TelemetryTargetResolver.TraceDirectoryNameFor(bypassRules);
+    }
+
+    public string GetTraceDirectory() => _persistence.GetFilePath(_directoryName);
 }
