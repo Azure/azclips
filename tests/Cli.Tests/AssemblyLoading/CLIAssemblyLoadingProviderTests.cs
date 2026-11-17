@@ -52,7 +52,7 @@ public sealed class CLIAssemblyLoadingProviderTests
             new NullLoggingService(),
             selected);
         provider.GetAllInstalledExtensions();
-        selected.Record("Microsoft.Azure.Azclips.Extensions.Compute", "0.1.3", @"C:\installed\Compute.dll");
+        selected.Record("Microsoft.Azure.Azclips.Extensions.Compute", "0.1.3", @"C:\installed\Compute.dll", ["vm", "disk"]);
 
         var assembly = provider.LoadExtension("Compute", "0.1.3");
 
@@ -87,7 +87,7 @@ public sealed class CLIAssemblyLoadingProviderTests
             new NullLoggingService(),
             selected);
         provider.GetAllInstalledExtensions();
-        selected.Record("Compute", "0.1.3", @"C:\installed\Compute.dll");
+        selected.Record("Compute", "0.1.3", @"C:\installed\Compute.dll", ["vm", "disk"]);
 
         Assert.Same(bundledAssembly, provider.LoadExtension("Compute", "0.2.0"));
         Assert.Null(installed.LoadedPath);
@@ -104,7 +104,7 @@ public sealed class CLIAssemblyLoadingProviderTests
             new NullLoggingService(),
             selected);
         provider.GetAllInstalledExtensions();
-        selected.Record("Compute", "0.1.3", @"C:\installed\Compute.dll");
+        selected.Record("Compute", "0.1.3", @"C:\installed\Compute.dll", ["vm", "disk"]);
 
         var ex = Assert.Throws<ExtensionLoadException>(() => provider.LoadExtension("Compute", "0.1.3"));
 
@@ -121,7 +121,7 @@ public sealed class CLIAssemblyLoadingProviderTests
     public void SelectedExtensionLocations_ShouldMatchByShortNameAndEquivalentVersion(string name, string? version, bool expected)
     {
         var selected = new SelectedExtensionLocations();
-        selected.Record("Microsoft.Azure.Azclips.Extensions.Compute", "0.1.3", @"C:\installed\Compute.dll");
+        selected.Record("Microsoft.Azure.Azclips.Extensions.Compute", "0.1.3", @"C:\installed\Compute.dll", ["vm", "disk"]);
 
         Assert.Equal(expected, selected.TryGet(name, version, out _));
     }
@@ -159,8 +159,8 @@ public sealed class CLIAssemblyLoadingProviderTests
     public void SelectedExtensionLocations_ShouldListEverySelectedPackage_InOrder_IncludingThoseWithoutLocation()
     {
         var selected = new SelectedExtensionLocations();
-        selected.Record("Microsoft.Azure.Azclips.Extensions.Network", "1.0.0", @"C:\bundled\Network.dll");
-        selected.Record("Microsoft.Azure.Azclips.Extensions.Compute", "0.1.3", location: null);
+        selected.Record("Microsoft.Azure.Azclips.Extensions.Network", "1.0.0", @"C:\bundled\Network.dll", ["network"]);
+        selected.Record("Microsoft.Azure.Azclips.Extensions.Compute", "0.1.3", location: null, verbs: ["vm", "disk"]);
 
         Assert.Equal(
             ["Microsoft.Azure.Azclips.Extensions.Network", "Microsoft.Azure.Azclips.Extensions.Compute"],

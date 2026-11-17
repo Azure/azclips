@@ -7,8 +7,8 @@ using NuGet.Versioning;
 namespace Core.Cli;
 
 /// <summary>
-/// Remembers which package copies routing selected: the package ids, in selection order, and
-/// the DLL behind each one. The CLI loading provider loads that exact DLL instead of
+/// Remembers which package copies routing selected: the package ids, in selection order,
+/// their contributed verbs, and the DLL behind each one. The CLI loading provider loads that exact DLL instead of
 /// re-searching loaders by name and version, and help and completions read the same selection.
 /// CLI-only; Core still passes just a name and version.
 /// </summary>
@@ -17,7 +17,7 @@ public sealed class SelectedExtensionLocations
     private readonly ConcurrentDictionary<string, (string Version, string Location)> _selected =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly object _packageIdsLock = new();
-    private List<(string PackageId, HashSet<string>? Verbs)> _packages = [];
+    private List<(string PackageId, HashSet<string> Verbs)> _packages = [];
 
     /// <summary>Package ids routing selected, one per package, in selection order.</summary>
     public IReadOnlyList<string> PackageIds => GetPackageIds(verb: null);
@@ -26,9 +26,8 @@ public sealed class SelectedExtensionLocations
     {
         lock (_packageIdsLock)
         {
-            // Older callers without ownership metadata retain the broad-selection fallback.
             return _packages
-                .Where(package => verb is null || package.Verbs is null || package.Verbs.Contains(verb))
+                .Where(package => verb is null || package.Verbs.Contains(verb))
                 .Select(package => package.PackageId)
                 .ToArray();
         }
@@ -43,14 +42,11 @@ public sealed class SelectedExtensionLocations
         }
     }
 
-    public void Record(string packageIdOrName, string? version, string? location)
-        => Record(packageIdOrName, version, location, verbs: null);
-
-    internal void Record(string packageIdOrName, string? version, string? location, IEnumerable<string>? verbs)
+    public void Record(string packageIdOrName, string? version, string? location, IEnumerable<string> verbs)
     {
         lock (_packageIdsLock)
         {
-            _packages.Add((packageIdOrName, verbs?.ToHashSet(StringComparer.OrdinalIgnoreCase)));
+            _packages.Add((packageIdOrName, verbs.ToHashSet(StringComparer.OrdinalIgnoreCase)));
         }
 
         if (location is not null)
