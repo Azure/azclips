@@ -35,6 +35,8 @@ assert:
       allowedCommands:
         - az deployment group create
       validateSubscription: true
+      optionalArgumentValues:
+        --mode: Incremental
   - recoveryQuality:
       criteria:
         - "User goal: Deploy the template incrementally."
