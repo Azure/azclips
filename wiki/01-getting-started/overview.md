@@ -161,11 +161,12 @@ User-scoped state is centralized in `HomePaths` to avoid scattered path literals
 | `~/.azclips/` | `DefaultHomeDirectoryName` (`:12`) | Home root for config, extensions, cache. |
 | `~/.azclips/config.json` | `ConfigFileName` (`:15`) | Persisted configuration. |
 | `~/.azclips/extensions/registry.json` | `RegistryFileName` (`:14`) | Installed-extension registry. |
-| `~/.azclips/profiles.json` | `ProfilesFileName` (`:36`) | Named connection definitions. |
-| `~/.azclips/active-profile` | `ActiveProfileFileName` (`:37`) | Active connection name. |
+| `~/.azclips/profiles.json` | `ProfilesFileName` (`:38`) | Named connection definitions. |
+| `~/.azclips/active-profile` | `ActiveProfileFileName` (`:39`) | Active connection name. |
 | `~/.azclips/traces/` | `TraceDirectoryName` (`:26`) | Telemetry upload queue. |
+| `~/.azclips/traces-local/` | `LocalTraceDirectoryName` (`:28`) | Unfiltered telemetry queue for Debug builds run with `AZCLIPS_TELEMETRY_TARGET=local`. |
 | `~/.azclips/data-boundary-cache.json` | `DataBoundaryCacheFileName` | Confirmed tenant boundaries. |
-| `~/.azclips/agent/` | `AgentDirectoryName` (`:27`) | Agent caches, traces, and failure history. |
+| `~/.azclips/agent/` | `AgentDirectoryName` (`:29`) | Agent caches, traces, and failure history. |
 
 `AZCLIPS_HOME` overrides the default home root. Old trace and boundary-cache files under
 `{LocalApplicationData}/.azclips` are not read or migrated automatically.

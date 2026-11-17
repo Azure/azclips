@@ -146,7 +146,7 @@ At runtime, user-scoped state uses the home root centralized in `HomePaths`:
 
 `context.json` is no longer the profile store. `AZCLIPS_HOME` overrides this root, allowing
 scenario tests to isolate all state from the developer's normal login and configuration
-(`src/Core/Core.Abstractions/HomePaths.cs:19`, `src/Core/Core.Abstractions/HomePaths.cs:36`).
+(`src/Core/Core.Abstractions/HomePaths.cs:19`, `src/Core/Core.Abstractions/HomePaths.cs:38`).
 Old trace and boundary-cache files under `{LocalApplicationData}/.azclips` are not read
 or migrated automatically.
 
