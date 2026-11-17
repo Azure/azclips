@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Core.Agent.Tools.Resource;
 using Microsoft.Extensions.AI;
 using Tests.Common.Stubs;
@@ -91,14 +91,14 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
     [Fact]
     public void FindResources_WithoutKindFilter_ShouldFindBothRgAndResource()
     {
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+        var cache = CacheWithResources(("web1", "web1a"));
 
-        var hits = cache.FindResources(namePattern: null, kind: null, scope: null, top: 50);
+        var hits = cache.FindResources("web1", kind: null, scope: null, top: 50);
 
-        Assert.Contains(hits, h => h.Resource.Name == "zhoxing-test"
+        Assert.Contains(hits, h => h.Resource.Name == "web1"
                                 && h.Resource.Type == "Microsoft.Resources/resourceGroups");
-        Assert.Contains(hits, h => h.Resource.Name == "openclaw-zhoxing-260307"
-                                && h.Resource.Type == "microsoft.botservice/botservices");
+        Assert.Contains(hits, h => h.Resource.Name == "web1a"
+                                && h.Resource.Type == "microsoft.web/sites");
     }
 
     [Fact]
@@ -181,15 +181,13 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
     {
         var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
 
-        var hitsInA = cache.FindResources(namePattern: null, kind: "resourceGroup",
+        var hitsInA = cache.FindResources("prod-rg", kind: "resourceGroup",
             scope: new ScopeFilter(SubA, null), top: 50);
-        var hitsInB = cache.FindResources(namePattern: null, kind: "resourceGroup",
+        var hitsInB = cache.FindResources("prod-rg", kind: "resourceGroup",
             scope: new ScopeFilter(SubB, null), top: 50);
 
-        Assert.All(hitsInA, h => Assert.Equal(SubA, h.Resource.SubscriptionId));
-        Assert.All(hitsInB, h => Assert.Equal(SubB, h.Resource.SubscriptionId));
-        Assert.NotEmpty(hitsInA);
-        Assert.NotEmpty(hitsInB);
+        Assert.Empty(hitsInA);
+        Assert.Equal(SubB, Assert.Single(hitsInB).Resource.SubscriptionId);
     }
 
     // ── Similarity ranking: 1 - Levenshtein / max(len), keep >= 0.75 ──
@@ -296,14 +294,12 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         Assert.Null(cache.ResolveResource("web1", kind: null, scope: null));
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void ResolveResource_EmptyName_ReturnsNull(string name)
+    [Fact]
+    public void ResolveResource_NameWithSurroundingSpaces_ReturnsNull()
     {
         var cache = CacheWithResources(("rg1", "web1a"));
 
-        Assert.Null(cache.ResolveResource(name, kind: null, scope: null));
+        Assert.Null(cache.ResolveResource(" web1a ", kind: null, scope: null));
     }
 
     [Fact]
@@ -325,6 +321,58 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
             () => cache.ResolveResource("web1", kind: null, scope: null));
 
         Assert.Equal(2, ex.CandidateIds.Count);
+    }
+
+    [Fact]
+    public void ResolveResource_TwentySixIdenticalNames_ThrowsAmbiguousWithAllIds()
+    {
+        var sites = Enumerable.Range(1, 26).Select(i => ($"rg{i}", "web")).ToArray();
+        var cache = CacheWithResources(sites);
+
+        var ex = Assert.Throws<AmbiguousMatchException>(
+            () => cache.ResolveResource("web", kind: null, scope: null));
+
+        Assert.Equal(sites.Select(s => ResourceId(s.Item1, s.Item2)).OrderBy(id => id),
+            ex.CandidateIds.OrderBy(id => id));
+    }
+
+    // ── Tool entry: empty or whitespace names ──
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task FindResourcesTool_EmptyName_ReturnsMissingName(string name)
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a")));
+
+        using var doc = await InvokeAsync(tools.FindResources, new AIFunctionArguments { ["namePattern"] = name });
+
+        AssertMissingName(doc);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task GetResourceDetails_EmptyName_ReturnsMissingName(string name)
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a")));
+
+        using var doc = await InvokeAsync(tools.GetResourceDetails, new AIFunctionArguments { ["nameOrId"] = name });
+
+        AssertMissingName(doc);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task GetResourceTree_EmptyName_ReturnsMissingName(string name)
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a")));
+
+        using var doc = await InvokeAsync(tools.GetResourceTree,
+            new AIFunctionArguments { ["nameOrId"] = name, ["kind"] = "resource" });
+
+        AssertMissingName(doc);
     }
 
     [Fact]
@@ -406,8 +454,44 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
         using var doc = await InvokeAsync(tools.GetResourceTree,
             new AIFunctionArguments { ["nameOrId"] = "web1", ["kind"] = "resource" });
 
-        Assert.Equal(nameof(InvalidOperationException), doc.RootElement.GetProperty("error").GetString());
-        Assert.Equal("resource 'web1' not found in cache.", doc.RootElement.GetProperty("message").GetString());
+        AssertTreeNotFound(doc, "web1", "resource");
+    }
+
+    [Theory]
+    [InlineData("tenant")]
+    [InlineData("subscription")]
+    [InlineData("resourceGroup")]
+    public async Task GetResourceTree_MissingNode_ReturnsNotFound(string kind)
+    {
+        var tools = ToolsFor(CacheWithResources(("rg1", "web1a")));
+
+        using var doc = await InvokeAsync(tools.GetResourceTree,
+            new AIFunctionArguments { ["nameOrId"] = "nope", ["kind"] = kind });
+
+        AssertTreeNotFound(doc, "nope", kind);
+    }
+
+    [Fact]
+    public async Task GetResourceTree_KindResource_ResourceGroupWithSameName_ReturnsNotFound()
+    {
+        var tools = ToolsFor(CacheWithResourceGroups("web"));
+
+        using var doc = await InvokeAsync(tools.GetResourceTree,
+            new AIFunctionArguments { ["nameOrId"] = "web", ["kind"] = "resource" });
+
+        AssertTreeNotFound(doc, "web", "resource");
+    }
+
+    [Fact]
+    public async Task GetResourceTree_KindResource_ResourceAndResourceGroupWithSameName_ReturnsResource()
+    {
+        var tools = ToolsFor(CacheWithResources(("web", "web")));
+
+        using var doc = await InvokeAsync(tools.GetResourceTree,
+            new AIFunctionArguments { ["nameOrId"] = "web", ["kind"] = "resource" });
+
+        Assert.Equal(ResourceId("web", "web"),
+            doc.RootElement.GetProperty("tree").GetProperty("id").GetString());
     }
 
     // ── Cache miss is not a panic signal ──
@@ -427,12 +511,11 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
     [Fact]
     public void FindResources_ShouldRespectTopParameter()
     {
-        var cache = new ResourceCache(_cacheDir, currentTenantId: () => TenantId);
+        var cache = CacheWithResources(("rg1", "web1a"), ("rg1", "web1b"), ("rg1", "web1c"));
 
-        var hits = cache.FindResources(namePattern: null, kind: "resourceGroup",
-            scope: null, top: 2);
+        var hits = cache.FindResources("web1", kind: "resource", scope: null, top: 2);
 
-        Assert.True(hits.Count <= 2);
+        Assert.Equal(2, hits.Count);
     }
 
     // ── Fixture writers ──
@@ -513,6 +596,19 @@ public sealed class ResourceCacheFindResourcesTests : IDisposable
 
     private static async Task<JsonDocument> InvokeAsync(AIFunction tool, AIFunctionArguments args) =>
         JsonDocument.Parse((await tool.InvokeAsync(args))!.ToString()!);
+
+    private static void AssertMissingName(JsonDocument doc)
+    {
+        Assert.Equal("missing_name", doc.RootElement.GetProperty("error").GetString());
+        Assert.Equal("Pass a resource name or ARM id.", doc.RootElement.GetProperty("hint").GetString());
+    }
+
+    private static void AssertTreeNotFound(JsonDocument doc, string nameOrId, string kind)
+    {
+        Assert.Equal("not_found", doc.RootElement.GetProperty("error").GetString());
+        Assert.Equal(nameOrId, doc.RootElement.GetProperty("nameOrId").GetString());
+        Assert.Equal(kind, doc.RootElement.GetProperty("kind").GetString());
+    }
 
     private static string ResourceId(string resourceGroup, string name) =>
         $"/subscriptions/{SubA}/resourceGroups/{resourceGroup}/providers/microsoft.web/sites/{name}";

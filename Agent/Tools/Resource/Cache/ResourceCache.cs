@@ -216,8 +216,7 @@ public sealed class ResourceCache
 
     /// <summary>
     /// find_resources backing impl. Always returns at most <paramref name="top"/>
-    /// rows. If <paramref name="namePattern"/> is null/empty, returns the first
-    /// <paramref name="top"/> rows that match the type/scope filter.
+    /// rows whose name is similar to <paramref name="namePattern"/>.
     /// </summary>
     public IReadOnlyList<MatchResult> FindResources(
         string? namePattern,
@@ -227,23 +226,8 @@ public sealed class ResourceCache
     {
         EnsureLoaded();
 
-        // Dispatch on kind via the central registry. When kind is null/empty
-        // we search every registered kind and merge by score; when it's
-        // provided but unknown we deliberately return empty so the tool
-        // wrapper can surface a structured error listing valid kinds.
-        IEnumerable<KindSpec> kindsToSearch;
-        if (string.IsNullOrWhiteSpace(kind))
-        {
-            kindsToSearch = CacheKinds.Registry.Values;
-        }
-        else if (CacheKinds.TryResolve(kind, out var spec))
-        {
-            kindsToSearch = new[] { spec };
-        }
-        else
-        {
-            return Array.Empty<MatchResult>();
-        }
+        var kindsToSearch = KindsToSearch(kind);
+        if (kindsToSearch is null) return Array.Empty<MatchResult>();
 
         var perKind = new List<IReadOnlyList<MatchResult>>();
         foreach (var spec in kindsToSearch)
@@ -264,6 +248,14 @@ public sealed class ResourceCache
             .ToList();
     }
 
+    // Kinds to search: every registered kind when kind is null/empty, the resolved
+    // kind otherwise, and null when kind is unknown so callers can return no rows.
+    private static IEnumerable<KindSpec>? KindsToSearch(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind)) return CacheKinds.Registry.Values;
+        return CacheKinds.TryResolve(kind, out var spec) ? new[] { spec } : null;
+    }
+
     private const double MinSimilarity = 0.75;
 
     // Similarity = 1 - Levenshtein / max(len), case-insensitive. Keeps rows at or above
@@ -273,15 +265,7 @@ public sealed class ResourceCache
         string? namePattern,
         int top)
     {
-        var pat = namePattern?.Trim();
-
-        if (string.IsNullOrEmpty(pat))
-        {
-            return candidates
-                .Take(top)
-                .Select(c => new MatchResult(c, 1.0))
-                .ToList();
-        }
+        var pat = namePattern?.Trim() ?? string.Empty;
 
         return candidates
             .Select(c => (Resource: c, Score: Similarity(c.Name, pat)))
@@ -298,8 +282,8 @@ public sealed class ResourceCache
 
     /// <summary>
     /// Resolves an identifier to a single resource. <paramref name="nameOrId"/>
-    /// can be a full ARM id or a name. Only a name identical to the resource name
-    /// (case-insensitive, score 1.0) matches; throws <see cref="AmbiguousMatchException"/>
+    /// can be a full ARM id or a name. Only a name equal to the resource name
+    /// (case-insensitive) matches; throws <see cref="AmbiguousMatchException"/>
     /// when several resources share it. Returns null otherwise.
     /// </summary>
     public CachedResource? ResolveResource(string nameOrId, string? kind, ScopeFilter? scope)
@@ -314,14 +298,19 @@ public sealed class ResourceCache
             if (_rgByIdCi.TryGetValue(nameOrId, out var byRgId)) return CacheKinds.ProjectResourceGroup(byRgId);
         }
 
-        // 2) Identical names only (score 1.0); rows are ordered by score, so they come first.
-        if (string.IsNullOrWhiteSpace(nameOrId)) return null;
-        var exact = FindResources(nameOrId, kind, scope, top: 25)
-            .Where(m => m.Score == 1.0)
-            .ToList();
+        // 2) Names equal to nameOrId (case-insensitive) in the requested kinds and scope.
+        var kindsToSearch = KindsToSearch(kind);
+        if (kindsToSearch is null) return null;
+        var exact = new List<CachedResource>();
+        foreach (var spec in kindsToSearch)
+        {
+            var candidates = spec.AllItems(this);
+            if (scope is not null) candidates = ApplyScope(candidates, scope);
+            exact.AddRange(candidates.Where(c => string.Equals(c.Name, nameOrId, StringComparison.OrdinalIgnoreCase)));
+        }
         if (exact.Count == 0) return null;
-        if (exact.Count == 1) return exact[0].Resource;
-        throw new AmbiguousMatchException(exact.Select(m => m.Resource.Id).ToList());
+        if (exact.Count == 1) return exact[0];
+        throw new AmbiguousMatchException(exact.Select(r => r.Id).ToList());
     }
 
     public CachedResourceGroup? ResolveResourceGroup(string nameOrId, ScopeFilter? scope)

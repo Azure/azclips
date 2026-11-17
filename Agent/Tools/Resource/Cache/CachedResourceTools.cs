@@ -103,6 +103,15 @@ public sealed class CachedResourceTools
 
     // ── tool implementations ──
 
+    private const string MissingNameJson = "{\"error\":\"missing_name\",\"hint\":\"Pass a resource name or ARM id.\"}";
+
+    private static string MissingName(ToolInvocationLog.Scope scope)
+    {
+        scope.SetResult("error=missing_name");
+        scope.RecordResponse("error");
+        return MissingNameJson;
+    }
+
     // Point the cache at the caller's current tenant before every read. The
     // active profile is the source of truth; reading it here (rather than
     // pinning once at daemon startup) means a mid-session `az account set`
@@ -141,6 +150,9 @@ public sealed class CachedResourceTools
         using var scope = ToolInvocationLog.Start("find_resources",
             $"pattern={namePattern} kind={kind} sub={subscription} rg={resourceGroup} top={top}", _activityCreator);
         scope.RecordRequest(RedactedKind(kind));
+
+        if (string.IsNullOrWhiteSpace(namePattern))
+            return MissingName(scope);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -191,7 +203,7 @@ public sealed class CachedResourceTools
         return json;
     }
 
-    [Description("Return cached subtree from a node.")]
+    [Description("Return cached subtree from a node. Returns not_found when the node is not in the cache.")]
     private async Task<string> GetResourceTreeAsync(
         [Description("Name, full ARM id, subscription id/name, or tenant id. Use kind to disambiguate.")]
         string nameOrId,
@@ -206,6 +218,9 @@ public sealed class CachedResourceTools
         using var scope = ToolInvocationLog.Start("get_resource_tree",
             $"id={nameOrId} kind={kind} depth={maxDepth}", _activityCreator);
         scope.RecordRequest(RedactedKind(kind));
+
+        if (string.IsNullOrWhiteSpace(nameOrId))
+            return MissingName(scope);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -228,7 +243,7 @@ public sealed class CachedResourceTools
         {
             var filter = subscription is { Length: > 0 } ? new ScopeFilter(subscription, null) : null;
 
-            (string id, string kindNorm, string name) root = kind.ToLowerInvariant() switch
+            (string id, string kindNorm, string name)? resolved = kind.ToLowerInvariant() switch
             {
                 "tenant" => ResolveTenant(nameOrId),
                 "subscription" => ResolveSub(nameOrId),
@@ -236,6 +251,13 @@ public sealed class CachedResourceTools
                 "resource" => ResolveRes(nameOrId, filter),
                 _ => throw new ArgumentException($"Unknown kind '{kind}'."),
             };
+
+            if (resolved is not { } root)
+            {
+                scope.SetResult("error=not_found");
+                scope.RecordResponse("not_found");
+                return JsonSerializer.Serialize(new { error = "not_found", nameOrId, kind }, Json);
+            }
 
             var tree = Cache.GetTree(root.id, root.kindNorm, root.name, maxDepth);
             json = JsonSerializer.Serialize(new { root = root.kindNorm, maxDepth = maxDepth, tree }, Json);
@@ -252,8 +274,7 @@ public sealed class CachedResourceTools
         {
             json = JsonSerializer.Serialize(new { error = ex.GetType().Name, message = ex.Message }, Json);
             summary = $"error={ex.GetType().Name}";
-            // Resolvers report a missing node as InvalidOperationException.
-            scope.RecordResponse(ex is InvalidOperationException ? "not_found" : "error");
+            scope.RecordResponse("error");
         }
         scope.SetResult(summary);
         return json;
@@ -276,6 +297,9 @@ public sealed class CachedResourceTools
         using var scope = ToolInvocationLog.Start("get_resource_details",
             $"id={nameOrId} kind={kind} sub={subscription} rg={resourceGroup} live={live}", _activityCreator);
         scope.RecordRequest($"{RedactedKind(kind)} live={(live ? "true" : "false")}");
+
+        if (string.IsNullOrWhiteSpace(nameOrId))
+            return MissingName(scope);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -377,34 +401,30 @@ public sealed class CachedResourceTools
 
     // ── kind resolvers ──
 
-    private (string id, string kind, string name) ResolveTenant(string nameOrId)
+    private (string id, string kind, string name)? ResolveTenant(string nameOrId)
     {
         var t = Cache.Tenants
             .FirstOrDefault(t => string.Equals(t.TenantId, nameOrId, StringComparison.OrdinalIgnoreCase)
                               || string.Equals(t.DisplayName, nameOrId, StringComparison.OrdinalIgnoreCase)
                               || string.Equals(t.DefaultDomain, nameOrId, StringComparison.OrdinalIgnoreCase));
-        if (t is null) throw new InvalidOperationException($"tenant '{nameOrId}' not found in cache.");
-        return (t.TenantId, "tenant", t.DisplayName ?? t.TenantId);
+        return t is null ? null : (t.TenantId, "tenant", t.DisplayName ?? t.TenantId);
     }
 
-    private (string id, string kind, string name) ResolveSub(string nameOrId)
+    private (string id, string kind, string name)? ResolveSub(string nameOrId)
     {
-        var s = Cache.ResolveSubscription(nameOrId)
-            ?? throw new InvalidOperationException($"subscription '{nameOrId}' not found in cache.");
-        return (s.SubscriptionId, "subscription", s.DisplayName ?? s.SubscriptionId);
+        var s = Cache.ResolveSubscription(nameOrId);
+        return s is null ? null : (s.SubscriptionId, "subscription", s.DisplayName ?? s.SubscriptionId);
     }
 
-    private (string id, string kind, string name) ResolveRg(string nameOrId, ScopeFilter? scope)
+    private (string id, string kind, string name)? ResolveRg(string nameOrId, ScopeFilter? scope)
     {
-        var rg = Cache.ResolveResourceGroup(nameOrId, scope)
-            ?? throw new InvalidOperationException($"resource group '{nameOrId}' not found in cache.");
-        return (rg.Id, "resourceGroup", rg.Name);
+        var rg = Cache.ResolveResourceGroup(nameOrId, scope);
+        return rg is null ? null : (rg.Id, "resourceGroup", rg.Name);
     }
 
-    private (string id, string kind, string name) ResolveRes(string nameOrId, ScopeFilter? scope)
+    private (string id, string kind, string name)? ResolveRes(string nameOrId, ScopeFilter? scope)
     {
-        var r = Cache.ResolveResource(nameOrId, kind: null, scope)
-            ?? throw new InvalidOperationException($"resource '{nameOrId}' not found in cache.");
-        return (r.Id, "resource", r.Name);
+        var r = Cache.ResolveResource(nameOrId, CacheKinds.Names.Resource, scope);
+        return r is null ? null : (r.Id, "resource", r.Name);
     }
 }
