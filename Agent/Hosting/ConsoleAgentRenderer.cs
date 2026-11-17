@@ -13,6 +13,8 @@ public sealed class ConsoleAgentRenderer : IAgentRenderer
     private bool _lastWasText;
     private bool _spinnerActive;
     private int _lastSpinnerWidth;
+    private Action? _eraseInputLine;
+    private Action? _redrawInputLine;
     // Quiet mode (one-shot): don't PRINT the agent-internal scaffolding that would
     // pile up on screen — tool start/complete events, token/timing lines, streaming
     // prose. The spinner still turns and shows the current verb (that's a live line
@@ -49,10 +51,42 @@ public sealed class ConsoleAgentRenderer : IAgentRenderer
         if (_quiet) return;         // quiet: streaming prose isn't shown (only the final plan is)
         lock (_gate)
         {
-            ClearSpinnerLine();
+            BeginOutput();
             Console.Write(chunk);
             _lastWasText = true;
+            EndOutput();
         }
+    }
+
+    /// <summary>
+    /// Registers the open input line (an approval prompt). Output written while it is
+    /// registered first erases the line, then redraws it on a new row below the output.
+    /// Pass nulls to unregister.
+    /// </summary>
+    public void SetInputLine(Action? erase, Action? redraw)
+    {
+        lock (_gate)
+        {
+            _eraseInputLine = erase;
+            _redrawInputLine = redraw;
+        }
+    }
+
+    private void BeginOutput()
+    {
+        ClearSpinnerLine();
+        _eraseInputLine?.Invoke();
+    }
+
+    private void EndOutput()
+    {
+        if (_redrawInputLine is null) return;
+        if (_lastWasText)
+        {
+            Console.WriteLine();
+            _lastWasText = false;
+        }
+        _redrawInputLine();
     }
 
     public void OnEvent(AgentEvent ev)
@@ -67,7 +101,15 @@ public sealed class ConsoleAgentRenderer : IAgentRenderer
 
         lock (_gate)
         {
-            ClearSpinnerLine();
+            BeginOutput();
+            try { WriteEvent(ev); }
+            finally { EndOutput(); }
+        }
+    }
+
+    private void WriteEvent(AgentEvent ev)
+    {
+        {
             if (_lastWasText)
             {
                 Console.WriteLine();

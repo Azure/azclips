@@ -29,19 +29,25 @@ public sealed class ConsoleApprovalPrompt
     private readonly SpinnerService? _spinner;
     private readonly IAgentRenderer? _renderer;
     private readonly ConsoleKeyReader? _keys;
+    private readonly ConsoleAgentRenderer? _output;
 
     /// <param name="keys">
     /// Reads the answer key by key when set; otherwise the answer is one line from
     /// <see cref="Console.In"/>.
     /// </param>
+    /// <param name="output">
+    /// Console renderer that redraws the open approval line after its own output.
+    /// </param>
     public ConsoleApprovalPrompt(
         SpinnerService? spinner = null,
         IAgentRenderer? renderer = null,
-        ConsoleKeyReader? keys = null)
+        ConsoleKeyReader? keys = null,
+        ConsoleAgentRenderer? output = null)
     {
         _spinner = spinner;
         _renderer = renderer;
         _keys = keys;
+        _output = output;
     }
 
     private readonly Channel<PendingApproval> _queue =
@@ -409,8 +415,13 @@ public sealed class ConsoleApprovalPrompt
         LineRead answer;
         try
         {
+            var opened = false;
             Action body = () =>
             {
+                // A request cancelled while waiting for the renderer is not shown.
+                if (pending.Result.Task.IsCompleted || ct.IsCancellationRequested)
+                    return;
+                opened = true;
                 Console.WriteLine();
                 if (pending.Plan is not null)
                 {
@@ -426,6 +437,13 @@ public sealed class ConsoleApprovalPrompt
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
             else                       body();
+
+            // The request may also end while the header renders; then no read opens.
+            if (!opened || pending.Result.Task.IsCompleted || ct.IsCancellationRequested)
+            {
+                pending.Result.TrySetResult(false);
+                return ApprovalOutcome.NotHandled;
+            }
 
             answer = await ReadAnswerAsync(prompt, pending.Result.Task, ct).ConfigureAwait(false);
         }
@@ -453,18 +471,31 @@ public sealed class ConsoleApprovalPrompt
                 : new LineRead(LineReadKind.Submitted, line);
         }
 
-        // The read stops when the request is cancelled (the turn ended) or ct fires.
+        var editor = new LineEditor();
+        var output = Console.Out;
+        Action<Action> exclusive = _renderer is null ? draw => draw() : _renderer.RunExclusive;
+        _output?.SetInputLine(() => editor.Erase(output), () =>
+        {
+            editor.Detach();
+            editor.Render(output, prompt);
+        });
+        // The read stops when the request ends (the turn finished) or ct fires.
+        // readCts is cancelled only here, before it is disposed.
         using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _ = requestDone.ContinueWith(_ => readCts.Cancel(), CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         try
         {
-            return await _keys.ReadLineAsync(new LineEditor(), prompt, Console.Out, readCts.Token)
-                .ConfigureAwait(false);
+            var read = _keys.ReadLineAsync(editor, prompt, output, readCts.Token, exclusive);
+            await Task.WhenAny(read, requestDone).ConfigureAwait(false);
+            if (!read.IsCompleted)
+                readCts.Cancel();
+            var answer = await read.ConfigureAwait(false);
+            if (answer.Kind is LineReadKind.Escape or LineReadKind.CtrlC)
+                exclusive(() => editor.Finish(output, prompt));
+            return answer;
         }
-        catch (ObjectDisposedException)
+        finally
         {
-            throw new OperationCanceledException();
+            _output?.SetInputLine(null, null);
         }
     }
 

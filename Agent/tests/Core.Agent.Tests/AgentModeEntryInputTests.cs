@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Core.Abstractions;
 using Core.Agent.AgentMode;
 using Core.Agent.Hosting;
 using Core.Agent.Telemetry;
@@ -36,11 +37,14 @@ internal sealed class ScriptedTurns : AgentModeEntry.IChatTurns
         return _steps.Count > 0 ? _steps.Dequeue()(ct) : Task.CompletedTask;
     }
 
+    /// <summary>What AbortAsync returns; a pending task models an abort RPC with no reply.</summary>
+    public Task AbortReply = Task.CompletedTask;
+
     public Task AbortAsync(CancellationToken ct)
     {
         Aborts++;
         _aborted.TrySetResult();
-        return Task.CompletedTask;
+        return AbortReply;
     }
 
     /// <summary>A turn that runs until the host aborts it.</summary>
@@ -322,7 +326,7 @@ public class AgentModeEntryInputTests
     [Fact]
     public async Task Oneshot_ReadsNoKeys()
     {
-        Assert.False(AgentModeEntry.ReadsKeys(interactive: false, inputRedirected: false, Console.In, Console.In));
+        Assert.False(AgentModeEntry.ResolveInteractive(requested: false, inputRedirected: false, Console.In));
         var turns = new ScriptedTurns();
         var (end, _) = await RunLoopAsync(turns, source: null, interactive: false);
         Assert.Equal(AgentModeEntry.ChatLoopEnd.Finished, end);
@@ -330,12 +334,232 @@ public class AgentModeEntryInputTests
     }
 
     [Fact]
-    public void RedirectedStdinOrSetIn_UsesLineReads()
+    public void RedirectedStdinOrSetIn_RunsOneshot()
     {
         var original = Console.In;
-        Assert.False(AgentModeEntry.ReadsKeys(true, inputRedirected: true, original, original));
-        Assert.False(AgentModeEntry.ReadsKeys(true, inputRedirected: false, new StringReader("y"), original));
-        Assert.True(AgentModeEntry.ReadsKeys(true, inputRedirected: false, original, original));
+        Assert.False(AgentModeEntry.ResolveInteractive(true, inputRedirected: true, original));
+        Assert.True(AgentModeEntry.ResolveInteractive(true, inputRedirected: false, original));
+        Console.SetIn(new StringReader("y"));
+        try
+        {
+            // The reader captured before SetIn decides; the replaced reader means oneshot.
+            Assert.False(AgentModeEntry.ResolveInteractive(true, inputRedirected: false, original));
+        }
+        finally
+        {
+            Console.SetIn(original);
+        }
+    }
+
+    [Fact]
+    public async Task OneshotInput_IsReadToTheEnd()
+    {
+        var prompt = await AgentModeEntry.AppendStandardInputAsync(
+            "first", new StringReader("line one\nline two\n"), CancellationToken.None)
+            .WaitAsync(AgentTestTimeouts.HangGuard);
+        Assert.StartsWith("first", prompt);
+        Assert.Contains("line one\nline two", prompt);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CtrlCOrEsc_DuringStartup_CancelsTheStartup(bool ctrlC)
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        keys.Start();
+        using var cts = new CancellationTokenSource();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var startup = AgentModeEntry.RunWithStartupKeysAsync(keys, cts.Cancel, async () =>
+        {
+            entered.SetResult();
+            await Task.Delay(Timeout.Infinite, cts.Token);
+            return 0;
+        });
+        await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+        source.Type("zz");
+        source.Type(ctrlC ? Keys.CtrlC : Keys.Esc);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => startup.WaitAsync(AgentTestTimeouts.HangGuard));
+    }
+
+    [Fact]
+    public async Task CtrlC_DuringStartup_ExitsWith130_AndRestoresTheTerminal()
+    {
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
+        {
+            var scope = harness.CreateScope();
+            var source = new FakeKeySource();
+            var keys = new ConsoleKeyReader(source);
+            keys.Start();
+            source.Type(Keys.CtrlC);
+            using var cts = new CancellationTokenSource();
+            var code = await AgentModeEntry.RunSessionAsync(() => scope, async (_, _) =>
+            {
+                await AgentModeEntry.RunWithStartupKeysAsync(keys, cts.Cancel, async () =>
+                {
+                    await Task.Delay(Timeout.Infinite, cts.Token);
+                    return 0;
+                });
+            }, () => { }, harness.Clock, restoreTerminal: keys.Dispose).WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal(130, code);
+            Assert.Equal(1, source.RestoreCount);
+        });
+    }
+
+    [Fact]
+    public async Task EscAtPrompt_KeepsTheDraftWithoutReprinting()
+    {
+        var source = new FakeKeySource();
+        source.Type("hello");
+        source.Type(Keys.Esc);
+        source.Type(Keys.Backspace);
+        source.Type(Keys.Enter);
+        source.Type("exit");
+        source.Type(Keys.Enter);
+        var turns = new ScriptedTurns();
+        var (end, output) = await RunLoopAsync(turns, source);
+        Assert.Equal(AgentModeEntry.ChatLoopEnd.Finished, end);
+        Assert.Equal(["first", "hell"], turns.Prompts);
+        // The redraw after Esc stays on the draft's row: no new row is started for it.
+        Assert.DoesNotContain(Environment.NewLine + "\r\x1b[J> hello", output);
+    }
+
+    [Fact]
+    public async Task RpcFailure_IsShown_TheSessionReturnsToPrompt_AndExitSucceeds()
+    {
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
+        {
+            var scope = harness.CreateScope();
+            var source = new FakeKeySource();
+            var turns = new ScriptedTurns();
+            turns.Then(_ => Task.FromException(new IOException("connection dropped")));
+            source.Type("retry");
+            source.Type(Keys.Enter);
+            source.Type("exit");
+            source.Type(Keys.Enter);
+            var output = "";
+            var code = await AgentModeEntry.RunSessionAsync(() => scope, async (_, _) =>
+            {
+                var (end, text) = await RunLoopAsync(turns, source);
+                output = text;
+                AgentModeEntry.ThrowForSessionEnd(end, interactive: true, turns.LastError, hasOutcome: false, CancellationToken.None);
+            }, () => { }, harness.Clock);
+            Assert.Equal(0, code);
+            Assert.Contains("connection dropped", output);
+            Assert.Equal(["first", "retry"], turns.Prompts);
+        });
+    }
+
+    [Fact]
+    public async Task ExitAfterAnSdkError_ExitsWith0()
+    {
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
+        {
+            var scope = harness.CreateScope();
+            var error = new SessionErrored("rate_limit", "failed", null, 429, null, DateTimeOffset.UtcNow);
+            var code = await AgentModeEntry.RunSessionAsync(() => scope, (_, _) =>
+            {
+                AgentModeEntry.ThrowForSessionEnd(AgentModeEntry.ChatLoopEnd.Finished, interactive: true, error,
+                    hasOutcome: false, CancellationToken.None);
+                return Task.CompletedTask;
+            }, () => { }, harness.Clock);
+            Assert.Equal(0, code);
+        });
+    }
+
+    [Fact]
+    public void SessionEnd_CtrlCQuitIs130_OneshotReportsItsError()
+    {
+        var error = new SessionErrored("rate_limit", "failed", null, 429, null, DateTimeOffset.UtcNow);
+        Assert.Throws<OperationCanceledException>(() =>
+            AgentModeEntry.ThrowForSessionEnd(AgentModeEntry.ChatLoopEnd.CtrlCQuit, true, error, false, CancellationToken.None));
+        Assert.Throws<AgentSessionFailedException>(() =>
+            AgentModeEntry.ThrowForSessionEnd(AgentModeEntry.ChatLoopEnd.Finished, false, error, true, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CtrlC_WhileTheAbortRpcHasNoReply_Quits()
+    {
+        var source = new FakeKeySource();
+        var turns = new ScriptedTurns { AbortReply = new TaskCompletionSource().Task };
+        turns.Then(_ => turns.UntilAborted());
+        source.Type(Keys.Esc);
+        source.Type(Keys.CtrlC);
+        var (end, _) = await RunLoopAsync(turns, source);
+        Assert.Equal(AgentModeEntry.ChatLoopEnd.CtrlCQuit, end);
+    }
+
+    [Fact]
+    public async Task OpenApproval_IsClosedWhenTheTurnEnds()
+    {
+        var source = new FakeKeySource();
+        var approval = NewApproval(source, out var keys);
+        using var _ = keys;
+        keys.Start();
+        var turns = new ScriptedTurns();
+        var writer = new PromptSignalWriter();
+        Task<bool>? tool = null;
+        turns.Then(async _ =>
+        {
+            tool = approval.RequestRewriteAsync("powershell", "az group delete", CancellationToken.None);
+            await writer.ApprovalShown.Task;
+        });
+
+        var prevOut = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var loop = AgentModeEntry.RunChatLoopAsync(turns, approval, keys, null, "first", true, CancellationToken.None);
+            await writer.ApprovalShown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.False(await tool!.WaitAsync(AgentTestTimeouts.HangGuard));
+            source.Type("exit");
+            source.Type(Keys.Enter);
+            Assert.Equal(AgentModeEntry.ChatLoopEnd.Finished, await loop.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+        Assert.Equal(["first"], turns.Prompts);
+    }
+
+    [Fact]
+    public async Task CtrlC_AtApprovalWithADraft_CancelsTheApproval_BeforeAnythingElse()
+    {
+        var source = new FakeKeySource();
+        var approval = NewApproval(source, out var keys);
+        using var _ = keys;
+        keys.Start();
+        var turns = new ScriptedTurns();
+        Task<bool>? tool = null;
+        turns.Then(_ =>
+        {
+            tool = approval.RequestRewriteAsync("powershell", "az group delete", CancellationToken.None);
+            return turns.UntilAborted();
+        });
+
+        var prevOut = Console.Out;
+        var writer = new PromptSignalWriter();
+        Console.SetOut(writer);
+        try
+        {
+            var loop = AgentModeEntry.RunChatLoopAsync(turns, approval, keys, null, "first", true, CancellationToken.None);
+            await writer.ApprovalShown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            source.Type("some draft");
+            source.Type(Keys.CtrlC);
+            Assert.False(await tool!.WaitAsync(AgentTestTimeouts.HangGuard));
+            await turns.Aborted.WaitAsync(AgentTestTimeouts.HangGuard);
+            source.Type("exit");
+            source.Type(Keys.Enter);
+            Assert.Equal(AgentModeEntry.ChatLoopEnd.Finished, await loop.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+        Assert.Equal(1, turns.Aborts);
+        Assert.Equal(["first"], turns.Prompts);
     }
 
     [Fact]
@@ -379,10 +603,58 @@ public class AgentModeEntryInputTests
             }, () => { }, clock, restoreTerminal: keys.Dispose);
 
             await cleanupEntered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
-            await clock.WaitForTimerAsync(due => due == AgentRuntimeLifetime.ProducerDrainBudget, AgentTestTimeouts.HangGuard);
+            await clock.WaitForTimerAsync(due => due == TimeSpan.FromSeconds(2), AgentTestTimeouts.HangGuard);
             Assert.False(running.IsCompleted);
             Assert.Equal(0, source.RestoreCount);
-            clock.Advance(AgentRuntimeLifetime.ProducerDrainBudget);
+            clock.Advance(TimeSpan.FromSeconds(2));
+
+            Assert.Equal(0, await running.WaitAsync(AgentTestTimeouts.HangGuard));
+            Assert.Equal(1, source.RestoreCount);
+            release.SetResult();
+        });
+    }
+
+    /// <summary>Scope whose disposal waits until the test releases it.</summary>
+    private sealed class StallingDisposeScope(ITelemetryLayerScope inner, Task release, TaskCompletionSource entered)
+        : ITelemetryLayerScope
+    {
+        public ITelemetryService Telemetry => inner.Telemetry;
+        public TelemetryInvocationContext Context => inner.Context;
+
+        public Task<TelemetryLayerCompletion> CompleteAsync(Activity? root = null,
+            IReadOnlyDictionary<string, object?>? terminalTags = null, ActivityStatusCode? terminalStatus = null,
+            bool allowPublication = true) =>
+            inner.CompleteAsync(root, terminalTags, terminalStatus, allowPublication);
+
+        public async ValueTask DisposeAsync()
+        {
+            entered.TrySetResult();
+            await release;
+            await inner.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task StalledScopeDisposal_IsBoundedByTwoSeconds_ThenTheTerminalIsRestored()
+    {
+        var clock = new SignalingFakeTimeProvider();
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(timeProvider: clock), async harness =>
+        {
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var scope = new StallingDisposeScope(harness.CreateScope(), release.Task, entered);
+            var source = new FakeKeySource();
+            var keys = new ConsoleKeyReader(source);
+            keys.Start();
+            var running = AgentModeEntry.RunSessionAsync(() => scope, (_, _) => Task.CompletedTask,
+                () => { }, clock, restoreTerminal: keys.Dispose);
+
+            await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            await clock.WaitForTimerAsync(due => due == TimeSpan.FromSeconds(2), AgentTestTimeouts.HangGuard);
+            clock.Advance(TimeSpan.FromMilliseconds(1999));
+            Assert.False(running.IsCompleted);
+            Assert.Equal(0, source.RestoreCount);
+            clock.Advance(TimeSpan.FromMilliseconds(1));
 
             Assert.Equal(0, await running.WaitAsync(AgentTestTimeouts.HangGuard));
             Assert.Equal(1, source.RestoreCount);

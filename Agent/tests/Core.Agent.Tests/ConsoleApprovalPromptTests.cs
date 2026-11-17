@@ -194,4 +194,193 @@ public class ConsoleApprovalPromptTests
         Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.NotHandled, outcome);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => toolTask);
     }
+
+    /// <summary>Renderer that runs a test callback inside RunExclusive before the body.</summary>
+    private sealed class CallbackRenderer(Action beforeBody) : IAgentRenderer
+    {
+        public void OnText(string chunk) { }
+        public void OnEvent(AgentEvent ev) { }
+        public void OnSpinnerFrame(string frame, string verb) { }
+        public void OnSpinnerStop() { }
+        public void RunExclusive(Action action)
+        {
+            beforeBody();
+            action();
+        }
+    }
+
+    [Fact]
+    public async Task RequestCancelledWhileWaitingToRender_NeverOpensARead()
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        keys.Start();
+        using var turn = new CancellationTokenSource();
+        var prompt = new ConsoleApprovalPrompt(renderer: new CallbackRenderer(turn.Cancel), keys: keys);
+        var writer = new StringWriter();
+        var prevOut = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", turn.Token);
+            var outcome = await prompt.PumpOneAsync(CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.NotHandled, outcome);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => toolTask);
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+        Assert.DoesNotContain("[y]es", writer.ToString());
+    }
+
+    [Fact]
+    public async Task PumpCancelledWhileRendering_NeverReadsALine()
+    {
+        using var pump = new CancellationTokenSource();
+        var prompt = new ConsoleApprovalPrompt(renderer: new CallbackRenderer(pump.Cancel));
+        var input = new StringReader("y" + Environment.NewLine);
+        var prevIn = Console.In;
+        var prevOut = Console.Out;
+        Console.SetIn(input);
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var outcome = await prompt.PumpOneAsync(pump.Token).WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.NotHandled, outcome);
+            Assert.False(await toolTask.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            Console.SetIn(prevIn);
+            Console.SetOut(prevOut);
+        }
+        Assert.Equal("y", input.ReadLine());
+    }
+
+    [Fact]
+    public async Task AnsweredApproval_SettlesWithoutUsingADisposedTokenSource()
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        source.Type("y");
+        source.Type(Keys.Enter);
+        keys.Start();
+        var prompt = new ConsoleApprovalPrompt(keys: keys);
+        var prevOut = Console.Out;
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var outcome = await prompt.PumpOneAsync(CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.Yes, outcome);
+            Assert.True(await toolTask.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Fact]
+    public async Task RequestEndingWhileTheReadIsOpen_StopsTheRead()
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        keys.Start();
+        using var turn = new CancellationTokenSource();
+        var prompt = new ConsoleApprovalPrompt(keys: keys);
+        var writer = new PromptSignalWriter();
+        var prevOut = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", turn.Token);
+            var pump = prompt.PumpOneAsync(CancellationToken.None);
+            await writer.ApprovalShown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            turn.Cancel();
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.NotHandled, await pump.WaitAsync(AgentTestTimeouts.HangGuard));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => toolTask);
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Fact]
+    public async Task RendererOutput_WhileTheApprovalIsOpen_RedrawsTheApprovalLine()
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        keys.Start();
+        var renderer = new ConsoleAgentRenderer();
+        var prompt = new ConsoleApprovalPrompt(renderer: renderer, keys: keys, output: renderer);
+        var writer = new PromptSignalWriter();
+        var prevOut = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var pump = prompt.PumpOneAsync(CancellationToken.None);
+            await writer.ApprovalShown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            var before = writer.ToString().Length;
+            renderer.OnText("streamed text");
+            var after = writer.ToString()[before..];
+            var text = after.IndexOf("streamed text", StringComparison.Ordinal);
+            Assert.True(text >= 0);
+            Assert.Contains("[y]es", after[text..]);
+            source.Type("n");
+            source.Type(Keys.Enter);
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.No, await pump.WaitAsync(AgentTestTimeouts.HangGuard));
+            Assert.False(await toolTask.WaitAsync(AgentTestTimeouts.HangGuard));
+
+            var closed = writer.ToString().Length;
+            renderer.OnText("later");
+            Assert.DoesNotContain("[y]es", writer.ToString()[closed..]);
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Fact]
+    public async Task EscAtApproval_EndsTheApprovalRow()
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        source.Type("draft");
+        source.Type(Keys.Esc);
+        keys.Start();
+        var prompt = new ConsoleApprovalPrompt(keys: keys);
+        var writer = new StringWriter();
+        var prevOut = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.No,
+                await prompt.PumpOneAsync(CancellationToken.None).WaitAsync(AgentTestTimeouts.HangGuard));
+            Assert.False(await toolTask);
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+        Assert.EndsWith(Environment.NewLine, writer.ToString());
+    }
+
+    [Fact]
+    public void Settle_EofDenies_FreeTextRedirects()
+    {
+        var eof = new TaskCompletionSource<bool>();
+        Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.No,
+            ConsoleApprovalPrompt.Settle(eof, new LineRead(LineReadKind.EndOfInput)));
+        Assert.False(eof.Task.Result);
+        var text = new TaskCompletionSource<bool>();
+        Assert.Equal("use rg2", ConsoleApprovalPrompt.Settle(text, new LineRead(LineReadKind.Submitted, "use rg2")).FeedbackPrompt);
+        Assert.False(text.Task.Result);
+    }
 }

@@ -115,14 +115,21 @@ public sealed class ConsoleKeyReader : IDisposable
     /// read wherever they appear and the keys after them stay queued.
     /// </summary>
     public async Task<LineRead> ReadLineAsync(
-        LineEditor editor, string prompt, TextWriter output, CancellationToken ct)
+        LineEditor editor, string prompt, TextWriter output, CancellationToken ct,
+        Action<Action>? exclusive = null)
     {
-        editor.Render(output, prompt);
+        void Draw(Action draw)
+        {
+            if (exclusive is null) draw();
+            else exclusive(draw);
+        }
+
+        Draw(() => editor.Render(output, prompt));
         while (true)
         {
             if (!await _keys.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
             {
-                output.WriteLine();
+                Draw(() => editor.Finish(output, prompt));
                 return new LineRead(LineReadKind.EndOfInput);
             }
 
@@ -133,16 +140,15 @@ public sealed class ConsoleKeyReader : IDisposable
                 switch (editor.Apply(key))
                 {
                     case LineEditResult.Submit:
-                        editor.Render(output, prompt);
-                        output.WriteLine();
+                        Draw(() => editor.Finish(output, prompt));
                         return new LineRead(LineReadKind.Submitted, editor.Text);
                     case LineEditResult.EndOfInput:
-                        output.WriteLine();
+                        Draw(() => editor.Finish(output, prompt));
                         return new LineRead(LineReadKind.EndOfInput);
                 }
             }
 
-            editor.Render(output, prompt);
+            Draw(() => editor.Render(output, prompt));
         }
     }
 
@@ -158,19 +164,32 @@ public sealed class ConsoleKeyReader : IDisposable
 /// <summary>Reads keys from the real console with Ctrl+C delivered as a key.</summary>
 public sealed class SystemConsoleKeySource : IConsoleKeySource
 {
+    private readonly Func<bool> _getTreatControlC;
+    private readonly Action<bool> _setTreatControlC;
     private bool _previousTreatControlCAsInput;
+
+    public SystemConsoleKeySource()
+        : this(() => Console.TreatControlCAsInput, value => Console.TreatControlCAsInput = value)
+    {
+    }
+
+    internal SystemConsoleKeySource(Func<bool> getTreatControlC, Action<bool> setTreatControlC)
+    {
+        _getTreatControlC = getTreatControlC;
+        _setTreatControlC = setTreatControlC;
+    }
 
     public void EnterKeyMode()
     {
-        _previousTreatControlCAsInput = Console.TreatControlCAsInput;
-        Console.TreatControlCAsInput = true;
+        _previousTreatControlCAsInput = _getTreatControlC();
+        _setTreatControlC(true);
     }
 
     public ConsoleKeyInfo? ReadKey() => Console.ReadKey(intercept: true);
 
     public void RestoreMode()
     {
-        try { Console.TreatControlCAsInput = _previousTreatControlCAsInput; } catch (IOException) { }
+        try { _setTreatControlC(_previousTreatControlCAsInput); } catch (IOException) { }
         try { Console.CursorVisible = true; } catch (IOException) { } catch (PlatformNotSupportedException) { }
     }
 }

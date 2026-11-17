@@ -70,6 +70,24 @@ public sealed class AgentProducerLifetimeTests
     }
 
     [Fact]
+    public async Task ShutdownDrainBudget_IsTwoSecondsOnTheInjectedClock()
+    {
+        var clock = new FakeTimeProvider();
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(timeProvider: clock), async harness =>
+        {
+            var scope = harness.CreateScope();
+            var lifetime = new AgentRuntimeLifetime(scope, clock);
+            using var root = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
+            using var callback = lifetime.TryEnterProducer();
+            var completion = lifetime.CompleteAsync(root?.Activity);
+            clock.Advance(TimeSpan.FromMilliseconds(1999));
+            Assert.False(completion.IsCompleted);
+            clock.Advance(TimeSpan.FromMilliseconds(1));
+            Assert.Equal(TelemetryLayerCompletion.NotPublished, await completion.WaitAsync(AgentTestTimeouts.HangGuard));
+        });
+    }
+
+    [Fact]
     public async Task BusinessDuration_DoesNotConsumeTheProducerDrainBudget()
     {
         var clock = new FakeTimeProvider();
@@ -83,7 +101,7 @@ public sealed class AgentProducerLifetimeTests
             Assert.Equal(AgentRuntimeLifetime.ProducerDrainBudget, lifetime.RemainingDrainTime);
 
             var completion = lifetime.CompleteAsync(root?.Activity);
-            clock.Advance(TimeSpan.FromSeconds(9));
+            clock.Advance(AgentRuntimeLifetime.ProducerDrainBudget - TimeSpan.FromSeconds(1));
             Assert.Equal(TimeSpan.FromSeconds(1), lifetime.RemainingDrainTime);
             Assert.False(completion.IsCompleted);
             Assert.Equal(TelemetryLayerState.Running, scope.State);
@@ -151,7 +169,7 @@ public sealed class AgentProducerLifetimeTests
             try
             {
                 await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
-                clock.Advance(TimeSpan.FromSeconds(9));
+                clock.Advance(AgentRuntimeLifetime.ProducerDrainBudget - TimeSpan.FromSeconds(1));
                 Assert.Equal(TimeSpan.FromSeconds(1), lifetime.RemainingDrainTime);
                 var completion = lifetime.CompleteAsync();
                 Assert.Equal(TelemetryLayerState.Running, scope.State);

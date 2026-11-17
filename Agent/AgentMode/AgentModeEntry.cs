@@ -45,6 +45,8 @@ public static class AgentModeEntry
 
     public static async Task<int> RunAsync(string[] args)
     {
+        // Captured before anything can call Console.SetIn, so a replaced reader is detected.
+        var originalInput = Console.In;
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         using var cts = new CancellationTokenSource();
         AgentRuntimeLifetime? activeLifetime = null;
@@ -106,17 +108,29 @@ public static class AgentModeEntry
                 throw new InvalidOperationException("AI recovery is disabled. Set agent.recovery.trigger to manual or auto before troubleshooting.");
             var recoverySettings = RecoverySessionSettings.Resolve(
                 agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic, request?.SessionStyle);
-            if (recoverySettings.IsInteractive && (Console.IsInputRedirected || Console.IsOutputRedirected))
-                throw new InvalidOperationException("Interactive recovery requires a terminal. Use --style oneshot when input or output is redirected.");
+            // Redirected or replaced stdin runs oneshot. Interactive keys come only from a real console.
+            var interactive = ResolveInteractive(recoverySettings.IsInteractive, Console.IsInputRedirected, originalInput);
+            if (recoverySettings.IsInteractive && !interactive)
+                recoverySettings = RecoverySessionSettings.Resolve(
+                    agentOpts, recoverySettings.Trigger, "oneshot");
+            if (interactive && Console.IsOutputRedirected)
+                throw new InvalidOperationException("Interactive recovery requires a terminal. Use --style oneshot when output is redirected.");
+            // The key reader is the only stdin reader of an interactive session. It starts
+            // before authentication so Ctrl+C and Esc reach the startup steps below.
+            if (interactive)
+            {
+                keyReader = new ConsoleKeyReader(new SystemConsoleKeySource());
+                keyReader.Start();
+            }
             session?.SetTag(TelemetryTags.RecoverySessionStyle, recoverySettings.SessionStyle);
             session?.SetTag(TelemetryTags.RecoveryTrigger,
                 recoverySettings.Trigger == RecoveryTrigger.Manual ? "manual" : "automatic");
             // Prompt is chosen by interaction mode: oneshot → oneshot.md,
             // interactive → inline.md.
-            var entrypoint  = recoverySettings.IsInteractive ? "inline" : "oneshot";
+            var entrypoint  = interactive ? "inline" : "oneshot";
             // Quiet mode in one-shot: suppress streaming prose and agent-internal
             // event spam; the user sees only the spinner + the final AI help.
-            var quiet = !recoverySettings.IsInteractive;
+            var quiet = !interactive;
 
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? AgentFlavor.AzureCli;
             var az     = FindAzExe() ?? "az";
@@ -147,15 +161,7 @@ public static class AgentModeEntry
             // before the error is printed.
             await using var spinner = new SpinnerService(renderer);
 
-            // An interactive session on a real console reads stdin only through the
-            // key reader. Oneshot sessions and a replaced Console.In read lines, and
-            // Ctrl+C reaches them through CancelKeyPress.
-            if (ReadsKeys(recoverySettings.IsInteractive, Console.IsInputRedirected, Console.In, StandardInput))
-            {
-                keyReader = new ConsoleKeyReader(new SystemConsoleKeySource());
-                keyReader.Start();
-            }
-            var approval = new ConsoleApprovalPrompt(spinner, renderer, keyReader);
+            var approval = new ConsoleApprovalPrompt(spinner, renderer, keyReader, consoleRenderer);
 
             // Funnel Azclips-internal logs through the renderer so they don't
             // race the spinner. Verbose/Debug/Info dropped; Warn/Error become
@@ -173,39 +179,43 @@ public static class AgentModeEntry
             // Reuse one Azure token for the builtin provider and the boundary lookup.
             // The boundary also selects the model endpoint (see BuiltinEndpointResolver).
             // Do not add a second concurrent MSAL acquisition over the shared token cache.
-            var startup = await AgentStartupBoundary.ResolveAsync(
-                agentOpts, auth, profileService, handedOverBoundary: null,
-                (tenant, token, ct) => AgentStartupBoundary.LookupDataBoundary(
-                    AzclipsServiceProvider.GetRequiredService<DataBoundaryResolver>(), tenant, token, ct),
-                session, cts.Token, request?.ModelProfileName);
+            var (startup, agent) = await RunWithStartupKeysAsync(keyReader, RequestCancellation, async () =>
+            {
+                var resolved = await AgentStartupBoundary.ResolveAsync(
+                    agentOpts, auth, profileService, handedOverBoundary: null,
+                    (tenant, token, ct) => AgentStartupBoundary.LookupDataBoundary(
+                        AzclipsServiceProvider.GetRequiredService<DataBoundaryResolver>(), tenant, token, ct),
+                    session, cts.Token, request?.ModelProfileName);
 
-            // Telemetry retains the launch upload region; this lookup only selects the model endpoint.
-            trace?.Note("data_boundary", new { boundary = startup.DataBoundary });
+                // Telemetry retains the launch upload region; this lookup only selects the model endpoint.
+                trace?.Note("data_boundary", new { boundary = resolved.DataBoundary });
 
-            var azureAuth = startup.Auth;
-            // Preserves today's behavior exactly: a signed-out user still gets
-            // BuildAuthErrorMessage()'s actionable "run az login", with its original stack, and
-            // recovery still stops here — only now the outcome was recorded first.
-            startup.Failure?.Throw();
+                var azureAuth = resolved.Auth;
+                // Preserves today's behavior exactly: a signed-out user still gets
+                // BuildAuthErrorMessage()'s actionable "run az login", with its original stack, and
+                // recovery still stops here — only now the outcome was recorded first.
+                resolved.Failure?.Throw();
 
-            var agent = await ChatAgent.CreateAsync(
-                flavor: flavor,
-                auth: auth,
-                profileService: profileService,
-                configurationService: config,
-                boundaryResolver: AzclipsServiceProvider.GetRequiredService<DataBoundaryResolver>(),
-                azExePath: az,
-                approvalSink: approval,
-                renderer: renderer,
-                options: agentOpts,
-                entrypoint: entrypoint,
-                lifetime: lifetime,
-                spinner: spinner,
-                failedCommand: failedCommand,
-                preAcquiredAuth: azureAuth,
-                recoverySettings: recoverySettings,
-                ct: cts.Token,
-                dataBoundary: startup.DataBoundary);
+                var created = await ChatAgent.CreateAsync(
+                    flavor: flavor,
+                    auth: auth,
+                    profileService: profileService,
+                    configurationService: config,
+                    boundaryResolver: AzclipsServiceProvider.GetRequiredService<DataBoundaryResolver>(),
+                    azExePath: az,
+                    approvalSink: approval,
+                    renderer: renderer,
+                    options: agentOpts,
+                    entrypoint: entrypoint,
+                    lifetime: lifetime,
+                    spinner: spinner,
+                    failedCommand: failedCommand,
+                    preAcquiredAuth: azureAuth,
+                    recoverySettings: recoverySettings,
+                    ct: cts.Token,
+                    dataBoundary: resolved.DataBoundary);
+                return (resolved, created);
+            });
             agent.RecordModel(session);
             // Always-on prose suppression: after the final outcome renders,
             // ConsoleAgentRenderer drops any trailing prose the model streams past
@@ -227,17 +237,14 @@ public static class AgentModeEntry
             });
 
             var firstPrompt = BuildFirstPrompt(failedCommand, errorText, flavor);
-
-            var interactive = recoverySettings.IsInteractive;
+            if (!interactive && (Console.IsInputRedirected || !ReferenceEquals(Console.In, originalInput)))
+                firstPrompt = await AppendStandardInputAsync(firstPrompt, Console.In, cts.Token);
 
             try
             {
                 var end = await RunChatLoopAsync(agent, approval, keyReader, spinner, firstPrompt, interactive, cts.Token);
-                ThrowIfQuitByCtrlC(end);
-                // Classify the last turn at the shared exit for both interaction modes.
-                ThrowIfSessionEndedInError(agent.LastError, cts.Token);
-                if (!agent.SubmitRendered && !agent.HasPendingPlan)
-                    throw new InvalidOperationException("AI diagnosis ended without a recovery plan or final response.");
+                ThrowForSessionEnd(end, interactive, agent.LastError,
+                    agent.SubmitRendered || agent.HasPendingPlan, cts.Token);
             }
             finally
             {
@@ -264,14 +271,59 @@ public static class AgentModeEntry
     }
 
     /// <summary>
-    /// True when the session reads keys: interactive, on a real console, with the
-    /// original <see cref="Console.In"/>. Oneshot never reads keys.
+    /// True when the session runs interactively: interactive was requested, stdin is
+    /// not redirected and <see cref="Console.In"/> is still <paramref name="originalInput"/>.
     /// </summary>
-    internal static bool ReadsKeys(bool interactive, bool inputRedirected, TextReader current, TextReader standardIn) =>
-        interactive && ConsoleKeyReader.UsesKeyInput(inputRedirected, current, standardIn);
+    internal static bool ResolveInteractive(bool requested, bool inputRedirected, TextReader originalInput) =>
+        requested && ConsoleKeyReader.UsesKeyInput(inputRedirected, Console.In, originalInput);
 
-    // Captured at startup so a later Console.SetIn is detected.
-    private static readonly TextReader StandardInput = Console.In;
+    /// <summary>
+    /// Reads <paramref name="input"/> to its end, with no timeout, and appends the text
+    /// to the first prompt of a oneshot session.
+    /// </summary>
+    internal static async Task<string> AppendStandardInputAsync(string firstPrompt, TextReader input, CancellationToken ct)
+    {
+        var text = (await input.ReadToEndAsync(ct).ConfigureAwait(false)).Trim();
+        return text.Length == 0 ? firstPrompt : $"{firstPrompt}\nAdditional input:\n{text}";
+    }
+
+    /// <summary>
+    /// Runs the startup steps while keys go to the startup view: Esc or Ctrl+C calls
+    /// <paramref name="cancel"/>, other keys are discarded. Keys after the interrupt stay queued.
+    /// </summary>
+    internal static async Task<T> RunWithStartupKeysAsync<T>(
+        ConsoleKeyReader? keys, Action cancel, Func<Task<T>> startup)
+    {
+        if (keys is null)
+            return await startup().ConfigureAwait(false);
+        using var stop = new CancellationTokenSource();
+        var watch = WatchStartupKeysAsync(keys, cancel, stop.Token);
+        try
+        {
+            return await startup().ConfigureAwait(false);
+        }
+        finally
+        {
+            stop.Cancel();
+            await watch.ConfigureAwait(false);
+        }
+    }
+
+    private static async Task WatchStartupKeysAsync(ConsoleKeyReader keys, Action cancel, CancellationToken ct)
+    {
+        try
+        {
+            while (await keys.WaitToReadAsync(ct).ConfigureAwait(false))
+            {
+                if (AbortKeyWatcher.TakeTurnKeys(keys))
+                {
+                    cancel();
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
 
     internal static Task<int> RunSessionAsync(
         Func<ITelemetryLayerScope> getScope,
@@ -349,8 +401,14 @@ public static class AgentModeEntry
                     tags[TelemetryTags.RecoveryFailureReason] = reason;
                 try
                 {
+                    // Completion runs under the lifetime's drain budget; scope disposal
+                    // gets what is left of it. The terminal is restored afterwards even
+                    // when disposal does not finish.
                     await lifetime.CompleteAsync(session, tags, outcome.Status).ConfigureAwait(false);
-                    await scope!.DisposeAsync().ConfigureAwait(false);
+                    var budget = new TelemetryLayerBudget(
+                        timeProvider ?? TimeProvider.System, lifetime.RemainingDrainTime);
+                    if (!await budget.ObserveAsync(scope!.DisposeAsync().AsTask()).ConfigureAwait(false))
+                        Console.Error.WriteLine("Agent telemetry: cleanup_deadline");
                 }
                 catch
                 {
@@ -416,6 +474,25 @@ public static class AgentModeEntry
             throw new OperationCanceledException();
     }
 
+    /// <summary>
+    /// Decides how the session ends. Ctrl+C quit and cancellation end with 130. An
+    /// interactive session that the user quit otherwise succeeds, whatever earlier
+    /// turns did. A oneshot session reports its last SDK error, or fails without an outcome.
+    /// </summary>
+    internal static void ThrowForSessionEnd(
+        ChatLoopEnd end, bool interactive, SessionErrored? lastError, bool hasOutcome, CancellationToken ct)
+    {
+        ThrowIfQuitByCtrlC(end);
+        if (interactive)
+        {
+            ct.ThrowIfCancellationRequested();
+            return;
+        }
+        ThrowIfSessionEndedInError(lastError, ct);
+        if (!hasOutcome)
+            throw new InvalidOperationException("AI diagnosis ended without a recovery plan or final response.");
+    }
+
     private static async Task<ChatLoopEnd> RunChatLoopAsync(
         ChatAgent agent,
         ConsoleApprovalPrompt approval,
@@ -452,8 +529,10 @@ public static class AgentModeEntry
         int userMessages = 1;
         // The very first turn is the error-recovery opener — show a spinner verb
         // that says so. Later turns (and any redirect) fall back to "thinking".
-        var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, firstPrompt, ct,
+        var first = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, firstPrompt, ct,
             initialVerb: "Analyzing error root cause using AI");
+        if (first.Quit) return ChatLoopEnd.CtrlCQuit;
+        var nextPrompt = first.Redirect;
 
         // oneshot closes on its first valid plan (rendered by the plan hook) or on
         // submit_response; drain any redirect until it does (or the agent stops
@@ -461,11 +540,13 @@ public static class AgentModeEntry
         if (!interactive)
         {
             while (!agent.SessionClosed && nextPrompt is not null && !ct.IsCancellationRequested)
-                nextPrompt = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, nextPrompt, ct);
+                nextPrompt = (await SendWithToolEnforcementAsync(agent, approval, keys, spinner, nextPrompt, ct)).Redirect;
             return ChatLoopEnd.Finished;
         }
 
         var draft = new LineEditor();
+        // False while the same prompt is redrawn in place (Esc, Ctrl+C clearing the draft).
+        var freshPrompt = true;
         while (!ct.IsCancellationRequested)
         {
             // The session ends when the agent submits its final response.
@@ -482,7 +563,9 @@ public static class AgentModeEntry
             }
             else
             {
-                Console.WriteLine();
+                if (freshPrompt)
+                    Console.WriteLine();
+                freshPrompt = true;
                 string? read;
                 if (keys is null)
                 {
@@ -502,10 +585,14 @@ public static class AgentModeEntry
                             return ChatLoopEnd.CtrlCQuit;
                         }
                         draft.Clear();
+                        freshPrompt = false;
                         continue;
                     }
                     if (result.Kind == LineReadKind.Escape)
+                    {
+                        freshPrompt = false;
                         continue;
+                    }
                     read = result.Kind == LineReadKind.Submitted ? result.Text : null;
                     draft.Clear();
                 }
@@ -527,7 +614,9 @@ public static class AgentModeEntry
                 break;
             }
 
-            nextPrompt = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, line, ct);
+            var turn = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, line, ct);
+            if (turn.Quit) return ChatLoopEnd.CtrlCQuit;
+            nextPrompt = turn.Redirect;
         }
         return ChatLoopEnd.Finished;
     }
@@ -561,7 +650,7 @@ public static class AgentModeEntry
     // INTERIM: the durable fix is forcing tool use up front (tool_choice="required"
     // or grammar-constrained generation); that UI/constraint direction is being
     // tried in a separate worktree. This after-the-fact correction is the stopgap.
-    private static async Task<string?> SendWithToolEnforcementAsync(
+    private static async Task<TurnResult> SendWithToolEnforcementAsync(
         IChatTurns agent,
         ConsoleApprovalPrompt approval,
         ConsoleKeyReader? keys,
@@ -578,7 +667,7 @@ public static class AgentModeEntry
             // A redirect means the user steered the turn — respect it, don't enforce.
             if (result.Redirect is not null) break;
             // A turn the user interrupted returns to the prompt.
-            if (result.Interrupted) break;
+            if (result.Interrupted || result.Quit) break;
             // One-shot already showed its final outcome (a valid plan ends the session).
             if (agent.SessionClosed) break;
             // Compliant turn: it closed with propose_plan or submit_response.
@@ -598,10 +687,10 @@ public static class AgentModeEntry
             result = await SendAndPumpAsync(agent, approval, keys, spinner, correction, ct);
         }
 
-        return result.Redirect;
+        return result;
     }
 
-    private readonly record struct TurnResult(string? Redirect, bool Interrupted);
+    private readonly record struct TurnResult(string? Redirect, bool Interrupted, bool Quit = false);
 
     // Runs one turn. While it runs, keys go to the thinking view (Esc and Ctrl+C
     // interrupt the turn) and approval requests open the approval view. Keys queued
@@ -647,8 +736,6 @@ public static class AgentModeEntry
                     else if (AbortKeyWatcher.TakeTurnKeys(keys!))
                     {
                         interrupted = true;
-                        await agent.AbortAsync(ct).ConfigureAwait(false);
-                        WriteColor(ConsoleColor.DarkGray, "  ↯ aborted by user");
                         break;
                     }
                     continue;
@@ -657,22 +744,18 @@ public static class AgentModeEntry
                 if (requestWait.IsCompleted)
                 {
                     requestWait = null;
-                    var outcome = await approval.PumpOneAsync(ct).ConfigureAwait(false);
+                    var outcome = await PumpUntilSendEndsAsync(approval, sendTask, ct).ConfigureAwait(false);
                     if (outcome.InterruptTurn)
                     {
                         interrupted = true;
-                        await agent.AbortAsync(ct).ConfigureAwait(false);
-                        WriteColor(ConsoleColor.DarkGray, "  ↯ aborted by user");
                         break;
                     }
                     if (outcome.FeedbackPrompt is { } feedback)
                     {
                         // Reject + redirect: abort the in-flight turn so the SDK
-                        // stops calling tools, surface a transcript line, and hand
-                        // the feedback back to the chat loop as the next prompt.
+                        // stops calling tools, and hand the feedback back to the
+                        // chat loop as the next prompt.
                         redirect = feedback;
-                        await agent.AbortAsync(ct).ConfigureAwait(false);
-                        WriteColor(ConsoleColor.DarkGray, $"  ↯ told to do differently: {Truncate(feedback, 60)}");
                         break;
                     }
                 }
@@ -684,15 +767,29 @@ public static class AgentModeEntry
             spinner?.Stop();
         }
 
+        var quit = false;
+        if (interrupted || redirect is not null)
+        {
+            quit = await AbortWhileDispatchingKeysAsync(agent, keys, ct).ConfigureAwait(false);
+            WriteColor(ConsoleColor.DarkGray, redirect is not null
+                ? $"  ↯ told to do differently: {Truncate(redirect, 60)}"
+                : "  ↯ aborted by user");
+        }
+
         try { await sendTask.ConfigureAwait(false); }
         catch (OperationCanceledException) when (agent.LastError is { } err)
         {
-            // Allow another interactive turn; the final check still reads LastError.
+            // Allow another interactive turn; a oneshot session reads LastError at the end.
             WriteColor(ConsoleColor.Red, $"  ✗ session.error [{err.ErrorType}] {err.Message}");
         }
         catch (OperationCanceledException) when ((redirect is not null || interrupted) && !ct.IsCancellationRequested)
         {
             // Abort requested by the user — already announced; swallow.
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // RPC and IO failures end only this turn; the session returns to the prompt.
+            WriteColor(ConsoleColor.Red, $"  ✗ session.error {ex.Message}");
         }
         finally
         {
@@ -700,7 +797,57 @@ public static class AgentModeEntry
             approval.DenyPending();
         }
 
-        return new TurnResult(redirect, interrupted);
+        return new TurnResult(redirect, interrupted, quit);
+    }
+
+    // Pumps one approval. When the turn ends while the approval is open, the approval
+    // is closed without an answer.
+    private static async Task<ConsoleApprovalPrompt.ApprovalOutcome> PumpUntilSendEndsAsync(
+        ConsoleApprovalPrompt approval, Task sendTask, CancellationToken ct)
+    {
+        using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var pump = approval.PumpOneAsync(pumpCts.Token);
+        if (await Task.WhenAny(pump, sendTask).ConfigureAwait(false) != pump)
+            pumpCts.Cancel();
+        return await pump.ConfigureAwait(false);
+    }
+
+    // Aborts the turn while keys still go to the thinking view. Ctrl+C there quits,
+    // since the turn is already interrupted and no draft exists. Returns true on quit.
+    private static async Task<bool> AbortWhileDispatchingKeysAsync(
+        IChatTurns agent, ConsoleKeyReader? keys, CancellationToken ct)
+    {
+        var abort = agent.AbortAsync(ct);
+        if (keys is null)
+        {
+            await abort.ConfigureAwait(false);
+            return false;
+        }
+
+        using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        try
+        {
+            while (!abort.IsCompleted)
+            {
+                var keyWait = keys.WaitToReadAsync(waitCts.Token).AsTask();
+                await Task.WhenAny(abort, keyWait).ConfigureAwait(false);
+                if (abort.IsCompleted || !keyWait.IsCompletedSuccessfully || !keyWait.Result)
+                    break;
+                while (keys.TryRead(out var key))
+                {
+                    if (ConsoleKeyReader.IsCtrlC(key) &&
+                        ConsoleKeyReader.DecideCtrlC(approvalOpen: false, draftNonEmpty: false, turnRunning: false)
+                            == CtrlCAction.Quit)
+                        return true;
+                }
+            }
+        }
+        finally
+        {
+            waitCts.Cancel();
+        }
+        await abort.ConfigureAwait(false);
+        return false;
     }
 
     // The CLI passes the failed command without the program name ("rest --method fetch

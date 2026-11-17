@@ -56,6 +56,19 @@ internal static class Keys
     public static readonly ConsoleKeyInfo End = new('\0', ConsoleKey.End, false, false, false);
 }
 
+/// <summary>Writer that signals when a flush has written <c>needle</c>.</summary>
+internal sealed class FlushSignalWriter(string needle) : StringWriter
+{
+    public readonly TaskCompletionSource Shown = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public override void Flush()
+    {
+        base.Flush();
+        if (ToString().Contains(needle, StringComparison.Ordinal))
+            Shown.TrySetResult();
+    }
+}
+
 public class ConsoleKeyReaderTests
 {
     [Theory]
@@ -169,6 +182,46 @@ public class ConsoleKeyReaderTests
         source.Type(Keys.Esc);
         Assert.True(await reader.WaitToReadAsync(CancellationToken.None).AsTask().WaitAsync(AgentTestTimeouts.HangGuard));
         Assert.True(AbortKeyWatcher.TakeTurnKeys(reader));
+    }
+
+    [Fact]
+    public void IsCtrlC_RawControlCharacter_WithoutModifier()
+    {
+        Assert.True(ConsoleKeyReader.IsCtrlC(new ConsoleKeyInfo('\x03', default, false, false, false)));
+    }
+
+    [Fact]
+    public void IsCtrlC_ControlModifierAndC_WithoutRawCharacter()
+    {
+        Assert.True(ConsoleKeyReader.IsCtrlC(new ConsoleKeyInfo('\0', ConsoleKey.C, false, false, true)));
+        Assert.False(ConsoleKeyReader.IsCtrlC(new ConsoleKeyInfo('c', ConsoleKey.C, false, false, false)));
+    }
+
+    [Fact]
+    public void SystemConsoleKeySource_RestoresTheSavedControlCMode()
+    {
+        var mode = false;
+        var source = new SystemConsoleKeySource(() => mode, value => mode = value);
+        source.EnterKeyMode();
+        Assert.True(mode);
+        source.RestoreMode();
+        Assert.False(mode);
+    }
+
+    [Fact]
+    public async Task EachKeyBatch_IsRedrawnBeforeEnter()
+    {
+        var source = new FakeKeySource();
+        using var reader = new ConsoleKeyReader(source);
+        reader.Start();
+        var output = new FlushSignalWriter("> ab");
+        var read = reader.ReadLineAsync(new LineEditor(() => 80), "> ", output, CancellationToken.None);
+        source.Type("ab");
+        // The redraw shows "ab" before Enter arrives.
+        await output.Shown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+        Assert.False(read.IsCompleted);
+        source.Type(Keys.Enter);
+        Assert.Equal(new LineRead(LineReadKind.Submitted, "ab"), await read.WaitAsync(AgentTestTimeouts.HangGuard));
     }
 
     [Fact]
