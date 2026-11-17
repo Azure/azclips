@@ -70,7 +70,7 @@ public class EnvironmentProberTests
         var snapshot = await prober.ProbeAsync();
         var block = EnvSnapshotFormatter.Format(JsonSerializer.Serialize(snapshot, s_json));
 
-        Assert.Contains("command-groups (installed; not runnable by themselves)\n  group, vm\n", block);
+        Assert.Contains("command-groups (installed root commands and groups; confirm with get_command)\n  group, vm\n", block);
         Assert.Contains("extension package))\n  none\n", block);
     }
 

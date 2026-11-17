@@ -109,7 +109,7 @@ public class EnvSnapshotFormatterTests
         var block = EnvSnapshotFormatter.Format(json);
 
         Assert.Contains("command-groups", block);
-        Assert.Contains("command-groups (installed; not runnable by themselves)", block);
+        Assert.Contains("command-groups (installed root commands and groups; confirm with get_command)", block);
         Assert.Contains("group, network, vm", block);
         Assert.True(block.IndexOf("group, network, vm", StringComparison.Ordinal)
                     < block.IndexOf("</environment>", StringComparison.Ordinal));
@@ -147,7 +147,7 @@ public class EnvSnapshotFormatterTests
         var block = EnvSnapshotFormatter.Format(json);
 
         Assert.Contains("installable-command-groups", block);
-        Assert.Contains("installable-command-groups (not installed, not runnable by themselves;", block);
+        Assert.Contains("installable-command-groups (not installed;", block);
         Assert.Contains("aks (azclips.aks), sql (azclips.sql)", block);
     }
 
@@ -156,7 +156,7 @@ public class EnvSnapshotFormatterTests
     {
         var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": ["vm"], "installableGroups": [] }""");
 
-        Assert.Contains("installable-command-groups (not installed, not runnable by themselves;", block);
+        Assert.Contains("installable-command-groups (not installed;", block);
         Assert.Contains("extension package))\n  none\n", block);
     }
 
@@ -165,7 +165,7 @@ public class EnvSnapshotFormatterTests
     {
         var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": ["vm"] }""");
 
-        Assert.Contains("command-groups (installed; not runnable by themselves)\n  vm\n", block);
+        Assert.Contains("command-groups (installed root commands and groups; confirm with get_command)\n  vm\n", block);
         Assert.DoesNotContain("installable-command-groups", block);
     }
 }

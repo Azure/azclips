@@ -64,7 +64,7 @@ internal static class EnvSnapshotFormatter
             var groups = GetStrings(root, "commandGroups");
             if (groups.Count > 0)
             {
-                sb.Append("command-groups (installed; not runnable by themselves)\n");
+                sb.Append("command-groups (installed root commands and groups; confirm with get_command)\n");
                 sb.Append("  ").Append(string.Join(", ", groups)).Append('\n');
             }
 
@@ -72,7 +72,7 @@ internal static class EnvSnapshotFormatter
                 && installableElement.ValueKind == JsonValueKind.Array)
             {
                 var installable = GetInstallableGroups(root);
-                sb.Append("installable-command-groups (not installed, not runnable by themselves; group (extension package))\n");
+                sb.Append("installable-command-groups (not installed; group (extension package))\n");
                 sb.Append("  ").Append(installable.Count > 0 ? string.Join(", ", installable) : "none").Append('\n');
             }
 
