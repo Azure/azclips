@@ -34,7 +34,6 @@ public sealed class CertificateCommandTests : IDisposable
     [InlineData("keyvault certificate show", new string[0])]
     [InlineData("keyvault certificate list-versions", new string[0])]
     [InlineData("keyvault certificate set-attributes", new string[0])]
-    [InlineData("keyvault certificate download", new[] { "--file", "certificate.pem" })]
     [InlineData("keyvault certificate delete", new string[0])]
     public async Task RunAsync_InvalidCertificateName_ThrowsArgumentException(string command, string[] args)
     {
@@ -48,11 +47,39 @@ public sealed class CertificateCommandTests : IDisposable
     [Theory]
     [InlineData("keyvault certificate show", new string[0])]
     [InlineData("keyvault certificate set-attributes", new string[0])]
-    [InlineData("keyvault certificate download", new[] { "--file", "certificate.pem" })]
     public async Task RunAsync_InvalidCertificateVersion_ThrowsArgumentException(string command, string[] args)
     {
         using ISession session = _engine.OpenCliSession(
             ExtensionName, command, ["--vault-name", "myvault", "--name", "certificate", "--version", "not-a-version", .. args], _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal("Certificate version must be an alphanumeric version identifier.", Assert.IsType<ArgumentException>(exception).Message);
+    }
+
+    // Download checks the destination before the name and version, so it needs a destination that does not exist.
+    [Fact]
+    public async Task RunAsync_CertificateDownloadInvalidName_ThrowsArgumentException()
+    {
+        using ISession session = _engine.OpenCliSession(
+            ExtensionName,
+            "keyvault certificate download",
+            ["--vault-name", "myvault", "--name", "my_certificate", "--file", Path.Combine(_missingDirectory, "certificate.pem")],
+            _output);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal("Certificate names must contain 1-127 letters, digits or hyphens.", Assert.IsType<ArgumentException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_CertificateDownloadInvalidVersion_ThrowsArgumentException()
+    {
+        using ISession session = _engine.OpenCliSession(
+            ExtensionName,
+            "keyvault certificate download",
+            ["--vault-name", "myvault", "--name", "certificate", "--version", "not-a-version", "--file", Path.Combine(_missingDirectory, "certificate.pem")],
+            _output);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
