@@ -23,6 +23,8 @@
 
     <ItemGroup>
         <Compile Include="..\Common\CmdletOutputStreamsFactory.cs" Link="Common\CmdletOutputStreamsFactory.cs" />
+        <Compile Include="..\..\..\Agent\Providers\BuiltinEndpointResolver.cs" Link="Recovery\BuiltinEndpointResolver.cs" />
+        <EmbeddedResource Include="RecoveryPrompts\*.md" LogicalName="RecoveryPrompts.%(Filename)%(Extension)" />
     </ItemGroup>
 
     <ItemGroup>
