@@ -3,11 +3,40 @@
 
 using OpenTelemetry;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
+using Core.Abstractions;
+using System.Diagnostics;
+using System.Reflection;
 
 namespace Core.Telemetry.Tests;
 
 public class TelemetryExportersTests
 {
+    [Theory]
+    [InlineData(null)]
+    [InlineData(UploadRegion.EU)]
+    [InlineData(UploadRegion.ROW)]
+    public void AddTraceExporters_Remote_RegistersOnlyAria(UploadRegion? uploadRegion)
+    {
+        var builder = Sdk.CreateTracerProviderBuilder().AddSource("test-source");
+
+        TelemetryExporters.AddTraceExporters(builder, [TelemetryTarget.Remote], uploadRegion);
+
+        using var provider = builder.Build();
+        Assert.IsType<AriaActivityExporter>(GetSingleExporter(provider));
+    }
+
+    [Fact]
+    public void AddTraceExporter_Local_RegistersOnlyOtlp()
+    {
+        var builder = Sdk.CreateTracerProviderBuilder().AddSource("test-source");
+
+        TelemetryExporters.AddTraceExporter(builder, TelemetryTarget.Local);
+
+        using var provider = builder.Build();
+        Assert.IsType<OtlpTraceExporter>(GetSingleExporter(provider));
+    }
+
     [Theory]
     [InlineData(TelemetryTarget.Local)]
     [InlineData(TelemetryTarget.Remote)]
@@ -55,36 +84,39 @@ public class TelemetryExportersTests
     [Fact]
     public void ResolveAriaExporter_ReturnsEuEndpoint_ForEuBoundary()
     {
-        var exporter = TelemetryExporters.ResolveAriaExporter("EU");
+        var exporter = TelemetryExporters.ResolveAriaExporter(UploadRegion.EU);
 
-        Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
+        Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
         Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
     }
 
     [Fact]
     public void ResolveAriaExporter_ReturnsRowEndpoint_ForConfirmedGlobalBoundary()
     {
-        var exporter = TelemetryExporters.ResolveAriaExporter("Global");
+        var exporter = TelemetryExporters.ResolveAriaExporter(UploadRegion.ROW);
 
         Assert.Equal(WellKnownEndpoints.AriaConnectionString, exporter.ConnectionString);
         Assert.Equal(WellKnownEndpoints.AriaRowEndpoint, exporter.Endpoint);
     }
 
-    // Fail-closed: a missing/unresolved/unrecognized boundary must NEVER be treated as a
-    // confirmed non-EU tenant (which "rounding to Global" would do) -- only ARM's genuine
-    // "Global" answer may route to ROW. See DataBoundaryRouting.IsConfirmedGlobal.
-    // (null is deliberately not covered here: ResolveAriaExporter(null) reads the active
-    // profile's cache via DataBoundaryResolver, which depends on ambient AZCLIPS_HOME state
-    // rather than being a pure function of the input string.)
     [Theory]
-    [InlineData("")]
-    [InlineData("unknown")]
-    [InlineData("APAC")] // unrecognized/future value
-    public void ResolveAriaExporter_ReturnsEuEndpoint_ForUnconfirmedBoundary(string? dataBoundary)
+    [InlineData(-1)]
+    [InlineData(999)]
+    public void ResolveAriaExporter_RejectsInvalidRegion(int region)
     {
-        var exporter = TelemetryExporters.ResolveAriaExporter(dataBoundary);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            TelemetryExporters.ResolveAriaExporter((UploadRegion)region));
+    }
 
-        Assert.Equal(WellKnownEndpoints.AriaEuConnectionString, exporter.ConnectionString);
-        Assert.Equal(WellKnownEndpoints.AriaEuEndpoint, exporter.Endpoint);
+    private static BaseExporter<Activity> GetSingleExporter(TracerProvider provider)
+    {
+        const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        // The SDK has no public pipeline inspection API; a composite processor indicates extra exporters.
+        var processorProperty = provider.GetType().GetProperty("Processor", Flags);
+        Assert.NotNull(processorProperty);
+        var processor = Assert.IsAssignableFrom<BaseExportProcessor<Activity>>(processorProperty.GetValue(provider));
+        var exporterProperty = typeof(BaseExportProcessor<Activity>).GetProperty("Exporter", Flags);
+        Assert.NotNull(exporterProperty);
+        return Assert.IsAssignableFrom<BaseExporter<Activity>>(exporterProperty.GetValue(processor));
     }
 }

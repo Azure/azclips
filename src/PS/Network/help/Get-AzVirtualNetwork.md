@@ -80,7 +80,8 @@ The name of the virtual network.
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- ResourceName
 ParameterSets:
 - Name: Get
   Position: Named
@@ -185,9 +186,4 @@ The matching virtual network, or each virtual network in scope when listing.
 
 ## NOTES
 
-Generated help for network.
-
 ## RELATED LINKS
-
-
-- [Online Version]()

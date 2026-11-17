@@ -25,7 +25,7 @@ public class RecoveryTelemetryTests
         {
             Provider = provider,
             Builtin = new BuiltinProviderOptions { ModelId = configuredModel },
-            SessionStyle = "interactive",
+            Recovery = new() { Style = "interactive" },
         };
 
         RecoveryTelemetry.RecordConfiguration(activity, options);
@@ -34,6 +34,31 @@ public class RecoveryTelemetryTests
         Assert.Equal(expectedSource, activity.GetTagItem(TelemetryTags.AgentModelSource));
         Assert.Equal(provider, activity.GetTagItem(TelemetryTags.RecoveryProvider));
         Assert.Equal("interactive", activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
+    }
+
+    [Theory]
+    [InlineData("interactive", "oneshot", "oneshot")]
+    [InlineData("oneshot", "interactive", "interactive")]
+    [InlineData("interactive", null, "interactive")]
+    public void RecordConfiguration_RecordsTheEffectiveStyleWhenOverridden(
+        string configured, string? effective, string expected)
+    {
+        using var activity = new Activity("Agent.Create").Start();
+        RecoveryTelemetry.RecordConfiguration(activity, new AgentOptions { Recovery = new RecoveryOptions { Style = configured } }, effective);
+        Assert.Equal(expected, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
+    }
+
+    [Theory]
+    [InlineData("Interactive", "interactive")]
+    [InlineData("INTERACTIVE", "interactive")]
+    [InlineData("OneShot", "oneshot")]
+    [InlineData("bogus", "oneshot")]
+    [InlineData("", "oneshot")]
+    public void RecordConfiguration_RecordsTheCanonicalConfiguredStyle(string configured, string expected)
+    {
+        using var activity = new Activity("Agent.Create").Start();
+        RecoveryTelemetry.RecordConfiguration(activity, new AgentOptions { Recovery = new RecoveryOptions { Style = configured } });
+        Assert.Equal(expected, activity.GetTagItem(TelemetryTags.RecoverySessionStyle));
     }
 
     [Fact]
@@ -57,7 +82,7 @@ public class RecoveryTelemetryTests
         // would have shipped undocumented and left this test green. Pinning the set is what
         // turns the doc's claim into something enforced rather than asserted.
         Assert.Equal(
-            new[] { "unavailable", "configuration", "sdk", "usage" }.OrderBy(w => w, StringComparer.Ordinal),
+            new[] { "unavailable", "configuration", "sdk", "usage", "response" }.OrderBy(w => w, StringComparer.Ordinal),
             wireForms.OrderBy(w => w, StringComparer.Ordinal));
     }
 

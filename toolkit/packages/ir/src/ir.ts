@@ -262,6 +262,8 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
           defaultSet: command.dialect.ps.defaultParameterSet,
         });
         command.parameters.forEach((parameter) => {
+          if (parameter.access === "internal") return;
+
           const dialect = parameter.dialect?.ps;
           const memberships = dialect?.parameterSets;
           if (memberships === undefined) {
@@ -305,7 +307,7 @@ export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchema
         const command = family.commands[0]!;
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `PowerShell command family names default parameter set '${defaultSet}', which none of its parameters declares.`,
+          message: `PowerShell command family names default parameter set '${defaultSet}', which none of its public parameters declares.`,
           path: ["commands", command.index, "dialect", "ps", "defaultParameterSet"],
         });
       }

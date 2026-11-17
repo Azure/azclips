@@ -60,7 +60,7 @@ Help resolution in Azclips is **discovery-backed**. The runtime uses the same `D
 
 When a user runs `az --help`:
 
-1. **Run discovery pass** — open a discovery session (`IEngine.OpenDiscoverySession(...).RunAsync()`) to emit `List<DiscoveredExtensionInfo>` for all installed extensions and resolved versions.
+1. **Run discovery pass** — open a discovery session (`IEngine.OpenDiscoverySession(...).RunAsync()`) to emit `List<DiscoveredExtensionInfo>` for all routing-selected packages, using the same installed copies and versions as command execution.
 2. **Collect verbs** — for each discovered extension, use the `Verbs` payload from `DiscoveredExtensionInfo` (e.g., `vm`, `disk`, `group`).
 3. **Render roots** — Build a root help page listing all discovered verbs and their one-line summaries.
 4. **Return to user** — `az --help` displays the collected namespace tree.
@@ -72,7 +72,7 @@ When a user runs `az --help`:
 When a user runs help for a verb or command:
 
 1. **Parse the path** — Extract the canonical command key (e.g., `vm` for root group, `vm create` for a command).
-2. **Run discovery pass** — Enumerate all discovered extensions.
+2. **Run discovery pass** — Use existing routing selection to discover full command metadata only for packages contributing to the requested verb. Retain every contributor to shared verbs, using the same installed copies and versions as command execution.
 3. **Resolve ownership** — Walk the discovered verbs/commands to find which extension owns the requested path:
     - Check each discovered extension's `Verbs` list for the first segment.
     - If found, use the discovered command table (`DiscoveredExtensionInfo.Commands`) for metadata and path ownership.
@@ -80,11 +80,30 @@ When a user runs help for a verb or command:
 4. **Load help markdown** — Call `MarkdownCommandHelpProvider.Get(extensionName, commandKey)` to read and render the markdown.
 5. **Return to user** — Display help for the resolved verb or command.
 
+Verb ownership is retained before routing-index construction, so duplicate leaves
+do not prevent scoped help from selecting its contributors. An empty selection
+does not open a discovery session. Root help remains broad; routing may still
+load extension DLLs when sidecars are missing or invalid.
+
 **Example**: User runs `az vm create --help`:
 
 - Discover that `Compute` extension owns verb `vm`.
 - Use `Compute`'s discovered `Commands` table to locate the `create` command.
 - Read `src/CLI/Help/Docs/vm/create.md` and render it.
+
+Lifecycle tags come from `ProcessorInfoAttribute.Tags`, independently of markdown.
+The runtime adapter preserves them in detailed command-help records and command-list
+summaries, including runnable root commands. Command listings use the existing
+bracketed format (for example, `create [Preview]:`); standalone command-help formatting
+does not change. For runnable root commands, `az --help` displays their tags beside
+the verb name, selecting the root owner with the same ownership rules as command help.
+A root with child commands is a non-runnable group under dispatch rules, even when
+another extension contributes those children, so its root processor does not label
+the top-level group. Tags on child commands do not label their parent groups.
+Processors without lifecycle tags remain untagged.
+If conflicting command leaves or duplicate discovery package IDs prevent routing-index construction, top-level help
+remains available, logs the conflict at debug level, and omits root lifecycle labels
+because routability is unknown. Dispatch still rejects the conflicting leaves.
 
 ### 3.3 Unknown Verbs & Hint Table Fallback
 
@@ -132,7 +151,9 @@ relatedLinks:
     - az logout
 ---
 
-Description: Multi-paragraph explanation in the body.
+Description: First paragraph of the explanation in the body.
+
+Additional paragraphs can follow after a blank line.
 
 ### Login with subscription id (CLI)
 
@@ -146,6 +167,10 @@ az login --subscription-id 00000000-0000-0000-0000-000000000000
 Connect-AzAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
 ````
+
+Description parsing preserves paragraph breaks and joins wrapped lines within each
+paragraph with spaces. The description ends at the next heading, code fence, or
+end of the file.
 
 **Surface differentiation is driven by the code-fence language tag** (`bash`/`sh` → CLI, `powershell`/`pwsh` → PowerShell). The `(CLI)` / `(PowerShell)` H3 suffix is cosmetic — it disambiguates for the human reader; the parser ignores it.
 

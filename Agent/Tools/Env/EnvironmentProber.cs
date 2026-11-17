@@ -9,15 +9,18 @@ public sealed class EnvironmentProber
 {
     private readonly IProfileService _profileService;
     private readonly string _flavor;
+    private readonly string? _azclipsVersion;
 
-    public EnvironmentProber(IProfileService profileService, string flavor)
+    public EnvironmentProber(IProfileService profileService, string flavor, string? azclipsVersion = null)
     {
         _profileService = profileService;
         _flavor = flavor;
+        _azclipsVersion = azclipsVersion;
     }
 
     public async Task<EnvironmentSnapshot> ProbeAsync(CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var os = Safe(() => RuntimeInformation.OSDescription, "unknown");
         var shell = Safe(EnvironmentProbes.DetectShell, "unknown");
         // The CLI launches this agent process with its working directory set to
@@ -27,7 +30,7 @@ public sealed class EnvironmentProber
         // dev-loop / direct-launch case where the env var isn't set.
         var cwd = Safe(() =>
         {
-            // Name must match Program.CallerCwdEnvVar on the CLI side (kept as a
+            // Name must match AgentLauncher.CallerCwdEnvVar on the CLI side (kept as a
             // literal here rather than a reference, since the agent must not take
             // a dependency on the CLI project). If one side is renamed, rename both.
             var callerCwd = Environment.GetEnvironmentVariable("AZCLIPS_CALLER_CWD");
@@ -37,8 +40,8 @@ public sealed class EnvironmentProber
         var stdinInteractive = Safe(() => !Console.IsInputRedirected, false);
         var browserAvailable = Safe(() => EnvironmentProbes.IsBrowserAvailable(sshSession), false);
 
-        Profile? ctx = null;
-        try { ctx = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false); } catch { }
+        var ctx = await _profileService.GetActiveProfileAsync(ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
 
         var signedIn = !string.IsNullOrEmpty(ctx?.SubscriptionId);
         return new EnvironmentSnapshot(
@@ -52,7 +55,7 @@ public sealed class EnvironmentProber
             SubscriptionId: string.IsNullOrEmpty(ctx?.SubscriptionId) ? null : ctx!.SubscriptionId,
             TenantId: string.IsNullOrEmpty(ctx?.TenantId) ? null : ctx!.TenantId,
             Flavor: _flavor,
-            AzclipsVersion: Safe(GetAzclipsVersion, "unknown"));
+            AzclipsVersion: _azclipsVersion ?? Safe(GetAzclipsVersion, "unknown"));
     }
 
     private static string GetAzclipsVersion()

@@ -19,7 +19,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 RECORD_MODE_VARIABLE = "AZURE_TEST_MODE"
-SESSION_RECORDS = Path("tests/Scenario.Tests/SessionRecords")
+# Recordings live in a Records folder next to the module that owns the test,
+# tests/Scenario.Tests/<Module>/Records/<TestClass>/<TestName>.json.
+SCENARIO_TESTS = Path("tests/Scenario.Tests")
 
 
 def run_tests(repo_root, results_dir, test_filter=None, record=False):
@@ -56,9 +58,10 @@ def parse_failed_classes(trx):
 
 def changed_recordings(repo_root):
     output = subprocess.run(
-        ["git", "status", "--porcelain", "--", str(SESSION_RECORDS)],
+        ["git", "status", "--porcelain", "--", str(SCENARIO_TESTS)],
         cwd=repo_root, capture_output=True, text=True, check=True).stdout
-    return [line[3:].strip() for line in output.splitlines() if line]
+    paths = [line[3:].strip() for line in output.splitlines() if line]
+    return [path for path in paths if "/Records/" in path.replace("\\", "/")]
 
 
 def scan(repo_root, files):
@@ -86,7 +89,7 @@ def main():
     repo_root = Path(subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
         capture_output=True, text=True, check=True).stdout.strip())
-    recorded_classes = {path.name for path in (repo_root / SESSION_RECORDS).iterdir() if path.is_dir()}
+    recorded_classes = {path.name for path in (repo_root / SCENARIO_TESTS).glob("*/Records/*") if path.is_dir()}
     results_dir = repo_root / "artifacts" / "refresh-results"
 
     failed = run_tests(repo_root, results_dir, arguments.filter or None)

@@ -35,14 +35,14 @@ public sealed class ExtensionCandidateSelectorTests
             1
         },
         {
-            "P3_EqualVersionChoosesDeterministically",
+            "P3_EqualVersionFirstCandidateWins",
             new[]
             {
                 CreateInfo("Contoso.Widget", "1.2.0", ["widget zeta"]),
                 CreateInfo("Contoso.Widget", "1.2.0", ["widget alpha"]),
             },
             null,
-            "widget alpha",
+            "widget zeta",
             ExtensionSelectionReason.EquivalentVersion,
             1
         },
@@ -132,7 +132,7 @@ public sealed class ExtensionCandidateSelectorTests
                 Pinned = true,
                 InstalledAt = DateTimeOffset.UtcNow,
             },
-            "widget alpha",
+            "widget zeta",
             ExtensionSelectionReason.EquivalentVersion,
             1
         },
@@ -202,16 +202,77 @@ public sealed class ExtensionCandidateSelectorTests
     }
 
     [Fact]
-    public void Select_ShouldTreatEqualVersionAsEquivalent_AndChooseDeterministically()
+    public void Select_ShouldPreferFirstCandidate_WhenVersionsAreEqual()
     {
         var create = CreateInfo("Contoso.Widget", "1.2.0", ["widget create"]);
         var delete = CreateInfo("Contoso.Widget", "1.2.0", ["widget delete"]);
 
         var selected = ExtensionCandidateSelector.Select([delete, create]);
+        var reversed = ExtensionCandidateSelector.Select([create, delete]);
 
-        Assert.Same(create, selected.Selected);
+        Assert.Same(delete, selected.Selected);
+        Assert.Same(create, reversed.Selected);
         Assert.Equal(ExtensionSelectionReason.EquivalentVersion, selected.Reason);
         Assert.Single(selected.Ignored);
+    }
+
+    [Fact]
+    public void Select_ShouldPreferFirstCandidate_WhenVersionsDifferOnlyByBuildMetadata()
+    {
+        var first = CreateInfo("Contoso.Widget", "1.2.0+build.2", ["widget zeta"]);
+        var second = CreateInfo("Contoso.Widget", "1.2.0+build.1", ["widget alpha"]);
+
+        var selected = ExtensionCandidateSelector.Select([first, second]);
+
+        Assert.Same(first, selected.Selected);
+        Assert.Equal(ExtensionSelectionReason.EquivalentVersion, selected.Reason);
+    }
+
+    [Fact]
+    public void Select_ShouldPreferFirstPinnedCandidate_WhenSeveralMatchThePin()
+    {
+        var first = CreateInfo("Contoso.Widget", "1.2.0", ["widget zeta"]);
+        var second = CreateInfo("Contoso.Widget", "1.2.0", ["widget alpha"]);
+        var higher = CreateInfo("Contoso.Widget", "1.3.0", ["widget beta"]);
+        var persisted = new ExtensionRegistryEntry { Version = "1.2.0", Pinned = true, InstalledAt = DateTimeOffset.UtcNow };
+
+        var selected = ExtensionCandidateSelector.Select([higher, first, second], persisted);
+
+        Assert.Same(first, selected.Selected);
+        Assert.Equal(ExtensionSelectionReason.Pinned, selected.Reason);
+    }
+
+    [Theory]
+    [InlineData("1.2.0+build.7")]
+    [InlineData("1.2.0.0")]
+    [InlineData("01.2.0")]
+    public void Select_ShouldMatchPin_ByNuGetReleaseVersion_NotText(string installedVersion)
+    {
+        var pinned = CreateInfo("Contoso.Widget", installedVersion, ["widget alpha"]);
+        var higher = CreateInfo("Contoso.Widget", "1.3.0", ["widget beta"]);
+        var persisted = new ExtensionRegistryEntry { Version = "1.2.0", Pinned = true, InstalledAt = DateTimeOffset.UtcNow };
+
+        var selected = ExtensionCandidateSelector.Select([higher, pinned], persisted);
+
+        Assert.Same(pinned, selected.Selected);
+        Assert.Equal(ExtensionSelectionReason.Pinned, selected.Reason);
+
+        var logger = new RecordingLoggingService();
+        ExtensionCandidateSelector.ReportUnresolvablePin("Contoso.Widget", selected, persisted, logger);
+        Assert.Empty(logger.Errors);
+    }
+
+    [Fact]
+    public void Select_ShouldNotMatchPin_WhenOnlyPrereleaseDiffers()
+    {
+        var prerelease = CreateInfo("Contoso.Widget", "1.2.0-beta", ["widget alpha"]);
+        var higher = CreateInfo("Contoso.Widget", "1.3.0", ["widget beta"]);
+        var persisted = new ExtensionRegistryEntry { Version = "1.2.0", Pinned = true, InstalledAt = DateTimeOffset.UtcNow };
+
+        var selected = ExtensionCandidateSelector.Select([prerelease, higher], persisted);
+
+        Assert.Same(higher, selected.Selected);
+        Assert.Equal(ExtensionSelectionReason.HigherVersion, selected.Reason);
     }
 
     [Fact]

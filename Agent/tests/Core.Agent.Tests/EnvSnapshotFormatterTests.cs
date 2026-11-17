@@ -5,7 +5,7 @@ namespace Core.Agent.Tests;
 
 /// <summary>
 /// Contract tests for <see cref="EnvSnapshotFormatter"/> — takes the raw JSON
-/// emitted by <c>az agent tool env</c> and turns it into the
+/// emitted by <c>az agent tool env show</c> and turns it into the
 /// <c>&lt;environment&gt;</c> block the model sees. Assert on visible-to-model
 /// substrings so a rename of a JSON key or a missing field is caught, but not
 /// on exact wrapper-string phrasing.

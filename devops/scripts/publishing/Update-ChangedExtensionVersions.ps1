@@ -53,7 +53,7 @@ function Get-NextPatchVersion {
 function Get-ModuleDependencyPattern {
     param([string] $ModuleName)
 
-    "(?m)^(?<prefix>[^\S\r\n]*@\{[^\S\r\n]*ModuleName[^\S\r\n]*=[^\S\r\n]*'$([regex]::Escape($ModuleName))';[^\S\r\n]*ModuleVersion[^\S\r\n]*=[^\S\r\n]*)'[^']+'(?<suffix>[^\r\n]*)$"
+    "(?m)^(?<prefix>[^\S\r\n]*(?:RequiredModules[^\S\r\n]*=[^\S\r\n]*@\([^\S\r\n]*)?@\{[^\S\r\n]*ModuleName[^\S\r\n]*=[^\S\r\n]*'$([regex]::Escape($ModuleName))';[^\S\r\n]*ModuleVersion[^\S\r\n]*=[^\S\r\n]*)'[^']+'(?<suffix>[^\r\n]*)$"
 }
 
 function Set-LineVersion {
@@ -95,9 +95,17 @@ function Get-FileAtRef {
         [string] $RelativePath
     )
 
+    $paths = @(& git --no-pager -C $Root ls-tree --name-only $Ref -- $RelativePath 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "git ls-tree failed while looking up $RelativePath at $Ref. $($paths -join "`n")"
+    }
+    if ($paths.Count -eq 0) {
+        return $null
+    }
+
     $content = @(& git --no-pager -C $Root show "${Ref}:$RelativePath" 2>&1)
     if ($LASTEXITCODE -ne 0) {
-        return $null
+        throw "git show failed while reading $RelativePath at $Ref. $($content -join "`n")"
     }
 
     $content -join "`n"

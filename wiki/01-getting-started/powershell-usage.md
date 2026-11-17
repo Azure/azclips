@@ -12,7 +12,11 @@ PowerShell users expect object output, pipelines, and cmdlet ergonomics — not 
 
 ## Modules and Cmdlets
 
-The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `Cmdlets.Resources`, `Cmdlets.Compute`, `Cmdlets.Accounts`, and `Cmdlets.Config`. Each ships a `.psd1` manifest and per-module help Markdown under `src/PS/<Module>/help/`.
+Use **PowerShell 7.6 or later**, as required by the Az rollup manifest
+(`src/PS/Az/Az.psd1:10`). The nine feature-module projects are listed in
+`azclips.slnx:79`; each has a `.psd1` manifest and help under `src/PS/<Module>/help/`.
+The `Az` rollup loads feature modules through its `RequiredModules` list
+(`src/PS/Az/Az.psd1:11`).
 
 | Module | Representative cmdlets | Source |
 | --- | --- | --- |
@@ -20,14 +24,18 @@ The cmdlet projects live under `src/PS/` and are listed in `azclips.slnx:40`: `C
 | **Resources** | `New-AzResourceGroup`, `Get-AzResourceGroup`, `New-AzResourceGroupDeployment`, `Invoke-AzRestMethod` | `src/PS/Resources/Cmdlets/NewResourceGroupCmdlet.cs` |
 | **Compute** | `New-AzVM`, `Get-AzVM`, `Remove-AzVM` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
 | **Config** | `Get-AzConfig`, `Set-AzConfig`, `Get-AzConfigList`, `Get-AzConfigInfo`, `Remove-AzConfig` | `src/PS/Config/Cmdlets/SetAzConfigCmdlet.cs` |
+| **Network** | `Get-AzPublicIpAddress`, `New-AzNetworkInterface`, `Get-AzNetworkSecurityGroup` | `src/PS/Network/Network.psd1:1` |
+| **KeyVault** | Secret and certificate lifecycle cmdlets | `src/PS/KeyVault/KeyVault.psd1:1` |
+| **ManagedServiceIdentity**, **MsGraph**, **Storage** | Identity, directory, and storage module surfaces; inspect `Get-Command` for the actual exported commands | `src/PS/Az/Az.psd1:17` |
 
 > **Naming note:** All modules carry the `Az` noun prefix so cmdlet names match Azure PowerShell. Accounts and Config define the prefix via `Constants.CommandPrefix = "Az"` (`src/PS/Accounts/Constants.cs:11`), giving `Connect-AzAccount` and `Set-AzConfig`; Compute and Resources use `Az`-prefixed nouns like `New-AzVM` and `New-AzResourceGroup`.
 
 ### Importing and Using
 
 ```powershell
-# Import a built module (manifests reference artifact DLLs by relative path)
+# First run: dotnet build azclips.slnx (Debug matches the source manifests)
 Import-Module ./src/PS/Accounts/Accounts.psd1
+Import-Module ./src/PS/Resources/Resources.psd1
 Import-Module ./src/PS/Compute/Compute.psd1
 
 # Authenticate, then create a resource group and a VM
@@ -35,14 +43,21 @@ Connect-AzAccount -SubscriptionId <sub-id>
 New-AzResourceGroup -Name myrg -Location eastus -SubscriptionId <sub-id>
 New-AzVM -Name myvm -ResourceGroupName myrg -Location eastus -SubscriptionId <sub-id> `
        -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword <pwd> `
-       -NetworkInterfaceName nic1 -VirtualNetworkName vnet1 -SecurityGroupName nsg1
+       -VirtualNetworkName vnet1 -SecurityGroupName nsg1
 Get-AzVM -ResourceGroupName myrg -SubscriptionId <sub-id>
 
 # Opt out of telemetry via config
 Set-AzConfig -Key telemetry.enabled -Value false
 ```
 
-The `Set-AzConfig -Key telemetry.enabled -Value false` opt-out is the documented PowerShell equivalent of the CLI's `az config set` (`README.md:166`). Note the Compute module declares the Accounts module as a `RequiredModule` (`src/PS/Compute/Compute.psd1:55`), so importing Compute pulls in Accounts automatically.
+Import Config before running `Set-AzConfig`, or import the rollup:
+`Import-Module ./src/PS/Az/Az.psd1`. The rollup brings in all listed feature modules.
+Use `build/Set-ModuleConfiguration.ps1` when staging a different configuration; building
+Release alone does not change source manifests' Debug paths (`AGENTS.md:29`).
+
+The `Set-AzConfig -Key telemetry.enabled -Value false` opt-out is the PowerShell equivalent of
+the CLI's config setting. Compute declares Accounts as a required module
+(`src/PS/Compute/Compute.psd1:55`).
 
 ## Shared Engine, Per-Invocation Output Channel
 

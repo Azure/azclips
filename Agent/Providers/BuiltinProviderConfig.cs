@@ -15,11 +15,12 @@ internal static class BuiltinProviderConfig
 {
     public static async Task<ProviderConfig> BuildAsync(
         BuiltinProviderOptions opts,
+        string baseUrl,
         IAuthService auth,
         CancellationToken ct)
     {
         var authResult = await AcquireAsync(opts, auth, ct).ConfigureAwait(false);
-        return Build(opts, authResult.AccessToken);
+        return Build(opts, baseUrl, authResult.AccessToken);
     }
 
     /// <summary>Acquires the ARM token shared by the builtin provider and boundary lookup.</summary>
@@ -30,16 +31,18 @@ internal static class BuiltinProviderConfig
     public static async Task<AuthResult> AcquireAsync(
         BuiltinProviderOptions opts,
         IAuthService auth,
-        CancellationToken ct)
+        CancellationToken ct,
+        Profile? profile = null)
     {
         AuthResult? authResult;
         try
         {
             authResult = await auth.AcquireTokenSilentlyAsync(
                 scopes: [BuiltinProviderOptions.ArmScope],
-                tenantId: null,
+                tenantId: profile?.TenantId,
                 promptOnError: false,
-                cancellationToken: ct).ConfigureAwait(false);
+                cancellationToken: ct,
+                profile: profile).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -64,12 +67,12 @@ internal static class BuiltinProviderConfig
     }
 
     /// <summary>Builds the SDK provider config from an already-acquired token.</summary>
-    public static ProviderConfig Build(BuiltinProviderOptions opts, string accessToken) =>
+    public static ProviderConfig Build(BuiltinProviderOptions opts, string baseUrl, string accessToken) =>
         new()
         {
             Type = "azure",
             WireApi = "responses",
-            BaseUrl = opts.Endpoint,
+            BaseUrl = baseUrl,
             BearerToken = accessToken,
             ModelId = opts.ModelId,
             WireModel = opts.ModelId,

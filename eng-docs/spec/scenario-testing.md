@@ -59,9 +59,10 @@ cmdlet binder layer are not caught here; those belong to unit tests.
 
 ## Recording Format and Layout
 
-Recordings are versioned JSON with free-form metadata and ordered entries, at
-`tests/<Project>/SessionRecords/<TestClass>/<TestName>.json`, resolved from the repository root so
-record mode writes a committable source file and CI replays that same file. Round-tripping is
+Recordings are versioned JSON with free-form metadata and ordered entries, in a `Records` folder
+next to the module that owns the test, `tests/Scenario.Tests/<Module>/Records/<TestClass>/<TestName>.json`,
+resolved from the repository root and the test's source location so record mode writes a
+committable source file next to its test and CI replays that same file. Round-tripping is
 lossless. `RecordingSession` ties the mode, the canonical path, and per-surface interceptors
 together, so an authored test is a few lines; see the README for the pattern.
 

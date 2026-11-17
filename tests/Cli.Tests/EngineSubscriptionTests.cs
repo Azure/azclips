@@ -29,7 +29,8 @@ public class EngineSubscriptionTests
             new Mock<IAssemblyLoadingService>().Object,
             new Mock<IArgumentParsingService>().Object,
             mockConfig.Object,
-            new Mock<IHttpPipelineService>().Object);
+            new Mock<IHttpPipelineService>().Object,
+            new Core.Telemetry.DataBoundaryResolver(new Mock<IPersistenceStore>().Object, new Mock<IProfileService>().Object));
 
         OutputStreamDelegate noop = (_, _) => Task.CompletedTask;
         var streams = new OutputStreams(noop, noop, noop, noop, noop, noop);

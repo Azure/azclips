@@ -23,7 +23,7 @@ public sealed class ExtensionIndex : IExtensionIndex
             Aliases: [],
             FullName: "Azclips.Tests.Fixtures.SharedBeta.BetaProcessor",
             AssemblyName: "Azclips.Tests.Fixtures.SharedBeta",
-            ProcessorType: typeof(ExtensionIndex),
+            ProcessorType: typeof(BetaProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()),
     };
@@ -41,4 +41,17 @@ public sealed class ExtensionIndex : IExtensionIndex
 
     public IEnumerable<string> GetCommandKeys(ClientType clientType) =>
         clientType == ClientType.CLI ? s_cliTable.Keys : Array.Empty<string>();
+}
+
+public sealed class BetaProcessor : IProcessor
+{
+    private ProcessorContext _context = null!;
+
+    public IProcessor Init(ProcessorContext context)
+    {
+        _context = context;
+        return this;
+    }
+
+    public Task ProcessAsync() => _context.OutputHandler.WriteOutput("beta-payload", CancellationToken.None);
 }

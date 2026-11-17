@@ -85,6 +85,44 @@ Describe 'Get-Cli2YamlDllPath' {
     }
 }
 
+Describe 'Invoke-CliExporter' {
+    It 'passes the selected configuration artifacts directory to the exporter' -ForEach @(
+        @{ Configuration = 'Debug' }
+        @{ Configuration = 'Release' }
+    ) {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $project = Join-Path $root 'export.csproj'
+        New-Item -ItemType Directory -Path (Join-Path $root 'artifacts/cli-export/latest') -Force | Out-Null
+        Set-Content -LiteralPath $project -Value 'fixture'
+        Mock dotnet { $global:LASTEXITCODE = 0; 'exported' }
+
+        Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration $Configuration | Out-Null
+
+        Should -Invoke dotnet -Times 1 -Exactly -ParameterFilter {
+            $args -contains '--artifacts-root' -and
+            $args -contains (Join-Path (Join-Path $root 'artifacts') $Configuration) -and
+            $args -contains $Configuration
+        }
+    }
+
+    It 'requires freshly produced root and command-group files for release output' {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $output = Join-Path $root 'release-output'
+        $latest = Join-Path $output 'latest'
+        New-Item -ItemType Directory -Path $latest -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'export.csproj') -Value 'fixture'
+        Mock dotnet { $global:LASTEXITCODE = 0 }
+
+        { Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration Release -OutputFolder $output -RequireOutput } |
+            Should -Throw '*did not produce the root and command-group JSON*'
+        Set-Content -LiteralPath (Join-Path $latest '_root_.json') -Value '[]'
+        Set-Content -LiteralPath (Join-Path $latest 'group.json') -Value '[]'
+        Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration Release -OutputFolder $output -RequireOutput |
+            Should -Be $latest
+        Should -Invoke dotnet -ParameterFilter { $args -contains '--output-folder' -and $args -contains $output }
+    }
+}
+
 Describe 'Get-TargetVersionFolder' {
     It 'composes docs-ref-autogen/<VersionFolder>' {
         $result = Get-TargetVersionFolder -TargetRepoPath 'fake-target' -VersionFolder 'preview-version'
@@ -452,5 +490,169 @@ Describe 'Remove-ServicePageOutput' {
 
         { Remove-ServicePageOutput -OutputVersionFolder $script:VersionFolder } | Should -Not -Throw
         Test-Path (Join-Path $script:VersionFolder 'latest/vm.yml') | Should -BeTrue
+    }
+}
+
+Describe 'Write-CommandGroupToc' {
+    BeforeEach {
+        $script:VersionFolder = Join-Path ([System.IO.Path]::GetTempPath()) ("azclips-clisync-toc-" + [Guid]::NewGuid().ToString('N'))
+        $script:Latest = Join-Path $script:VersionFolder 'latest'
+        New-Item -ItemType Directory -Path (Join-Path $script:Latest 'agent') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:Latest 'msgraph/group') -Force | Out-Null
+
+        function script:New-GroupYaml([string]$RelPath, [string]$Uid, [string]$Name)
+        {
+            $content = "### YamlMime:AzureCLIGroup`nuid: $Uid`nname: $Name`nsummary: |-`n  s`n"
+            [IO.File]::WriteAllText((Join-Path $script:Latest $RelPath), $content)
+        }
+
+        New-GroupYaml 'reference-index.yml'          'az'                      'az'
+        New-GroupYaml 'vm.yml'                       'az_vm'                   'az vm'
+        New-GroupYaml 'config.yml'                   'az_config'               'az config'
+        New-GroupYaml 'agent.yml'                    'az_agent'                'az agent'
+        New-GroupYaml 'agent/tool.yml'               'az_agent_tool'           'az agent tool'
+        New-GroupYaml 'msgraph.yml'                  'az_msgraph'              'az msgraph'
+        New-GroupYaml 'msgraph/group.yml'            'az_msgraph_group'        'az msgraph group'
+        New-GroupYaml 'msgraph/group/member.yml'     'az_msgraph_group_member' 'az msgraph group member'
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'TOC.yml'), "- name: CLI reference`n  items:`n  - name: azure-cli`n    uid: sp-azure-cli`n")
+    }
+
+    AfterEach {
+        if (Test-Path $script:VersionFolder) { Remove-Item $script:VersionFolder -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'replaces the service-page TOC with a nested command-group tree' {
+        Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder
+
+        $expected = @(
+            '- name: CLI reference'
+            '  displayName: CLI reference'
+            '  items:'
+            '  - name: List A - Z'
+            '    uid: az'
+            '    displayName: List A - Z'
+            '  - name: agent'
+            '    items:'
+            '    - name: Commands'
+            '      uid: az_agent'
+            '      displayName: az agent'
+            '    - name: tool'
+            '      uid: az_agent_tool'
+            '      displayName: az agent tool'
+            '      no-loc:'
+            '      - tool'
+            '    no-loc:'
+            '    - agent'
+            '  - name: config'
+            '    uid: az_config'
+            '    displayName: az config'
+            '    no-loc:'
+            '    - config'
+            '  - name: msgraph'
+            '    items:'
+            '    - name: Commands'
+            '      uid: az_msgraph'
+            '      displayName: az msgraph'
+            '    - name: group'
+            '      items:'
+            '      - name: Commands'
+            '        uid: az_msgraph_group'
+            '        displayName: az msgraph group'
+            '      - name: member'
+            '        uid: az_msgraph_group_member'
+            '        displayName: az msgraph group member'
+            '        no-loc:'
+            '        - member'
+            '      no-loc:'
+            '      - group'
+            '    no-loc:'
+            '    - msgraph'
+            '  - name: vm'
+            '    uid: az_vm'
+            '    displayName: az vm'
+            '    no-loc:'
+            '    - vm'
+        ) -join "`n"
+
+        [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml')) | Should -BeExactly ($expected + "`n")
+    }
+
+    It 'never references the stripped service page' {
+        Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder
+
+        [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml')) | Should -Not -Match 'sp-azure-cli'
+    }
+
+    It 'includes root commands alphabetically without treating nested parameters as commands' {
+        $root = @'
+### YamlMime:AzureCLIGroup
+uid: az
+name: az
+directCommands:
+- uid: az_login
+  name: az login
+  parameters:
+  - name: --tenant
+- uid: az_logout
+  name: az logout
+- uid: az_rest
+  name: az rest
+- uid: az_survey
+  name: az survey
+commands:
+- az_config
+- az_login
+'@
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'reference-index.yml'), $root)
+
+        Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder
+
+        $toc = [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml'))
+        foreach ($command in 'login', 'logout', 'rest', 'survey') {
+            $toc | Should -MatchExactly "  - name: $command\n    uid: az_$command\n    displayName: az $command"
+            [regex]::Matches($toc, "uid: az_$command\b").Count | Should -Be 1
+        }
+        $toc.IndexOf('name: config') | Should -BeLessThan $toc.IndexOf('name: login')
+        $toc.IndexOf('name: logout') | Should -BeLessThan $toc.IndexOf('name: msgraph')
+        $toc | Should -Not -Match 'name: --tenant'
+    }
+
+    It 'rejects malformed root command names' {
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'reference-index.yml'), "uid: az`nname: az`ndirectCommands:`n- uid: az_login`n")
+        { Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder } | Should -Throw '*has no valid name*'
+    }
+
+    It 'rejects a root command that conflicts with a group' {
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'reference-index.yml'), "uid: az`nname: az`ndirectCommands:`n- uid: az_config`n  name: az config`n")
+        { Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder } | Should -Throw '*conflicts*'
+    }
+
+    It 'preserves CRLF line endings from the CLI2Yaml TOC' {
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'TOC.yml'), "- name: CLI reference`r`n")
+
+        Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder
+
+        $text = [IO.File]::ReadAllText((Join-Path $script:Latest 'TOC.yml'))
+        $text | Should -Match "`r`n"
+        ($text -replace "`r`n", '') | Should -Not -Match "`n"
+    }
+
+    It 'writes UTF-8 without a BOM' {
+        Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder
+
+        $bytes = [IO.File]::ReadAllBytes((Join-Path $script:Latest 'TOC.yml'))
+        $bytes[0] | Should -Not -Be 0xEF
+    }
+
+    It 'throws when a generated file has no uid' {
+        [IO.File]::WriteAllText((Join-Path $script:Latest 'broken.yml'), "### YamlMime:AzureCLIGroup`nname: az broken`n")
+
+        { Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder } | Should -Throw '*has no top-level uid*'
+    }
+
+    It 'throws when the latest folder is missing' {
+        Remove-Item $script:Latest -Recurse -Force
+
+        { Write-CommandGroupToc -OutputVersionFolder $script:VersionFolder } | Should -Throw '*does not exist*'
     }
 }

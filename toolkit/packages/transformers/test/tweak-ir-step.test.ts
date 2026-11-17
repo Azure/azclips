@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { parseIR, type IR } from "@azure-client-engine/ir";
+import { IR_SCHEMA_VERSION, parseIR, type IR } from "@azure-client-engine/ir";
 
 import { tweakIrStep } from "../src/index.js";
 
@@ -54,7 +54,7 @@ function enumeration(name: string, namespace: string[], source = MODULE) {
 
 function document(models: unknown[], enums: unknown[] = []): IR {
   return parseIR({
-    schemaVersion: "0.13.0",
+    schemaVersion: IR_SCHEMA_VERSION,
     sources: [
       {
         id: MODULE,

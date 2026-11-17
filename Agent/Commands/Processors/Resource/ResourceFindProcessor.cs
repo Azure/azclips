@@ -27,8 +27,14 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         public override async Task ProcessAsync()
         {
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+            await RunToolCommandAsync(ExecuteToolAsync);
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
+        }
 
-            var (tools, _) = ResourceProcessorSetup.Initialize();
+        private async Task ExecuteToolAsync(Func<string, IDisposable?> activityCreator)
+        {
+            var (tools, _) = ResourceProcessorSetup.Initialize(
+                GetService<IAuthService>(), GetService<IProfileService>(), GetService<HttpClient>(), activityCreator);
             var args = new AIFunctionArguments
             {
                 ["namePattern"] = Name,
@@ -50,7 +56,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
             var result = await tools.FindResources.InvokeAsync(args, Token);
             await WriteOutput(result?.ToString() ?? "{}");
 
-            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }
 }

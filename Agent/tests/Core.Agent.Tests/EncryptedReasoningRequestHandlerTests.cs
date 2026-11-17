@@ -109,6 +109,46 @@ public class EncryptedReasoningRequestHandlerTests
         Assert.Same(request, Assert.Single(upstream.Requests));
     }
 
+    [Fact]
+    public async Task ServedModelHeader_IsStoredAndResponseIsUnchanged()
+    {
+        var original = Json(HttpStatusCode.OK, "{}");
+        original.Headers.TryAddWithoutValidation(ServedModel.HeaderName, "gpt-5.4-mini-2026-03-17");
+        var upstream = new Upstream(original);
+        var servedModel = new ServedModel();
+        using var request = Request(RequestBody);
+
+        using var response = await EncryptedReasoningRequestHandler.SendAndRecordAsync(request, upstream.SendAsync, servedModel, CancellationToken.None);
+
+        Assert.Same(original, response);
+        Assert.Equal("gpt-5.4-mini-2026-03-17", servedModel.Latest);
+        Assert.Equal("gpt-5.4-mini-2026-03-17", servedModel.Turn);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("model with spaces")]
+    public async Task MissingOrInvalidServedModelHeader_ClearsTheResponseModel(string? header)
+    {
+        var valid = Json(HttpStatusCode.OK, "{}");
+        valid.Headers.TryAddWithoutValidation(ServedModel.HeaderName, "gpt-5.4-mini-2026-03-17");
+        var next = Json(HttpStatusCode.OK, "{}");
+        if (header is not null)
+            next.Headers.TryAddWithoutValidation(ServedModel.HeaderName, header);
+        var upstream = new Upstream(valid, next);
+        var servedModel = new ServedModel();
+
+        using var first = Request(RequestBody);
+        using var firstResponse = await EncryptedReasoningRequestHandler.SendAndRecordAsync(first, upstream.SendAsync, servedModel, CancellationToken.None);
+        Assert.Equal("gpt-5.4-mini-2026-03-17", servedModel.Response);
+        using var second = Request(RequestBody);
+        using var secondResponse = await EncryptedReasoningRequestHandler.SendAndRecordAsync(second, upstream.SendAsync, servedModel, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+        Assert.Null(servedModel.Response);
+        Assert.Equal("gpt-5.4-mini-2026-03-17", servedModel.Latest);
+    }
+
     private static bool IsReasoning(JsonNode? item) =>
         item?["type"]?.GetValue<string>() == "reasoning";
 

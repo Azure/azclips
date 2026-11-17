@@ -26,6 +26,67 @@ public sealed class ProfileCliTests
 
     // ── login ──
 
+    [Theory]
+    [InlineData("--identity")]
+    [InlineData("-i")]
+    public async Task Login_ManagedIdentityWithoutSubscription_ShouldFailWithoutWritingProfile(string identityFlag)
+    {
+        using var fixture = new ProfileCliFixture();
+
+        var ex = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(["login", identityFlag]));
+
+        Assert.Contains("subscription-id", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(await fixture.Profiles.GetAllProfilesAsync());
+        Assert.Empty(fixture.RawOutputs);
+    }
+
+    [Theory]
+    [InlineData("browser")]
+    [InlineData("device-code")]
+    [InlineData("managed-identity")]
+    [InlineData("client-secret")]
+    [InlineData("federated")]
+    public async Task Login_WithoutExplicitSubscription_ShouldNotUseActiveProfile(string flow)
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedActiveProfile("existing", ValidSubscriptionId, userPrincipalName: null);
+        string[] authArguments = flow switch
+        {
+            "browser" => [],
+            "device-code" => ["--use-device-code"],
+            "managed-identity" => ["--identity"],
+            "client-secret" => ["--client-id", ValidSubscriptionId, "--tenant-id", ValidSubscriptionId,
+                "--client-secret", "test-secret"],
+            "federated" => ["--service-principal", "--client-id", ValidSubscriptionId,
+                "--tenant-id", ValidSubscriptionId, "--federated-token", "test-assertion"],
+            _ => throw new ArgumentOutOfRangeException(nameof(flow)),
+        };
+
+        var ex = Assert.Throws<InvalidInputException>(() => fixture.ExecuteCli(["login", .. authArguments]));
+
+        Assert.Contains("missing mandatory [--subscription-id]", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(fixture.RawOutputs);
+        Assert.Equal("existing", await fixture.Profiles.GetActiveProfileNameAsync());
+        Assert.Single(await fixture.Profiles.GetAllProfilesAsync());
+    }
+
+    [Fact]
+    public async Task Login_ManagedIdentity_ShouldPersistExplicitSubscription()
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedActiveProfile("existing", SecondValidSubscriptionId, userPrincipalName: null);
+
+        fixture.ExecuteCli(["login", "--identity", "--subscription-id", ValidSubscriptionId]);
+
+        var profile = await fixture.Profiles.GetActiveProfileAsync();
+        Assert.NotNull(profile);
+        Assert.Equal(AuthMethod.ManagedIdentity, profile.AuthMethod);
+        Assert.Equal(ValidSubscriptionId, profile.SubscriptionId);
+        Assert.Equal("MSI@", profile.ManagedIdentityId);
+        fixture.Subscriptions.Verify(s => s.GetSubscriptionByIdAsync(
+            "stub-access-token-for-benchmark", ValidSubscriptionId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task Login_WithOutProfile_ShouldCreateActivateAndReturnProfile()
     {
@@ -133,6 +194,45 @@ public sealed class ProfileCliTests
         Assert.NotNull(prod);
         Assert.Equal(ValidSubscriptionId, prod!.SubscriptionId); // sourced from the existing profile
         Assert.Equal("prod", await fixture.Profiles.GetActiveProfileNameAsync());
+    }
+
+    [Theory]
+    [InlineData("--subscription-id")]
+    [InlineData("--subscription")]
+    [InlineData("-s")]
+    public async Task Login_WithProfileAndSubscription_ShouldRejectUnusedSubscription(string subscriptionFlag)
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile("prod", ValidSubscriptionId);
+
+        var ex = Assert.Throws<InvalidInputException>(() =>
+            fixture.ExecuteCli(["login", "--profile", "prod", subscriptionFlag, SecondValidSubscriptionId]));
+
+        Assert.Contains("does not allow [--subscription-id]", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(fixture.RawOutputs);
+        Assert.Null(await fixture.Profiles.GetActiveProfileNameAsync());
+        Assert.Equal(ValidSubscriptionId, (await fixture.Profiles.GetProfileAsync("prod"))!.SubscriptionId);
+    }
+
+    [Theory]
+    [InlineData("row-profile", "eu-profile")]
+    [InlineData("eu-profile", "row-profile")]
+    public void RepeatedProfile_ParserAndSessionUseLastOccurrence(string firstProfile, string lastProfile)
+    {
+        using var fixture = new ProfileCliFixture();
+        fixture.SeedProfile(firstProfile, ValidSubscriptionId);
+        fixture.SeedProfile(lastProfile, SecondValidSubscriptionId);
+        string[] args = ["login", "--profile", firstProfile, "-Profile", lastProfile];
+        Profile? contextProfile = null;
+
+        fixture.ExecuteCli(args, profile => contextProfile = profile);
+
+        Assert.NotNull(contextProfile);
+        Assert.Equal(lastProfile, contextProfile.Name);
+        Assert.Equal(SecondValidSubscriptionId, contextProfile.SubscriptionId);
+        Assert.Equal(Core.Cli.Program.TryGetProfileOverride(args), contextProfile.Name);
+        var result = AssertProfileResult(fixture.RawOutputs, lastProfile);
+        Assert.Equal(contextProfile.SubscriptionId, result.SubscriptionId);
     }
 
     [Fact]
@@ -431,6 +531,12 @@ public sealed class ProfileCliTests
 
         public ProfileCliFixture()
         {
+            Subscriptions
+                .Setup(s => s.ResolveSubscriptionTenantAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync("00000000-0000-0000-0000-000000000000");
+            Subscriptions
+                .Setup(s => s.GetSubscriptionByIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string _, string id, CancellationToken _) => new SubscriptionInfo(id, "Test", "Enabled"));
             AzclipsServiceProvider.Dispose();
             AzclipsServiceProvider.OverrideRegistration(services =>
             {
@@ -450,7 +556,7 @@ public sealed class ProfileCliTests
             Profiles.SaveProfileAsync(new Profile
             {
                 Name = name,
-                TenantId = "tenant-1",
+                TenantId = "00000000-0000-0000-0000-000000000000",
                 SubscriptionId = subscriptionId,
                 CloudName = "AzureCloud",
                 AuthMethod = AuthMethod.Browser,
@@ -460,7 +566,7 @@ public sealed class ProfileCliTests
             Profiles.SaveProfileAsync(new Profile
             {
                 Name = name,
-                TenantId = "tenant-1",
+                TenantId = "00000000-0000-0000-0000-000000000000",
                 SubscriptionId = subscriptionId,
                 CloudName = "AzureCloud",
                 AuthMethod = AuthMethod.ManagedIdentity,
@@ -478,7 +584,7 @@ public sealed class ProfileCliTests
                 UserPrincipalName = userPrincipalName,
             }).GetAwaiter().GetResult();
 
-        public IReadOnlyList<string> ExecuteCli(string[] args)
+        public IReadOnlyList<string> ExecuteCli(string[] args, Action<Profile?>? onProfileResolved = null)
         {
             _outputs.Clear();
             _rawOutputs.Clear();
@@ -501,6 +607,11 @@ public sealed class ProfileCliTests
                 WriteInformation: (_, _) => Task.CompletedTask);
 
             using ISession session = engine.OpenExecutionSession(invocation, streams, CancellationToken.None);
+            if (onProfileResolved is not null)
+            {
+                session.EventBus.Subscribe(Events.ProcessorContextCreated,
+                    data => onProfileResolved(((EventData)data).Payload as Profile));
+            }
             session.Run();
 
             return _outputs.ToArray();

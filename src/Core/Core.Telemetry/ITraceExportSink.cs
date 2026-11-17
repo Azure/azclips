@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
+
 namespace Core.Telemetry;
 
 /// <summary>Ships replayed traces for one service.</summary>
@@ -11,5 +13,10 @@ internal interface ITraceExportSink
     /// TracerProvider's Resource is immutable and supplies <c>service.name</c>.
     /// Returns true only when the batch flushed successfully.
     /// </summary>
-    bool TryExport(string serviceName, IReadOnlyList<TraceEntry> entries, string? dataBoundary = null);
+    bool TryExport(
+        string serviceName,
+        IReadOnlyList<TraceEntry> entries,
+        UploadRegion? uploadRegion = null,
+        TraceReplayProfile profile = TraceReplayProfile.Legacy,
+        TraceReplayContext? replayContext = null);
 }

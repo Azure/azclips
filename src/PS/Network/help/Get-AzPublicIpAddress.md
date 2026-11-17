@@ -196,16 +196,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIpAddress
+### Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIPAddress
 
 The requested public IP address, or every public IP address in the resource group or subscription when `-Name` is omitted.
 
 ## NOTES
 
-Generated help for network.
-
 ## RELATED LINKS
-
-
-- [Online Version]()
-

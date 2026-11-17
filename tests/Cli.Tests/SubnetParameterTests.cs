@@ -36,16 +36,16 @@ public class SubnetParameterTests
             requestBody ??= request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
             return Json("""{ "name": "web", "properties": { "provisioningState": "Succeeded" } }""");
         });
-        var processor = new NewSubnetProcessor_Customization
+        var processor = new CreateOrUpdateSubnetsProcessor_Customization
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = "my-rg",
             VirtualNetworkName = "my-vnet",
-            Name = "web",
+            SubnetName = "web",
             AddressPrefixes = ["10.0.1.0/24"],
             NetworkSecurityGroup = "web-nsg",
             RouteTable = "web-routes",
-            ServiceEndpoints = ["Microsoft.Storage"],
+            ServiceEndpointServices = ["Microsoft.Storage"],
             DelegatedServices = ["Microsoft.Web/serverFarms"],
             DefaultOutboundAccessValue = false
         };
@@ -73,12 +73,12 @@ public class SubnetParameterTests
             requestBody ??= request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
             return Json("""{ "name": "web", "properties": {} }""");
         });
-        var processor = new NewSubnetProcessor_Customization
+        var processor = new CreateOrUpdateSubnetsProcessor_Customization
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = "my-rg",
             VirtualNetworkName = "my-vnet",
-            Name = "web",
+            SubnetName = "web",
             AddressPrefixes = ["10.0.1.0/24"]
         };
         Init(processor, pipeline, new FakeOutputHandler());
@@ -97,12 +97,12 @@ public class SubnetParameterTests
             requestBody ??= request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
             return Json("""{ "name": "web", "properties": {} }""");
         });
-        var processor = new NewSubnetProcessor_Customization
+        var processor = new CreateOrUpdateSubnetsProcessor_Customization
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = "my-rg",
             VirtualNetworkName = "my-vnet",
-            Name = "web",
+            SubnetName = "web",
             AddressPrefixes = ["10.0.1.0/24"],
             IpamPoolPrefixAllocationSpecs =
             [
@@ -129,7 +129,7 @@ public class SubnetParameterTests
     public async Task List_UnwrapsSubnetEnvelope()
     {
         var output = new FakeOutputHandler();
-        var processor = new ListSubnetProcessor
+        var processor = new ListSubnetsProcessor
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = "my-rg",
@@ -144,55 +144,22 @@ public class SubnetParameterTests
     }
 
     [Fact]
-    public async Task NewSubnetConfig_BuildsAnOfflineSubnetObject()
+    public async Task NewVirtualNetwork_AcceptsSubnetObject()
     {
-        var output = new FakeOutputHandler();
-        var processor = new NewSubnetConfigProcessor_Customization
-        {
-            Name = "web",
-            AddressPrefixes = ["10.0.1.0/24"],
-            ServiceEndpoints = ["Microsoft.Storage"]
-        };
-        Init(processor, new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Subnet config creation must not call ARM.")), output);
-
-        await processor.ProcessAsync();
-
-        var subnet = Assert.IsType<Subnet>(Assert.Single(output.WrittenValues));
-        Assert.Equal("web", subnet.Name);
-        Assert.Equal("10.0.1.0/24", Assert.Single(subnet.Properties.AddressPrefixes ?? []));
-        Assert.Null(subnet.Properties.AddressPrefix);
-        Assert.Equal("Microsoft.Storage", Assert.Single(subnet.Properties.ServiceEndpoints).Service);
-    }
-
-    [Fact]
-    public async Task NewVirtualNetwork_AcceptsSubnetConfigObject()
-    {
-        var configOutput = new FakeOutputHandler();
-        var configProcessor = new NewSubnetConfigProcessor_Customization
-        {
-            Name = "web",
-            AddressPrefixes = ["10.0.1.0/24"]
-        };
-        Init(
-            configProcessor,
-            new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Subnet config creation must not call ARM.")),
-            configOutput);
-        await configProcessor.ProcessAsync();
-
         string? requestBody = null;
         var pipeline = new FakeHttpPipeline((request, _) =>
         {
             requestBody ??= request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
             return Json("""{ "name": "my-vnet", "location": "westus2", "properties": { "addressSpace": { "addressPrefixes": ["10.0.0.0/16"] }, "subnets": [] } }""");
         });
-        var subnet = Assert.IsType<Subnet>(Assert.Single(configOutput.WrittenValues));
-        var processor = new NewVirtualNetworkProcessor_Customization
+        var subnet = new Subnet { Name = "web", AddressPrefixes = ["10.0.1.0/24"] };
+        var processor = new CreateOrUpdateVirtualNetworksProcessor_Customization
         {
             SubscriptionId = SubscriptionId,
             ResourceGroupName = "my-rg",
-            Name = "my-vnet",
+            VirtualNetworkName = "my-vnet",
             Location = "westus2",
-            AddressPrefixes = ["10.0.0.0/16"],
+            AddressSpaceAddressPrefixes = ["10.0.0.0/16"],
             SubnetInputs = [subnet]
         };
         Init(processor, pipeline, new FakeOutputHandler());

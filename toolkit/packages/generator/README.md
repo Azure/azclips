@@ -331,15 +331,35 @@ Nothing is invented. The generator has no built-in host:
 | IR server | emitted on the base |
 |---|---|
 | endpoint pinned (literal, or a template whose parameters all have defaults) | `protected virtual string Endpoint => "https://…";` |
-| template with a parameter the spec gives **no** default (`https://{vaultName}.vault.azure.net`) | `protected virtual string Endpoint => $"https://{VaultName}…";` plus `public string VaultName { get; set; } = string.Empty;` |
-| no usable server at all | `public string Endpoint { get; set; } = string.Empty;` |
+| template with a parameter the spec gives **no** default (`https://{vaultName}.vault.azure.net`) | `protected virtual string Endpoint => $"https://{VaultName}…";` plus `public virtual string VaultName { get; set; } = string.Empty;` |
+| no usable server at all | `public virtual string Endpoint { get; set; } = string.Empty;` |
 
 An undefaulted server parameter is something only the caller can supply, so it
 becomes a **public** input on the base — which is also what puts it in front of
 argument binding and help. Because it lives on the base, a processor whose own
 path/query parameter shares that name does not redeclare it: a server parameter
 and a path parameter of the same name are the same value, and redeclaring would
-hide the inherited member.
+hide the inherited member. Public base members (these inputs and `Profile`) are
+`virtual` so a derived processor can override one to attach its own attributes,
+such as per-dialect visibility.
+
+### Service authentication
+
+`ProcessorBase` also carries the service's OAuth2 values from `IRSource.auth`,
+so token acquisition can use the scopes the spec declares (for example
+`https://storage.azure.com/.default` for Storage Blob) instead of assuming ARM:
+
+```csharp
+protected virtual string? AuthorizationUrl => "https://login.microsoftonline.com/common/oauth2/authorize";
+protected virtual string[] AuthScopes => ["https://storage.azure.com/.default"];
+```
+
+The values come from the first OAuth2 scheme across the auth options. The URL is
+the first authorization URL among its flows, or `null` when none has one (client
+credentials carries only a token URL). The scopes are the de-duplicated union
+across its flows. Across several sources the most common value wins, as for
+`Endpoint`. With no OAuth2 scheme (no auth, API key, Basic/Bearer) neither member
+is emitted. Both are carried only; nothing passes them to token acquisition yet.
 
 ### Multipart metadata (IR 0.9.0)
 

@@ -6,6 +6,8 @@
 # deployment was created from. The arrange step reuses a STABLE deployment name and storage account,
 # so repeated runs overwrite instead of accumulating; nothing to clean up in Azure. The only thing
 # created locally is a temp directory, removed in the finally block.
+# Storage account names are globally unique across Azure, so the account name carries the first
+# 8 characters of the subscription id: stable per subscription, but no clash with other subscriptions.
 #
 # Prereqs:
 #   1. Build the solution: pwsh -File .\build\build.ps1 -Configuration Debug -GenerateHelpArtifacts
@@ -37,7 +39,7 @@ if ([string]::IsNullOrWhiteSpace($subscriptionId)) {
 $tenantId = $env:AZCLIPS_TENANT_ID
 $resourceGroup = if ([string]::IsNullOrWhiteSpace($env:AZCLIPS_RESOURCE_GROUP)) { 'azclips-test-group-1' } else { $env:AZCLIPS_RESOURCE_GROUP }
 $deploymentName = 'azclips-test-deployment-export'
-$storageAccountName = 'azclipsdeploymentexport'
+$storageAccountName = "azclipsexport$($subscriptionId.Substring(0, 8).ToLowerInvariant())"
 $templateFile = Join-Path $PSScriptRoot '..\Bicep\sample-storage.bicep'
 $outputDir = Join-Path ([System.IO.Path]::GetTempPath()) "azclips-export-$([guid]::NewGuid())"
 if ($env:AZCLIPS_DEBUG -eq '1') { $DebugPreference = 'Continue' }

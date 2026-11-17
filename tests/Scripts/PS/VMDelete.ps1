@@ -92,7 +92,6 @@ function New-TestVM {
         -VmSize $VmSize `
         -AdminUsername azadmin `
         -AdminPassword $env:AZCLIPS_VM_ADMIN_PASSWORD `
-        -NetworkInterfaceName "$Prefix-nic-$Suffix" `
         -VirtualNetworkName "$Prefix-vnet-$Suffix" `
         -AddressPrefixes "10.0.0.0/16" `
         -SubnetNames "$Prefix-subnet-$Suffix" `

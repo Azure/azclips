@@ -13,11 +13,14 @@ namespace Core.Tui.Services;
 /// </summary>
 class PromptService
 {
-    private static string AzclipsDir => HomePaths.GetDefaultLocalAppDataRoot();
-
     private readonly IProfileService _profileService;
+    private readonly IPersistenceStore _persistence;
 
-    public PromptService(IProfileService profileService) => _profileService = profileService;
+    public PromptService(IProfileService profileService, IPersistenceStore persistence)
+    {
+        _profileService = profileService;
+        _persistence = persistence;
+    }
 
     // Cached ARM-resolved names
     private string? _cachedTenantId;
@@ -109,7 +112,7 @@ class PromptService
         }
     }
 
-    private static (string? tenantName, string? subName) ResolveNamesFromArm(string tenantId, string subId)
+    private (string? tenantName, string? subName) ResolveNamesFromArm(string tenantId, string subId)
     {
         try
         {
@@ -121,12 +124,12 @@ class PromptService
 
             // Let the factory pick the layout exactly as the auth stack does rather than guessing it.
             // The existence check just avoids a keyring round-trip on every render before first login.
-            var protectedCache = MsalTokenCacheFactory.GetCacheFilePath(plaintextUnsafe: false, cacheDirectory: AzclipsDir);
-            var plaintextCache = MsalTokenCacheFactory.GetCacheFilePath(plaintextUnsafe: true, cacheDirectory: AzclipsDir);
+            var protectedCache = MsalTokenCacheFactory.GetCacheFilePath(plaintextUnsafe: false, persistence: _persistence);
+            var plaintextCache = MsalTokenCacheFactory.GetCacheFilePath(plaintextUnsafe: true, persistence: _persistence);
             if (!File.Exists(protectedCache) && !File.Exists(plaintextCache)) return (null, null);
 
             var cacheHelper = MsalTokenCacheFactory
-                .CreateAsync(cacheDirectory: AzclipsDir)
+                .CreateAsync(_persistence)
                 .GetAwaiter().GetResult().Helper;
             cacheHelper.RegisterCache(app.UserTokenCache);
 

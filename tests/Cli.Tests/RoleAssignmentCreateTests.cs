@@ -9,9 +9,11 @@ using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 
 namespace Cli.Tests;
 
@@ -28,6 +30,8 @@ public class RoleAssignmentCreateTests
     private const string AssigneeObjectId = "11111111-2222-3333-4444-555555555555";
     private const string RoleDefinitionId = "b24988ac-6180-42a0-ab88-20f7382dd24c";
     private const string AssignmentName = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     [Fact]
     public void CliMetadata_ExposesRoleAssignmentCreate()
@@ -120,80 +124,80 @@ public class RoleAssignmentCreateTests
     [Fact]
     public async Task Create_AssigneeAsName_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Assignee = "john@contoso.com";
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "The assignee 'john@contoso.com' is not an object ID (GUID). Name, UPN, and service-principal resolution is not yet supported; specify the principal's object ID (GUID).");
     }
 
     [Fact]
     public async Task Create_AssigneeAndAssigneeObjectId_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Assignee = AssigneeObjectId;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "Specify only one assignee.");
     }
 
     [Fact]
     public async Task Create_RoleAsName_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = "Reader";
-        });
+        }, "The role 'Reader' is not a role definition ID. Role name resolution is not yet supported; specify a role definition GUID, or a fully-qualified role definition ID ending in '/providers/Microsoft.Authorization/roleDefinitions/{guid}'.");
     }
 
     [Fact]
     public async Task Create_MissingPrincipal_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<MissingRequiredArgumentException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "A principal is required. Specify the principal's object ID (GUID) to assign the role to.");
     }
 
     [Fact]
     public async Task Create_NameNotGuid_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
             p.Name = "not-a-guid";
-        });
+        }, "The role assignment name 'not-a-guid' must be a GUID.");
     }
 
     [Fact]
     public async Task Create_MissingRole_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<MissingRequiredArgumentException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.AssigneeObjectId = AssigneeObjectId;
-        });
+        }, "A role is required. Specify the role definition ID (GUID).");
     }
 
     [Fact]
     public async Task Create_ScopeAndResourceGroup_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Scope = $"/subscriptions/{TestSubscriptionId}";
             p.ResourceGroupName = "test-rg";
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "Specify either a scope or a resource group, not both.");
     }
 
     [Fact]
@@ -202,26 +206,26 @@ public class RoleAssignmentCreateTests
         // An explicitly bound but blank -ResourceGroupName/--resource-group must not be silently
         // treated as omitted: that would widen the resolved scope to the whole subscription instead
         // of failing, granting broader access than requested.
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.ResourceGroupName = "   ";
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "Resource group must not be empty.");
     }
 
     [Fact]
     public async Task Create_WhitespaceOnlyScope_Throws()
     {
         // Same concern as above, for an explicitly bound but blank -Scope/--scope.
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Scope = "   ";
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "Scope must not be empty.");
     }
 
     [Fact]
@@ -230,13 +234,13 @@ public class RoleAssignmentCreateTests
         // An explicitly bound empty string (--scope "") is distinct from an unbound (null) scope and
         // must be rejected too, not just whitespace: the CLI parser preserves an empty quoted string
         // verbatim, so this must not be silently treated as "not supplied" either.
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Scope = string.Empty;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "Scope must not be empty.");
     }
 
     [Fact]
@@ -245,37 +249,37 @@ public class RoleAssignmentCreateTests
         // A leading "//" is not a well-formed scope. Left unchecked, Normalize's TrimEnd('/') would
         // collapse an all-slashes value to the same empty string used for the tenant-root scope,
         // silently turning malformed input into a tenant-root role assignment request.
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.Scope = "//";
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "The scope '//' must not start with multiple slashes.");
     }
 
     [Fact]
     public async Task Create_EmptyStringResourceGroup_Throws()
     {
         // Same concern as above, for an explicitly bound empty string --resource-group/-ResourceGroupName.
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.ResourceGroupName = string.Empty;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "Resource group must not be empty.");
     }
 
     [Fact]
     public async Task Create_NoScopeAndNoSubscription_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<MissingRequiredArgumentException>(p =>
         {
             // SubscriptionId left empty and no scope provided.
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
-        });
+        }, "A scope is required. Specify a scope or a resource group, or set an active subscription.");
     }
 
     [Fact]
@@ -365,13 +369,13 @@ public class RoleAssignmentCreateTests
     [Fact]
     public async Task Create_ConditionVersionWithoutCondition_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
             p.ConditionVersion = "2.0";
-        });
+        }, "A condition version was specified without a condition. Specify a condition, or omit the condition version.");
     }
 
     [Fact]
@@ -380,39 +384,39 @@ public class RoleAssignmentCreateTests
         // An explicitly bound but blank --condition/-Condition must not be silently treated as
         // omitted: that would turn an intended conditional (restricted) grant into an unconditional
         // one instead of failing.
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
             p.Condition = "   ";
-        });
+        }, "Condition must not be empty.");
     }
 
     [Fact]
     public async Task Create_EmptyStringCondition_Throws()
     {
         // Same concern as above, for an explicitly bound empty string --condition "".
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
             p.Condition = string.Empty;
-        });
+        }, "Condition must not be empty.");
     }
 
     [Fact]
     public async Task Create_UnsupportedConditionVersion_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = RoleDefinitionId;
             p.Condition = "@Resource[foo:Name] stringEquals 'bar'";
             p.ConditionVersion = "1.0";
-        });
+        }, "The condition version '1.0' is not supported. The only supported condition version is '2.0'.");
     }
 
     [Fact]
@@ -433,12 +437,12 @@ public class RoleAssignmentCreateTests
     [Fact]
     public async Task Create_InvalidRoleDefinitionPath_Throws()
     {
-        await AssertThrows(p =>
+        await AssertThrows<UsageErrorException>(p =>
         {
             p.SubscriptionId = TestSubscriptionId;
             p.AssigneeObjectId = AssigneeObjectId;
             p.RoleDefinitionId = "/not-a-role";
-        });
+        }, "The role '/not-a-role' is not a valid role definition ID. Specify a role definition GUID, or a fully-qualified role definition ID ending in '/providers/Microsoft.Authorization/roleDefinitions/{guid}'.");
     }
 
     [Fact]
@@ -477,8 +481,7 @@ public class RoleAssignmentCreateTests
                 ["role"] = Value(RoleDefinitionId),
                 ["assignee-object-id"] = Value(AssigneeObjectId),
             },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = TestSubscriptionId });
 
         Assert.Equal("test-rg", processor.ResourceGroupName);
@@ -918,6 +921,57 @@ public class RoleAssignmentCreateTests
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
 
+    [Fact]
+    public async Task ProcessAsync_AssigneeObjectIdNotGuid_ThrowsUsageError()
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
+        {
+            SubscriptionId = TestSubscriptionId,
+            AssigneeObjectId = " not-a-guid ",
+            RoleDefinitionId = RoleDefinitionId,
+        }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("The assignee object ID 'not-a-guid' is not a valid object ID (GUID).", Assert.IsType<UsageErrorException>(exception).Message);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessAsync_BlankAssigneeObjectId_ThrowsMissingRequiredArgument(string assigneeObjectId)
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
+        {
+            SubscriptionId = TestSubscriptionId,
+            AssigneeObjectId = assigneeObjectId,
+            RoleDefinitionId = RoleDefinitionId,
+        }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal(
+            "A principal is required. Specify the principal's object ID (GUID) to assign the role to.",
+            Assert.IsType<MissingRequiredArgumentException>(exception).Message);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessAsync_BlankRole_ThrowsMissingRequiredArgument(string role)
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
+        {
+            SubscriptionId = TestSubscriptionId,
+            AssigneeObjectId = AssigneeObjectId,
+            RoleDefinitionId = role,
+        }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("A role is required. Specify the role definition ID (GUID).", Assert.IsType<MissingRequiredArgumentException>(exception).Message);
+    }
+
     private static async Task<(Uri Uri, HttpMethod Method, JsonElement Body)> Capture(Action<NewRoleAssignmentProcessor_Orchestrator> configure)
     {
         Uri? sentUri = null;
@@ -939,14 +993,16 @@ public class RoleAssignmentCreateTests
         return (sentUri!, sentMethod!, doc.RootElement.Clone());
     }
 
-    private static async Task AssertThrows(Action<NewRoleAssignmentProcessor_Orchestrator> configure)
+    private static async Task AssertThrows<TException>(Action<NewRoleAssignmentProcessor_Orchestrator> configure, string expectedMessage)
+        where TException : UsageErrorException
     {
         var output = new FakeOutputHandler();
         var pipeline = new FakeHttpPipeline((_, _) => JsonResponse("{}"));
         NewRoleAssignmentProcessor_Orchestrator processor = CreateProcessor(pipeline, output);
         configure(processor);
 
-        UsageErrorException ex = await Assert.ThrowsAnyAsync<UsageErrorException>(() => processor.ProcessAsync());
+        TException ex = await Assert.ThrowsAsync<TException>(() => processor.ProcessAsync());
+        Assert.Equal(expectedMessage, ex.Message);
         Assert.DoesNotContain("--", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
@@ -978,7 +1034,7 @@ public class RoleAssignmentCreateTests
         var logging = new ConsoleLoggingService();
         return new ArgumentParsingService(
             new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService()));
+            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
     }
 
     private static List<List<string>> Value(string value) => [new() { value }];

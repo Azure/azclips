@@ -23,6 +23,7 @@ public sealed class SetConfigCommand : ConfigCommandBase
 
         var parsedValue = ParseValue(Value);
         await GetConfigurationService().SetConfigurationAsync(Key, parsedValue, Force, CancellationToken).ConfigureAwait(false);
+        await NotifyChangeHandlersAsync(Key, parsedValue, deleted: false).ConfigureAwait(false);
         await WriteOutput($"Set {Key} = {FormatValue(parsedValue)}", CancellationToken).ConfigureAwait(false);
     }
 }

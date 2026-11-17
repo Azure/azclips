@@ -5,22 +5,25 @@ namespace Core.Cli;
 
 using System.Reflection;
 using Core.Abstractions;
-using Core.Extensions;
 
 public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
 {
-    private readonly IEnumerable<IExtensionLoader> _extensionLoaders;
+    private readonly IReadOnlyList<IExtensionLoader> _extensionLoaders;
     private readonly ILoggingService _loggingService;
-    private readonly IExtensionRegistryStore _registryStore;
+    private readonly SelectedExtensionLocations? _selectedLocations;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, IExtensionLoader> _loaderByLocation =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public CLIAssemblyLoadingProvider(
         IEnumerable<IExtensionLoader> extensionLoaders,
         ILoggingService loggingService,
-        IExtensionRegistryStore registryStore)
+        SelectedExtensionLocations? selectedLocations = null)
     {
-        _extensionLoaders = extensionLoaders;
+        // Enumeration and search order is by tier (Bundled, then Installed), not registration
+        // order. Equal-version candidates are selected in this order, so it decides which wins.
+        _extensionLoaders = extensionLoaders.OrderBy(static loader => loader.Tier).ToList();
         _loggingService = loggingService;
-        _registryStore = registryStore;
+        _selectedLocations = selectedLocations;
     }
 
     private Assembly? LoadExtensionFromLoaders(string extensionName, string? version = null) => _extensionLoaders
@@ -30,78 +33,61 @@ public class CLIAssemblyLoadingProvider : IAssemblyLoadingProvider
     public Assembly LoadExtension(string extensionName, string? extensionVersion = null)
     {
         _loggingService.Info($"Processing command with extension '{extensionName}'.");
-        return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
+
+        if (_selectedLocations?.TryGet(extensionName, extensionVersion, out var location) == true)
+        {
+            return LoadSelected(extensionName, extensionVersion, location);
+        }
+
+        return LoadExtensionFromLoaders(extensionName, extensionVersion) ?? throw new ExtensionLoadException($"Extension '{extensionName}' could not be found by any extension loader.");
     }
 
+    /// <summary>
+    /// Loads the DLL at a location this provider reported from <see cref="GetAllInstalledExtensions"/>,
+    /// through the loader that reported it. Never re-searches by name and version.
+    /// </summary>
+    public Assembly LoadExtensionAt(string extensionName, string? extensionVersion, string location)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(location);
+        return LoadSelected(extensionName, extensionVersion, location);
+    }
+
+    /// <summary>
+    /// Loads the DLL routing selected, through the loader that reported it. Fails rather than
+    /// re-searching, because a search could load a different copy than the one routed to.
+    /// </summary>
+    private Assembly LoadSelected(string extensionName, string? extensionVersion, string location)
+    {
+        _loggingService.Debug($"[{nameof(CLIAssemblyLoadingProvider)}] Loading '{extensionName}' (version='{extensionVersion ?? "any"}') from '{location}'.");
+        if (!_loaderByLocation.TryGetValue(location, out var loader))
+        {
+            throw new ExtensionLoadException($"Extension '{extensionName}' is at '{location}', but no extension loader reported that location.");
+        }
+
+        return loader.LoadExtensionFromPath(extensionName, extensionVersion, location)
+            ?? throw new ExtensionLoadException($"Extension '{extensionName}' could not be loaded from '{location}'. It may have been removed; run the command again.");
+    }
+
+    /// <summary>
+    /// Reports every copy each loader finds, in tier order. Selection (pins, highest version,
+    /// tier) is left to <c>ExtensionCandidateSelector</c>; this method doesn't choose between copies.
+    /// </summary>
     public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
     {
         var result = new List<InstalledExtensionRef>();
-        var registry = TryLoadRegistry();
 
         foreach (var loader in _extensionLoaders)
         {
             foreach (var (name, version, location) in loader.GetInstalledExtensions())
             {
-                var effectiveVersion = version;
-                var effectiveLocation = location;
-                if (ShouldOverrideWithPinnedVersion(loader, version, registry, name, out var pinnedVersion) &&
-                    !string.Equals(pinnedVersion, version, StringComparison.OrdinalIgnoreCase))
+                result.Add(new InstalledExtensionRef(name, version, location));
+                if (location is not null)
                 {
-                    effectiveVersion = pinnedVersion;
-                    // Pin routes to a different version than what the loader discovered; the
-                    // reported Location points at the discovered version's DLL, not the pinned
-                    // one. Null it out rather than returning a path that disagrees with dispatch.
-                    // When the pin matches the discovered version, keep Location intact —
-                    // dispatch loads that exact DLL.
-                    effectiveLocation = null;
+                    _loaderByLocation[location] = loader;
                 }
-
-                result.Add(new InstalledExtensionRef(name, effectiveVersion, effectiveLocation));
             }
         }
 
         return result.Count > 0 ? result : null;
-    }
-
-    private ExtensionRegistry? TryLoadRegistry()
-    {
-        try
-        {
-            return _registryStore.Load();
-        }
-        catch (Exception ex)
-        {
-            _loggingService.Debug($"Failed to load extension registry during discovery: {ex.Message}");
-            return null;
-        }
-    }
-
-    private static bool ShouldOverrideWithPinnedVersion(
-        IExtensionLoader loader,
-        string? discoveredVersion,
-        ExtensionRegistry? registry,
-        string extensionName,
-        out string pinnedVersion)
-    {
-        pinnedVersion = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(discoveredVersion) ||
-            loader is BundledExtensionLoader ||
-            registry is null ||
-            !RegistryLookup.TryFind(registry, extensionName, out var match) ||
-            !match.Value.Pinned ||
-            string.IsNullOrWhiteSpace(match.Value.Version))
-        {
-            return false;
-        }
-
-        if (loader is InstalledExtensionLoader installedLoader &&
-            !installedLoader.HasInstalledVersion(extensionName, match.Value.Version))
-        {
-            return false;
-        }
-
-        pinnedVersion = match.Value.Version;
-        return true;
     }
 }

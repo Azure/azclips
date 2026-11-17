@@ -74,13 +74,20 @@ internal static class CliOutputFormatter
         OutputFormat simpleFormat,
         bool colorPolicyAllowsColor,
         string? query,
+        out OutputFormat selectedFormat,
         int? terminalWidth = null)
     {
         if (TryFormatWithoutRendering(value, query, out var raw))
+        {
+            selectedFormat = value is SerializedJson
+                ? SelectFormat(raw, complexFormat, simpleFormat)
+                : simpleFormat;
             return raw;
+        }
 
         var json = ComputeJson(value, query);
-        return RenderFormattedJson(json, SelectFormat(json, complexFormat, simpleFormat), colorPolicyAllowsColor, terminalWidth);
+        selectedFormat = SelectFormat(json, complexFormat, simpleFormat);
+        return RenderFormattedJson(json, selectedFormat, colorPolicyAllowsColor, terminalWidth);
     }
 
     /// <summary>

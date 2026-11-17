@@ -24,6 +24,9 @@ public sealed class EventRenderer
     public Action<AgentEvent>? OnEvent { get; set; }
     public Action<string>? OnText { get; set; }
 
+    /// <summary>Returns the model the gateway served, or null when it is not known.</summary>
+    internal Func<string?>? ServedModel { get; set; }
+
     // Keyed by ToolCallId. ToolExecutionCompleteData carries neither ToolName
     // nor an elapsed/duration field, so we side-channel both from the matching
     // Start event. Both entries are TryRemove'd on Complete so a long session
@@ -116,7 +119,7 @@ public sealed class EventRenderer
             case AssistantUsageEvent usage:
                 var turnElapsed = Stopwatch.GetElapsedTime(_turnStartTs);
                 OnEvent?.Invoke(new LlmTurnCompleted(
-                    Model: usage.Data?.Model ?? "unknown",
+                    Model: ServedModel?.Invoke() ?? usage.Data?.Model ?? "unknown",
                     InputTokens: (int)(usage.Data?.InputTokens ?? 0),
                     OutputTokens: (int)(usage.Data?.OutputTokens ?? 0),
                     CachedTokens: (int)(usage.Data?.CacheReadTokens ?? 0),

@@ -10,7 +10,14 @@ using Core.Runtime;
 
 namespace Core.Cli;
 
-internal sealed class ExtensionRoutingDiscovery(IAssemblyLoadingService assemblyLoadingService, ILoggingService loggingService)
+/// <param name="loadAt">
+/// Loads the DLL at an enumerated installation's own location. When set, the DLL fallback reads
+/// the copy it enumerated instead of searching loaders by name and version.
+/// </param>
+internal sealed class ExtensionRoutingDiscovery(
+    IAssemblyLoadingService assemblyLoadingService,
+    ILoggingService loggingService,
+    Func<string, string?, string, System.Reflection.Assembly>? loadAt = null)
 {
     public IReadOnlyList<ExtensionRoutingInfo> Discover()
     {
@@ -44,15 +51,22 @@ internal sealed class ExtensionRoutingDiscovery(IAssemblyLoadingService assembly
                 try
                 {
                     System.Reflection.Assembly assembly;
-                    try
+                    if (loadAt is not null && info.Location is not null)
                     {
-                        assembly = load();
+                        assembly = loadAt(info.Name, info.Version, info.Location);
                     }
-                    catch (InvalidOperationException ex) when (
-                        !string.IsNullOrWhiteSpace(info.Version) &&
-                        ex.Message.Contains("could not be found by any extension loader", StringComparison.OrdinalIgnoreCase))
+                    else
                     {
-                        assembly = assemblyLoadingService.LoadExtension(info.Name, string.Empty);
+                        try
+                        {
+                            assembly = load();
+                        }
+                        catch (InvalidOperationException ex) when (
+                            !string.IsNullOrWhiteSpace(info.Version) &&
+                            ex.Message.Contains("could not be found by any extension loader", StringComparison.OrdinalIgnoreCase))
+                        {
+                            assembly = assemblyLoadingService.LoadExtension(info.Name, string.Empty);
+                        }
                     }
                     var index = assembly.GetExtensionIndex();
                     var commands = index.GetAllCommands(ClientType.CLI).ToArray();

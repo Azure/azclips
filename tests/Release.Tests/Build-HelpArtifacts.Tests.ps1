@@ -54,6 +54,175 @@ exit $LASTEXITCODE
     }
 }
 
+Describe 'MAML example normalization' {
+    BeforeAll {
+        $tokens = $null
+        $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($buildScriptPath, [ref]$tokens, [ref]$parseErrors)
+        $parseErrors | Should -BeNullOrEmpty
+        $repair = $ast.Find({
+            param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                $node.Name -eq 'Repair-MamlExampleCodeBlocks'
+        }, $true)
+        . ([scriptblock]::Create($repair.Extent.Text))
+
+        $mamlTemplate = @'
+<helpItems schema="maml">
+  <command:command xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10"
+    xmlns:maml="http://schemas.microsoft.com/maml/2004/10"
+    xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>__NAME__</command:name>
+      <maml:description><maml:para>Fixture help.</maml:para></maml:description>
+      <command:verb>Get</command:verb><command:noun>Fixture</command:noun>
+    </command:details>
+    <maml:description><maml:para>Fixture help.</maml:para></maml:description>
+    <command:syntax />
+    <command:examples>
+      <command:example>
+        <maml:title>Fixture example</maml:title>
+        __EXAMPLE__
+        <dev:remarks />
+      </command:example>
+    </command:examples>
+  </command:command>
+</helpItems>
+'@
+    }
+
+    BeforeEach {
+        $commandName = 'Get-Fixture' + [guid]::NewGuid().ToString('N')
+        $path = Join-Path $TestDrive "$commandName.xml"
+    }
+
+    It 'normalizes <Scenario> without losing content and is idempotent' -ForEach @(
+        @{
+            Scenario = 'an exported entity separator and tagged code fence'
+            Example = '<maml:introduction><maml:para>Description.</maml:para><maml:para>&#x80;</maml:para><maml:para>```powershell' + "`nGet-Fixture`n" + '```</maml:para></maml:introduction><dev:code />'
+            ExpectedParagraphs = @("Description.`n`n")
+            ExpectedCode = 'Get-Fixture'
+        }
+        @{
+            Scenario = 'literal separators between multiple description paragraphs'
+            Example = '<maml:introduction><maml:para>First paragraph.</maml:para><maml:para>' + [char]0x80 + '</maml:para><maml:para>Second paragraph.</maml:para><maml:para>' + [char]0x80 + '</maml:para></maml:introduction><dev:code>Get-Fixture</dev:code>'
+            ExpectedParagraphs = @("First paragraph.`n", "Second paragraph.`n`n")
+            ExpectedCode = 'Get-Fixture'
+        }
+        @{
+            Scenario = 'multiple fenced code blocks'
+            Example = '<maml:introduction><maml:para>Description.</maml:para><maml:para>&#x80;</maml:para><maml:para>```powershell' + "`nGet-Fixture`n" + '```</maml:para><maml:para>&#x80;</maml:para><maml:para>```' + "`nGet-Fixture -Full`n" + '```</maml:para></maml:introduction>'
+            ExpectedParagraphs = @("Description.`n`n")
+            ExpectedCode = "Get-Fixture`n`nGet-Fixture -Full"
+        }
+        @{
+            Scenario = 'an already populated code node'
+            Example = '<maml:introduction><maml:para>Description.</maml:para><maml:para>&#x80;</maml:para></maml:introduction><dev:code>Get-Fixture -Full</dev:code>'
+            ExpectedParagraphs = @("Description.`n`n")
+            ExpectedCode = 'Get-Fixture -Full'
+        }
+        @{
+            Scenario = 'a code-only example'
+            Example = '<maml:introduction><maml:para>```powershell' + "`nGet-Fixture`n" + '```</maml:para></maml:introduction><dev:code />'
+            ExpectedParagraphs = @()
+            ExpectedCode = 'Get-Fixture'
+        }
+        @{
+            Scenario = 'an example without an introduction'
+            Example = '<dev:code>Get-Fixture</dev:code>'
+            ExpectedParagraphs = @()
+            ExpectedCode = 'Get-Fixture'
+        }
+        @{
+            Scenario = 'an existing description without a separator'
+            Example = '<maml:introduction><maml:para>Description.</maml:para></maml:introduction><dev:code>Get-Fixture</dev:code>'
+            ExpectedParagraphs = @("Description.`n`n")
+            ExpectedCode = 'Get-Fixture'
+        }
+        @{
+            Scenario = 'a description with an existing line break'
+            Example = '<maml:introduction><maml:para>Description.' + "`n" + '</maml:para></maml:introduction><dev:code>Get-Fixture</dev:code>'
+            ExpectedParagraphs = @("Description.`n`n")
+            ExpectedCode = 'Get-Fixture'
+        }
+        @{
+            Scenario = 'a description with an existing blank line'
+            Example = '<maml:introduction><maml:para>Description.' + "`n`n" + '</maml:para></maml:introduction><dev:code>Get-Fixture</dev:code>'
+            ExpectedParagraphs = @("Description.`n`n")
+            ExpectedCode = 'Get-Fixture'
+        }
+        @{
+            Scenario = 'an inline control character that is not a generated separator'
+            Example = '<maml:introduction><maml:para>Keep ' + [char]0x80 + ' this text.</maml:para></maml:introduction><dev:code>Get-Fixture</dev:code>'
+            ExpectedParagraphs = @("Keep $([char]0x80) this text.`n`n")
+            ExpectedCode = 'Get-Fixture'
+        }
+    ) {
+        $xml = $mamlTemplate.Replace('__NAME__', $commandName).Replace('__EXAMPLE__', $Example)
+        Set-Content -LiteralPath $path -Value $xml -Encoding utf8NoBOM
+
+        Repair-MamlExampleCodeBlocks -Path $path
+
+        [xml]$doc = Get-Content -LiteralPath $path -Raw
+        $ns = [System.Xml.XmlNamespaceManager]::new($doc.NameTable)
+        $ns.AddNamespace('maml', 'http://schemas.microsoft.com/maml/2004/10')
+        $ns.AddNamespace('dev', 'http://schemas.microsoft.com/maml/dev/2004/10')
+        $paragraphs = $doc.SelectNodes('//maml:introduction/maml:para', $ns)
+        $paragraphs.Count | Should -Be $ExpectedParagraphs.Count
+        for ($i = 0; $i -lt $paragraphs.Count; $i++) {
+            $paragraphs[$i].InnerText | Should -BeExactly $ExpectedParagraphs[$i]
+        }
+        $doc.SelectSingleNode('//dev:code', $ns).InnerText | Should -BeExactly $ExpectedCode
+
+        $firstResult = Get-Content -LiteralPath $path -Raw
+        Repair-MamlExampleCodeBlocks -Path $path
+        (Get-Content -LiteralPath $path -Raw) | Should -BeExactly $firstResult
+    }
+
+    It 'renders a blank line before code without control characters in <View> with <Separator> separators' -ForEach @(
+        @{ View = 'Examples'; Separator = 'entity' }
+        @{ View = 'Full'; Separator = 'entity' }
+        @{ View = 'Examples'; Separator = 'literal' }
+        @{ View = 'Full'; Separator = 'literal' }
+    ) {
+        $example = @'
+<maml:introduction>
+  <maml:para>First description paragraph.</maml:para>
+  <maml:para>&#x80;</maml:para>
+  <maml:para>Second description paragraph.</maml:para>
+  <maml:para>&#x80;</maml:para>
+  <maml:para>```powershell
+Get-Fixture -Name example
+```</maml:para>
+</maml:introduction>
+<dev:code />
+'@
+        if ($Separator -eq 'literal') {
+            $example = $example.Replace('&#x80;', [string][char]0x80)
+        }
+        $xml = $mamlTemplate.Replace('__NAME__', $commandName).Replace('__EXAMPLE__', $example)
+        Set-Content -LiteralPath $path -Value $xml -Encoding utf8NoBOM
+        Repair-MamlExampleCodeBlocks -Path $path
+
+        $functionBody = [scriptblock]::Create("<#`n.EXTERNALHELP $path`n#>`n[CmdletBinding()]param()")
+        Set-Item -Path "Function:\$commandName" -Value $functionBody
+        try {
+            $parameters = @{ Name = $commandName }
+            $parameters[$View] = $true
+            $help = Get-Help @parameters
+            foreach ($width in @(60, 100)) {
+                $formatted = $help | Out-String -Width $width
+                $formatted.Contains([char]0x80) | Should -BeFalse
+                $formatted | Should -Match 'First description paragraph\.\r?\n[ \t]+Second description paragraph\.\r?\n[ \t]*\r?\n[ \t]+Get-Fixture -Name example'
+                $formatted | Should -Not -Match '```'
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath "Function:\$commandName"
+        }
+    }
+}
+
 Describe 'Packaged module dependencies' {
     It 'aligns the KeyVault Accounts dependency with the shipped package' {
         $psRoot = Join-Path $PSScriptRoot '../../src/PS'

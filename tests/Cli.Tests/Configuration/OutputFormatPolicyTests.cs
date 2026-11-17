@@ -91,4 +91,5 @@ public class OutputFormatPolicyTests
 
         Assert.Equal(OutputFormat.Tsv, effective);
     }
+
 }

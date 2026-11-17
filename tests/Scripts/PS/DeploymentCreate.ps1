@@ -95,6 +95,7 @@ try {
 # The .bicepparam supplies storageAccountName=azclipsbicep0001 (the base); the repeatable
 # -Parameter (KEY=VALUE) overrides it with a unique, timestamped value, proving inline
 # overlays the file. -ValidationLevel Provider runs full provider validation during deploy.
+# Storage account names max out at 24 characters and the stamp takes 12, so prefixes stay <= 12.
 $stamp = (Get-Date -Format 'yyMMddHHmmss')
 New-AzResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
@@ -102,7 +103,7 @@ New-AzResourceGroupDeployment `
     -Name "azclips-test-inline-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
-    -Parameter "storageAccountName=azclipsinline$stamp" `
+    -Parameter "storageAccountName=azclipsinl$stamp" `
     -ValidationLevel Provider `
     -Mode Incremental
 
@@ -112,7 +113,7 @@ New-AzResourceGroupDeployment `
     -ResourceGroupName azclips-test-group-1 `
     -Name "azclips-test-vlevel-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
-    -Parameter "storageAccountName=azclipsvlevel$stamp" `
+    -Parameter "storageAccountName=azclipslvl$stamp" `
     -ValidationLevel Provider `
     -Mode Incremental
 

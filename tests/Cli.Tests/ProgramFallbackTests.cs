@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Xunit;
+using Core.Abstractions;
 
 namespace Cli.Tests;
 
@@ -11,8 +12,27 @@ namespace Cli.Tests;
 /// Tests timeout after 10 seconds - we only verify fallback is invoked, not the AI response.
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
-public class ProgramFallbackTests
+public class ProgramFallbackTests : IDisposable
 {
+    private readonly string home = Directory.CreateTempSubdirectory("azclips-fallback-tests-").FullName;
+    private readonly string? previousHome = Environment.GetEnvironmentVariable(HomePaths.HomeOverrideVariable);
+    private readonly string? previousAgentMode = Environment.GetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE");
+
+    public ProgramFallbackTests()
+    {
+        Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, home);
+        Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", "1");
+        File.WriteAllText(Path.Combine(home, "config.json"),
+            """{"agent":{"recovery":{"trigger":"off"}},"telemetry":{"enabled":false}}""");
+    }
+
+    public void Dispose()
+    {
+        Environment.SetEnvironmentVariable(HomePaths.HomeOverrideVariable, previousHome);
+        Environment.SetEnvironmentVariable("AZCLIPS_IN_AGENT_MODE", previousAgentMode);
+        Directory.Delete(home, recursive: true);
+    }
+
     [Fact]
     public async Task Fallback_ShouldNotBeInvoked_ForHelpFlags()
     {
@@ -107,4 +127,3 @@ public class ProgramFallbackTests
         }
     }
 }
-

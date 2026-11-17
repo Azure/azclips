@@ -12,7 +12,10 @@ public record RuntimeHelpGroup(
     string GroupPath,
     string Summary,
     IReadOnlyList<RuntimeHelpGroupSummary> Subgroups,
-    IReadOnlyList<RuntimeHelpCommandSummary> Commands);
+    IReadOnlyList<RuntimeHelpCommandSummary> Commands)
+{
+    public HelpTag[] RootCommandTags { get; init; } = [];
+}
 
 /// <summary>
 /// Represents a command summary row displayed in group help.

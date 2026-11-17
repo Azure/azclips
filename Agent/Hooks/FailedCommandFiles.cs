@@ -13,7 +13,7 @@ namespace Core.Agent.Hooks;
 internal sealed class FailedCommandFiles
 {
     // The CLI starts the agent in its install directory and forwards the directory that the
-    // user ran az from. The name must match Program.CallerCwdEnvVar, as in EnvironmentProber.
+    // user ran az from. The name must match AgentLauncher.CallerCwdEnvVar, as in EnvironmentProber.
     internal const string CallerDirectoryVariable = "AZCLIPS_CALLER_CWD";
 
     private static readonly StringComparer PathComparer =
@@ -63,7 +63,7 @@ internal sealed class FailedCommandFiles
         && TryGetFullPath(path, Path.GetPathRoot(path)!, out var fullPath)
         && _paths.Contains(fullPath);
 
-    // Splits a command that Program.JoinShellQuoted built: arguments are joined with spaces, and an
+    // Splits a command that AgentLauncher.JoinShellQuoted built: arguments are joined with spaces, and an
     // argument with a space, a tab or a quote is wrapped in quotes. Any other character, such as a
     // line break, belongs to its argument. An argument with an unterminated quote is dropped, so no
     // fragment of it can name a file.

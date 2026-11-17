@@ -1,0 +1,54 @@
+parameters:
+- name: output_directory
+  type: string
+- name: update_root_notice
+  type: boolean
+  default: false
+
+steps:
+- task: PowerShell@2
+  name: PrepareNoticeResults
+  displayName: Prepare NOTICE Results Directory
+  inputs:
+    targetType: inline
+    pwsh: true
+    script: |
+      New-Item -ItemType Directory -Force -Path '${{ parameters.output_directory }}' | Out-Null
+      Write-Host '##vso[task.setvariable variable=Ready;isOutput=true]true'
+
+- task: UseDotNet@2
+  displayName: .NET SDK
+  inputs:
+    packageType: sdk
+    useGlobalJson: true
+
+- task: PowerShell@2
+  displayName: Restore .NET Dependencies For Component Governance
+  inputs:
+    targetType: inline
+    pwsh: true
+    script: |
+      dotnet restore '$(Build.SourcesDirectory)/azclips.slnx'
+      if ($LASTEXITCODE -ne 0) {
+        throw "Dependency restore failed with exit code $LASTEXITCODE."
+      }
+
+- task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
+  displayName: Submit Component Governance Inventory
+
+- task: notice@0
+  displayName: Generate Official CG NOTICE
+  inputs:
+    outputfile: '${{ parameters.output_directory }}/NOTICE.generated'
+    outputformat: text
+
+- task: PowerShell@2
+  displayName: Compare Official NOTICE With Committed NOTICE
+  inputs:
+    targetType: inline
+    pwsh: true
+    script: |
+      & '$(Build.SourcesDirectory)/devops/scripts/compliance/Update-CgNotice.ps1' `
+        -RepoRoot '$(Build.SourcesDirectory)' `
+        -GeneratedPath '${{ parameters.output_directory }}/NOTICE.generated' `
+        -UpdateRootNotice:('${{ parameters.update_root_notice }}' -eq 'true')

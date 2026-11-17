@@ -18,6 +18,7 @@ variables:
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
   - group: 'esrp-signing-codes'
+  - group: 'azclips-telemetry'
   - group: 'azclips-docker-publish'
   - group: 'get-github-pat-token'
 - name: ReleasePipelineName
@@ -43,13 +44,13 @@ variables:
 - name: DockerCliRegistryServer
   value: azclips.azurecr.io
 - name: DockerCliRepository
-  value: unlisted/azclips/cli-dev
+  value: public/azclips/cli
 - name: DockerPowerShellRegistryName
   value: azclips
 - name: DockerPowerShellRegistryServer
   value: azclips.azurecr.io
 - name: DockerPowerShellRepository
-  value: unlisted/azclips/powershell-dev
+  value: public/azclips/powershell
 
 stages:
 - stage: Preflight
@@ -82,13 +83,22 @@ stages:
           echo 'ERROR: Build.SourceVersion was not resolved for the selected tag.'
           exit 1
         fi
+
+        if [[ -z "${AZCLIPS_ARIA_CONNECTION_STRING:-}" ]]; then
+          echo "ERROR: AriaConnectionString was not supplied by the azclips-telemetry variable group."
+          exit 1
+        fi
       displayName: Validate Stable Tag Input
+      env:
+        AZCLIPS_ARIA_CONNECTION_STRING: $(AriaConnectionString)
 
 - template: templates/dist/stages/build-unsigned-distribution.yml
   parameters:
     artifact_version_override: auto
     bump_type: patch
     release_channel: stable
+    limit_ps_testing: false
+    skip_ps_version_check: true
     release_date: auto
     pr_number: auto
     sequence: auto

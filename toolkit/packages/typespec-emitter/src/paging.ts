@@ -1,10 +1,10 @@
 import {
-  getDiscriminatedUnion, getPagingOperation, isList, resolveEncodedName,
+  getDiscriminatedUnion, getEffectiveModelType, getPagingOperation, isList, resolveEncodedName,
   walkPropertiesInherited,
   type ModelProperty, type Operation, type PagingOperation, type PagingProperty, type Type,
 } from "@typespec/compiler";
 import {
-  createMetadataInfo, resolveRequestVisibility, Visibility,
+  createMetadataInfo, isMetadata, resolveRequestVisibility, Visibility,
   type HttpPayloadBody,
 } from "@typespec/http";
 import {
@@ -88,14 +88,35 @@ function partialPaging(ctx: BuildContext, raw: Operation) {
   return { input, output };
 }
 
+/**
+ * The property as declared on the model the IR emits for its container.
+ *
+ * Templates build envelopes by intersection or spread (`{ @header … } & Page`), so a
+ * property reached through the return type is a copy owned by an anonymous model.
+ * HTTP resolves such a body to its effective model — the named source of every
+ * payload property — and that is the model the IR emits, so the segment's id has to
+ * name *its* property for a consumer to resolve it.
+ */
+function declaredProperty(ctx: BuildContext, property: ModelProperty): ModelProperty {
+  const owner = property.model;
+  if (owner === undefined || owner.name !== "") return property;
+  const effective = getEffectiveModelType(ctx.program, owner, (p) => !isMetadata(ctx.program, p));
+  if (effective === owner) return property;
+  for (let candidate: ModelProperty | undefined = property; candidate; candidate = candidate.sourceProperty) {
+    if (candidate.model === effective) return candidate;
+  }
+  return property;
+}
+
 function sourceSegments(
   ctx: BuildContext, raw: Operation, operationId: IRId,
   path: ModelProperty[], direction: "input" | "output",
 ): IRPagingSegment[] {
-  return path.map((property, index) => {
+  return path.map((source, index) => {
     let id: IRId;
+    const property = declaredProperty(ctx, source);
     if (direction === "input" && index === 0) {
-      id = { ...operationId, name: `${operationId.name}.${property.name}` };
+      id = { ...operationId, name: `${operationId.name}.${source.name}` };
     } else if (property.model) {
       const owner = property.model;
       const name = getLibraryName(ctx.sdkContext, owner) || getGeneratedName(ctx.sdkContext, owner, raw);
@@ -103,7 +124,7 @@ function sourceSegments(
     } else {
       id = { ...operationId, name: `${operationId.name}.${direction}.${path.slice(0, index + 1).map((p) => p.name).join(".")}` };
     }
-    return { id, name: property.name };
+    return { id, name: source.name };
   });
 }
 

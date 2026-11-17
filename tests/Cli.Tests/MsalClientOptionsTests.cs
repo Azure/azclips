@@ -4,6 +4,7 @@
 using System.Text;
 using Core.Abstractions;
 using Core.Authentication;
+using Core.Runtime.Persistence;
 using Microsoft.Identity.Client;
 using Tests.Common.Stubs;
 using Xunit;
@@ -11,7 +12,7 @@ using Xunit;
 namespace Cli.Tests;
 
 // Guards the benchmark seam: MsalAuthService must honour the injected cache directory and
-// MSAL HTTP factory, and production defaults must stay byte-for-byte what they were before.
+// MSAL HTTP factory, while production caches live alongside profiles in the Azclips home.
 // Shares the serialized collection with the other cache tests, so ForcePlaintextForTests is never
 // observed by a test that did not set it.
 [Collection("Azclips Service Provider Tests")]
@@ -66,12 +67,14 @@ public class MsalClientOptionsTests : IDisposable
         MsalClientOptions options, ILoggingService logger, IProfileService profileService)
     {
         var telemetry = new StubTelemetryService();
+        var secretStore = new ServicePrincipalSecretStore(options.Persistence, logger);
         var managedIdentity = new ManagedIdentityAuthenticator(
             new AzureCredentialFactory(), logger, telemetry);
-        var federated = new FederatedTokenAuthenticator(logger, telemetry, options);
+        var federated = new FederatedTokenAuthenticator(logger, telemetry, secretStore, options);
+        var spClient = new ServicePrincipalSecretAuthenticator(logger, telemetry, secretStore, options);
         var clientMetadata = new ClientMetadata(ClientType.CLI, ClientId);
         return new MsalAuthService(
-            logger, telemetry, profileService, clientMetadata, managedIdentity, federated, options);
+            logger, telemetry, profileService, clientMetadata, managedIdentity, federated, spClient, secretStore, options);
     }
 
     private static string CreateTempDirectory()
@@ -138,11 +141,12 @@ public class MsalClientOptionsTests : IDisposable
     private static string UserCacheFileName => MsalTokenCacheFactory.GetCacheFileName(plaintextUnsafe: true);
 
     [Fact]
-    public void CacheDirectory_ShouldDefaultToLocalAppDataRoot_WhenNotOverridden()
+    public void Persistence_ShouldUseInjectedStore()
     {
-        var options = new MsalClientOptions();
+        var persistence = new FilePersistenceStore();
+        var options = new MsalClientOptions(persistence);
 
-        Assert.Equal(HomePaths.GetDefaultLocalAppDataRoot(), options.CacheDirectory);
+        Assert.Same(persistence, options.Persistence);
         Assert.Null(options.HttpClientFactory);
     }
 
@@ -186,7 +190,7 @@ public class MsalClientOptionsTests : IDisposable
         WriteExpiredCache(directory);
 
         var factory = new RecordingMsalHttpClientFactory();
-        var options = new MsalClientOptions { CacheDirectory = directory, HttpClientFactory = factory };
+        var options = new MsalClientOptions(new FilePersistenceStore(directory)) { HttpClientFactory = factory };
         var service = CreateService(options, logger, new StubProfileService(userPrincipalName: Upn));
 
         // Behavioural assertion: InvalidOperationException (from the blocked refresh) means MSAL
@@ -206,7 +210,7 @@ public class MsalClientOptionsTests : IDisposable
         WriteExpiredCache(directory);
 
         var factory = new RecordingMsalHttpClientFactory();
-        var options = new MsalClientOptions { CacheDirectory = directory, HttpClientFactory = factory };
+        var options = new MsalClientOptions(new FilePersistenceStore(directory)) { HttpClientFactory = factory };
         var service = CreateService(options, new RecordingLogger(), new StubProfileService(userPrincipalName: Upn));
 
         // The refresh attempt fails because the injected handler blocks it — that failure is the proof.
@@ -232,7 +236,7 @@ public class MsalClientOptionsTests : IDisposable
         try
         {
             var logger = new RecordingLogger();
-            var options = new MsalClientOptions { CacheDirectory = fakeDirectory };
+            var options = new MsalClientOptions(new FilePersistenceStore(fakeDirectory));
             var profiles = new StubProfileService(userPrincipalName: Upn);
             var service = CreateService(options, logger, profiles);
 

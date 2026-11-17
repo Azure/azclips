@@ -36,5 +36,21 @@ public class ProcessUtilsTests
         Assert.Equal(first, second);
         Assert.Equal(second, third);
     }
-}
 
+    [Theory]
+    [InlineData("/bin/bash", false, "bash")]
+    [InlineData("/usr/bin/fish", false, "fish")]
+    [InlineData("/opt/homebrew/bin/zsh", false, "zsh")]
+    [InlineData("pwsh.exe", true, "pwsh")]
+    [InlineData(null, true, "pwsh")]
+    [InlineData("", true, "pwsh")]
+    [InlineData(null, false, "unknown")]
+    [InlineData("/bin/sh", false, "unknown")]
+    public void DetectShell_ShouldUseConfiguredShellOrPlatformFallback(
+        string? configuredShell,
+        bool isWindows,
+        string expected)
+    {
+        Assert.Equal(expected, ProcessUtils.DetectShell(configuredShell, isWindows));
+    }
+}

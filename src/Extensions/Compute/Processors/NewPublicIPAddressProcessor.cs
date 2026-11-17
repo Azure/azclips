@@ -14,6 +14,7 @@ public class NewPublicIPAddressProcessor : ComputeProcessorBase<PublicIPAddress,
     public string ResourceGroupName { get; set; } = string.Empty;
     public string Sku { get; set; } = "Standard";
     public string AllocationMethod { get; set; } = "Static";
+    public Dictionary<string, string>? Tags { get; set; }
 
     protected override HttpMethod Method => HttpMethod.Put;
 
@@ -23,6 +24,7 @@ public class NewPublicIPAddressProcessor : ComputeProcessorBase<PublicIPAddress,
     protected override PublicIPAddress? CreateRequestBody() => new PublicIPAddress
     {
         Location = Location,
+        Tags = Tags,
         Sku = new PublicIPAddressSku { Name = Sku },
         Properties = new PublicIPAddressProperties
         {

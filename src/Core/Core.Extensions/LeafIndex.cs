@@ -28,7 +28,7 @@ namespace Core.Extensions
         private readonly HashSet<string> _verbs;
 
         // Every (verb, path) that is a proper prefix of some leaf — i.e. a command group with no
-        // runnable leaf of its own (e.g. (agent, "") and (agent, "tool") when (agent, "tool env")
+        // runnable leaf of its own (e.g. (agent, "") and (agent, "tool") when (agent, "tool env show")
         // exists). Precomputed so IsCommandGroup is an O(1) set lookup instead of scanning entries.
         private readonly HashSet<(string Verb, string Path)> _groups;
 

@@ -42,7 +42,7 @@ verify_dotnet_entitlements() {
     'com.apple.security.cs.allow-jit' \
     'com.apple.security.cs.allow-unsigned-executable-memory' \
     'com.apple.security.cs.disable-library-validation'; do
-    if ! printf '%s\n' "$entitlements" | grep -q "$entitlement"; then
+    if ! grep -q "$entitlement" <<<"$entitlements"; then
       echo "ERROR: Required .NET entitlement '$entitlement' missing after pre-sign: $candidate"
       return 1
     fi

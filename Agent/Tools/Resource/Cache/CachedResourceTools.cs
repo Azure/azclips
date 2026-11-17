@@ -24,11 +24,15 @@ public sealed class CachedResourceTools
 
     private readonly ArmDetailsClient _armDetails;
     private readonly IProfileService _profileService;
+    private readonly Func<string, IDisposable?>? _activityCreator;
 
-    public CachedResourceTools(ArmDetailsClient armDetails, IProfileService profileService)
+    public CachedResourceTools(
+        ArmDetailsClient armDetails, IProfileService profileService,
+        Func<string, IDisposable?>? activityCreator = null)
     {
         _armDetails = armDetails;
         _profileService = profileService;
+        _activityCreator = activityCreator;
 
         FindResources = AIFunctionFactory.Create(FindResourcesAsync, new AIFunctionFactoryOptions
         {
@@ -119,7 +123,8 @@ public sealed class CachedResourceTools
         CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("find_resources",
-            $"pattern={namePattern} kind={kind} sub={subscription} rg={resourceGroup} top={top}");
+            $"pattern={namePattern} kind={kind} sub={subscription} rg={resourceGroup} top={top}", _activityCreator);
+        scope.RecordRequest(RedactedKind(kind));
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -133,6 +138,7 @@ public sealed class CachedResourceTools
                 validKinds = CacheKinds.AllKinds,
             }, Json);
             scope.SetResult($"error=unknown_kind provided={kind}");
+            scope.RecordResponse("error");
             return err;
         }
 
@@ -165,6 +171,7 @@ public sealed class CachedResourceTools
             ? "matchCount=0"
             : $"matchCount={matches.Count} — top: {matches[0].Resource.Name} ({matches[0].Match}, score={Math.Round(matches[0].Score, 3)})";
         scope.SetResult(summary);
+        scope.RecordResponse(matches.Count == 0 ? "not_found" : "found");
         return json;
     }
 
@@ -181,7 +188,8 @@ public sealed class CachedResourceTools
         CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("get_resource_tree",
-            $"id={nameOrId} kind={kind} depth={maxDepth}");
+            $"id={nameOrId} kind={kind} depth={maxDepth}", _activityCreator);
+        scope.RecordRequest(RedactedKind(kind));
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -194,6 +202,7 @@ public sealed class CachedResourceTools
                 validKinds = CacheKinds.AllKinds,
             }, Json);
             scope.SetResult($"error=unknown_kind provided={kind}");
+            scope.RecordResponse("error");
             return err;
         }
 
@@ -215,16 +224,20 @@ public sealed class CachedResourceTools
             var tree = ResourceCache.Current.GetTree(root.id, root.kindNorm, root.name, maxDepth);
             json = JsonSerializer.Serialize(new { root = root.kindNorm, maxDepth = maxDepth, tree }, Json);
             summary = $"root={root.kindNorm}:{root.name} depth={maxDepth}";
+            scope.RecordResponse("found");
         }
         catch (AmbiguousMatchException ex)
         {
             json = JsonSerializer.Serialize(new { error = "ambiguous_match", candidates = ex.CandidateIds }, Json);
             summary = $"error=ambiguous_match candidates={ex.CandidateIds?.Count ?? 0}";
+            scope.RecordResponse("ambiguous");
         }
         catch (Exception ex)
         {
             json = JsonSerializer.Serialize(new { error = ex.GetType().Name, message = ex.Message }, Json);
             summary = $"error={ex.GetType().Name}";
+            // Resolvers report a missing node as InvalidOperationException.
+            scope.RecordResponse(ex is InvalidOperationException ? "not_found" : "error");
         }
         scope.SetResult(summary);
         return json;
@@ -245,7 +258,8 @@ public sealed class CachedResourceTools
         CancellationToken ct = default)
     {
         using var scope = ToolInvocationLog.Start("get_resource_details",
-            $"id={nameOrId} kind={kind} sub={subscription} rg={resourceGroup} live={live}");
+            $"id={nameOrId} kind={kind} sub={subscription} rg={resourceGroup} live={live}", _activityCreator);
+        scope.RecordRequest($"{RedactedKind(kind)} live={(live ? "true" : "false")}");
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -258,6 +272,7 @@ public sealed class CachedResourceTools
                 validKinds = CacheKinds.AllKinds,
             }, Json);
             scope.SetResult($"error=unknown_kind provided={kind}");
+            scope.RecordResponse("error");
             return err;
         }
 
@@ -282,6 +297,7 @@ public sealed class CachedResourceTools
                 summary = suggestions.Count == 0
                     ? "not_found, suggestions=0"
                     : $"not_found, suggestions={suggestions.Count} — top: {suggestions[0].Resource.Name}";
+                scope.RecordResponse("not_found");
             }
             else
             {
@@ -306,6 +322,7 @@ public sealed class CachedResourceTools
                 {
                     json = JsonSerializer.Serialize(new { cache = cacheRow, live = (object?)null }, Json);
                     summary = $"cache hit: {hit.Name} ({hit.Type})";
+                    scope.RecordResponse("found");
                 }
                 else
                 {
@@ -316,6 +333,7 @@ public sealed class CachedResourceTools
                         live = new { source = "arm-live", body = liveBody },
                     }, Json);
                     summary = $"cache+live hit: {hit.Name} ({hit.Type})";
+                    scope.RecordResponse("found");
                 }
             }
         }
@@ -328,10 +346,16 @@ public sealed class CachedResourceTools
                 candidates = ex.CandidateIds,
             }, Json);
             summary = $"error=ambiguous_match candidates={ex.CandidateIds?.Count ?? 0}";
+            scope.RecordResponse("ambiguous");
         }
         scope.SetResult(summary);
         return json;
     }
+
+    // Only the closed kind vocabulary is recorded; names, ids and scopes stay local.
+    private static string RedactedKind(string? kind) =>
+        string.IsNullOrWhiteSpace(kind) ? "kind=any"
+        : CacheKinds.TryResolve(kind, out _) ? $"kind={kind.ToLowerInvariant()}" : "kind=invalid";
 
     // ── kind resolvers ──
 

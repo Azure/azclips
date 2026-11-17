@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Cli.Parser;
 
 namespace Core.Cli.Help;
@@ -66,7 +67,8 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
                 lines.Add(string.Empty);
             }
 
-            AppendNameAndSummary(lines, ordered[index].GroupPath, ordered[index].Summary);
+            var group = ordered[index];
+            AppendNameAndSummary(lines, FormatTaggedName(group.GroupPath, group.RootCommandTags), group.Summary);
         }
 
         return [.. lines];
@@ -117,10 +119,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             }
 
             var command = commands[index];
-            var tags = command.Tags.Length == 0
-                ? string.Empty
-                : $" [{string.Join(",", command.Tags)}]";
-            AppendNameAndSummary(lines, $"{command.Name}{tags}", command.Summary);
+            AppendNameAndSummary(lines, FormatTaggedName(command.Name, command.Tags), command.Summary);
         }
 
         return [.. lines];
@@ -132,6 +131,9 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         AppendNameAndSummary(lines, $"az {command.CommandPath}", command.Summary);
         return [.. lines];
     }
+
+    private static string FormatTaggedName(string name, HelpTag[] tags)
+        => tags.Length == 0 ? name : $"{name} [{string.Join(",", tags)}]";
 
     private static void AppendNameAndSummary(List<string> lines, string name, string summary)
     {

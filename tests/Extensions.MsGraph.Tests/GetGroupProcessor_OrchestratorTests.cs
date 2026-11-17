@@ -7,7 +7,6 @@ using Microsoft.Azure.Azclips.Extensions.MsGraph.Processors;
 using Moq;
 
 namespace Extensions.MsGraph.Tests;
-
 /// <summary>
 /// Tests the customization layer <see cref="GetGroupProcessor_Orchestrator"/> adds on top of the
 /// atomic <c>GetGroupProcessor</c>: display-name-prefix resolution to a single object id, the
@@ -16,136 +15,112 @@ namespace Extensions.MsGraph.Tests;
 public class GetGroupProcessor_OrchestratorTests
 {
     private const string GroupId = "11111111-2222-3333-4444-555555555555";
+    private const string OtherGroupId = "66666666-7777-8888-9999-aaaaaaaaaaaa";
+    private const string GroupsUri = "https://graph.microsoft.com/v1.0/groups";
+    private const string GroupUri = $"https://graph.microsoft.com/v1.0/groups/{GroupId}";
+    private const string GroupBody = $"{{\"id\":\"{GroupId}\"}}";
 
-    private static IEventPublisher NoOpPublisher() => Mock.Of<IEventPublisher>();
+    // Strict: a request the test did not set up throws MockException, so a test that gets its expected
+    // InvalidInputException also proves no unexpected request was sent.
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
+    private readonly IEventPublisher _mockPublisher = Mock.Of<IEventPublisher>();
 
-    private static (GetGroupProcessor_Orchestrator orchestrator, FakeGraphHttpPipeline pipeline)
-        CreateWithResolution(
-            string groupIdentifier,
-            string listResponseBody,
-            bool appendSelected = false,
-            string[]? select = null,
-            string[]? expand = null)
+    [Fact]
+    public async Task SendAsync_GroupIsObjectId_SendsOnlyGroupGet()
     {
-        var pipeline = new FakeGraphHttpPipeline(request =>
-        {
-            var path = request.RequestUri!.AbsolutePath;
-            // Groups list (for resolution): "/v1.0/groups" (no trailing id)
-            if (path.EndsWith("/v1.0/groups", StringComparison.Ordinal))
-            {
-                return FakeGraphHttpPipeline.JsonResponse(listResponseBody);
-            }
-            return FakeGraphHttpPipeline.JsonResponse("{\"id\":\"" + GroupId + "\"}");
-        });
-        var orch = new GetGroupProcessor_Orchestrator
-        {
-            Group = groupIdentifier,
-            Select = select,
-            Expand = expand,
-            AppendSelected = appendSelected,
-        }.WithFakeContext(pipeline, NoOpPublisher());
-        return (orch, pipeline);
+        _mockPipeline.RespondTo($"/groups/{GroupId}", GroupBody);
+        var orchestrator = CreateOrchestrator(group: GroupId);
+
+        using HttpResponseMessage response = await orchestrator.InvokeSendAsync();
+
+        Assert.Equal([$"GET {GroupUri}"], _mockPipeline.RequestLines());
     }
 
     [Fact]
-    public async Task SendAsync_WithGuid_ShouldSkipResolutionAndTargetGroupsEndpoint()
+    public async Task SendAsync_GroupIsDisplayNamePrefix_LooksUpGroupThenGetsGroup()
     {
-        var pipeline = new FakeGraphHttpPipeline(
-            _ => FakeGraphHttpPipeline.JsonResponse("{\"id\":\"" + GroupId + "\"}"));
-        var orch = new GetGroupProcessor_Orchestrator { Group = GroupId }
-            .WithFakeContext(pipeline, NoOpPublisher());
+        _mockPipeline.RespondTo("/v1.0/groups", GroupList("Sales"));
+        _mockPipeline.RespondTo($"/groups/{GroupId}", GroupBody);
+        var orchestrator = CreateOrchestrator(group: "Sales");
 
-        using var _ = await orch.InvokeSendAsync();
+        using HttpResponseMessage response = await orchestrator.InvokeSendAsync();
 
-        var sent = Assert.Single(pipeline.Sent);
-        Assert.Equal(HttpMethod.Get, sent.Method);
-        Assert.Equal($"https://graph.microsoft.com/v1.0/groups/{GroupId}", sent.RequestUri!.ToString());
+        Assert.Equal([$"GET {GroupsUri}", $"GET {GroupUri}"], _mockPipeline.RequestLines());
     }
 
     [Fact]
-    public async Task SendAsync_WithDisplayNamePrefix_ShouldIssueResolutionThenGet()
+    public async Task SendAsync_GroupIsDisplayNamePrefix_LooksUpGroupWithStartsWithFilter()
     {
-        var listBody = $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"Sales\"}}]}}";
-        var (orch, pipeline) = CreateWithResolution("Sales", listBody);
+        _mockPipeline.RespondTo("/v1.0/groups", GroupList("Sales"));
+        _mockPipeline.RespondTo($"/groups/{GroupId}", GroupBody);
+        var orchestrator = CreateOrchestrator(group: "Sales");
 
-        using var _ = await orch.InvokeSendAsync();
+        using HttpResponseMessage response = await orchestrator.InvokeSendAsync();
 
-        Assert.Equal(2, pipeline.Sent.Count);
-        // First: list with startswith filter on displayName
-        var listUri = pipeline.Sent[0].RequestUri!.OriginalString;
-        Assert.Contains("/groups?", listUri);
-        Assert.Contains(Uri.EscapeDataString("startswith(displayName,'Sales')"), listUri);
-        // Second: GET /groups/{resolvedId}
-        Assert.Equal(
-            $"https://graph.microsoft.com/v1.0/groups/{GroupId}",
-            pipeline.Sent[1].RequestUri!.ToString());
+        Assert.Equal("startswith(displayName,'Sales')", _mockPipeline.QueryValue(0, "$filter"));
     }
 
     [Fact]
-    public async Task SendAsync_WithDisplayNameContainingSingleQuote_ShouldEscape()
+    public async Task SendAsync_DisplayNameContainsSingleQuote_EscapesQuoteInFilter()
     {
-        var listBody = $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"O'Brien\"}}]}}";
-        var (orch, pipeline) = CreateWithResolution("O'Brien", listBody);
+        _mockPipeline.RespondTo("/v1.0/groups", GroupList("O'Brien"));
+        _mockPipeline.RespondTo($"/groups/{GroupId}", GroupBody);
+        var orchestrator = CreateOrchestrator(group: "O'Brien");
 
-        using var _ = await orch.InvokeSendAsync();
+        using HttpResponseMessage response = await orchestrator.InvokeSendAsync();
 
-        // Doubled single quote: O''Brien inside the startswith clause.
-        var listUri = pipeline.Sent[0].RequestUri!.OriginalString;
-        Assert.Contains(Uri.EscapeDataString("startswith(displayName,'O''Brien')"), listUri);
+        Assert.Equal("startswith(displayName,'O''Brien')", _mockPipeline.QueryValue(0, "$filter"));
     }
 
     [Fact]
-    public async Task SendAsync_ResolutionReturnsNoMatches_ShouldThrow()
+    public async Task SendAsync_AppendSelected_SelectsRequestedAndDefaultProperties()
     {
-        var (orch, _) = CreateWithResolution("Ghost", "{\"value\":[]}");
+        _mockPipeline.RespondTo($"/groups/{GroupId}", GroupBody);
+        var orchestrator = CreateOrchestrator(group: GroupId, select: ["mailNickname"], appendSelected: true);
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-        Assert.Contains("'Ghost'", ex.Message);
-        Assert.Contains("not found", ex.Message);
+        using HttpResponseMessage response = await orchestrator.InvokeSendAsync();
+
+        Assert.Superset(new HashSet<string> { "mailNickname", "displayName" }, new HashSet<string>(_mockPipeline.QueryValue(0, "$select")!.Split(',')));
     }
 
     [Fact]
-    public async Task SendAsync_ResolutionReturnsMultipleMatches_ShouldThrow()
+    public async Task SendAsync_MissingGroup_ThrowsInvalidInput()
     {
-        var listBody =
-            "{\"value\":[" +
-            "{\"id\":\"11111111-2222-3333-4444-555555555555\",\"displayName\":\"Sales-North\"}," +
-            "{\"id\":\"66666666-7777-8888-9999-aaaaaaaaaaaa\",\"displayName\":\"Sales-South\"}" +
-            "]}";
-        var (orch, _) = CreateWithResolution("Sales", listBody);
+        var orchestrator = CreateOrchestrator(group: "");
 
-        var ex = await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-        Assert.Contains("More than one", ex.Message);
-        Assert.Contains("'Sales'", ex.Message);
+        Exception? exception = await Record.ExceptionAsync(orchestrator.InvokeSendAsync);
+
+        Assert.Equal("Group is required.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
-    public async Task SendAsync_MissingGroup_ShouldThrowBeforeHttp()
+    public async Task SendAsync_GroupNotFound_ThrowsInvalidInput()
     {
-        var pipeline = new FakeGraphHttpPipeline(_ => FakeGraphHttpPipeline.JsonResponse("{}"));
-        var orch = new GetGroupProcessor_Orchestrator { Group = "" }
-            .WithFakeContext(pipeline, NoOpPublisher());
+        _mockPipeline.RespondTo("/v1.0/groups", "{\"value\":[]}");
+        var orchestrator = CreateOrchestrator(group: "Ghost");
 
-        await Assert.ThrowsAsync<InvalidInputException>(() => orch.InvokeSendAsync());
-        Assert.Empty(pipeline.Sent);
+        Exception? exception = await Record.ExceptionAsync(orchestrator.InvokeSendAsync);
+
+        Assert.Equal("Group 'Ghost' is not found in Graph.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
-    public async Task SendAsync_AppendSelected_ShouldMergeDefaultsOnFinalRequest()
+    public async Task SendAsync_GroupMatchesMany_ThrowsInvalidInput()
     {
-        var pipeline = new FakeGraphHttpPipeline(
-            _ => FakeGraphHttpPipeline.JsonResponse("{\"id\":\"" + GroupId + "\"}"));
-        var orch = new GetGroupProcessor_Orchestrator
-        {
-            Group = GroupId,
-            Select = new[] { "mailNickname" },
-            AppendSelected = true,
-        }.WithFakeContext(pipeline, NoOpPublisher());
+        _mockPipeline.RespondTo("/v1.0/groups", $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"Sales-North\"}},{{\"id\":\"{OtherGroupId}\",\"displayName\":\"Sales-South\"}}]}}");
+        var orchestrator = CreateOrchestrator(group: "Sales");
 
-        using var _ = await orch.InvokeSendAsync();
+        Exception? exception = await Record.ExceptionAsync(orchestrator.InvokeSendAsync);
 
-        var uri = pipeline.Sent.Single().RequestUri!.ToString();
-        Assert.Contains("displayName", uri);
-        Assert.Contains("mailNickname", uri);
+        Assert.Equal("More than one group matched 'Sales'. Use the object id instead.", Assert.IsType<InvalidInputException>(exception).Message);
     }
-}
+
+    private GetGroupProcessor_Orchestrator CreateOrchestrator(string group, string[]? select = null, bool appendSelected = false)
+    {
+        var orchestrator = new GetGroupProcessor_Orchestrator { Group = group, Select = select, AppendSelected = appendSelected };
+        orchestrator.WithFakeContext(_mockPipeline.Object, _mockPublisher);
+        return orchestrator;
+    }
+
+    private string GroupList(string displayName) =>
+        $"{{\"value\":[{{\"id\":\"{GroupId}\",\"displayName\":\"{displayName}\"}}]}}";}

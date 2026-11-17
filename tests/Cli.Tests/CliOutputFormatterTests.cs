@@ -209,9 +209,11 @@ public class CliOutputFormatterTests
             complexFormat: OutputFormat.Json,
             simpleFormat: OutputFormat.Tsv,
             colorPolicyAllowsColor: false,
-            query: "[0].name");
+            query: "[0].name",
+            selectedFormat: out var selectedFormat);
 
         Assert.Equal("rg1", result);
+        Assert.Equal(OutputFormat.Tsv, selectedFormat);
     }
 
     [Fact]
@@ -222,9 +224,11 @@ public class CliOutputFormatterTests
             complexFormat: OutputFormat.Json,
             simpleFormat: OutputFormat.Tsv,
             colorPolicyAllowsColor: false,
-            query: "[].name");
+            query: "[].name",
+            selectedFormat: out var selectedFormat);
 
         Assert.Equal("[\"rg1\",\"rg2\"]", result);
+        Assert.Equal(OutputFormat.Json, selectedFormat);
     }
 
     [Fact]
@@ -235,9 +239,49 @@ public class CliOutputFormatterTests
             complexFormat: OutputFormat.Yaml,
             simpleFormat: OutputFormat.Tsv,
             colorPolicyAllowsColor: false,
-            query: null);
+            query: null,
+            selectedFormat: out _);
 
         Assert.Equal("name: rg1", result);
+    }
+
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("rg1", "rg1")]
+    [InlineData(42, "42")]
+    [InlineData(true, "true")]
+    public void FormatValue_ShouldUseSimpleFormat_ForValuesThatBypassRendering(object? value, string expected)
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+            value,
+            complexFormat: OutputFormat.Table,
+            simpleFormat: OutputFormat.Tsv,
+            colorPolicyAllowsColor: false,
+            query: null,
+            selectedFormat: out var selectedFormat);
+
+        Assert.Equal(expected, result);
+        Assert.Equal(OutputFormat.Tsv, selectedFormat);
+    }
+
+    [Theory]
+    [InlineData("42", OutputFormat.Tsv)]
+    [InlineData("{\"name\":\"rg1\"}", OutputFormat.Table)]
+    [InlineData("[{\"name\":\"rg1\"}]", OutputFormat.Table)]
+    public void FormatValue_ShouldClassifySerializedJsonWithoutRendering(
+        string json,
+        OutputFormat expectedFormat)
+    {
+        var result = Core.Cli.Output.CliOutputFormatter.FormatValue(
+            new SerializedJson(json),
+            complexFormat: OutputFormat.Table,
+            simpleFormat: OutputFormat.Tsv,
+            colorPolicyAllowsColor: false,
+            query: null,
+            selectedFormat: out var selectedFormat);
+
+        Assert.Equal(json, result);
+        Assert.Equal(expectedFormat, selectedFormat);
     }
 
     // ── Primitives ───────────────────────────────────────────────────

@@ -187,6 +187,15 @@ describe("source-faithful paging", () => {
     expect(paging("wholeBody").itemType).toMatchObject({ kind: "model", id: { name: "Item" } });
   });
 
+  it("names the emitted model's property when a template wraps the page in an anonymous envelope", () => {
+    // `{ @header … } & Items` copies `values` onto an anonymous model; HTTP unwraps the
+    // body to `Items`, so that is where the source path has to point.
+    const items = paging("intersection").output.pageItems;
+    expect(items.bindings[0]).toMatchObject({ location: "body", path: ["entries"], contentType: "application/xml" });
+    const values = ir.models.find((model) => model.name === "Items")!.properties.find((p) => p.name === "Values")!;
+    expect(items.sourcePath.map((segment) => segment.id)).toEqual([values.id]);
+  });
+
   it("does not invent a request binding for an output-only token", () => {
     expect(paging("outputToken").output.continuationToken).toBeDefined();
     expect(paging("outputToken").input.continuationToken).toBeUndefined();

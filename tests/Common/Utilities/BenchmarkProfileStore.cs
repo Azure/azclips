@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Tests.Common.Stubs;
 
 namespace Tests.Common.Utilities;
@@ -49,7 +50,7 @@ public static class BenchmarkProfileStore
         DeleteIfExists(Path.Combine(root, ProfilesFileName));
         DeleteIfExists(Path.Combine(root, ActiveProfileFileName));
 
-        var service = new ProfileService(new NullLoggingService(), root);
+        var service = new ProfileService(new NullLoggingService(), new FilePersistenceStore(root));
         await service.SaveAndActivateProfileAsync(CreateSeedProfile(userPrincipalName));
     }
 
@@ -65,7 +66,7 @@ public static class BenchmarkProfileStore
     /// </param>
     public static async Task VerifySeededAsync(string root, string? expectedUserPrincipalName = null)
     {
-        var service = new ProfileService(new NullLoggingService(), root);
+        var service = new ProfileService(new NullLoggingService(), new FilePersistenceStore(root));
         var active = await service.GetActiveProfileAsync();
 
         if (active is null || !string.Equals(active.Name, ProfileName, StringComparison.OrdinalIgnoreCase))

@@ -42,7 +42,9 @@ RESOURCE_GROUP="${AZCLIPS_RESOURCE_GROUP:-azclips-test-group-1}"
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 DEPLOYMENT_NAME="azclips-test-deployment-delete-$TIMESTAMP"
 RUNNING_DEPLOYMENT_NAME="azclips-test-deployment-delete-running-$TIMESTAMP"
-STORAGE_ACCOUNT=azclipsdeploydelete
+# Storage account names are globally unique across Azure, so the name carries the first 8 characters
+# of the subscription id: stable per subscription, but no clash with other subscriptions.
+STORAGE_ACCOUNT="azclipsdelete$(printf '%s' "${SUBSCRIPTION_ID:0:8}" | tr '[:upper:]' '[:lower:]')"
 
 RUNNING_URI="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourcegroups/$RESOURCE_GROUP/providers/Microsoft.Resources/deployments/$RUNNING_DEPLOYMENT_NAME?api-version=2025-04-01"
 STORAGE_URI="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT?api-version=2023-01-01"
@@ -197,6 +199,8 @@ if "$AZ" deployment group delete \
 fi
 echo "Expected failure: delete requires --name"
 
+# Single-quoted heredoc: the template's "$schema" key must not be expanded by the shell; the storage
+# account name is substituted afterwards.
 RUNNING_TEMPLATE_PAYLOAD="$(cat <<'JSON'
 {
   "properties": {
@@ -208,7 +212,7 @@ RUNNING_TEMPLATE_PAYLOAD="$(cat <<'JSON'
         {
           "type": "Microsoft.Storage/storageAccounts",
           "apiVersion": "2023-01-01",
-          "name": "azclipsdeploydelete",
+          "name": "__STORAGE_ACCOUNT__",
           "location": "[resourceGroup().location]",
           "sku": { "name": "Standard_LRS" },
           "kind": "StorageV2"
@@ -219,6 +223,7 @@ RUNNING_TEMPLATE_PAYLOAD="$(cat <<'JSON'
 }
 JSON
 )"
+RUNNING_TEMPLATE_PAYLOAD="${RUNNING_TEMPLATE_PAYLOAD//__STORAGE_ACCOUNT__/$STORAGE_ACCOUNT}"
 
 echo -e "\n=== [rest] arrange running deployment $RUNNING_DEPLOYMENT_NAME ==="
 STATUS="$("$AZ" rest \

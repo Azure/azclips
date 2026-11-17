@@ -12,7 +12,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.3'
+ModuleVersion = '0.1.6'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -33,7 +33,7 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'Azure PowerShell - Resources'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -52,7 +52,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.2' }
+    @{ ModuleName = 'Accounts'; ModuleVersion = '0.1.5' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -86,7 +86,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Reso
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceGroup', 'Remove-AzResourceGroup', 'New-AzResourceGroupDeployment', 'New-AzResourceGroupDeploymentWhatIf', 'Test-AzResourceGroupDeployment', 'Get-AzResourceGroupDeployment', 'Stop-AzResourceGroupDeployment', 'Remove-AzResourceGroupDeployment', 'Save-AzResourceGroupDeploymentTemplate', 'Invoke-AzRestMethod', 'Get-AzRoleAssignment', 'New-AzRoleAssignment', 'Remove-AzRoleAssignment'
+CmdletsToExport = 'New-AzResourceGroup', 'Get-AzResourceGroup', 'Set-AzResourceGroup', 'Remove-AzResourceGroup', 'New-AzResourceGroupDeployment', 'New-AzResourceGroupDeploymentWhatIf', 'Test-AzResourceGroupDeployment', 'Get-AzResourceGroupDeployment', 'Stop-AzResourceGroupDeployment', 'Remove-AzResourceGroupDeployment', 'Save-AzResourceGroupDeploymentTemplate', 'New-AzManagementGroupDeployment', 'Get-AzManagementGroupDeployment', 'Stop-AzManagementGroupDeployment', 'Remove-AzManagementGroupDeployment', 'Test-AzManagementGroupDeployment', 'Invoke-AzRestMethod', 'Get-AzRoleAssignment', 'New-AzRoleAssignment', 'Remove-AzRoleAssignment', 'Get-AzResourceGroupDeploymentOperation', 'Get-AzDeploymentOperation', 'Get-AzManagementGroupDeploymentOperation', 'Get-AzTenantDeploymentOperation', 'New-AzTenantDeployment', 'Test-AzTenantDeployment', 'Get-AzTenantDeploymentWhatIfResult', 'Get-AzTenantDeployment', 'Stop-AzTenantDeployment', 'Remove-AzTenantDeployment', 'Save-AzTenantDeploymentTemplate', 'New-AzSubDeployment', 'Test-AzSubDeployment', 'Get-AzSubDeploymentWhatIfResult', 'Get-AzSubDeployment', 'Stop-AzSubDeployment', 'Remove-AzSubDeployment', 'Save-AzSubDeploymentTemplate'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec',
@@ -213,7 +213,24 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* First preview'
+        ReleaseNotes = @'
+* Added tenant deployment cmdlets: 'New-AzTenantDeployment', 'Test-AzTenantDeployment', 'Get-AzTenantDeploymentWhatIfResult', 'Get-AzTenantDeployment', 'Stop-AzTenantDeployment', 'Remove-AzTenantDeployment', and 'Save-AzTenantDeploymentTemplate'.
+    - 'New-AzTenantDeployment', 'Test-AzTenantDeployment', and 'Get-AzTenantDeploymentWhatIfResult' take '-Location' plus the resource group deployment template and parameter inputs ('-TemplateFile', '-TemplateUri', '-TemplateSpecId', '-QueryString', '-ParametersFile', '-ParametersUri', '-Parameter', '-ValidationLevel'). '-Name' is optional and defaults to a generated GUID. Tenant deployments always use 'Incremental' mode, so there is no '-Mode'.
+    - 'New-AzTenantDeployment' validates before deploying and waits for the deployment to finish. '-NoWait' returns the initial 'DeploymentExtended' once the deployment is submitted; it does not create a PowerShell job.
+    - 'Test-AzTenantDeployment' outputs 'DeploymentValidateResult' and throws on validation errors. 'Get-AzTenantDeploymentWhatIfResult' outputs the raw what-if result and accepts '-ResultFormat' ('FullResourcePayloads' or 'ResourceIdOnly').
+    - 'Get-AzTenantDeployment' lists every tenant deployment, gets one by '-Name', or lists with an OData '-Filter'.
+    - 'Save-AzTenantDeploymentTemplate' writes the exported template to '-Path' (default: the current location) and requires '-Force' to overwrite an existing file.
+* Added subscription-scope deployment cmdlets 'New-AzSubDeployment', 'Test-AzSubDeployment', 'Get-AzSubDeployment', 'Stop-AzSubDeployment', 'Remove-AzSubDeployment', and 'Save-AzSubDeploymentTemplate'
+    - Legacy '*-AzSubscriptionDeployment' and 'Save-AzSubscriptionDeploymentTemplate' names are accepted as aliases
+    - 'Stop-AzSubDeployment', 'Remove-AzSubDeployment', 'Get-AzSubDeployment', and 'Save-AzSubDeploymentTemplate' accept a deployment piped from 'Get-AzSubDeployment' ('-InputObject') and use the subscription in its 'Id'; '-PassThru' on Stop/Remove outputs 'true' when the cancel or delete runs
+    - 'New-AzSubDeployment' reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
+    - 'New-AzSubDeployment' validates the deployment before submitting it and throws 'Deployment validation failed.' without creating a deployment when validation fails
+* Added 'Get-AzSubDeploymentWhatIfResult' to preview subscription-scope deployment changes
+    - The legacy 'Get-AzSubscriptionDeploymentWhatIfResult' name is accepted as an alias
+    - The preview always uses 'Incremental' mode (no '-Mode'), '-Name' is optional, and '-ResultFormat' selects 'FullResourcePayloads' or 'ResourceIdOnly'
+* When '-Name' is omitted, 'New-AzSubDeployment', 'Test-AzSubDeployment', 'Test-AzResourceGroupDeployment', and 'Test-AzManagementGroupDeployment' name the deployment after the template file or URI instead of a GUID
+    - A GUID is still used when no template file or URI is given, or the derived name is not a valid deployment name
+'@
 
         # Prerelease string of this module
         # Prerelease = ''

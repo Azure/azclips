@@ -4,6 +4,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Tools.Resource.Sku;
 using Microsoft.Extensions.AI;
+using Tests.Common.Stubs;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -15,8 +16,6 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class AvailableLocationsToolTests
 {
-    private const string SubId = "11111111-1111-1111-1111-111111111111";
-
     [Fact]
     public async Task FindAvailableLocations_MapsRestrictions_PerLocation()
     {
@@ -30,8 +29,8 @@ public class AvailableLocationsToolTests
         }));
 
         var tool = new AvailableLocationsTool(
-            new FakeAuthService(),
-            new FakeProfileService(SubId),
+            new StubAuthService(),
+            new StubProfileService(),
             http);
 
         var root = await InvokeAsync(tool.FindAvailableLocations, new
@@ -68,8 +67,8 @@ public class AvailableLocationsToolTests
     public async Task FindAvailableLocations_MissingVmSize_ReturnsError()
     {
         var tool = new AvailableLocationsTool(
-            new FakeAuthService(),
-            new FakeProfileService(SubId),
+            new StubAuthService(),
+            new StubProfileService(),
             new HttpClient(new FakeHandler(_ => "{}")));
 
         var root = await InvokeAsync(tool.FindAvailableLocations, new { vmSize = "" });
@@ -81,8 +80,8 @@ public class AvailableLocationsToolTests
     public async Task FindAvailableLocations_NoSubscriptionInContext_ReturnsError()
     {
         var tool = new AvailableLocationsTool(
-            new FakeAuthService(),
-            new FakeProfileService(subscriptionId: null),
+            new StubAuthService(),
+            new StubProfileService(seedDefault: false),
             new HttpClient(new FakeHandler(_ => "{}")));
 
         var root = await InvokeAsync(tool.FindAvailableLocations, new { vmSize = "Standard_D2s_v5" });
@@ -95,8 +94,8 @@ public class AvailableLocationsToolTests
     {
         var http = new HttpClient(new FakeHandler(_ => null, statusCode: HttpStatusCode.Forbidden, body: "denied"));
         var tool = new AvailableLocationsTool(
-            new FakeAuthService(),
-            new FakeProfileService(SubId),
+            new StubAuthService(),
+            new StubProfileService(),
             http);
 
         var root = await InvokeAsync(tool.FindAvailableLocations, new
@@ -185,46 +184,5 @@ public class AvailableLocationsToolTests
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             });
         }
-    }
-
-    private sealed class FakeAuthService : IAuthService
-    {
-        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-        public Task LogoutAsync(string profileName, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
-            Task.FromResult(new AuthResult
-            {
-                AccessToken = "fake-token",
-                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
-                Scopes = scopes ?? Array.Empty<string>(),
-                TenantId = "fake-tenant",
-                CorrelationId = Guid.NewGuid(),
-            });
-        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
-    }
-
-    private sealed class FakeProfileService : IProfileService
-    {
-        private readonly Profile? _profile;
-        public FakeProfileService(string? subscriptionId) =>
-            _profile = subscriptionId is null
-                ? null
-                : new Profile { Name = "default", TenantId = "fake-tenant", SubscriptionId = subscriptionId, CloudName = "AzureCloud" };
-
-        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyCollection<Profile>>(_profile is null ? Array.Empty<Profile>() : new[] { _profile });
-        public Task<Profile?> GetProfileAsync(string name, CancellationToken cancellationToken = default) =>
-            Task.FromResult(_profile is not null && _profile.Name == name ? _profile : null);
-        public Task SaveProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<bool> RemoveProfileAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(false);
-        public Task<string?> GetActiveProfileNameAsync(CancellationToken cancellationToken = default) => Task.FromResult(_profile?.Name);
-        public Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) => Task.FromResult(_profile);
-        public Task SetActiveProfileNameAsync(string? name, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
-        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
     }
 }

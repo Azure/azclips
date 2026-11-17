@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json.Serialization;
 using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Models;
@@ -9,6 +10,10 @@ public class VirtualNetwork
 {
     public VirtualNetworkProperties Properties { get; set; } = null!;
     public string Location { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Tags { get; set; }
+
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
 

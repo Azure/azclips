@@ -331,6 +331,29 @@ describe("PowerShell parameter-set families", () => {
     }
   });
 
+  it.each([
+    { name: "named", parameterSets: [{ set: "Missing", mandatory: true }] },
+    { name: "unnamed", parameterSets: [{ mandatory: true }] },
+    { name: "omitted", parameterSets: undefined },
+  ])("rejects a default covered only by an internal parameter's $name membership", ({ parameterSets }) => {
+    const input = familyDocument(["Missing", "Missing"]);
+    const sibling = input.commands[1]!;
+    const internalParameter = {
+      ...sibling.parameters[0]!,
+      access: "internal",
+      dialect: parameterSets === undefined ? undefined : { ps: { parameterSets } },
+    };
+    sibling.parameters = [internalParameter];
+    const result = safeParseTransformedIR(input);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: ["commands", 0, "dialect", "ps", "defaultParameterSet"] }),
+      ]));
+    }
+  });
+
   it("rejects a sibling that omits the family default", () => {
     const result = safeParseTransformedIR(familyDocument(["ByName", undefined]));
 

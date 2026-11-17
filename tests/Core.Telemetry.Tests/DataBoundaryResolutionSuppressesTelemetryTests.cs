@@ -10,7 +10,7 @@ namespace Core.Telemetry.Tests;
 
 /// <summary>
 /// Regression coverage for the mechanism <see cref="Core.Engine.Engine"/>'s
-/// <c>ResolveDataBoundaryAsync</c> and <see cref="TelemetryRoutingResolver"/> rely on to avoid
+/// <c>ResolveUploadRegionAsync</c> and <see cref="TelemetryRoutingResolver"/> rely on to avoid
 /// exporting the token-acquisition/ARM-lookup spans before the data boundary they discover is
 /// known: wrapping the resolution in <see cref="SuppressInstrumentationScope"/>.
 /// </summary>

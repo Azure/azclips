@@ -26,13 +26,33 @@ public class CliArgumentValidationTests
             ["ResourceGroupName"] = new("ResourceGroupName", "resource-group", typeof(string), "The resource group name.", true, [], []),
         };
 
-        var errors = provider.ValidateArguments(new Dictionary<string, object>(), parameters);
+        var valid = provider.ValidateArguments(new Dictionary<string, (string, object)>(), parameters, out var errors);
 
+        Assert.False(valid);
         Assert.NotNull(errors);
-        Assert.Contains("Required parameter '--subscription-id' is missing.", errors!);
-        Assert.Contains("Required parameter '--resource-group' is missing.", errors!);
+        Assert.Equal(2, errors.Count);
+        Assert.Contains("Required parameter '--subscription-id' is missing.", errors);
+        Assert.Contains("Required parameter '--resource-group' is missing.", errors);
         Assert.DoesNotContain(errors!, e => e.Contains("SubscriptionId"));
         Assert.DoesNotContain(errors!, e => e.Contains("ResourceGroupName"));
+    }
+
+    [Fact]
+    public void ValidateArguments_RequiredFalseAndZeroValues_AreProvided()
+    {
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["Force"] = new("Force", "force", typeof(bool), "Force.", true, [], []),
+            ["Count"] = new("Count", "count", typeof(int), "Count.", true, [], []),
+        };
+        var args = new Dictionary<string, (string, object)>
+        {
+            ["Force"] = ("force", false),
+            ["Count"] = ("count", 0),
+        };
+
+        Assert.True(CreateProvider().ValidateArguments(args, parameters, out var errors));
+        Assert.Empty(errors!);
     }
 
     [Fact]
@@ -165,8 +185,8 @@ public class CliArgumentValidationTests
 
         var parsed = CreateProvider().ParseArguments(args, parameters, null);
 
-        Assert.IsType(type, parsed["Items"]);
-        if (parsed["Items"] is IEnumerable<IEnumerable<string>> nested)
+        Assert.IsType(type, parsed["Items"].Item2);
+        if (parsed["Items"].Item2 is IEnumerable<IEnumerable<string>> nested)
         {
             Assert.Collection(nested,
                 first => Assert.Equal(["first", ""], first),
@@ -174,7 +194,7 @@ public class CliArgumentValidationTests
         }
         else
         {
-            Assert.Equal(["first", "", "second"], Assert.IsAssignableFrom<IEnumerable<string>>(parsed["Items"]));
+            Assert.Equal(["first", "", "second"], Assert.IsAssignableFrom<IEnumerable<string>>(parsed["Items"].Item2));
         }
     }
 
@@ -191,7 +211,108 @@ public class CliArgumentValidationTests
         var parsed = CreateProvider().ParseArguments(args, parameters, null);
 
         Assert.DoesNotContain("Items", parsed.Keys);
-        Assert.True(Assert.IsType<bool>(parsed["Switch"]));
+        Assert.True(Assert.IsType<bool>(parsed["Switch"].Item2));
+    }
+
+    private static Dictionary<string, ParameterMetadata> SingleValueParameters() => new()
+    {
+        ["name"] = new("Name", "name", typeof(string), "Name.", false, ["n"], []),
+        ["count"] = new("Count", "count", typeof(int), "Count.", false, [], []),
+        ["force"] = new("Force", "force", typeof(bool), "Force.", false, [], []),
+    };
+
+    private static readonly Dictionary<string, string> s_singleValueAliases = new() { ["n"] = "name" };
+
+    [Theory]
+    [InlineData("b", new[] { "--name", "a", "--name", "b" })]
+    [InlineData("b", new[] { "--name", "a", "-n", "b" })]
+    [InlineData("b", new[] { "-n", "a", "--name", "b" })]
+    [InlineData("b", new[] { "-n", "a", "-n", "b" })]
+    public void ParseArguments_SingleValueParameterRepeated_LastValueWins(string expected, string[] tokens)
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", .. tokens]);
+
+        var parsed = CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases);
+
+        Assert.Equal(expected, parsed["Name"].Item2);
+    }
+
+    [Fact]
+    public void ParseArguments_TypedSingleValueParametersRepeated_LastValueWins()
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "--count", "1", "--count", "2", "--force", "false", "--force"]);
+
+        var parsed = CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases);
+
+        Assert.Equal(2, parsed["Count"].Item2);
+        Assert.True(Assert.IsType<bool>(parsed["Force"].Item2));
+    }
+
+    [Theory]
+    [InlineData("count", new[] { "--count", "not-an-int", "--count", "2" })]
+    [InlineData("count", new[] { "--count", "2", "--count", "not-an-int" })]
+    [InlineData("force", new[] { "--force", "notabool", "--force", "true" })]
+    [InlineData("force", new[] { "--force", "notabool", "--force" })]
+    public void ParseArguments_SingleValueParameterRepeated_ValidatesEveryOccurrence(string typed, string[] tokens)
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", .. tokens]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases));
+
+        Assert.Contains($"'{typed}'", ex.Message);
+    }
+
+    [Fact]
+    public void ParseArguments_SingleValueParameterRepeatedAcrossAliases_ValidatesEveryOccurrence()
+    {
+        var parameters = new Dictionary<string, ParameterMetadata>
+        {
+            ["count"] = new("Count", "count", typeof(int), "Count.", false, ["c"], []),
+        };
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "-c", "not-an-int", "--count", "2"]);
+
+        Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, parameters, new Dictionary<string, string> { ["c"] = "count" }));
+    }
+
+    [Theory]
+    [InlineData("name", new[] { "--name", "a", "b" })]
+    [InlineData("name", new[] { "--name", "a", "b", "--name", "c" })]
+    [InlineData("count", new[] { "--count", "1", "2" })]
+    [InlineData("force", new[] { "--force", "true", "false" })]
+    public void ParseArguments_SingleValueParameterWithMultipleTokens_Throws(string typed, string[] tokens)
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", .. tokens]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases));
+
+        Assert.Contains($"Parameter '{typed}' accepts a single value but received 2", ex.Message);
+    }
+
+    [Fact]
+    public void ParseArguments_SingleValueParameterWithMultipleTokens_DoesNotEchoValues()
+    {
+        // Values can be credentials (e.g. `az login --federated-token <token> extra`); errors go to stderr.
+        const string secret = "eyJhbGciOiJSUzI1NiJ9.secret-token";
+        var metadata = new Microsoft.Azure.Azclips.Extensions.Accounts.ExtensionIndex().GetCommandMetadata("login", ClientType.CLI);
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["login", "--federated-token", secret, "extra"]);
+
+        var ex = Assert.Throws<UsageErrorException>(() => CreateProvider().ParseArguments(args, metadata.Parameters, metadata.ParameterAliases));
+
+        Assert.Contains("Parameter 'federated-token' accepts a single value but received 2.", ex.Message);
+        Assert.DoesNotContain(secret, ex.Message);
+        Assert.DoesNotContain("extra", ex.Message);
+    }
+
+    [Fact]
+    public void ParseArguments_SingleValueParameters_BindOnce()
+    {
+        var (_, args) = new Core.Cli.Parser.ExtensionParser().Parse(["example", "-n", "a", "--count", "3", "--force", "false"]);
+
+        var parsed = CreateProvider().ParseArguments(args, SingleValueParameters(), s_singleValueAliases);
+
+        Assert.Equal("a", parsed["Name"].Item2);
+        Assert.Equal(3, parsed["Count"].Item2);
+        Assert.False(Assert.IsType<bool>(parsed["Force"].Item2));
     }
 
     [Fact]
@@ -216,8 +337,8 @@ public class CliArgumentValidationTests
 
         var parsed = provider.ParseArguments(args, parameters, parameterAliases);
 
-        Assert.Equal("core.output.color", parsed["Key"]);
-        Assert.Equal("always", parsed["Value"]);
+        Assert.Equal("core.output.color", parsed["Key"].Item2);
+        Assert.Equal("always", parsed["Value"].Item2);
         Assert.DoesNotContain("Force", parsed.Keys);
     }
 
@@ -242,8 +363,8 @@ public class CliArgumentValidationTests
 
         var parsed = provider.ParseArguments(args, parameters, parameterAliases);
 
-        Assert.Equal("core.output.color", parsed["Key"]);
-        Assert.Equal("always", parsed["Value"]);
+        Assert.Equal("core.output.color", parsed["Key"].Item2);
+        Assert.Equal("always", parsed["Value"].Item2);
     }
 
     [Fact]

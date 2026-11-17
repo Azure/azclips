@@ -17,7 +17,7 @@ namespace Core.Authentication;
 /// mint the next token.
 /// </para>
 /// </summary>
-internal static class ServicePrincipalSecretStore
+internal class ServicePrincipalSecretStore(IPersistenceStore Persistence, ILoggingService Logger) : IServicePrincipalSecretStore
 {
     /// <summary>
     /// Deliberately not named <c>msal.cache.*</c>: this is not a cache and must not be swept by the
@@ -25,13 +25,13 @@ internal static class ServicePrincipalSecretStore
     /// </summary>
     public const string Prefix = "service.principal.entries";
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private readonly JsonSerializerOptions JsonOptions = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     /// <summary>The store is a single blob, so concurrent saves would drop each other's entries.</summary>
-    private static readonly SemaphoreSlim Gate = new(1, 1);
+    private readonly SemaphoreSlim Gate = new(1, 1);
 
     /// <summary>One application's credential, keyed by the pair that identifies it to Entra.</summary>
     public sealed record Entry
@@ -45,23 +45,43 @@ internal static class ServicePrincipalSecretStore
         /// <summary>The federated (OIDC) assertion. Named as Azure CLI names it.</summary>
         [JsonPropertyName("client_assertion")]
         public string? ClientAssertion { get; init; }
+
+        /// <summary>The service principal client secret.</summary>
+        [JsonPropertyName("client_secret")]
+        public string? ClientSecret { get; init; }
     }
 
-    /// <summary>Records the credential an application just signed in with, replacing any earlier one.</summary>
-    public static async Task SaveAssertionAsync(
+    public async Task SaveClientSecretAsync(
         string clientId,
-        string tenantId,
-        string assertion,
-        string? cacheDirectory = null,
-        ILoggingService? logger = null)
+        string clientSecret)
     {
         await Gate.WaitAsync();
         try
         {
-            var entries = await LoadAsync(cacheDirectory, logger);
+            var entries = await LoadAsync();
+            entries.RemoveAll(e => MatchesClientId(e, clientId));
+            entries.Add(new Entry { ClientId = clientId, ClientSecret = clientSecret });
+            await SaveAsync(entries, Logger);
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
+    /// <summary>Records the credential an application just signed in with, replacing any earlier one.</summary>
+    public async Task SaveAssertionAsync(
+        string clientId,
+        string tenantId,
+        string assertion)
+    {
+        await Gate.WaitAsync();
+        try
+        {
+            var entries = await LoadAsync();
             entries.RemoveAll(e => Matches(e, clientId, tenantId));
             entries.Add(new Entry { ClientId = clientId, TenantId = tenantId, ClientAssertion = assertion });
-            await SaveAsync(entries, cacheDirectory, logger);
+            await SaveAsync(entries, Logger);
         }
         finally
         {
@@ -70,33 +90,37 @@ internal static class ServicePrincipalSecretStore
     }
 
     /// <summary>Null when nothing was kept; the caller has the context to report that better.</summary>
-    public static async Task<string?> TryGetAssertionAsync(
+    public async Task<string?> GetAssertionAsync(
         string clientId,
-        string tenantId,
-        string? cacheDirectory = null,
-        ILoggingService? logger = null)
+        string tenantId)
     {
-        var entries = await LoadAsync(cacheDirectory, logger);
+        var entries = await LoadAsync();
         return entries.FirstOrDefault(e => Matches(e, clientId, tenantId))?.ClientAssertion;
     }
 
+    public async Task<string?> GetClientSecretAsync(
+        string clientId)
+    {
+        var entries = await LoadAsync();
+        return entries.FirstOrDefault(e => MatchesClientId(e, clientId))?.ClientSecret;
+    }
+
     /// <summary>Forgets one application's credential, so a logout cannot sign straight back in.</summary>
-    public static async Task RemoveAsync(
+    public async Task RemoveAsync(
         string clientId,
-        string tenantId,
-        string? cacheDirectory = null,
-        ILoggingService? logger = null)
+        string tenantId)
     {
         await Gate.WaitAsync();
         try
         {
-            var entries = await LoadAsync(cacheDirectory, logger);
-            if (entries.RemoveAll(e => Matches(e, clientId, tenantId)) == 0)
+            var entries = await LoadAsync();
+            if (entries.RemoveAll(e => Matches(e, clientId, tenantId)
+                || (MatchesClientId(e, clientId) && e.ClientSecret is not null)) == 0)
             {
                 return;
             }
 
-            await SaveAsync(entries, cacheDirectory, logger);
+            await SaveAsync(entries, Logger);
         }
         finally
         {
@@ -104,13 +128,16 @@ internal static class ServicePrincipalSecretStore
         }
     }
 
+    private static bool MatchesClientId(Entry entry, string clientId) =>
+        string.Equals(entry.ClientId, clientId, StringComparison.OrdinalIgnoreCase);
+
     private static bool Matches(Entry entry, string clientId, string tenantId) =>
         string.Equals(entry.ClientId, clientId, StringComparison.OrdinalIgnoreCase)
         && string.Equals(entry.TenantId, tenantId, StringComparison.OrdinalIgnoreCase);
 
-    private static async Task<List<Entry>> LoadAsync(string? cacheDirectory, ILoggingService? logger)
+    private async Task<List<Entry>> LoadAsync()
     {
-        var resolution = await ResolveAsync(cacheDirectory, logger);
+        var resolution = await ResolveAsync(Logger);
 
         // Policy keeps credentials in memory only, so nothing was ever written to read back.
         if (resolution.Helper is null)
@@ -131,14 +158,14 @@ internal static class ServicePrincipalSecretStore
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
             // A corrupt store must not fail every command; this is the same position as an empty one.
-            logger?.Warn($"Stored service principal credentials could not be read and are being ignored: {ex.Message}");
+            Logger?.Warn($"Stored service principal credentials could not be read and are being ignored: {ex.Message}");
             return [];
         }
     }
 
-    private static async Task SaveAsync(List<Entry> entries, string? cacheDirectory, ILoggingService? logger)
+    private async Task SaveAsync(List<Entry> entries, ILoggingService? Logger)
     {
-        var resolution = await ResolveAsync(cacheDirectory, logger);
+        var resolution = await ResolveAsync(Logger);
 
         if (resolution.Helper is null)
         {
@@ -149,10 +176,10 @@ internal static class ServicePrincipalSecretStore
             Encoding.UTF8.GetBytes(JsonSerializer.Serialize(entries, JsonOptions)));
     }
 
-    private static async Task<TokenCacheResolution> ResolveAsync(string? cacheDirectory, ILoggingService? logger) =>
+    private async Task<TokenCacheResolution> ResolveAsync(ILoggingService? Logger) =>
         await MsalTokenCacheFactory.CreateAsync(
+            persistence: Persistence,
             prefix: Prefix,
-            cacheDirectory: cacheDirectory,
-            logger: logger,
+            logger: Logger,
             type: MsalTokenCacheFactory.SecretStoreType);
 }

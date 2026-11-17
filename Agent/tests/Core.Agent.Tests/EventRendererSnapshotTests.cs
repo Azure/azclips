@@ -72,6 +72,20 @@ public class EventRendererSnapshotTests
         SnapshotAssert.Matches("event-renderer-happy-path", capture.ToTranscript());
     }
 
+    [Theory]
+    [InlineData("gpt-5.4-mini-2026-03-17", "gpt-5.4-mini-2026-03-17")]
+    [InlineData(null, "test-model")]
+    public void Usage_ModelIsTheServedModelWhenKnown(string? served, string expected)
+    {
+        AgentEvent? emitted = null;
+        var renderer = new EventRenderer { OnEvent = ev => emitted = ev, ServedModel = () => served };
+
+        renderer.Forward(new AssistantTurnStartEvent { Data = new AssistantTurnStartData { TurnId = "t1" } });
+        renderer.Forward(new AssistantUsageEvent { Data = new AssistantUsageData { Model = "test-model" } });
+
+        Assert.Equal(expected, Assert.IsType<LlmTurnCompleted>(emitted).Model);
+    }
+
     [Fact]
     public void Usage_PreservesReasoningAndCacheWriteTokens()
     {

@@ -36,13 +36,13 @@ public class RoleAssignmentPSArgumentParsingProviderTests
             ["ObjectType"] = "ServicePrincipal",
         };
 
-        IDictionary<string, object> result = provider.ParseArguments(args, metadata.Parameters, metadata.ParameterAliases);
+        IDictionary<string, (string, object)> result = provider.ParseArguments(args, metadata.Parameters, metadata.ParameterAliases);
 
         Assert.True(result.ContainsKey("AssigneeObjectId"), "ObjectId must translate to the processor's AssigneeObjectId property");
-        Assert.Equal("11111111-2222-3333-4444-555555555555", result["AssigneeObjectId"]);
+        Assert.Equal("11111111-2222-3333-4444-555555555555", result["AssigneeObjectId"].Item2);
 
         Assert.True(result.ContainsKey("PrincipalType"), "ObjectType must translate to the processor's PrincipalType property");
-        Assert.Equal("ServicePrincipal", result["PrincipalType"]);
+        Assert.Equal("ServicePrincipal", result["PrincipalType"].Item2);
 
         Assert.True(result.ContainsKey("RoleDefinitionId"));
 

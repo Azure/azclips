@@ -17,7 +17,7 @@ public sealed class HostRunnerTests
 {
     private static TransformedIR Ir() => new()
     {
-        SchemaVersion = "0.8.0",
+        SchemaVersion = "0.18.0",
         Target = Targets.For("Contoso.Clients"),
         Models =
         [

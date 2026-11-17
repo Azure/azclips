@@ -17,6 +17,13 @@
 -->
 ## Upcoming Release
 
+## Version 0.1.5
+* Initial sign-in no longer inherits argument defaults from the active profile; supply subscription ID explicitly.
+* Managed identity sign-in now requires a subscription ID. Profile re-authentication no longer accepts a subscription ID.
+
+## Version 0.1.4
+* Added service principal client-secret sign-in with `-ClientSecret <SecureString>` and backward-compatible `-ServicePrincipal -Credential <PSCredential>` syntax.
+
 ## Version 0.1.0
 
 * First preview

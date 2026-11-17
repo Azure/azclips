@@ -3,7 +3,6 @@
 
 using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
-using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
 {
@@ -20,29 +19,19 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors.Resource
         /// Wires the ResourceCache singleton for a CLI-side processor call.
         /// Returns the caller-scoped tools instance ready to invoke.
         /// </summary>
-        public static (CachedResourceTools tools, ArmCacheRefresher refresher) Initialize()
+        public static (CachedResourceTools tools, ArmCacheRefresher refresher) Initialize(
+            IAuthService auth, IProfileService profileService, HttpClient httpClient,
+            Func<string, IDisposable?> activityCreator)
         {
-            var auth = AzclipsServiceProvider.GetRequiredService<IAuthService>();
-            var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
-
-            // Reuse the DI-registered process-wide HttpClient (Core.Engine
-            // registers it as a singleton) rather than letting ArmCacheRefresher
-            // construct its own. Initialize() runs once per `az agent tool
-            // resource ...` invocation and the refresher it builds may be
-            // discarded by ConfigureSingleton's first-writer-wins wiring, so a
-            // self-owned HttpClient here would be an undisposed leak; the shared
-            // singleton is owned by the container and never leaks.
-            var httpClient = AzclipsServiceProvider.GetRequiredService<HttpClient>();
-            var refresher = new ArmCacheRefresher(auth, profileService, httpClient);
+            // CLI callers borrow the process-wide client and retain detached background refresh.
+            // Only the Agent executable attaches a host lifetime to its installed refresher.
+            var refresher = ResourceCache.GetOrCreateRefresher(() =>
+                new ArmCacheRefresher(auth, profileService, httpClient));
             // The tools push the active profile's tenant into ResourceCache on
             // every invocation (CachedResourceTools.SyncTenantAsync), so there's
             // nothing to pin here; wire only the background refresher.
-            ResourceCache.ConfigureSingleton(
-                currentTenantId: null,
-                refresher: refresher);
-
             var armDetails = new ArmDetailsClient(auth);
-            return (new CachedResourceTools(armDetails, profileService), refresher);
+            return (new CachedResourceTools(armDetails, profileService, activityCreator), refresher);
         }
     }
 }

@@ -33,6 +33,10 @@ namespace Core.Agent.Providers;
 /// The handler does not retry: every response goes back to the runtime
 /// unchanged.
 /// </para>
+/// <para>
+/// After each response, the handler stores the <c>x-ms-served-model</c> header in the
+/// session's <see cref="ServedModel"/>.
+/// </para>
 /// </remarks>
 internal sealed class EncryptedReasoningRequestHandler : CopilotRequestHandler
 {
@@ -55,15 +59,34 @@ internal sealed class EncryptedReasoningRequestHandler : CopilotRequestHandler
         Timeout = TimeSpan.FromMinutes(10),
     };
 
-    public EncryptedReasoningRequestHandler()
+    private readonly ServedModel _servedModel;
+
+    public EncryptedReasoningRequestHandler(ServedModel servedModel)
         : base(SharedClient)
     {
+        ArgumentNullException.ThrowIfNull(servedModel);
+        _servedModel = servedModel;
     }
 
     protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CopilotRequestContext ctx)
     {
         ArgumentNullException.ThrowIfNull(ctx);
-        return SendWithoutReasoningAsync(request, (message, _) => SendDirectAsync(message, ctx), ctx.CancellationToken);
+        return SendAndRecordAsync(request, (message, _) => SendDirectAsync(message, ctx), _servedModel, ctx.CancellationToken);
+    }
+
+    /// <summary>
+    /// Sends <paramref name="request"/> without its reasoning items and stores the served model
+    /// of the response in <paramref name="servedModel"/>.
+    /// </summary>
+    internal static async Task<HttpResponseMessage> SendAndRecordAsync(
+        HttpRequestMessage request,
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send,
+        ServedModel servedModel,
+        CancellationToken ct)
+    {
+        var response = await SendWithoutReasoningAsync(request, send, ct).ConfigureAwait(false);
+        servedModel.Record(response);
+        return response;
     }
 
     private Task<HttpResponseMessage> SendDirectAsync(HttpRequestMessage request, CopilotRequestContext ctx) =>

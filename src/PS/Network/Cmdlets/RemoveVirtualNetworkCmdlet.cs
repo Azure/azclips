@@ -20,6 +20,7 @@ public class RemoveVirtualNetworkCmdlet : PSCmdlet
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = true)]
+    [Alias("ResourceName")]
     public string Name { get; set; } = "";
 
     [Parameter(Mandatory = true)]

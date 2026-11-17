@@ -32,6 +32,81 @@ public class HelpArtifactWriterTests
         AssertJsonEquivalent(expectedIndexPath, generatedIndexPath);
     }
 
+    // LocalOnly: under parallel load a writer can wait past the 10-second catalog lock limit, so the result depends on thread scheduling.
+    [Trait("Category", "LocalOnly")]
+    [Fact]
+    public async Task WriteCatalog_ConcurrentWritersPublishWholeDocuments()
+    {
+        using var output = new TempOutputFixture();
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(new ExtensionIndex(), "1.0.0", "login");
+        var index = ExtensionHelpManifestBuilder.BuildIndex([manifest]);
+        var fingerprints = Enumerable.Range(0, 8).Select(i => $"writer-{i}").ToArray();
+
+        await Task.WhenAll(fingerprints.Select(fingerprint => Task.Run(() =>
+            HelpArtifactWriter.WriteCatalog(output.DirectoryPath, new HelpCatalogHeader(1, "test", fingerprint), [manifest], index))));
+
+        var published = new List<string?>();
+        foreach (var name in new[] { "HelpManifest.json", "HelpIndex.json" })
+        {
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(output.DirectoryPath, name)));
+            Assert.Contains(document.RootElement.GetProperty("header").GetProperty("extensionFingerprint").GetString(), fingerprints);
+            published.Add(document.RootElement.GetProperty("header").GetProperty("extensionFingerprint").GetString());
+            Assert.Equal(1, document.RootElement.GetProperty("header").GetProperty("schemaVersion").GetInt32());
+            if (name == "HelpManifest.json")
+                Assert.Equal("login", document.RootElement.GetProperty("manifests")[0].GetProperty("commands")[0].GetProperty("cliName").GetString());
+            else
+                Assert.Equal("login", document.RootElement.GetProperty("index").GetProperty("commands")[0].GetProperty("cliName").GetString());
+        }
+        Assert.Equal(published[0], published[1]);
+        Assert.Empty(Directory.GetFiles(output.DirectoryPath, "*.pending"));
+    }
+
+    [Fact]
+    public void WriteCatalog_PreCancelledDoesNotPublishArtifacts()
+    {
+        using var output = new TempOutputFixture();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(() => HelpArtifactWriter.WriteCatalog(
+            output.DirectoryPath, new HelpCatalogHeader(1, "test", "stamp"), [], new([], []), cts.Token));
+        Assert.Empty(Directory.GetFiles(output.DirectoryPath));
+    }
+
+    // LocalOnly: the 100 ms cancel races the 10-second catalog lock limit on a loaded machine, so the exception type depends on thread scheduling.
+    [Trait("Category", "LocalOnly")]
+    [Fact]
+    public void WriteCatalog_CancellationWhileWaitingForAnotherPublisher_DoesNotPublish()
+    {
+        using var output = new TempOutputFixture();
+        using var lease = new FileStream(Path.Combine(output.DirectoryPath, HelpArtifactWriter.CatalogLockFileName),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        Assert.ThrowsAny<OperationCanceledException>(() => HelpArtifactWriter.WriteCatalog(
+            output.DirectoryPath, new HelpCatalogHeader(1, "test", "stamp"), [], new([], []), cts.Token));
+        Assert.False(File.Exists(Path.Combine(output.DirectoryPath, "HelpManifest.json")));
+        Assert.False(File.Exists(Path.Combine(output.DirectoryPath, "HelpIndex.json")));
+    }
+
+    [Fact]
+    public void WriteCatalog_ReplacesFilesHeldOpenByReaders()
+    {
+        using var output = new TempOutputFixture();
+        HelpArtifactWriter.WriteCatalog(output.DirectoryPath, new HelpCatalogHeader(1, "test", "old"), [], new([], []));
+        var paths = new[] { "HelpManifest.json", "HelpIndex.json" }.Select(name => Path.Combine(output.DirectoryPath, name)).ToArray();
+
+        using (var manifestReader = new FileStream(paths[0], FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
+        using (var indexReader = new FileStream(paths[1], FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
+        {
+            HelpArtifactWriter.WriteCatalog(output.DirectoryPath, new HelpCatalogHeader(1, "test", "new"), [], new([], []));
+        }
+
+        foreach (var path in paths)
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("new", document.RootElement.GetProperty("header").GetProperty("extensionFingerprint").GetString());
+        }
+    }
+
     private static void AssertJsonEquivalent(string expectedPath, string actualPath)
     {
         var expectedJson = File.ReadAllText(expectedPath);

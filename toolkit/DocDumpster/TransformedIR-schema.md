@@ -1,6 +1,6 @@
 # The TransformedIR schema
 
-> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.17.0"`. _(2026-10-07; revised 2026-10-16)_
+> **Status:** Current, shares `IR_SCHEMA_VERSION = "0.18.0"`. _(2026-10-07; revised 2026-11-18)_
 >
 > Reference for `@azure-client-engine/ir`'s **`TransformedIR`** root — the
 > transformer↔generator contract. Its sibling, [`IR-schema.md`](./IR-schema.md),
@@ -300,7 +300,8 @@ which is why the processor base needs no `TError` generics.
 ### Pagination
 
 ```ts
-IRCommandPagination = { itemType, items: IRPropertyRef, nextLink?: IRPropertyRef, nextLinkVerb? }
+IRCommandPagination = { itemType, items: IRPropertyRef, nextLink?: IRPropertyRef, nextLinkVerb?, continuationToken?: IRCommandContinuationToken }
+IRCommandContinuationToken = { response: IRPropertyRef, parameter: string }   // parameter: an IRCommandParameter name
 IRPropertyRef       = { property: IRId, via: IRId[] }   // via: containers, outermost first
 ```
 
@@ -309,6 +310,12 @@ segments against the model's `wireName`s: the leaf `property`, plus the `via`
 containers walked to reach it — empty when the leaf sits on the response model itself. `IRPageableSemantics` records wire paths,
 which leaves the generator PascalCasing each segment and hoping it matches an emitted
 member — a heuristic made fragile by flattening's renames.
+
+A step follows at most one strategy: `nextLink` (a URL to fetch) or `continuationToken`
+(a response property whose value is set on the command `parameter` before the request is
+rebuilt). The token is resolved only when there is no next link, and only for a body-bound
+response token and a string query or header parameter; otherwise `create-command` warns
+`paging-continuation-unresolved` and keeps items-only pagination (first page).
 
 ## Dialects
 
@@ -342,6 +349,10 @@ carries `parameterSets[]`, literal completion values, one literal default value,
 closed-enum `validateSet[]`, and structured deprecation/preview lifecycle.
 `CliCommandDialect` carries `path[]`;
 `CliParameterDialect` carries `flag`, `shorthand`, `group`.
+
+**Migration from 0.17.0:** PowerShell command dialects now require `subject`
+instead of `noun`. Regenerate captures containing PowerShell dialects, or rename
+that field and stamp the updated document with schema version `0.18.0`.
 
 ## Target
 
@@ -395,7 +406,8 @@ Per document (`TransformedIRSchema.superRefine`), in addition to `IR`'s server r
 - `name` is unique document-wide (it is the generated C# type stem);
 - `commandKey(id)` is unique;
 - PowerShell sibling commands agree on one default parameter set, and that default
-  is covered by a visible parameter's named or all-set membership.
+  is covered by a public parameter's named or all-set membership; parameters with
+  `access: "internal"` never contribute coverage.
 
 ## Consuming it
 

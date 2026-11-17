@@ -1,0 +1,211 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions;
+using Core.Abstractions.Recovery;
+using Microsoft.Azure.Azclips.Extensions.Agent.Processors.Troubleshoot;
+using Xunit;
+using static Core.Agent.Tests.TroubleshootTestSupport;
+
+namespace Core.Agent.Tests;
+
+[Collection("Troubleshoot")]
+public class TroubleshootProcessorTests
+{
+    public static TheoryData<string?, string?> InvalidArguments => new()
+    {
+        { @"..\history", null },
+        { "42-2026-0924-0000", null },
+        { "abcdef0123456789abcdef0123456789", null },
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidArguments))]
+    public async Task InvalidArguments_FailBeforeHistoryOrAgent(string? id, string? style)
+    {
+        var history = new FakeHistory();
+        var error = await Assert.ThrowsAsync<UsageErrorException>(() =>
+            RunAsync(new TroubleshootRecoverProcessor { Id = id, Style = style }, history));
+        Assert.Equal(2, error.ExitCode);
+        Assert.Equal(0, history.Reads);
+    }
+
+    [Fact]
+    public async Task List_IsReadOnlyAndUsesOnlyTheThreeOriginalFields()
+    {
+        var record = MakeRecord() with { ErrorText = "original\r\nfailure é \"quoted\"" + new string('x', 220) };
+        var history = new FakeHistory(record);
+        var written = await RunAsync(new TroubleshootListProcessor(), history);
+
+        var entry = Assert.Single(Assert.IsType<TroubleshootEntry[]>(Assert.Single(written)));
+        Assert.Equal(["Id", "Command", "ErrorDetail"], typeof(TroubleshootEntry).GetProperties().Select(p => p.Name));
+        Assert.Equal(record.Id, entry.Id);
+        Assert.Equal(record.FailedCommand, entry.Command);
+        Assert.Equal(TroubleshootEntry.SummarizeError(record.ErrorText), entry.ErrorDetail);
+        Assert.Equal(1, history.Reads);
+    }
+
+    [Fact]
+    public async Task Show_UsesFullOriginalContent()
+    {
+        var record = MakeRecord() with { ErrorText = "first\nsecond\r\n" + new string('é', 400) };
+        var history = new FakeHistory(record);
+        var written = await RunAsync(new TroubleshootShowProcessor { Id = record.Id }, history);
+
+        var entry = Assert.IsType<TroubleshootEntry>(Assert.Single(written));
+        Assert.Equal(record.ErrorText, entry.ErrorDetail);
+        Assert.Equal(record.FailedCommand, entry.Command);
+        Assert.Equal(1, history.Reads);
+    }
+
+    [Fact]
+    public async Task LocalViews_DistinguishEmptyAndMissingRecords()
+    {
+        var written = await RunAsync(new TroubleshootListProcessor(), new FakeHistory());
+        Assert.Empty(Assert.IsType<TroubleshootEntry[]>(Assert.Single(written)));
+
+        var missing = await Assert.ThrowsAsync<AzclipsErrorException>(() =>
+            RunAsync(new TroubleshootShowProcessor { Id = Id }, new FakeHistory()));
+        Assert.Equal("FailureRecordNotFound", missing.Code);
+        Assert.Equal(1, missing.ExitCode);
+    }
+
+    [Theory]
+    [InlineData("failure_history_incompatible_draft")]
+    [InlineData("failure_history_key_unavailable")]
+    [InlineData("failure_history_corrupt")]
+    [InlineData("failure_history_clear_pending")]
+    public async Task LocalViews_ReportHistoryErrorsWithoutCleanupOrFallback(string code)
+    {
+        foreach (var processor in new Microsoft.Azure.Azclips.Extensions.Agent.Processors.AgentProcessorBase[]
+            { new TroubleshootListProcessor(), new TroubleshootShowProcessor { Id = Id } })
+        {
+            var cause = new FailureHistoryException(code, "Local history cannot be read.");
+            var history = new FakeHistory(cause);
+            var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(processor, history));
+            Assert.Equal(code, error.Code);
+            Assert.Equal(cause.Message, error.Message);
+            Assert.Same(cause, error.InnerException);
+            Assert.Equal(1, error.ExitCode);
+            Assert.Equal(1, history.Reads);
+        }
+    }
+
+    [Fact]
+    public async Task Recover_KeepsTheHistoryErrorAsTheCause()
+    {
+        var cause = new FailureHistoryException("failure_history_io", "Local history cannot be read.", new IOException("sharing violation"));
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(new TroubleshootRecoverProcessor { Style = "oneshot" }, new FakeHistory(cause),
+            new FakeConfiguration(new AgentOptions { Recovery = new() { Trigger = "manual" } })));
+        Assert.Equal("failure_history_io", error.Code);
+        Assert.Equal(cause.Message, error.Message);
+        Assert.Same(cause, error.InnerException);
+    }
+
+    [Theory]
+    [InlineData("list")]
+    [InlineData("show")]
+    [InlineData("recover")]
+    public async Task HistoryError_WritesTheFullCauseAtDebugLevel(string command)
+    {
+        var cause = new FailureHistoryException("failure_history_io", "Local history cannot be read.", new IOException("sharing violation"));
+        var logger = new RecordingLogger();
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(LoggedProcessor(command, logger), new FakeHistory(cause),
+            new FakeConfiguration(Manual())));
+
+        var debug = Assert.Single(logger.Messages);
+        Assert.StartsWith("error cause: Core.Abstractions.Recovery.FailureHistoryException: Local history cannot be read.", debug);
+        Assert.Contains("---> System.IO.IOException: sharing violation", debug);
+        Assert.Equal("failure_history_io", error.Code);
+        Assert.Equal(cause.Message, error.Message);
+        Assert.Same(cause, error.InnerException);
+        Assert.Equal(1, error.ExitCode);
+    }
+
+    [Theory]
+    [InlineData("list")]
+    [InlineData("show")]
+    [InlineData("recover")]
+    public async Task HistoryErrorWithoutCause_WritesNothing(string command)
+    {
+        var cause = new FailureHistoryException("failure_history_corrupt", "Local history cannot be read.");
+        var logger = new RecordingLogger();
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(LoggedProcessor(command, logger), new FakeHistory(cause),
+            new FakeConfiguration(Manual())));
+
+        Assert.Empty(logger.Messages);
+        Assert.Same(cause, error.InnerException);
+    }
+
+    private static Microsoft.Azure.Azclips.Extensions.Agent.Processors.AgentProcessorBase LoggedProcessor(string command, ILoggingService logger) => command switch
+    {
+        "list" => new LoggedList(logger),
+        "show" => new LoggedShow(logger) { Id = Id },
+        _ => new LoggedRecover(logger) { Style = "oneshot" },
+    };
+
+    private sealed class LoggedList(ILoggingService logger) : TroubleshootListProcessor
+    {
+        protected override T GetService<T>() => logger as T ?? base.GetService<T>();
+    }
+
+    private sealed class LoggedShow(ILoggingService logger) : TroubleshootShowProcessor
+    {
+        protected override T GetService<T>() => logger as T ?? base.GetService<T>();
+    }
+
+    private sealed class LoggedRecover(ILoggingService logger) : TroubleshootRecoverProcessor
+    {
+        protected override T GetService<T>() => logger as T ?? base.GetService<T>();
+    }
+
+    private sealed class RecordingLogger : ILoggingService
+    {
+        internal List<string> Messages { get; } = [];
+        public void Debug(string message) => Messages.Add(message);
+        public void Log(string message) => Messages.Add(message);
+        public void Info(string message) => Messages.Add(message);
+        public void Verbose(string message) => Messages.Add(message);
+        public void Warn(string message) => Messages.Add(message);
+        public void Error(string message) => Messages.Add(message);
+    }
+
+    [Fact]
+    public async Task UnavailableKey_UsesTheSelectedPlainRecord()
+    {
+        var plain = MakeRecord(sequence: 3);
+        var unavailable = new FailureHistoryException("failure_history_key_unavailable", "Locked.");
+        Assert.Same(plain, Assert.Single(await TroubleshootRecoverProcessor.ReadRecordsAsync(
+            new FakeHistory(unavailable, plain), null, CancellationToken.None)));
+        Assert.Same(plain, Assert.Single(await TroubleshootRecoverProcessor.ReadRecordsAsync(
+            new FakeHistory(unavailable, plain), plain.Id, CancellationToken.None)));
+        Assert.Same(unavailable, await Assert.ThrowsAsync<FailureHistoryException>(() =>
+            TroubleshootRecoverProcessor.ReadRecordsAsync(new FakeHistory(unavailable, plain), MakeRecord(sequence: 2).Id, CancellationToken.None)));
+        Assert.Same(unavailable, await Assert.ThrowsAsync<FailureHistoryException>(() =>
+            TroubleshootRecoverProcessor.ReadRecordsAsync(new FakeHistory(unavailable), null, CancellationToken.None)));
+    }
+
+    [Fact]
+    public async Task DisabledRecovery_DoesNotReadHistory()
+    {
+        var history = new FakeHistory();
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() => RunAsync(new TroubleshootRecoverProcessor(), history,
+            new FakeConfiguration(new AgentOptions { Recovery = new() { Trigger = "off" } })));
+        Assert.Equal("AgentDisabled", error.Code);
+        Assert.Contains("agent.recovery.trigger", error.Message);
+        Assert.Equal(0, history.Reads);
+    }
+
+    [Theory]
+    [InlineData(null, "NoFailureHistory")]
+    [InlineData(Id, "FailureRecordNotFound")]
+    public async Task Recovery_EmptyOrEvictedSelectionCannotStartAgent(string? id, string expectedCode)
+    {
+        var history = new FakeHistory();
+        var error = await Assert.ThrowsAsync<AzclipsErrorException>(() =>
+            RunAsync(new TroubleshootRecoverProcessor { Id = id }, history, new FakeConfiguration(Manual())));
+        Assert.Equal(expectedCode, error.Code);
+        Assert.Equal(1, error.ExitCode);
+        Assert.Equal(1, history.Reads);
+    }
+}

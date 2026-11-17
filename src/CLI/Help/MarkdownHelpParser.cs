@@ -30,8 +30,9 @@ public static class MarkdownHelpParser
     public static Regex ExampleRegex => s_exampleRegex;
 
     /// <summary>
-    /// Reads a <c>Name: value</c> body field including continuation lines (any non-blank,
-    /// non-heading, non-fence line). Returns empty string when absent.
+    /// Reads a <c>Name: value</c> body field until a heading, code fence, or end of content.
+    /// Joins wrapped lines with spaces and preserves paragraph breaks as LF blank lines.
+    /// Returns empty string when absent.
     /// </summary>
     public static string GetField(string content, string fieldName)
     {
@@ -51,22 +52,29 @@ public static class MarkdownHelpParser
             }
 
             var builder = new StringBuilder(line[prefix.Length..].Trim());
+            var paragraphBreak = false;
             for (var j = i + 1; j < lines.Length; j++)
             {
                 var next = lines[j].TrimEnd('\r');
-                if (string.IsNullOrWhiteSpace(next)
-                    || next.TrimStart().StartsWith('#')
+                if (next.TrimStart().StartsWith('#')
                     || next.TrimStart().StartsWith("```", StringComparison.Ordinal))
                 {
                     break;
                 }
 
+                if (string.IsNullOrWhiteSpace(next))
+                {
+                    paragraphBreak = true;
+                    continue;
+                }
+
                 if (builder.Length > 0)
                 {
-                    builder.Append(' ');
+                    builder.Append(paragraphBreak ? "\n\n" : " ");
                 }
 
                 builder.Append(next.Trim());
+                paragraphBreak = false;
             }
 
             return builder.ToString().Trim();
@@ -75,7 +83,7 @@ public static class MarkdownHelpParser
         return string.Empty;
     }
 
-    /// <summary>Enumerates <c>### Title</c> + fenced-code-block pairs in document order. Whitespace-only command bodies are skipped.</summary>
+    /// <summary>Enumerates <c>### Title</c> + fenced-code-block pairs in document order. Commands use LF line endings; whitespace-only bodies are skipped.</summary>
     public static IEnumerable<MarkdownHelpExample> EnumerateExamples(string? content)
     {
         if (string.IsNullOrEmpty(content))
@@ -87,7 +95,7 @@ public static class MarkdownHelpParser
         {
             var title = match.Groups["title"].Value.Trim();
             var language = match.Groups["lang"].Value.Trim();
-            var command = match.Groups["command"].Value.Trim();
+            var command = match.Groups["command"].Value.ReplaceLineEndings("\n").Trim();
             if (command.Length == 0)
             {
                 continue;

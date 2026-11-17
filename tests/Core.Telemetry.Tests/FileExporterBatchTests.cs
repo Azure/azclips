@@ -47,10 +47,14 @@ public class FileExporterBatchTests
                 .SelectMany(file => TraceFileFormat.Parse(File.ReadAllText(file)))
                 .Select(entry => entry.OperationName)
                 .ToList();
+            var fileContent = File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)));
 
             Assert.Equal(
                 new[] { "first", "root", "second", "third" },
                 names.OrderBy(name => name, StringComparer.Ordinal).ToArray());
+            Assert.Contains("\"startTime\"", fileContent, StringComparison.Ordinal);
+            Assert.Contains("\"durationMs\"", fileContent, StringComparison.Ordinal);
         }
         finally
         {
@@ -88,6 +92,131 @@ public class FileExporterBatchTests
                 .Single(entry => entry.OperationName == "child");
 
             Assert.Equal("object-1", childEntry.EntraObjectId);
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
+    public void Export_ShouldUseOwningInvocationResource_ForHttpChildWrittenFirst()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-file-exporter-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var invocationSource = new ActivitySource("CLI", "1.2.3");
+            using var httpSource = new ActivitySource("System.Net.Http", "10.0.0");
+
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource("CLI", "System.Net.Http")
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var root = invocationSource.StartActivity("root");
+                Assert.NotNull(root);
+                root.SetTag(TelemetryTags.ProductName, "CLI");
+                root.SetTag(TelemetryTags.ProductVersion, "1.2.3");
+
+                using var request = httpSource.StartActivity("System.Net.Http.HttpRequestOut");
+                Assert.NotNull(request);
+            }
+
+            var entries = TraceFileFormat.Parse(File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern))));
+            var requestEntry = entries.Single(
+                entry => entry.OperationName == "System.Net.Http.HttpRequestOut");
+
+            Assert.Equal("CLI", requestEntry.TryGetServiceName());
+            Assert.Equal("CLI", entries[0].TryGetServiceName());
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
+    public void Export_ShouldNotPersistDisallowedUrlTags()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-file-exporter-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var source = new ActivitySource(SourceName);
+
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource(SourceName)
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var activity = source.StartActivity("request");
+                Assert.NotNull(activity);
+                activity.SetTag(TelemetryTags.CommandName, "account show");
+                activity.SetTag("userAgent", "caller-supplied-sensitive-value");
+                activity.SetTag("url.full", "https://example.com/subscriptions/secret-sub-id");
+            }
+
+            var fileContent = File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)));
+
+            Assert.Contains(TelemetryTags.CommandName, fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("userAgent", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("caller-supplied-sensitive-value", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("url.full", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("secret-sub-id", fileContent, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DirectoryUtils.TryDeleteDirectory(directory);
+        }
+    }
+
+    [Fact]
+    public void Export_ShouldFilterExceptionEventAttributes()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "azclips-file-exporter-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var source = new ActivitySource(SourceName);
+            using (var provider = Sdk.CreateTracerProviderBuilder()
+                       .AddSource(SourceName)
+                       .SetSampler(new AlwaysOnSampler())
+                       .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(directory)))
+                       .Build())
+            {
+                using var activity = source.StartActivity("request");
+                Assert.NotNull(activity);
+                activity.SetStatus(ActivityStatusCode.Error,
+                    "status-private-host.example/subscriptions/status-secret-id");
+                activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
+                {
+                    { "exception.type", "System.Net.Http.HttpRequestException" },
+                    { "exception.message", "message-private-host.example/subscriptions/secret-sub-id" },
+                    { "exception.stacktrace", "HttpRequestException: stack-private-host.example/private/path\n   at Client.Send()" }
+                }));
+            }
+
+            var fileContent = File.ReadAllText(Assert.Single(
+                Directory.GetFiles(directory, TraceFileStore.PendingFilePattern)));
+
+            Assert.Contains(TelemetryTags.ExceptionType, fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("exception.type", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("exception.message", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("exception.stacktrace", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("statusDescription", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("message-private-host.example", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("stack-private-host.example", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("status-private-host.example", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("secret-sub-id", fileContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("status-secret-id", fileContent, StringComparison.Ordinal);
         }
         finally
         {

@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Xunit;
 
 namespace Cli.Tests;
@@ -16,7 +17,7 @@ public sealed class ProfileServiceTests : IDisposable
     {
         _dir = Path.Combine(Path.GetTempPath(), "azclips-profile-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_dir);
-        _service = new ProfileService(new ConsoleLoggingService(), _dir);
+        _service = new ProfileService(new ConsoleLoggingService(), new FilePersistenceStore(_dir));
     }
 
     private static Profile MakeProfile(string name, string sub = ValidSubscriptionId, string tenant = "tenant-1") => new()
@@ -157,6 +158,26 @@ public sealed class ProfileServiceTests : IDisposable
         await _service.SetActiveProfileNameAsync(null);
 
         Assert.Null(await _service.GetActiveProfileNameAsync());
+    }
+
+    [Fact]
+    public async Task SetActiveProfile_InvalidUnicode_ShouldPreservePointer()
+    {
+        await _service.SetActiveProfileNameAsync("prod");
+
+        await Assert.ThrowsAsync<System.Text.EncoderFallbackException>(() =>
+            _service.SetActiveProfileNameAsync("\ud800"));
+
+        Assert.Equal("prod", await _service.GetActiveProfileNameAsync());
+    }
+
+    [Fact]
+    public async Task GetActiveProfile_ShouldReadBomEncodedPointer()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, HomePaths.ActiveProfileFileName),
+            "prod", System.Text.Encoding.Unicode);
+
+        Assert.Equal("prod", await _service.GetActiveProfileNameAsync());
     }
 
     [Fact]

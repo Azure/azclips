@@ -39,6 +39,9 @@ public class ExtensionDispatcher //: IParser
         _loggingService = loggingService;
     }
 
+    /// <summary>Builds the routing index (and so records routing's selection) if it isn't built yet.</summary>
+    internal void EnsureRoutingIndex() => _ = _leafIndex.Value;
+
     public CommandInvocation Parse(string[] args)
     {
         // Defensive: GlobalArgParser routes bare / help / version invocations before Main reaches

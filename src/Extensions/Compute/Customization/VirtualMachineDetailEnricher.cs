@@ -7,12 +7,14 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
 {
     /// <summary>
-    /// Shared detail enrichment behind <c>az vm show -d</c>, <c>az vm list -d</c> and
+    /// Shared detail enrichment behind <c>az vm show -d</c>, <c>az vm list -d</c> and the list forms of
     /// <c>Get-AzVM -Status</c>. Two independent modes, so each caller pays only for what it exposes:
     /// <list type="bullet">
     /// <item><description><see cref="ApplyNetworkAsync"/> resolves NICs and public IPs — <c>--show-details</c> only.</description></item>
-    /// <item><description><see cref="ApplyInstanceView"/> flattens the instance view — <c>--show-details</c> and <c>-Status</c>.</description></item>
+    /// <item><description><see cref="ApplyInstanceView"/> flattens the instance view — <c>--show-details</c> and list <c>-Status</c>.</description></item>
     /// </list>
+    /// <c>Get-AzVM -Status</c> for one VM uses only <see cref="ResolveExpand"/>, through
+    /// <c>GetVMInstanceViewProcessor_Orchestrator</c>, which keeps the instance view intact.
     /// Extracted from <c>GetVMProcessor_Orchestrator</c> so the CLI and PowerShell detail views
     /// cannot drift apart.
     /// </summary>
@@ -108,7 +110,9 @@ namespace Microsoft.Azure.Azclips.Extensions.Compute.Processors
         /// <summary>
         /// Flattens the expanded instance view onto the model, then drops it — legacy does the same
         /// once the power state has been read out. <paramref name="includeStatusFields"/> adds the
-        /// four fields only <c>Get-AzVM -Status</c> surfaces; <c>--show-details</c> passes false.
+        /// four fields only the list forms of <c>Get-AzVM -Status</c> surface; <c>--show-details</c>
+        /// passes false. <c>Get-AzVM -Status</c> for one VM never comes here: it goes through
+        /// <c>GetVMInstanceViewProcessor_Orchestrator</c>, which keeps the instance view intact.
         /// </summary>
         internal static void ApplyInstanceView(VirtualMachine vm, bool includeStatusFields)
         {

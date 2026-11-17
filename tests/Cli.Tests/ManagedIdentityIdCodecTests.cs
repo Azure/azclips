@@ -66,15 +66,10 @@ public sealed class ManagedIdentityIdCodecTests
     [InlineData(ManagedIdentityIdType.ClientId)]
     [InlineData(ManagedIdentityIdType.ObjectId)]
     [InlineData(ManagedIdentityIdType.ResourceId)]
-    public void FormatManagedIdentityId_FromLoginRequest_ShouldSelectTheSetField(ManagedIdentityIdType idType)
+    public void FormatManagedIdentityId_FromLoginRequest_ShouldPreserveTheCredentialSelector(ManagedIdentityIdType idType)
     {
         const string value = "abc-123";
-        var request = idType switch
-        {
-            ManagedIdentityIdType.ClientId => new LoginRequest { ManagedIdentityClientId = value },
-            ManagedIdentityIdType.ObjectId => new LoginRequest { ManagedIdentityObjectId = value },
-            _ => new LoginRequest { ManagedIdentityResourceId = value },
-        };
+        var request = new LoginRequest(null, null, new AuthCredential.ManagedIdentity(idType, value));
 
         var combined = ManagedIdentityIdCodec.Format(request);
 
@@ -86,7 +81,8 @@ public sealed class ManagedIdentityIdCodecTests
     [Fact]
     public void FormatManagedIdentityId_FromLoginRequest_ShouldDefaultToSystemAssigned_WhenNoIdSet()
     {
-        var combined = ManagedIdentityIdCodec.Format(new LoginRequest());
+        var combined = ManagedIdentityIdCodec.Format(
+            new LoginRequest(null, null, new AuthCredential.ManagedIdentity(ManagedIdentityIdType.SystemAssigned)));
 
         Assert.Equal("MSI@", combined);
     }

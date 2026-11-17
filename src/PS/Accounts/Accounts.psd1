@@ -12,7 +12,7 @@
 RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
 
 # Version number of this module.
-ModuleVersion = '0.1.2'
+ModuleVersion = '0.1.5'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')
@@ -33,7 +33,7 @@ Copyright = '(c) Microsoft. All rights reserved.'
 Description = 'Azure authentication cmdlets for Azure PowerShell'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '7.5'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -117,7 +117,10 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        # ReleaseNotes = ''
+        ReleaseNotes = @'
+* Initial sign-in no longer inherits argument defaults from the active profile; supply subscription ID explicitly.
+* Managed identity sign-in now requires a subscription ID. Profile re-authentication no longer accepts a subscription ID.
+'@
 
         # Prerelease string of this module
         # Prerelease = ''

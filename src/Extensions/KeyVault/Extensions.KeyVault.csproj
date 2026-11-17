@@ -10,7 +10,7 @@
         <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
         <PackageId>Microsoft.Azure.Azclips.Extensions.KeyVault</PackageId>
-        <Version>0.1.0</Version>
+        <Version>0.1.3</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -28,5 +28,12 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Extensions.KeyVault.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Extensions.KeyVault.Tests" />
     </ItemGroup>
 </Project>

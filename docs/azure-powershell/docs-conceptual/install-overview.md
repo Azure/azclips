@@ -1,47 +1,58 @@
 ---
-title: Install the Azure PowerShell private preview
-description: Learn how to install the Azure PowerShell private preview modules.
+title: Install the Next-Generation Azure PowerShell public preview
+description: Learn how to install and explicitly select the Next-Generation Azure PowerShell public preview modules.
 ---
 
-# Install the Azure PowerShell private preview
+# Install the Next-Generation Azure PowerShell public preview
 
-The Azure PowerShell private preview ships as **azps** — the Az PowerShell modules (`Az.*`). The modules require PowerShell 7.6 or later.
+The Next-Generation Azure PowerShell public preview ships as **azps** — the Az PowerShell modules (`Az.*`). The modules require PowerShell 7.6 or later.
 
 > [!NOTE]
-> For the Azure CLI (`az` command-line tool), see the [Azure CLI private preview install overview](../../azure-cli/docs-conceptual/install-overview.md).
+> For the `az` command-line tool, see the [Next-Generation Azure CLI public preview install overview](../../azure-cli/docs-conceptual/install-overview.md).
 
 ## Install azps (one command)
 
-Private-preview artifacts live in a **private** GitHub repo; your account has **read** access. The installer uses your authenticated GitHub CLI (`gh`) session.
+The installer downloads the latest release from [GitHub Releases](https://github.com/Azure/azclips/releases).
 
 **Prerequisites:**
 
 - [PowerShell 7.6+](https://aka.ms/powershell)
-- [GitHub CLI](https://cli.github.com/) signed in (`gh auth login`)
+- `tar` available on `PATH` to extract the bundle
 
-**Download and install:**
+**Linux / macOS / WSL / Windows** (run inside PowerShell 7.6+, `pwsh`):
 
 ```powershell
-gh release download --repo Azure/azclips --pattern 'azps-cmdlets-*.tar.gz' --dir . --clobber
-New-Item -ItemType Directory -Force -Path azps-cmdlets | Out-Null
-$bundle = Get-ChildItem azps-cmdlets-*.tar.gz | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-tar -xzf $bundle.FullName -C azps-cmdlets
-./azps-cmdlets/InstallModule.ps1
+# Linux / macOS / WSL / Windows (PowerShell 7.6+)
+irm https://raw.githubusercontent.com/Azure/azclips/main/install/azps-install.ps1 -ErrorAction Stop | iex
 ```
+
+The bootstrap downloads and extracts the bundle into a temporary directory, invokes its `InstallModule.ps1` helper for the current user, and removes its temporary repository and files afterward.
+
+For module/version/scope options or manual/offline installation, see the [module installation guide](./install-powershell-modules.md).
 
 ## Verify
 
+Start a fresh PowerShell 7.6+ session and explicitly load the preview:
+
 ```powershell
-Import-Module -Name Az
-Get-Module -Name Az.* -ListAvailable | Select-Object Name, Version
+Import-Module Az -MinimumVersion 0.1.0 -MaximumVersion 0.1.9999
+Get-Module -Name Az, Az.Accounts | Select-Object Name, Version, ModuleBase
 ```
+
+The loaded `Az` version should be in the `0.1.*` range. The preview installs side by side with classic Azure PowerShell. An unversioned `Import-Module Az` loads the highest installed version, which is classic Az when both are installed. Running a cmdlet before explicitly importing the preview can also autoload classic modules. To change versions, start a new session; see [Switch between classic and preview Azure PowerShell](./switch-azps-versions.md).
+
+## Sign in and try a command
+
+Continue with [get started with Next-Generation Azure PowerShell](./getting-started.md) to sign in
+to Azure, check your active profile, and run a read-only command. Installing the bundle doesn't
+sign you in to Azure.
 
 ## Other install scenarios
 
 | You want to… | Guide |
 | --- | --- |
 | Install a single module, pin a version, or install machine-wide | [install-powershell-modules.md](./install-powershell-modules.md) |
-| Install the Azure CLI private preview | [install-overview.md](../../azure-cli/docs-conceptual/install-overview.md) |
+| Install the Next-Generation Azure CLI public preview | [install-overview.md](../../azure-cli/docs-conceptual/install-overview.md) |
 
 ## What's in a release
 

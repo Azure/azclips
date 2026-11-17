@@ -53,8 +53,7 @@ public sealed class ExtensionSelectionPathOverrideTests
 
             var provider = new CLIAssemblyLoadingProvider(
                 [bundledLoader, installedLoader],
-                logging,
-                new InMemoryRegistryStore(new ExtensionRegistry()));
+                logging);
             var installed = provider.GetAllInstalledExtensions();
 
             Assert.NotNull(installed);
@@ -75,48 +74,6 @@ public sealed class ExtensionSelectionPathOverrideTests
         finally
         {
             DirectoryUtils.TryDeleteDirectory(bundledPackageDir);
-            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
-        }
-    }
-
-    [Fact]
-    public void StalePinnedVersion_ShouldNotOverrideDiscoveredVersion_WhenPinnedPayloadMissing()
-    {
-        var installedRoot = Path.Combine(Path.GetTempPath(), $"selection-stale-pin-{Guid.NewGuid():N}", "installed");
-        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-        Directory.CreateDirectory(installedRoot);
-
-        try
-        {
-            var installedPackageDir = Path.Combine(installedRoot, packageId, "1.3.0");
-            Directory.CreateDirectory(installedPackageDir);
-            File.WriteAllText(Path.Combine(installedPackageDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll"), string.Empty);
-
-            var configuration = new TestConfigurationService(installedRoot);
-            var logging = new NullLoggingService();
-            var installedLoader = new InstalledExtensionLoader(logging, configuration);
-
-            var registry = new ExtensionRegistry();
-            registry.Extensions[packageId] = new ExtensionRegistryEntry
-            {
-                Version = "1.2.0",
-                Pinned = true,
-                InstalledAt = DateTimeOffset.UtcNow,
-            };
-
-            var provider = new CLIAssemblyLoadingProvider(
-                [installedLoader],
-                logging,
-                new InMemoryRegistryStore(registry));
-
-            var installed = provider.GetAllInstalledExtensions();
-
-            var single = Assert.Single(installed!);
-            Assert.Equal("Compute", single.Name);
-            Assert.Equal("1.3.0", single.Version);
-        }
-        finally
-        {
             DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
         }
     }
@@ -155,8 +112,7 @@ public sealed class ExtensionSelectionPathOverrideTests
                     new BundledExtensionLoader(logging, configuration),
                     new InstalledExtensionLoader(logging, configuration),
                 ],
-                logging,
-                new InMemoryRegistryStore(new ExtensionRegistry()));
+                logging);
 
             var installed = provider.GetAllInstalledExtensions();
 
@@ -174,11 +130,10 @@ public sealed class ExtensionSelectionPathOverrideTests
     }
 
     [Fact]
-    public void GetAllInstalledExtensions_ShouldNullLocation_WhenPinRoutesToDifferentVersion()
+    public void GetAllInstalledExtensions_ShouldReportEveryInstalledVersion_SoAPinCanSelectItsOwnDll()
     {
-        // When the registry pins a version different from what the loader reports as latest,
-        // the discovered `Location` came from the *unpinned* version's folder. Emit null rather
-        // than a path that disagrees with what dispatch will actually load.
+        // The Installed loader reports every version with its own DLL; the selector, not the
+        // loader, applies the pin. The selected copy's Location is the one execution loads.
         var installedRoot = Path.Combine(Path.GetTempPath(), $"pin-location-{Guid.NewGuid():N}", "installed");
         var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
         Directory.CreateDirectory(installedRoot);
@@ -194,25 +149,24 @@ public sealed class ExtensionSelectionPathOverrideTests
 
             var configuration = new TestConfigurationService(installedRoot);
             var logging = new NullLoggingService();
-            var installedLoader = new InstalledExtensionLoader(logging, configuration);
-
-            var registry = new ExtensionRegistry();
-            registry.Extensions[packageId] = new ExtensionRegistryEntry
-            {
-                Version = "1.2.0",
-                Pinned = true,
-                InstalledAt = DateTimeOffset.UtcNow,
-            };
-
             var provider = new CLIAssemblyLoadingProvider(
-                [installedLoader],
-                logging,
-                new InMemoryRegistryStore(registry));
+                [new InstalledExtensionLoader(logging, configuration)],
+                logging);
 
-            var single = Assert.Single(provider.GetAllInstalledExtensions()!);
-            Assert.Equal("Compute", single.Name);
-            Assert.Equal("1.2.0", single.Version);
-            Assert.Null(single.Location);
+            var installed = provider.GetAllInstalledExtensions()!;
+
+            Assert.Equal(["1.3.0", "1.2.0"], installed.Select(item => item.Version));
+            string ExpectedDll(string version) =>
+                Path.Combine(installedRoot, packageId, version, "Microsoft.Azure.Azclips.Extensions.Compute.dll");
+            Assert.All(installed, item => Assert.Equal(ExpectedDll(item.Version), item.Location));
+
+            var pin = new ExtensionRegistryEntry { Version = "1.2.0", Pinned = true, InstalledAt = DateTimeOffset.UtcNow };
+            var selection = ExtensionCandidateSelector.Select(
+                installed.Select(item => new ExtensionRoutingInfo(packageId, item.Version, [], [], item.Location)).ToArray(),
+                pin);
+
+            Assert.Equal(ExtensionSelectionReason.Pinned, selection.Reason);
+            Assert.Equal(ExpectedDll("1.2.0"), selection.Selected.Location);
         }
         finally
         {
@@ -236,48 +190,6 @@ public sealed class ExtensionSelectionPathOverrideTests
             var loader = new InstalledExtensionLoader(new NullLoggingService(), configuration);
 
             Assert.Empty(loader.GetInstalledExtensions());
-        }
-        finally
-        {
-            DirectoryUtils.TryDeleteDirectory(Path.GetDirectoryName(installedRoot)!);
-        }
-    }
-
-    [Fact]
-    public void GetAllInstalledExtensions_ShouldKeepLocation_WhenPinMatchesDiscoveredVersion()
-    {
-        // When a pin resolves to the same version the loader already reports, the discovered
-        // Location is exactly what dispatch will load — don't null it out.
-        var installedRoot = Path.Combine(Path.GetTempPath(), $"pin-match-{Guid.NewGuid():N}", "installed");
-        var packageId = "Microsoft.Azure.Azclips.Extensions.Compute";
-        var versionDir = Path.Combine(installedRoot, packageId, "1.2.0");
-        Directory.CreateDirectory(versionDir);
-        var expectedDll = Path.Combine(versionDir, "Microsoft.Azure.Azclips.Extensions.Compute.dll");
-        File.WriteAllText(expectedDll, string.Empty);
-
-        try
-        {
-            var configuration = new TestConfigurationService(installedRoot);
-            var logging = new NullLoggingService();
-            var installedLoader = new InstalledExtensionLoader(logging, configuration);
-
-            var registry = new ExtensionRegistry();
-            registry.Extensions[packageId] = new ExtensionRegistryEntry
-            {
-                Version = "1.2.0",
-                Pinned = true,
-                InstalledAt = DateTimeOffset.UtcNow,
-            };
-
-            var provider = new CLIAssemblyLoadingProvider(
-                [installedLoader],
-                logging,
-                new InMemoryRegistryStore(registry));
-
-            var single = Assert.Single(provider.GetAllInstalledExtensions()!);
-            Assert.Equal("Compute", single.Name);
-            Assert.Equal("1.2.0", single.Version);
-            Assert.Equal(expectedDll, single.Location);
         }
         finally
         {

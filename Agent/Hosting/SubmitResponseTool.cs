@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Core.Agent.Tools.Resource.Cache;
+using GitHub.Copilot;
 using Microsoft.Extensions.AI;
 
 namespace Core.Agent.Hosting;
@@ -19,9 +20,14 @@ namespace Core.Agent.Hosting;
 /// </summary>
 public sealed class SubmitResponseTool
 {
-    public SubmitResponseTool()
+    private readonly Func<string, IDisposable?>? _activityCreator;
+
+    // endsTurn: a successful call ends the agent turn (one-shot), so the model does
+    // not answer once more after the session outcome is shown.
+    public SubmitResponseTool(bool endsTurn = false, Func<string, IDisposable?>? activityCreator = null)
     {
-        SubmitResponse = AIFunctionFactory.Create(SubmitResponseImpl, new AIFunctionFactoryOptions
+        _activityCreator = activityCreator;
+        var options = new AIFunctionFactoryOptions
         {
             Name = "submit_response",
             Description =
@@ -29,7 +35,10 @@ public sealed class SubmitResponseTool
                 "Use 'completed' when the task is done (the plan is the summary; add a message only for critical info not already in the plan). " +
                 "Use 'rejected' when the request is out of scope (message = OUT_OF_SCOPE_<code>; see the scope rules in your system prompt). " +
                 "Use 'failed' when you tried but couldn't complete (message = a short human-readable reason).",
-        });
+        };
+        SubmitResponse = endsTurn
+            ? CopilotTool.DefineTool(SubmitResponseImpl, new CopilotToolOptions { IsTerminal = true }, options)
+            : AIFunctionFactory.Create(SubmitResponseImpl, options);
 
         All = new[] { SubmitResponse };
     }
@@ -38,14 +47,17 @@ public sealed class SubmitResponseTool
     public IReadOnlyList<AIFunction> All { get; }
 
     [Description("Terminate the session with a final outcome.")]
-    private static string SubmitResponseImpl(
+    private string SubmitResponseImpl(
         [Description("Session outcome: 'completed' | 'rejected' | 'failed'.")]
         string status,
         [Description("For 'completed': only add a message if it carries critical information NOT already in the plan or needsUserInput — otherwise leave it empty (don't repeat the plan). For 'rejected': required, must start with OUT_OF_SCOPE_. For 'failed': required, a short human-readable reason.")]
         string? message = null)
     {
-        using var scope = ToolInvocationLog.Start("submit_response", $"status={status}");
+        using var scope = ToolInvocationLog.Start("submit_response", $"status={status}", _activityCreator);
         scope.SetResult(string.IsNullOrEmpty(message) ? status : $"{status}: {message}");
+        // The status is a closed set; the free-text message is never recorded.
+        scope.RecordRequest(status is "completed" or "rejected" or "failed" ? $"status={status}" : "status=invalid");
+        scope.RecordResponse("ok");
         return "session terminated";
     }
 }

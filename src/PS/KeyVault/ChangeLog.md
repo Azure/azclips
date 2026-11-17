@@ -1,5 +1,6 @@
 ## Upcoming Release
 
+## Version 0.1.1
 * Accept classic CLI and PowerShell policy inputs alongside REST policy JSON.
 * Align certificate results with classic CLI fields and PowerShell properties. Add explicit Wait and PassThru behavior for certificate cmdlets.
 

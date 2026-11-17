@@ -132,7 +132,7 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         // Builds a clear, flattened message from the (possibly nested) ARM error so a template error
         // is not silently presented as a successful no-change result.
-        private static string BuildErrorMessage(ErrorResponse? error)
+        internal static string BuildErrorMessage(ErrorResponse? error)
         {
             StringBuilder builder = new StringBuilder("What-if operation failed.");
             AppendError(builder, error, indent: 1);
@@ -166,10 +166,10 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         // Returns the canonical-cased result format, defaulting to FullResourcePayloads when not
         // supplied. ValidateInputs rejects unrecognized values.
-        private static string NormalizeResultFormat(string? resultFormat) =>
+        internal static string NormalizeResultFormat(string? resultFormat) =>
             NormalizeResultFormatOrNull(resultFormat) ?? "FullResourcePayloads";
 
-        private static string? NormalizeResultFormatOrNull(string? resultFormat) =>
+        internal static string? NormalizeResultFormatOrNull(string? resultFormat) =>
             string.IsNullOrWhiteSpace(resultFormat)
                 ? null
                 : resultFormat.Trim().ToLowerInvariant() switch

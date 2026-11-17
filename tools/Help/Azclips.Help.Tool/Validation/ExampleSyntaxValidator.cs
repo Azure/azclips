@@ -510,7 +510,7 @@ namespace Azclips.Help.Tool.Validation
         /// at the top level — the intrinsic <c>az help</c> shape is handled upstream by
         /// <see cref="IsIntrinsicVerbInvocation"/>, and treating bare <c>help</c> as a help-flag
         /// mid-invocation would mask real errors on routed commands whose sub-name is <c>help</c>
-        /// (e.g. <c>az agent tool help</c>).
+        /// (e.g. <c>az sample group help</c>).
         /// </remarks>
         private static bool IsHelpFlag(string token)
             => KnownGlobalFlags.All

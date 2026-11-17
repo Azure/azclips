@@ -5,6 +5,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using Microsoft.Azure.Azclips.Extensions.Accounts.ParameterSets;
 
 namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
 {
@@ -32,9 +33,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
 
-        public CancellationToken Token => CancellationToken.None;
+        protected CancellationToken CancellationToken => Publisher.Token;
 
         public Action Cancel => throw new NotImplementedException();
+
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
+        private protected ParameterSetResolver<LoginProcessorBase> Resolver { get; private set; }
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 
         public IProcessor Init(ProcessorContext context)
         {
@@ -44,9 +49,20 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
             Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
 
+            ConfigureParameterSets();
+
             AfterInit();
             return this;
         }
+
+        protected void ConfigureParameterSets()
+        {
+            Resolver = new ParameterSetResolver<LoginProcessorBase>();
+            DefineParameterSets();
+            Resolver.Validate();
+        }
+
+        protected virtual void DefineParameterSets() { }
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
         protected virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");

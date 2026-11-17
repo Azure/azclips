@@ -10,16 +10,16 @@ namespace Core.Runtime
     {
         public static IExtensionIndex GetExtensionIndex(this Assembly assembly)
         {
-            string assemblyName = assembly.GetName().Name ?? throw new InvalidOperationException($"The assembly name could not be determined for assembly '{assembly.FullName}'.");
+            string assemblyName = assembly.GetName().Name ?? throw new ExtensionLoadException($"The assembly name could not be determined for assembly '{assembly.FullName}'.");
             string typeName = $"{assemblyName}.ExtensionIndex";
-            Type type = assembly.GetType(typeName) ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assembly.FullName}");
+            Type type = assembly.GetType(typeName) ?? throw new ExtensionLoadException($"No IExtensionIndex implementation found in assembly {assembly.FullName}");
             if (type == null)
             {
-                throw new InvalidOperationException($"The type '{typeName}' could not be found in assembly '{assembly.FullName}'.");
+                throw new ExtensionLoadException($"The type '{typeName}' could not be found in assembly '{assembly.FullName}'.");
             }
             if (!typeof(IExtensionIndex).IsAssignableFrom(type))
             {
-                throw new InvalidOperationException($"The type '{typeName}' does not implement IExtensionIndex.");
+                throw new ExtensionLoadException($"The type '{typeName}' does not implement IExtensionIndex.");
             }
             return (Activator.CreateInstance(type) as IExtensionIndex)!;
         }

@@ -56,4 +56,14 @@ public class UserAssignedIdentityBenchmarks : PSBenchmarkBase
             ("Tag", new Hashtable { ["env"] = "benchmark-updated" }),
             ("IsolationScope", "None"));
     }
+
+    [Benchmark(Description = "PS: Delete User Assigned Identity")]
+    public object? DeleteUserAssignedIdentity()
+    {
+        return RunPowerShellCommand("Remove-AzUserAssignedIdentity",
+            ("SubscriptionId", SubscriptionId),
+            ("ResourceGroupName", ResourceGroup),
+            ("Name", "bench-identity"),
+            ("Confirm", false));
+    }
 }

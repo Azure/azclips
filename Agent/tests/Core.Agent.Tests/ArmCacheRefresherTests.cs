@@ -4,7 +4,9 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
+using Tests.Common.Stubs;
 using Xunit;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -26,8 +28,8 @@ public class ArmCacheRefresherTests
     {
         using var tempDir = new TempDirectory();
         var refresher = new ArmCacheRefresher(
-            new NullAuth(),
-            new NoActiveProfile(),
+            new NoAuth(),
+            new StubProfileService(seedDefault: false),
             http: null,
             cacheRoot: tempDir.Path);
 
@@ -41,13 +43,15 @@ public class ArmCacheRefresherTests
     {
         using var tempDir = new TempDirectory();
         var refresher = new ArmCacheRefresher(
-            new NullAuth(),
-            new NoActiveProfile(),
+            new NoAuth(),
+            new StubProfileService(seedDefault: false),
             http: null,
             cacheRoot: tempDir.Path);
 
         refresher.KickAsync();
-        await Task.Delay(100);
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
+        while (refresher.ActiveTaskCount > 0)
+            await Task.Delay(10, timeout.Token);
         Assert.Null(refresher.LastError);
     }
 
@@ -82,7 +86,7 @@ public class ArmCacheRefresherTests
         using var http = new HttpClient(handler);
 
         var refresher = new ArmCacheRefresher(
-            new StaticTokenAuth(),
+            new StubAuthService(),
             new SignedInProfile(tenantId),
             http,
             cacheRoot: tempDir.Path);
@@ -113,69 +117,18 @@ public class ArmCacheRefresherTests
 
     // ── stubs ──
 
-    private sealed class NullAuth : IAuthService
+    private sealed class NoAuth : StubAuthService
     {
-        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
-            throw new NotImplementedException();
-        public Task LogoutAsync(string profileName, CancellationToken ct = default) => Task.CompletedTask;
-
-        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
+        protected override Task<AuthResult> AcquireTokenAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken) =>
             throw new NotImplementedException("no token expected — refresher must return early");
-        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
+        public override Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
             throw new NotImplementedException("no probe expected — refresher must return early");
     }
 
-    private sealed class StaticTokenAuth : IAuthService
+    private sealed class SignedInProfile(string tenantId) : StubProfileService(seedDefault: false)
     {
-        public Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default) =>
-            throw new NotImplementedException();
-        public Task LogoutAsync(string profileName, CancellationToken ct = default) => Task.CompletedTask;
-
-        public Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default, Profile? profile = null) =>
-            Task.FromResult(new AuthResult
-            {
-                AccessToken = "fake-token",
-                ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
-                Scopes = scopes ?? Array.Empty<string>(),
-                TenantId = tenantId ?? "fake-tenant",
-                CorrelationId = Guid.NewGuid(),
-            });
-        public Task<bool> CanAcquireTokenSilentlyAsync(string? tenantId, Profile profile, CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
-    }
-
-    private sealed class NoActiveProfile : IProfileService
-    {
-        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyCollection<Profile>>(Array.Empty<Profile>());
-        public Task<Profile?> GetProfileAsync(string name, CancellationToken ct = default) => Task.FromResult<Profile?>(null);
-        public Task SaveProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
-        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<bool> RemoveProfileAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
-        public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) => Task.FromResult<string?>(null);
-        public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) => Task.FromResult<Profile?>(null);
-        public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
-        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
-        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
-    }
-
-    private sealed class SignedInProfile : IProfileService
-    {
-        private readonly Profile _profile;
-        public SignedInProfile(string tenantId) =>
-            _profile = new Profile { Name = "default", TenantId = tenantId, SubscriptionId = "sub-1", CloudName = "AzureCloud" };
-        public Task<IReadOnlyCollection<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyCollection<Profile>>(new[] { _profile });
-        public Task<Profile?> GetProfileAsync(string name, CancellationToken ct = default) =>
-            Task.FromResult<Profile?>(_profile.Name == name ? _profile : null);
-        public Task SaveProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
-        public Task SaveAndActivateProfileAsync(Profile profile, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<bool> RemoveProfileAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
-        public Task<string?> GetActiveProfileNameAsync(CancellationToken ct = default) => Task.FromResult<string?>(_profile.Name);
-        public Task<Profile?> GetActiveProfileAsync(CancellationToken ct = default) => Task.FromResult<Profile?>(_profile);
-        public Task SetActiveProfileNameAsync(string? name, CancellationToken ct = default) => Task.CompletedTask;
-        public List<string> GetProfileKeysForDefault() => throw new NotImplementedException();
-        public string? GetProfileValueByKey(Profile? profile, string key) => throw new NotImplementedException();
+        public override Task<Profile?> GetActiveProfileAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<Profile?>(new Profile { Name = "default", TenantId = tenantId, SubscriptionId = "sub-1", CloudName = "AzureCloud" });
     }
 
     private sealed class SequenceHandler : HttpMessageHandler

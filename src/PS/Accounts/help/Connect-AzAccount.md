@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Accounts.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Accounts
-ms.date: 09/14/2026
+ms.date: 10/28/2026
 PlatyPS schema version: 2024-05-01
 title: Connect-AzAccount
 ---
@@ -23,7 +23,8 @@ Authenticate to Azure.
 Connect-AzAccount [-SubscriptionId <string>] [-TenantId <string>] [-UseDeviceCode]
  [-OutProfile <string>] [-Profile <string>] [-Identity] [-ClientId <string>] [-ObjectId <string>]
  [-ResourceId <string>] [-ServicePrincipal] [-FederatedToken <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-ClientSecret <securestring>] [-Credential <pscredential>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -32,6 +33,18 @@ Connect-AzAccount [-SubscriptionId <string>] [-TenantId <string>] [-UseDeviceCod
 
 Authenticate to Azure and persist account context for subsequent commands.
 
+For service principal client-secret sign-in, use either `-ClientId` with
+`-ClientSecret <SecureString>`, or the backward-compatible `-ServicePrincipal`
+with `-Credential <PSCredential>` syntax. The credential username is the application
+ID and its password is the client secret. Both forms use the same authentication flow.
+
+Initial service principal sign-in requires a tenant ID and an explicit subscription ID.
+Login does not inherit argument defaults from the current profile. Client-secret arguments
+can't be combined with managed identity, device-code authentication, a federated token,
+or `-Profile`. Use `-OutProfile` to save a named profile.
+
+Managed identity sign-in also requires a subscription ID, supplied with `-SubscriptionId`. The managed identity environment determines the tenant; don't supply `-TenantId` with `-Identity`.
+
 ## EXAMPLES
 
 ### Sign in with the default browser flow
@@ -39,7 +52,34 @@ Authenticate to Azure and persist account context for subsequent commands.
 Launches the interactive browser sign-in experience and persists the resulting account context for the specified subscription. Use this on a workstation with a default browser available.
 
 ```powershell
-Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111'
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000'
+```
+
+### Create a named profile
+
+Save the subscription and tenant context as `dev` and make it the active profile.
+
+```powershell
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000' -OutProfile dev
+```
+
+### Switch the active profile
+
+Sign in as `dev`, then switch to an already saved `prod` profile for subsequent commands. The `prod` profile can use a different subscription and tenant.
+
+```powershell
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000' -OutProfile dev
+Set-AzProfile -Name prod
+Get-AzResourceGroup
+```
+
+### Use a profile for one command
+
+Sign in as `dev`, then use an already saved `prod` profile's subscription and tenant for one command, leaving `dev` active.
+
+```powershell
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000' -OutProfile dev
+Get-AzResourceGroup -Profile prod
 ```
 
 ### Sign in with device code on a host without a browser
@@ -47,14 +87,64 @@ Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -Tenant
 Uses the device-code authentication flow — prints a code and verification URL to the console so you can complete the sign-in from another device. Useful for SSH sessions, containers, and headless build agents.
 
 ```powershell
-Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111' -UseDeviceCode
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '00000000-0000-0000-0000-000000000000' -UseDeviceCode
+```
+
+### Sign in with a service principal client secret
+
+Read the secret as a `SecureString` and supply the application ID separately.
+The `-ServicePrincipal` switch is optional with `-ClientSecret`.
+
+```powershell
+$clientSecret = $Host.UI.ReadLineAsSecureString()
+Connect-AzAccount -ClientId '00000000-0000-0000-0000-000000000000' -ClientSecret $clientSecret -Tenant '00000000-0000-0000-0000-000000000000' -Subscription '00000000-0000-0000-0000-000000000000' -OutProfile ci
+```
+
+### Sign in with a backward-compatible service principal credential
+
+Create a `PSCredential` whose username is the application ID and whose password
+is the client secret. This form requires `-ServicePrincipal`; don't also pass
+`-ClientId` or `-ClientSecret`.
+
+```powershell
+$clientSecret = $Host.UI.ReadLineAsSecureString()
+$credential = [System.Management.Automation.PSCredential]::new('00000000-0000-0000-0000-000000000000', $clientSecret)
+Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant '00000000-0000-0000-0000-000000000000' -Subscription '00000000-0000-0000-0000-000000000000' -OutProfile ci
+```
+
+### Re-authenticate a client-secret profile
+
+Use the saved client secret to sign in again without supplying new credentials.
+This example uses the profile saved by either service principal example above.
+
+```powershell
+Connect-AzAccount -Profile ci
+```
+
+### Sign in with a managed identity
+
+Sign in using a managed identity. This is typically used when running in an Azure environment that supports managed identities, such as an Azure VM, App Service, or Function App. Tenant ID will be resolved automatically from the environment.
+
+```powershell
+Connect-AzAccount -Identity -SubscriptionId '00000000-0000-0000-0000-000000000000'
+```
+
+### Sign in with a user-assigned managed identity
+
+Select a user-assigned identity by client ID and persist the specified subscription.
+
+```powershell
+Connect-AzAccount -Identity -ClientId '00000000-0000-0000-0000-000000000000' -SubscriptionId '00000000-0000-0000-0000-000000000000'
 ```
 
 ## PARAMETERS
 
 ### -ClientId
 
-Client ID of the user-assigned managed identity to authenticate as. Use with `-Identity`. Mutually exclusive with `-ObjectId` and `-ResourceId`.
+Application ID of the service principal when used with `-ClientSecret` or
+`-ServicePrincipal -FederatedToken`. With `-Identity`, selects a user-assigned managed
+identity and is mutually exclusive with `-ObjectId` and `-ResourceId`.
+Can't be combined with `-Credential`, which already supplies the application ID.
 
 ```yaml
 Type: System.String
@@ -63,6 +153,30 @@ SupportsWildcards: false
 Aliases:
 - AccountId
 - ApplicationId
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -ClientSecret
+
+Nonempty client secret for the service principal, supplied as a `SecureString`.
+Use with `-ClientId`, `-TenantId`, and a subscription ID; `-ServicePrincipal` is optional.
+Plain-text strings aren't accepted. Can't be combined with `-Credential`,
+`-FederatedToken`, another authentication method, or `-Profile`.
+
+```yaml
+Type: System.Security.SecureString
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -85,6 +199,31 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Credential
+
+Service principal credentials as a `PSCredential`. The username must be the application
+ID and the password must be a nonempty client secret. Requires `-ServicePrincipal`;
+username/password user sign-in isn't supported. Can't be combined with `-ClientId`
+(including its aliases), `-ClientSecret`, `-FederatedToken`, another authentication
+method, or `-Profile`.
+
+```yaml
+Type: System.Management.Automation.PSCredential
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -122,6 +261,7 @@ HelpMessage: ''
 ### -Identity
 
 Sign in using a managed identity. System-assigned by default; combine with `-ClientId`, `-ObjectId`, or `-ResourceId` to select a specific user-assigned identity.
+Requires an explicit subscription ID supplied with `-SubscriptionId`.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -187,7 +327,8 @@ HelpMessage: ''
 
 ### -Profile
 
-Name of an existing named profile to sign into. Mutually exclusive with `-OutProfile`.
+Name of an existing named profile to sign into, using its saved subscription ID.
+Mutually exclusive with `-OutProfile` and `-SubscriptionId`.
 
 ```yaml
 Type: System.String
@@ -229,7 +370,9 @@ HelpMessage: ''
 
 ### -ServicePrincipal
 
-Sign in as a service principal using a federated (OIDC) token. Combine with `-ClientId` to supply the application ID and `-FederatedToken` to supply the assertion.
+Sign in as a service principal using a client secret or federated (OIDC) token.
+Required with `-Credential` or with `-ClientId -FederatedToken`. Optional with
+`-ClientId -ClientSecret`.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -250,7 +393,8 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-Azure Subscription Id.
+Azure subscription ID. Must be supplied explicitly for initial sign-in, including
+managed identities. Can't be combined with `-Profile`.
 
 ```yaml
 Type: System.String
@@ -319,10 +463,6 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Shows what would happen if the cmdlet runs.
-The cmdlet is not run.
-Runs the command in a mode that only reports what would happen without performing the actions.
-Runs the command in a mode that only reports what would happen without performing the actions.
 Runs the command in a mode that only reports what would happen without performing the actions.
 
 ```yaml
@@ -360,9 +500,4 @@ The activated profile projection (name, tenant ID, subscription ID, cloud, authe
 
 ## NOTES
 
-Generated help for login.
-
 ## RELATED LINKS
-
-
-- [Online Version]()

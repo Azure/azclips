@@ -6,14 +6,21 @@ using Microsoft.Identity.Client;
 
 namespace Core.Authentication;
 
-public sealed record MsalClientOptions
+internal sealed record MsalClientOptions
 {
-    /// <summary>Directory holding the MSAL token cache file.</summary>
-    public string CacheDirectory { get; init; } = HomePaths.GetDefaultLocalAppDataRoot();
+    public MsalClientOptions(IPersistenceStore persistence)
+    {
+        ArgumentNullException.ThrowIfNull(persistence);
+        Persistence = persistence;
+    }
+
+    /// <summary>Storage providing managed paths for SDK-owned token caches.</summary>
+    public IPersistenceStore Persistence { get; }
 
     /// <summary>
-    /// HTTP factory handed to MSAL. Null leaves MSAL on its own HTTP stack, which is what
-    /// production uses. Tests supply one to observe or block MSAL's network calls.
+    /// HTTP factory handed to MSAL's public client and client-secret confidential client.
+    /// Null leaves MSAL on its own HTTP stack, which is what production uses.
+    /// Tests supply one to observe or block MSAL's network calls.
     /// </summary>
     public IMsalHttpClientFactory? HttpClientFactory { get; init; }
 }

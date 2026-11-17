@@ -1,0 +1,1061 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "DeploymentOperationScenarioTests/DeploymentOperationScenarioTests"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-deployment-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "1a80c50a-b53f-41ac-88b3-f5328de846d2"
+          ],
+          "x-ms-correlation-request-id": [
+            "1a80c50a-b53f-41ac-88b3-f5328de846d2"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030517Z:1a80c50a-b53f-41ac-88b3-f5328de846d2"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:16 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg\u0022,\u0022name\u0022:\u0022scenario-deployment-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/validate?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022location\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nsgName\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nsgCount\u0022:{\u0022type\u0022:\u0022int\u0022,\u0022minValue\u0022:1}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022apiVersion\u0022:\u00222023-11-01\u0022,\u0022name\u0022:\u0022[format(\\u0027{0}-{1}\\u0027, parameters(\\u0027nsgName\\u0027), copyIndex())]\u0022,\u0022location\u0022:\u0022[parameters(\\u0027location\\u0027)]\u0022,\u0022copy\u0022:{\u0022name\u0022:\u0022nsgCopy\u0022,\u0022count\u0022:\u0022[parameters(\\u0027nsgCount\\u0027)]\u0022},\u0022properties\u0022:{\u0022securityRules\u0022:[]}}],\u0022outputs\u0022:{\u0022nsgIds\u0022:{\u0022type\u0022:\u0022array\u0022,\u0022copy\u0022:{\u0022count\u0022:\u0022[parameters(\\u0027nsgCount\\u0027)]\u0022,\u0022input\u0022:\u0022[resourceId(\\u0027Microsoft.Network/networkSecurityGroups\\u0027, format(\\u0027{0}-{1}\\u0027, parameters(\\u0027nsgName\\u0027), copyIndex()))]\u0022}}}},\u0022parameters\u0022:{\u0022location\u0022:{\u0022value\u0022:\u0022westus2\u0022},\u0022nsgName\u0022:{\u0022value\u0022:\u0022scenario-deployment-nsg\u0022},\u0022nsgCount\u0022:{\u0022value\u0022:3}}}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "198"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2998"
+          ],
+          "x-ms-request-id": [
+            "cd7f6f11-dc8f-4e4c-8f18-533a4947012c"
+          ],
+          "x-ms-correlation-request-id": [
+            "cd7f6f11-dc8f-4e4c-8f18-533a4947012c"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030522Z:cd7f6f11-dc8f-4e4c-8f18-533a4947012c"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment\u0022,\u0022name\u0022:\u0022scenario-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00227705606886982865912\u0022,\u0022parameters\u0022:{\u0022location\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022westus2\u0022},\u0022nsgName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-deployment-nsg\u0022},\u0022nsgCount\u0022:{\u0022type\u0022:\u0022Int\u0022,\u0022value\u0022:3}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:21.2199121Z\u0022,\u0022duration\u0022:\u0022PT0S\u0022,\u0022correlationId\u0022:\u0022cd7f6f11-dc8f-4e4c-8f18-533a4947012c\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Network\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022networkSecurityGroups\u0022,\u0022locations\u0022:[\u0022westus2\u0022]}]}],\u0022dependencies\u0022:[],\u0022validatedResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-0\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-1\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-2\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ]
+        },
+        "body": "{\u0022properties\u0022:{\u0022mode\u0022:\u0022Incremental\u0022,\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022parameters\u0022:{\u0022location\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nsgName\u0022:{\u0022type\u0022:\u0022string\u0022},\u0022nsgCount\u0022:{\u0022type\u0022:\u0022int\u0022,\u0022minValue\u0022:1}},\u0022resources\u0022:[{\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022apiVersion\u0022:\u00222023-11-01\u0022,\u0022name\u0022:\u0022[format(\\u0027{0}-{1}\\u0027, parameters(\\u0027nsgName\\u0027), copyIndex())]\u0022,\u0022location\u0022:\u0022[parameters(\\u0027location\\u0027)]\u0022,\u0022copy\u0022:{\u0022name\u0022:\u0022nsgCopy\u0022,\u0022count\u0022:\u0022[parameters(\\u0027nsgCount\\u0027)]\u0022},\u0022properties\u0022:{\u0022securityRules\u0022:[]}}],\u0022outputs\u0022:{\u0022nsgIds\u0022:{\u0022type\u0022:\u0022array\u0022,\u0022copy\u0022:{\u0022count\u0022:\u0022[parameters(\\u0027nsgCount\\u0027)]\u0022,\u0022input\u0022:\u0022[resourceId(\\u0027Microsoft.Network/networkSecurityGroups\\u0027, format(\\u0027{0}-{1}\\u0027, parameters(\\u0027nsgName\\u0027), copyIndex()))]\u0022}}}},\u0022parameters\u0022:{\u0022location\u0022:{\u0022value\u0022:\u0022westus2\u0022},\u0022nsgName\u0022:{\u0022value\u0022:\u0022scenario-deployment-nsg\u0022},\u0022nsgCount\u0022:{\u0022value\u0022:3}}}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639286671280012356\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-deployment-engine-version": [
+            "1.744.0"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "197"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2997"
+          ],
+          "x-ms-request-id": [
+            "5baf00e3-f921-41e1-bda3-934bc1602e68"
+          ],
+          "x-ms-correlation-request-id": [
+            "5baf00e3-f921-41e1-bda3-934bc1602e68"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030528Z:5baf00e3-f921-41e1-bda3-934bc1602e68"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment\u0022,\u0022name\u0022:\u0022scenario-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00227705606886982865912\u0022,\u0022parameters\u0022:{\u0022location\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022westus2\u0022},\u0022nsgName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-deployment-nsg\u0022},\u0022nsgCount\u0022:{\u0022type\u0022:\u0022Int\u0022,\u0022value\u0022:3}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:24.469945Z\u0022,\u0022duration\u0022:\u0022PT0.000577S\u0022,\u0022correlationId\u0022:\u00225baf00e3-f921-41e1-bda3-934bc1602e68\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Network\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022networkSecurityGroups\u0022,\u0022locations\u0022:[\u0022westus2\u0022]}]}],\u0022dependencies\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639286671280012356\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "7929ca43-576d-48dd-8fc0-e6c0c26d4a83"
+          ],
+          "x-ms-correlation-request-id": [
+            "7929ca43-576d-48dd-8fc0-e6c0c26d4a83"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030543Z:7929ca43-576d-48dd-8fc0-e6c0c26d4a83"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:42 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-request-id": [
+            "1c606b40-59e2-44b0-8597-906c4d895ae7"
+          ],
+          "x-ms-correlation-request-id": [
+            "1c606b40-59e2-44b0-8597-906c4d895ae7"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030544Z:1c606b40-59e2-44b0-8597-906c4d895ae7"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:43 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment\u0022,\u0022name\u0022:\u0022scenario-deployment\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00227705606886982865912\u0022,\u0022parameters\u0022:{\u0022location\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022westus2\u0022},\u0022nsgName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-deployment-nsg\u0022},\u0022nsgCount\u0022:{\u0022type\u0022:\u0022Int\u0022,\u0022value\u0022:3}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:32.580079Z\u0022,\u0022duration\u0022:\u0022PT8.110134S\u0022,\u0022correlationId\u0022:\u00225baf00e3-f921-41e1-bda3-934bc1602e68\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Network\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022networkSecurityGroups\u0022,\u0022locations\u0022:[\u0022westus2\u0022]}]}],\u0022dependencies\u0022:[],\u0022outputs\u0022:{\u0022nsgIds\u0022:{\u0022type\u0022:\u0022Array\u0022,\u0022value\u0022:[\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-0\u0022,\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-1\u0022,\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-2\u0022]}},\u0022outputResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "247"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3747"
+          ],
+          "x-ms-request-id": [
+            "d4754e5c-1fd4-44a7-8cb3-43c045b930af"
+          ],
+          "x-ms-correlation-request-id": [
+            "d4754e5c-1fd4-44a7-8cb3-43c045b930af"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030545Z:d4754e5c-1fd4-44a7-8cb3-43c045b930af"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:44 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/D052C69D5DA84886\u0022,\u0022operationId\u0022:\u0022D052C69D5DA84886\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT1.5645049S\u0022,\u0022trackingId\u0022:\u0022bbe5a229-4dd7-43d4-9b38-0eb9bc71ae50\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-1\u0022}}},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/75E968AA32100634\u0022,\u0022operationId\u0022:\u002275E968AA32100634\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT1.7565166S\u0022,\u0022trackingId\u0022:\u00227868d677-7cde-446e-b075-7a2af3cba3c8\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-2\u0022}}},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/727BF7FAFFD4574C\u0022,\u0022operationId\u0022:\u0022727BF7FAFFD4574C\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT2.9980821S\u0022,\u0022trackingId\u0022:\u0022732cfb82-a4a1-460a-84a9-e1beda363149\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-0\u0022}}},{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/08584085365610019990\u0022,\u0022operationId\u0022:\u002208584085365610019990\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022EvaluateDeploymentOutput\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:31.896916Z\u0022,\u0022duration\u0022:\u0022PT0.4644243S\u0022,\u0022trackingId\u0022:\u002275422352-8998-4764-b3ce-af4da5840257\u0022,\u0022statusCode\u0022:\u0022OK\u0022}}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations/D052C69D5DA84886?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "246"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3746"
+          ],
+          "x-ms-request-id": [
+            "174dd1f6-4ba3-412e-8212-33c55e8cd4bd"
+          ],
+          "x-ms-correlation-request-id": [
+            "174dd1f6-4ba3-412e-8212-33c55e8cd4bd"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030546Z:174dd1f6-4ba3-412e-8212-33c55e8cd4bd"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:45 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/D052C69D5DA84886\u0022,\u0022operationId\u0022:\u0022D052C69D5DA84886\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT1.5645049S\u0022,\u0022trackingId\u0022:\u0022bbe5a229-4dd7-43d4-9b38-0eb9bc71ae50\u0022,\u0022serviceRequestId\u0022:\u002240b4a99c-8116-444c-b0c4-d5a443b76c8d\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-1\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations/727BF7FAFFD4574C?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "245"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3745"
+          ],
+          "x-ms-request-id": [
+            "ed685a82-b44f-4e33-8488-c9f82bfb1f1c"
+          ],
+          "x-ms-correlation-request-id": [
+            "ed685a82-b44f-4e33-8488-c9f82bfb1f1c"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030547Z:ed685a82-b44f-4e33-8488-c9f82bfb1f1c"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:47 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/727BF7FAFFD4574C\u0022,\u0022operationId\u0022:\u0022727BF7FAFFD4574C\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT2.9980821S\u0022,\u0022trackingId\u0022:\u0022732cfb82-a4a1-460a-84a9-e1beda363149\u0022,\u0022serviceRequestId\u0022:\u002261d573dc-4a12-4906-bc74-8f2a5274416a\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-0\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations/75E968AA32100634?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "244"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3744"
+          ],
+          "x-ms-request-id": [
+            "13400e02-26f1-4171-a4c8-fdafdb23f51a"
+          ],
+          "x-ms-correlation-request-id": [
+            "13400e02-26f1-4171-a4c8-fdafdb23f51a"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030548Z:13400e02-26f1-4171-a4c8-fdafdb23f51a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:48 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/75E968AA32100634\u0022,\u0022operationId\u0022:\u002275E968AA32100634\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT1.7565166S\u0022,\u0022trackingId\u0022:\u00227868d677-7cde-446e-b075-7a2af3cba3c8\u0022,\u0022serviceRequestId\u0022:\u002298e17f32-b2bc-4611-8589-d9f4e63717cb\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-2\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations/D052C69D5DA84886?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "243"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3743"
+          ],
+          "x-ms-request-id": [
+            "2c8ec549-bdd4-4ac0-a14f-43fa6fd281c8"
+          ],
+          "x-ms-correlation-request-id": [
+            "2c8ec549-bdd4-4ac0-a14f-43fa6fd281c8"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030549Z:2c8ec549-bdd4-4ac0-a14f-43fa6fd281c8"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/D052C69D5DA84886\u0022,\u0022operationId\u0022:\u0022D052C69D5DA84886\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT1.5645049S\u0022,\u0022trackingId\u0022:\u0022bbe5a229-4dd7-43d4-9b38-0eb9bc71ae50\u0022,\u0022serviceRequestId\u0022:\u002240b4a99c-8116-444c-b0c4-d5a443b76c8d\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-1\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations/D052C69D5DA84886?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "242"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3742"
+          ],
+          "x-ms-request-id": [
+            "6629dfa7-1da2-41d1-a028-dbcad5aaa085"
+          ],
+          "x-ms-correlation-request-id": [
+            "6629dfa7-1da2-41d1-a028-dbcad5aaa085"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030550Z:6629dfa7-1da2-41d1-a028-dbcad5aaa085"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:50 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/D052C69D5DA84886\u0022,\u0022operationId\u0022:\u0022D052C69D5DA84886\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT1.5645049S\u0022,\u0022trackingId\u0022:\u0022bbe5a229-4dd7-43d4-9b38-0eb9bc71ae50\u0022,\u0022serviceRequestId\u0022:\u002240b4a99c-8116-444c-b0c4-d5a443b76c8d\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-1\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-1\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations/75E968AA32100634?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "241"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3741"
+          ],
+          "x-ms-request-id": [
+            "8cff322b-c3b9-4bd2-88ab-924ded5b9c07"
+          ],
+          "x-ms-correlation-request-id": [
+            "8cff322b-c3b9-4bd2-88ab-924ded5b9c07"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030551Z:8cff322b-c3b9-4bd2-88ab-924ded5b9c07"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/75E968AA32100634\u0022,\u0022operationId\u0022:\u002275E968AA32100634\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT1.7565166S\u0022,\u0022trackingId\u0022:\u00227868d677-7cde-446e-b075-7a2af3cba3c8\u0022,\u0022serviceRequestId\u0022:\u002298e17f32-b2bc-4611-8589-d9f4e63717cb\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-2\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-2\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations/727BF7FAFFD4574C?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "240"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3740"
+          ],
+          "x-ms-request-id": [
+            "21adf924-4051-4c66-8261-aba44f4d3a16"
+          ],
+          "x-ms-correlation-request-id": [
+            "21adf924-4051-4c66-8261-aba44f4d3a16"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030552Z:21adf924-4051-4c66-8261-aba44f4d3a16"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:52 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/727BF7FAFFD4574C\u0022,\u0022operationId\u0022:\u0022727BF7FAFFD4574C\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022Create\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:28.535139Z\u0022,\u0022duration\u0022:\u0022PT2.9980821S\u0022,\u0022trackingId\u0022:\u0022732cfb82-a4a1-460a-84a9-e1beda363149\u0022,\u0022serviceRequestId\u0022:\u002261d573dc-4a12-4906-bc74-8f2a5274416a\u0022,\u0022statusCode\u0022:\u0022OK\u0022,\u0022targetResource\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-deployment-nsg-0\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022resourceName\u0022:\u0022scenario-deployment-nsg-0\u0022}}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg/deployments/scenario-deployment/operations/08584085365610019990?api-version=2026-06-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "239"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3739"
+          ],
+          "x-ms-request-id": [
+            "90b573e6-287c-4995-a12d-a56e37007cb4"
+          ],
+          "x-ms-correlation-request-id": [
+            "90b573e6-287c-4995-a12d-a56e37007cb4"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030553Z:90b573e6-287c-4995-a12d-a56e37007cb4"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:53 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-deployment-rg/providers/Microsoft.Resources/deployments/scenario-deployment/operations/08584085365610019990\u0022,\u0022operationId\u0022:\u002208584085365610019990\u0022,\u0022properties\u0022:{\u0022provisioningOperation\u0022:\u0022EvaluateDeploymentOutput\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-10-27T03:05:31.896916Z\u0022,\u0022duration\u0022:\u0022PT0.4644243S\u0022,\u0022trackingId\u0022:\u002275422352-8998-4764-b3ce-af4da5840257\u0022,\u0022statusCode\u0022:\u0022OK\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-deployment-rg?api-version=2025-04-01",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286671546890682\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "a7fb464a-aa9a-4842-ae14-69d6442c3a99"
+          ],
+          "x-ms-correlation-request-id": [
+            "a7fb464a-aa9a-4842-ae14-69d6442c3a99"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030554Z:a7fb464a-aa9a-4842-ae14-69d6442c3a99"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:05:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286671546890682\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286671702837908\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "32fa98e5-070c-4b2f-936a-315f1cbc66ba"
+          ],
+          "x-ms-correlation-request-id": [
+            "32fa98e5-070c-4b2f-936a-315f1cbc66ba"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030610Z:32fa98e5-070c-4b2f-936a-315f1cbc66ba"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:06:10 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286671702837908\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286671857520563\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "de45d849-0904-489f-85d9-820d1233431f"
+          ],
+          "x-ms-correlation-request-id": [
+            "de45d849-0904-489f-85d9-820d1233431f"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030625Z:de45d849-0904-489f-85d9-820d1233431f"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:06:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286671857520563\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286672012365629\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "cb8bfcae-2734-4f31-aea8-e9d7f81e2aad"
+          ],
+          "x-ms-correlation-request-id": [
+            "cb8bfcae-2734-4f31-aea8-e9d7f81e2aad"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030641Z:cb8bfcae-2734-4f31-aea8-e9d7f81e2aad"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:06:40 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286672012365629\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286672166898465\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "f5983848-07d9-4ab4-92f7-2728318b13b0"
+          ],
+          "x-ms-correlation-request-id": [
+            "f5983848-07d9-4ab4-92f7-2728318b13b0"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030656Z:f5983848-07d9-4ab4-92f7-2728318b13b0"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:06:55 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639286672166898465\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {}
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "ba0e3e64-d744-45f2-ae0b-627ff21d5cc6"
+          ],
+          "x-ms-correlation-request-id": [
+            "ba0e3e64-d744-45f2-ae0b-627ff21d5cc6"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL:20261027T030712Z:ba0e3e64-d744-45f2-ae0b-627ff21d5cc6"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "Date": [
+            "Tue, 27 Oct 2026 03:07:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    }
+  ]
+}

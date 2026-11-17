@@ -22,6 +22,8 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
     /// <summary>Resource id of the public IP for the primary IP configuration. Empty attaches none.</summary>
     public string PublicIpAddressId { get; set; } = string.Empty;
 
+    public Dictionary<string, string>? Tags { get; set; }
+
     protected override HttpMethod Method => HttpMethod.Put;
 
     protected override string CreateRequestUri() =>
@@ -32,6 +34,7 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
         NetworkInterface body = new NetworkInterface
         {
             Location = Location,
+            Tags = Tags,
             Properties = new NetworkInterfaceProperties
             {
                 EnableAcceleratedNetworking = AcceleratedNetworking,

@@ -1,6 +1,6 @@
 # The IR schema
 
-> **Status:** Current, `IR_SCHEMA_VERSION = "0.17.0"`. _(2026-10-07; revised 2026-10-16)_
+> **Status:** Current, `IR_SCHEMA_VERSION = "0.18.0"`. _(2026-10-07; revised 2026-11-18)_
 >
 > Reference for `@azure-client-engine/ir`'s **`IR`** root — the emitter↔transformer
 > contract. Its sibling, [`TransformedIR-schema.md`](./TransformedIR-schema.md),
@@ -182,9 +182,12 @@ Notes that repeatedly matter:
   names the parameter plainly (`/{scope}/…`); the flag is omitted when false.
 - **Paging metadata records declared roles, not a chosen strategy.**
   `IRPageableSemantics.output.pageItems.bindings[].path` is a **wire** path of
-  segments; `sourcePath` is declaration provenance and is *not* guaranteed to be a
-  model-property reference. Resolving either to emitted members is the consumer's
-  job — `create-command` does it once.
+  segments; `sourcePath` is declaration provenance whose segment ids name the
+  emitted model properties when the role lives in a response/request model (a
+  template's anonymous envelope resolves to the model HTTP unwraps it to); wrapper
+  segments such as an `@body` property name no emitted property and are skipped.
+  `create-command` resolves roles to emitted members through those ids, never
+  through wire names.
 
 ## Hints (`rendering`)
 
@@ -259,6 +262,7 @@ change. Producers stamp; consumers verify. Recent history:
 
 | version | change |
 |---|---|
+| 0.18.0 | PowerShell command dialect `noun` is renamed to required `subject`; module, lifecycle, value, and parameter-family metadata live on the canonical target, commands, and parameters |
 | 0.17.0 | optional `allowReserved` on `IRParameter` and `IRCommandParameter`: a path value that goes on the wire as written, reserved characters included |
 | 0.16.0 | `IREnum.valueType` carries the precise primitive kind (`string` or an integer or float kind) instead of collapsing every numeric enum to `number` |
 | 0.15.0 | `IRTarget` loses `directories` (the generator's own folders) and `version` (decided at release, not generation) |

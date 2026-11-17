@@ -1,0 +1,23 @@
+{
+  "_justification": "Approved vendor-runtime scan exclusions for the binaries with missing PDBs in build 363065. Applied only to these exact filenames directly in the CLI publish root. This follows classic PowerShell's explicit file-exclusion approach, but the .NET runtime list is azclips-specific. Excluded files receive no BinSkim checks; review this list when runtime dependencies change.",
+  "files": [
+    "clrgc.dll",
+    "clrgcexp.dll",
+    "clrjit.dll",
+    "coreclr.dll",
+    "createdump.exe",
+    "hostfxr.dll",
+    "hostpolicy.dll",
+    "Microsoft.DiaSymReader.Native.amd64.dll",
+    "Microsoft.DiaSymReader.Native.arm64.dll",
+    "mscordaccore.dll",
+    "mscordbi.dll",
+    "msquic.dll",
+    "System.IO.Compression.Native.dll"
+  ],
+  "_patternsJustification": "The .NET diagnostics DAC file name embeds the runtime build (mscordaccore_<arch>_<arch>_<version>.dll) and its PDB is not shipped, so exact names break on every runtime update (ERR997 in builds 363065 and 366583). Patterns are limited to the version segment of root-level files and are validated by get_binskim_cli_targets.ps1.",
+  "patterns": [
+    "mscordaccore_amd64_amd64_*.dll",
+    "mscordaccore_arm64_arm64_*.dll"
+  ]
+}

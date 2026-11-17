@@ -112,6 +112,16 @@ public static class AzclipsServiceProvider
     }
 
     /// <summary>
+    /// Resolves an optional keyed service from the initialized container.
+    /// </summary>
+    public static T? GetKeyedService<T>(object key) where T : class
+    {
+        return (_serviceProvider ?? throw new InvalidOperationException(
+            "AzclipsServiceProvider has not been initialized. Call Initialize() first."))
+            .GetKeyedService<T>(key);
+    }
+
+    /// <summary>
     /// Resolves a service from the initialized container by Type.
     /// Use this overload from PowerShell, which cannot call generic methods directly.
     /// </summary>

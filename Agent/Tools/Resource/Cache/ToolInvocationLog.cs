@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Core.Abstractions;
 
 namespace Core.Agent.Tools.Resource.Cache;
 
@@ -17,9 +18,10 @@ public static class ToolInvocationLog
 {
     private static readonly ConcurrentQueue<ToolInvocation> _entries = new();
 
-    public static Scope Start(string toolName, string? args = null)
+    public static Scope Start(
+        string toolName, string? args = null, Func<string, IDisposable?>? activityCreator = null)
     {
-        return new Scope(toolName, args);
+        return new Scope(toolName, args, activityCreator);
     }
 
     public static IReadOnlyList<ToolInvocation> DrainAndReset()
@@ -46,22 +48,48 @@ public static class ToolInvocationLog
         private readonly string _name;
         private readonly string? _args;
         private readonly Stopwatch _sw;
-        private readonly Activity? _activity;
+        private readonly IDisposable? _activity;
         private string? _result;
+        private bool _responseRecorded;
+        private int _disposed;
 
-        public Scope(string name, string? args)
+        public Scope(string name, string? args, Func<string, IDisposable?>? activityCreator = null)
         {
             _name = name;
             _args = args;
             _sw = Stopwatch.StartNew();
-            _activity = AgentTracing.Source.StartActivity($"tool.{name}");
+            _activity = activityCreator?.Invoke($"tool.{name}");
+            Activity?.SetTag(TelemetryTags.AgentToolName, name);
         }
 
         public void SetResult(string result) => _result = result;
 
+        /// <summary>Records a redacted request on the tool span.</summary>
+        /// <remarks>Never pass raw model input; each tool defines its own redaction.</remarks>
+        public void RecordRequest(string request) => Activity?.SetTag(TelemetryTags.AgentToolRequest, request);
+
+        /// <summary>Records a short, closed-set result on the tool span, such as found or error.</summary>
+        public void RecordResponse(string response)
+        {
+            _responseRecorded = true;
+            Activity?.SetTag(TelemetryTags.AgentToolResponse, response);
+        }
+
+        /// <summary>The tool span, or null when telemetry is off.</summary>
+        public Activity? Activity => _activity switch
+        {
+            Activity activity => activity,
+            Core.Abstractions.TelemetryActivityScope wrapped => wrapped.Activity,
+            _ => null,
+        };
+
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
             _sw.Stop();
+            if (!_responseRecorded)
+                Activity?.SetTag(TelemetryTags.AgentToolResponse, "error");
             _activity?.Dispose();
             _entries.Enqueue(new ToolInvocation(_name, _args, _result, _sw.Elapsed, DateTime.UtcNow));
         }

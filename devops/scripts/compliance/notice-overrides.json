@@ -1,7 +1,0 @@
-{
-  "metadata": {
-    "description": "Manual NOTICE generation corrections for dependencies whose package metadata is missing, ambiguous, or requires normalization.",
-    "schemaVersion": 1
-  },
-  "packages": {}
-}

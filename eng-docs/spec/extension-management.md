@@ -476,6 +476,8 @@ v1 first-party embed populates only `packageId`. Compat fields are reserved for 
 
 Cross-project collisions fail the build (§5.1). Output is embedded as a resource in `Core.Cli` and consumed by `ExtensionHintTable`.
 
+The generated catalog lives in the CLI project's `IntermediateOutputPath` (normally `obj/Debug/` or `obj/Release/`). The target normalizes this path before passing it to the inline .NET task so Windows-style separators do not create literal backslash-named directories on macOS or Linux.
+
 ### 7.3 Resolution
 
 On dispatch miss, `ExtensionHintTable` walks the longest-prefix path against `extension-hints.json`:

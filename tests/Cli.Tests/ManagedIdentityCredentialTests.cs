@@ -135,13 +135,7 @@ public sealed class ManagedIdentityCredentialTests
 
         var authenticator = new ManagedIdentityAuthenticator(factory.Object, Logger, Telemetry);
 
-        var request = idType switch
-        {
-            ManagedIdentityIdType.ObjectId => new LoginRequest { AuthMode = AuthMethod.ManagedIdentity, ManagedIdentityObjectId = idValue },
-            ManagedIdentityIdType.ClientId => new LoginRequest { AuthMode = AuthMethod.ManagedIdentity, ManagedIdentityClientId = idValue },
-            ManagedIdentityIdType.ResourceId => new LoginRequest { AuthMode = AuthMethod.ManagedIdentity, ManagedIdentityResourceId = idValue },
-            _ => new LoginRequest { AuthMode = AuthMethod.ManagedIdentity },
-        };
+        var request = new LoginRequest(null, null, new AuthCredential.ManagedIdentity(idType, idValue));
 
         var result = await authenticator.AuthenticateAsync(request);
 
@@ -198,7 +192,7 @@ public sealed class ManagedIdentityCredentialTests
 
         var authenticator = new ManagedIdentityAuthenticator(factory.Object, Logger, Telemetry);
 
-        var request = new LoginRequest { AuthMode = AuthMethod.ManagedIdentity };
+        var request = new LoginRequest(null, null, new AuthCredential.ManagedIdentity(ManagedIdentityIdType.SystemAssigned));
         var result = await authenticator.AuthenticateAsync(request);
 
         Assert.Equal(token, result.AccessToken);

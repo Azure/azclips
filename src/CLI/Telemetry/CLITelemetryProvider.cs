@@ -15,27 +15,35 @@ namespace Core.Cli.Telemetry;
 
 public class CLITelemetryProvider : DefaultTelemetryProvider
 {
-    // Kept for parity with PSTelemetryProvider / TUITelemetryProvider. The
-    // TelemetryService.Start*Activity gate is the single source of truth for
-    // whether spans are recorded; the CLI process is single-shot so the runtime
-    // toggle is largely a no-op here, but the shared pattern keeps the three
-    // providers uniform.
+    // TelemetryService.Start*Activity checks telemetry.enabled for the CLI's own spans. Agent
+    // tools that run in this process (for example `az agent tool resource find`) start their
+    // tool.* spans on a source with the same name directly, which skips that check, so the
+    // opt-out is enforced by not listening at all, as AgentTelemetryProvider does. The CLI builds
+    // a new container for every command, so reading the setting once here is enough.
     public CLITelemetryProvider(
         IEnumerable<BaseProcessor<Activity>> filterProcessors,
-        ITelemetrySender sender)
+        ITelemetrySender sender,
+        IConfigurationService configuration)
     {
         ActivitySource = new ActivitySource(ClientType.CLI.ToString());
+
+        if (!IsTelemetryEnabled(configuration))
+        {
+            TracerProvider = TracerProvider.Default;
+            return;
+        }
+
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(ClientType.CLI.ToString())
             .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcess()));
 
         builder.AddHttpClientInstrumentation(options =>
         {
-            options.RecordException = true;
-            options.EnrichWithHttpRequestMessage = (activity, request) =>
-            {
-                activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
-            };
+            options.FilterHttpRequestMessage = _ => HttpActivityEnricher.ShouldCollect(configuration);
+            // Exception events carry free-form messages and stack traces that can contain
+            // private URLs or hostnames. Structured status and safe request IDs are sufficient.
+            options.RecordException = false;
+            options.EnrichWithHttpRequestMessage = HttpActivityEnricher.Enrich;
         });
 
         foreach (var processor in filterProcessors)
@@ -45,5 +53,19 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
 
         sender.ConfigureExporter(builder);
         TracerProvider = builder.Build();
+    }
+
+    private static bool IsTelemetryEnabled(IConfigurationService configuration)
+    {
+        try
+        {
+            return configuration.GetConfiguration<TelemetryOptions>().Enabled;
+        }
+        catch (Exception)
+        {
+            // The container resolves this before Main's error handling. An unreadable configuration
+            // fails the command there with a clear message; record nothing in the meantime.
+            return false;
+        }
     }
 }

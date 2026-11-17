@@ -108,4 +108,30 @@ public class RuntimeExtensionsTests
 
         Assert.Contains(expectedBody, log);
     }
+
+    [Fact]
+    public void Clone_RetryPreservesClientRequestId()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://example.com/resources");
+        request.Headers.Add("x-ms-client-request-id", "request-id");
+
+        using var clone = request.Clone();
+
+        Assert.Equal("request-id", Assert.Single(clone.Headers.GetValues("x-ms-client-request-id")));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Clone_NewRequestDropsClientRequestId(bool overrideUri)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://example.com/resources");
+        request.Headers.Add("x-ms-client-request-id", "request-id");
+
+        using var clone = overrideUri
+            ? request.Clone(new Uri("https://example.com/resources?page=2"))
+            : request.Clone(method: HttpMethod.Post);
+
+        Assert.False(clone.Headers.Contains("x-ms-client-request-id"));
+    }
 }

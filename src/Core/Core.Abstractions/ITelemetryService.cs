@@ -27,6 +27,18 @@ public interface ITelemetryService : IDisposable
     /// <param name="startTime">See <see cref="StartActivity"/>.</param>
     Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null);
 
+    TelemetryActivityScope? StartActivityWithParent(
+        string name,
+        ActivityContext parentContext,
+        ActivityKind kind = ActivityKind.Internal,
+        DateTimeOffset startTime = default);
+
+    TelemetryActivityScope? StartIndependentRootActivity(
+        string name,
+        ActivityKind kind = ActivityKind.Server,
+        DateTimeOffset startTime = default,
+        bool activate = true);
+
     Activity? TagInvocation(CommandInvocation commandInvocation);
     Activity? AddTag(string propertyName, object? value, Activity? activity = null);
 }

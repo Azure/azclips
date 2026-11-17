@@ -150,6 +150,9 @@ op alternatives(): JsonPage | XmlPage;
 @list @get @route("/whole-body")
 op wholeBody(): { @pageItems @body payload: Item[]; };
 
+@list @get @route("/intersection")
+op intersection(): { @header contentType: "application/xml"; } & Items;
+
 @get @route("/body-token")
 op bodyToken(@continuationToken @body token: string): Items;
 

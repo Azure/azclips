@@ -47,6 +47,12 @@ parameters:
 - name: include_docker_images_in_final_distribution
   type: boolean
   default: true
+- name: limit_ps_testing
+  type: boolean
+  default: false
+- name: skip_ps_version_check
+  type: boolean
+  default: false
 
 stages:
 - template: init-resolve-version.yml
@@ -82,6 +88,7 @@ stages:
 - template: build-ps-modules.yml
   parameters:
     ubuntu_pool: ${{ parameters.ubuntu_pool }}
+    windows_pool: ${{ parameters.windows_pool }}
     final_artifact_name: ${{ parameters.ps_modules_artifact_name }}
     generate_help_artifacts: true
     depends_on: Init
@@ -173,6 +180,8 @@ stages:
   - template: ../jobs/test-suite.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      windows_pool: ${{ parameters.windows_pool }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
 
 - stage: Benchmark
   displayName: Benchmark
@@ -201,6 +210,21 @@ stages:
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
+
+- stage: ValidatePS
+  displayName: Validate (PS)
+  dependsOn:
+  - BuildPSModules
+  condition: succeeded()
+  jobs:
+  - template: ../jobs/validate-ps-build.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+      ps_modules_artifact_name: ${{ parameters.ps_modules_artifact_name }}
+      limit_testing: ${{ parameters.limit_ps_testing }}
+      skip_version_check: ${{ parameters.skip_ps_version_check }}
 
 - stage: ValidateDockerAzureLinux3
   displayName: Validate Docker Azure Linux 3 Images
@@ -271,30 +295,39 @@ stages:
   - Test
   - Benchmark
   - BuildPSModules
+  - ValidatePSModules
   - ValidateLinux
+  - ValidatePS
   - ValidateWindows
   - ValidateMacOS
   - ComponentGovernance
-  condition: always()
+  condition: |
+    and(
+      succeeded(),
+      eq(dependencies.Init.result, 'Succeeded'),
+      eq(dependencies.BuildCommon.result, 'Succeeded'),
+      eq(dependencies.BuildLinux.result, 'Succeeded'),
+      eq(dependencies.BuildWindows.result, 'Succeeded'),
+      eq(dependencies.BuildMacOS.result, 'Succeeded'),
+      eq(dependencies.Test.result, 'Succeeded'),
+      eq(dependencies.Benchmark.result, 'Succeeded'),
+      eq(dependencies.BuildPSModules.result, 'Succeeded'),
+      eq(dependencies.ValidatePSModules.result, 'Succeeded'),
+      eq(dependencies.ValidateLinux.result, 'Succeeded'),
+      in(dependencies.ValidatePS.result, 'Succeeded', 'SucceededWithIssues'),
+      eq(dependencies.ValidateWindows.result, 'Succeeded'),
+      eq(dependencies.ValidateMacOS.result, 'Succeeded'),
+      in(dependencies.ComponentGovernance.result, 'Succeeded', 'SucceededWithIssues'),
+      or(
+        not(${{ and(eq(parameters.build_docker_images, true), eq(parameters.include_docker_images_in_final_distribution, true), or(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true))) }}),
+        and(
+          eq(dependencies.BuildDockerAzureLinux3.result, 'Succeeded'),
+          eq(dependencies.ValidateDockerAzureLinux3.result, 'Succeeded')
+        )
+      )
+    )
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
-    BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
-    BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
-    ${{ if and(eq(parameters.build_docker_images, true), eq(parameters.include_docker_images_in_final_distribution, true), or(eq(parameters.build_cli_docker_images, true), eq(parameters.build_powershell_docker_images, true))) }}:
-      BuildDockerResult: $[ stageDependencies.BuildDockerAzureLinux3.BuildDockerImages.result ]
-      ValidateDockerResult: $[ stageDependencies.ValidateDockerAzureLinux3.DockerValidation.result ]
-    ${{ else }}:
-      BuildDockerResult: Succeeded
-      ValidateDockerResult: Succeeded
-    BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
-    BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
-    TestResult: $[ stageDependencies.Test.UnitTests.result ]
-    BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
-    BuildPSModulesResult: $[ stageDependencies.BuildPSModules.BuildAndValidatePSModules.result ]
-    ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
-    ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
-    ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
-    ComponentGovernanceResult: $[ stageDependencies.ComponentGovernance.ComponentGovernanceAndPoliCheck.result ]
   jobs:
   - template: ../jobs/finalize-build-summary.yml
     parameters:

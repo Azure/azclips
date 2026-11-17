@@ -147,7 +147,7 @@ Why this order is deliberate:
 
 ## 4. Configuration: `CoreOptions.Http`
 
-Retry bounds are not hard-coded in the pipeline; they are read from strongly-typed options (`src/Core/Core.Abstractions/CoreOptions.cs`):
+Retry bounds are not hard-coded in the pipeline; they are read from strongly-typed options (`src/Core/Core.Abstractions/Config/CoreOptions.cs`):
 
 | Option | Default | Consumed at |
 | --- | --- | --- |
@@ -235,7 +235,7 @@ All of these are wired in `RegisterRuntimeServices` as singletons alongside the 
 - `src/Core/Core.Runtime/Handler/AuthHandler.cs`, `DefaultHttpTerminateHandler.cs`, `DefaultTracingInterceptor.cs`, and the host's `IUserAgentHandler` — the four composed steps
 - `src/Core/Core.Engine/Engine.cs` — `CreateProcessorContext` chain assembly (`:115-135`)
 - `src/Core/Core.Abstractions/Models/ProcessorContext.cs`, `Runtime/ISendAsync.cs`, `Runtime/delegates.cs` — contracts
-- `src/Core/Core.Abstractions/CoreOptions.cs` — `HttpOptions` retry configuration
+- `src/Core/Core.Abstractions/Config/CoreOptions.cs` — `HttpOptions` retry configuration
 - `src/Core/Core.Runtime/RuntimeEventBus.cs` — event publication (`:10`, `:67`)
 - `src/Core/Core.Engine/Engine.Subscriptions.cs` — how the engine consumes pipeline events (`:68`, `:177`)
 - `src/Core/Core.Runtime/ScopedLoggingService.cs`, `ConsoleOutputAdapter.cs`, `DIRegisterExtensions.cs` — output/log routing + DI

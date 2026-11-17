@@ -91,7 +91,7 @@ def parse_time(value):
 
 
 def read_spans(path):
-    """Return (spans, malformed_count). A span without a SpanId cannot be placed in a tree."""
+    """Return (spans, malformed_count). A span without a spanId cannot be placed in a tree."""
     spans = []
     malformed = 0
     with open(path, "r", encoding="utf-8") as handle:
@@ -104,7 +104,7 @@ def read_spans(path):
             except json.JSONDecodeError:
                 malformed += 1
                 continue
-            if not isinstance(span, dict) or not span.get("SpanId"):
+            if not isinstance(span, dict) or not span.get("spanId"):
                 malformed += 1
                 continue
             spans.append(span)
@@ -114,16 +114,16 @@ def read_spans(path):
 # -------------------------------------------------------------- tree building
 
 def group_by_trace(spans):
-    """One group per TraceId, i.e. per CLI or cmdlet invocation."""
+    """One group per traceId, i.e. per CLI or cmdlet invocation."""
     traces = defaultdict(list)
     for span in spans:
-        traces[span.get("TraceId") or ""].append(span)
+        traces[span.get("traceId") or ""].append(span)
     return list(traces.values())
 
 
 def child_sort_key(span):
-    """Order siblings by start time; SpanId breaks ties so ordering is deterministic."""
-    return (parse_time(span.get("StartTime")) or FAR_FUTURE, span.get("SpanId") or "")
+    """Order siblings by start time; spanId breaks ties so ordering is deterministic."""
+    return (parse_time(span.get("startTime")) or FAR_FUTURE, span.get("spanId") or "")
 
 
 def link(spans):
@@ -132,12 +132,12 @@ def link(spans):
     A span is a root when it has no parent, or when its parent is absent from this
     trace — the latter indicates a truncated export.
     """
-    known = {span["SpanId"] for span in spans}
+    known = {span["spanId"] for span in spans}
     children = defaultdict(list)
     roots = []
     for span in spans:
-        parent = span.get("ParentSpanId")
-        if parent and parent in known and parent != span["SpanId"]:
+        parent = span.get("parentSpanId")
+        if parent and parent in known and parent != span["spanId"]:
             children[parent].append(span)
         else:
             roots.append(span)
@@ -151,28 +151,28 @@ def flatten(root, children):
     Same-named siblings are indexed by start order, keeping a path unique within a
     trace when one operation fires several times under the same parent.
     """
-    root_start = parse_time(root.get("StartTime"))
+    root_start = parse_time(root.get("startTime"))
     collected = []
     visited = set()
 
     def visit(span, path):
-        span_id = span["SpanId"]
+        span_id = span["spanId"]
         if span_id in visited:
             return
         visited.add(span_id)
 
-        start = parse_time(span.get("StartTime"))
+        start = parse_time(span.get("startTime"))
         offset = (start - root_start).total_seconds() * 1000.0 if start and root_start else 0.0
-        collected.append((path, float(span.get("Duration") or 0.0), offset))
+        collected.append((path, float(span.get("durationMs") or 0.0), offset))
 
         counts = defaultdict(int)
         for child in sorted(children.get(span_id, []), key=child_sort_key):
-            name = child.get("OperationName") or "<unnamed>"
+            name = child.get("operationName") or "<unnamed>"
             index = counts[name]
             counts[name] += 1
             visit(child, path + ((name, index),))
 
-    visit(root, ((root.get("OperationName") or "<unnamed>", 0),))
+    visit(root, ((root.get("operationName") or "<unnamed>", 0),))
     return collected
 
 

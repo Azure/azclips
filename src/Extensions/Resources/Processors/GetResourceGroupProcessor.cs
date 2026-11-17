@@ -21,5 +21,6 @@ namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 
         protected override string CreateRequestUri() =>
             $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
+
     }
 }

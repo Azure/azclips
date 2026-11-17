@@ -4,7 +4,17 @@ Runbook for [build/Sync-AzclipsPowerShellDocs.ps1](../../build/Sync-AzclipsPower
 
 ## What it does
 
-Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<TargetRepo>/<Moniker>/Az.<Module>/` and generates a per-module landing page (`Az.<Module>.md`). Zero content transformation — the target repo's docfx build (via `PSMD2Yaml`) handles the render.
+Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<TargetRepo>/<Moniker>/Az.<Module>/` and generates a per-module landing page (`Az.<Module>.md`). The sync rewrites the frontmatter `Module Name:` to match the packaged module name (for example, `Accounts` becomes `Az.Accounts`) and relabels the internal `### __AllParameterSets` heading as `### Default (Default)` only within the SYNTAX section, outside code fences. This assigns the unnamed set a presentation name of `Default` and a default marker in the Learn copy only; runtime metadata is unchanged. The heading structure is retained because removing it makes modern PlatyPS misparse empty Aliases sections. Explicit named parameter sets and their default markers, other body content, and line endings are preserved. Missing or duplicate module-name fields fail explicitly. The target repo's docfx build (via `PSMD2Yaml`) handles rendering.
+
+This is a one-way Learn presentation transformation. Source help stays in PlatyPS's native format, including internal unnamed-set headings; scaffolding, refresh, metadata drift validation and local MAML generation are unchanged. The published Markdown is not an input to those tools.
+
+The moniker is a rolling preview: every `-Force` run makes it match the transformed source.
+
+- **Stale pages are removed.** Files under `<Moniker>/Az.*/` that the plan no longer produces (a renamed or deleted cmdlet or module) are deleted in the same commit. A `-Module` subset run only reconciles the selected modules' folders; folders not named `Az.*` are never touched.
+- **The service map is regenerated.** If `mapping/monikerMapping.json` has a `serviceMap` for the moniker, that file is rewritten as `"<Cmdlet>": "<Group>"` entries, which Learn uses to group the reference TOC. The group is the source module name unless `serviceGroupNames` in the config overrides it.
+- **No-op runs create nothing.** When the target already matches, no branch or commit is left behind.
+
+Docs sync, module packaging, and release changelogs share the naming rule in [build/Get-AzPackageName.ps1](../../build/Get-AzPackageName.ps1). The `Az` rollup keeps its name; leaf modules use `Az.<Module>`. The old `targetModuleNamePattern` setting is no longer used, so docs names cannot drift from package identities.
 
 ## Three-mode escape hatch
 
@@ -12,7 +22,7 @@ Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<Tar
 | ----------------- | -------- | ---------------------------------------------------------------------------------------------------- | ----------- |
 | Dry-run (default) | —        | Prints the copy plan; no filesystem writes                                                           | No          |
 | Force             | `-Force` | Writes to the local target repo + commits on a fresh branch. **No push.**                            | No          |
-| Push              | `-Push`  | Would push the branch + open a PR. **Currently throws** — docs.ms bot-auth pattern is still pending. | Deferred    |
+| Push              | `-Push`  | Clones the target temporarily, pushes a sync branch and opens a draft PR.                            | Existing Git and GitHub access |
 
 ## Config
 
@@ -20,18 +30,42 @@ Copies our authored PlatyPS markdown from `src/PS/<Module>/help/*.md` into `<Tar
 
 ```json
 {
-    "moniker": "azclipsps-preview",
+    "moniker": "azps-preview",
     "targetRepoPath": "../azure-docs-powershell",
-    "targetModuleNamePattern": "Az.{ModuleName}",
     "sourcePsRoot": "src/PS",
     "sourceRepoUrl": "https://github.com/Azure/azclips",
-    "sourceBranch": "main"
+    "sourceBranch": "main",
+    "downloadHelpLinkBase": "https://learn.microsoft.com/powershell/module",
+    "serviceGroupNames": {
+        "KeyVault": "Key Vault",
+        "ManagedServiceIdentity": "Managed Service Identity",
+        "MsGraph": "MS Graph",
+        "Network": "Networking"
+    }
 }
 ```
 
-**Precedence** — for the moniker specifically: CLI param (`-Moniker`) → env var (`$env:AZCLIPS_PS_MONIKER`) → config file. The default `azclipsps-preview` is a placeholder pending PM decision; the script prints a yellow warning until it's replaced.
+**Precedence** — for the moniker specifically: CLI param (`-Moniker`) → env var (`$env:AZCLIPS_PS_MONIKER`) → config file. The default `azps-preview` is the registered PowerShell preview moniker (a single rolling moniker with version `Preview`, refreshed in place).
+
+`serviceGroupNames` maps source module names to the service-group display names written to the service map. Modules not listed use their source name (for example, `Compute`).
 
 ## Running locally
+
+### Release-tag sync
+
+For release publishing, pass `-ReleaseTag` with a tag available in the local Git repository.
+The script creates a fresh source clone at that tag. The tag must contain this version of the
+sync script; older tags without it cannot use this workflow directly.
+
+```powershell
+git fetch origin --tags
+pwsh -File .\build\Sync-AzclipsPowerShellDocs.ps1 -ReleaseTag v1.0.0
+```
+
+The isolated checkout is verified against the tag and the script prints the tag and commit SHA.
+Markdown and manifests come from the tag; module-index source links still use `sourceBranch`
+(normally `main`). The rolling preview moniker is unchanged. Runs without `-ReleaseTag` use the
+current checkout.
 
 ### Dry-run (safest — start here)
 
@@ -44,8 +78,8 @@ Prints the discovered modules + a copy plan (one entry per cmdlet md, plus one g
 Expected shape:
 
 ```
-Publishable     : 4 module(s) - Accounts, Compute, Config, Resources
-Total files     : 22 (18 cmdlet md + 4 module-index)
+Publishable     : 8 module(s) - Accounts, Compute, Config, KeyVault, ManagedServiceIdentity, MsGraph, Network, Resources
+Total files     : 62 (54 cmdlet md + 8 module-index)
 
 Copy plan:
 
@@ -71,7 +105,7 @@ Requires a local clone of the target docs repo (or a stand-in). Simplest way:
 3. Add `upstream` for later hygiene: `git -C ../azure-docs-powershell remote add upstream https://github.com/MicrosoftDocs/azure-docs-powershell.git`.
 4. Simulate onboarding (docs.ms desk-ticket is what actually creates the moniker folder in production):
     ```powershell
-    New-Item -ItemType Directory -Path ../azure-docs-powershell/azclipsps-preview -Force | Out-Null
+    New-Item -ItemType Directory -Path ../azure-docs-powershell/azps-preview -Force | Out-Null
     ```
 5. Run:
     ```powershell
@@ -80,17 +114,35 @@ Requires a local clone of the target docs repo (or a stand-in). Simplest way:
 
 `-Timestamp` is optional but locks the branch name (`azclips-ps-sync-<timestamp>`) and commit message for reproducibility. Otherwise the script uses the current UTC time.
 
+To choose the target explicitly, fetch the docs remote and pass its remote-tracking branch:
+
+```powershell
+git -C ..\azure-docs-powershell fetch upstream
+pwsh -File .\build\Sync-AzclipsPowerShellDocs.ps1 -Force `
+    -TargetBranch 'upstream/release-preview-azure-powershell-2026-11'
+```
+
+The script requires a clean target checkout, checks out the selected commit detached without
+overwriting ignored files, and creates the sync branch from it. It does not fetch automatically.
+Without `-TargetBranch`, the current target checkout remains the base. A dry-run does not check
+out the target branch, so its target comparisons use the current checkout. The configured
+`sourceBranch` controls source links, not the docs target.
+
 Expected output ends with:
 
 ```
 === Sync applied ===
 Branch      : azclips-ps-sync-202608201500
 Commit      : <sha>
-Message     : AzClips-PS docs sync -- azclipsps-preview -- 202608201500
-Files       : 22
+Message     : AzClips-PS docs sync -- azps-preview -- 202608201500
+Files       : 62
+Removed     : 0
+Service map : mapping/az-groupMapping-preview.json
 
 (Nothing pushed. Inspect with: git -C '<target>' log azclips-ps-sync-<timestamp> --stat)
 ```
+
+If the target already matches the source, the run prints `=== No changes ===` and creates no branch.
 
 ### Reviewing the result on GitHub (mock PR against your fork)
 
@@ -107,9 +159,26 @@ gh pr create --repo <your-gh-user>/azure-docs-powershell `
 
 You now have a GitHub-rendered view of what a real sync PR looks like. Reviewers can eyeball each module-index landing page as GitHub would render it. Zero risk to the real `MicrosoftDocs/*` upstream.
 
-### `-Push` (currently deferred)
+### `-Push` — generate a draft PR
 
-Fails cleanly with a message pointing at the auth-pattern decision. Nothing to do here yet.
+No docs clone is needed. Supply a plain target branch name and the fork (or the base repository
+itself) to push to:
+
+```powershell
+pwsh -File .\build\Sync-AzclipsPowerShellDocs.ps1 -Push `
+    -TargetBranch 'release-preview-azure-powershell-2026-11' `
+    -HeadRepository 'your-user/azure-docs-powershell'
+```
+
+Add `-ReleaseTag v1.0.0` to use a tag rather than the current checkout. The script clones the
+target branch into a temporary workspace, generates the docs, and opens a draft PR after
+pushing the sync branch. It keeps the target repository's PR template and includes source and
+base commit provenance. No PR is created when there are no changes. Git and `gh` must already
+be authenticated and configured; `-CommitAuthor` and `-CommitEmail` can supply commit identity.
+The head repository must have the same name as the target repository. For a fork, `gh pr create`
+requires a user-owned head; organization-owned fork heads are not supported by `gh`.
+Successful temporary workspaces are removed; failed ones are retained and their paths printed.
+If pushing succeeded but PR creation failed, the error identifies the pushed branch.
 
 ## Cleanup
 
@@ -124,7 +193,7 @@ git -C ../azure-docs-powershell checkout main
 git -C ../azure-docs-powershell branch -D azclips-ps-sync-<timestamp>
 
 # Remove the simulated onboarding folder (real onboarding creates it upstream, not locally)
-Remove-Item ../azure-docs-powershell/azclipsps-preview -Recurse -Force
+Remove-Item ../azure-docs-powershell/azps-preview -Recurse -Force
 ```
 
 ## Common failure modes
@@ -135,7 +204,7 @@ Remove-Item ../azure-docs-powershell/azclipsps-preview -Recurse -Force
 | `Target working tree is dirty`                       | Uncommitted changes in the local target clone                                                          | Commit, stash, or `git checkout .` in the target                  |
 | `Target '…' is not a git repository`                 | `-TargetRepoPath` points somewhere that isn't a git repo                                               | Check the path; typically `../azure-docs-powershell`              |
 | `Branch 'azclips-ps-sync-…' already exists`          | Re-running with the same `-Timestamp`                                                                  | Delete the old branch or pass a fresh `-Timestamp`                |
-| `-Push is not yet implemented`                       | Correct behavior — auth boundary                                                                       | Use `-Force` and hand off to your normal PR flow                  |
+| `-Push requires -TargetBranch and -HeadRepository`  | The PR base branch or push repository was omitted                                                      | Supply both parameters                                            |
 
 ## Running the tests
 
@@ -144,7 +213,7 @@ Import-Module Pester -MinimumVersion 5.0
 Invoke-Pester -Path tests/Ps.DocsSync.Tests/ -Output Detailed
 ```
 
-29 Pester tests cover: discovery rule, SYNOPSIS extraction, module-name pattern, plan generation, module-index content, precondition checks, and `-Force`-mode git plumbing (against a temp `git init`'d target — no external target needed).
+Pester tests cover: discovery of the current modules, SYNOPSIS extraction, shared package naming, frontmatter-only rewriting (including line-ending and body preservation), plan generation, module-index content, precondition checks, and `-Force`-mode git plumbing (against a temp `git init`'d target — no external target needed). File counts grow as new cmdlets and modules are added.
 
 ## CI orchestration
 
@@ -154,7 +223,7 @@ Fork-PR safe — no secrets, no external clone, no `git push`.
 
 ## What's NOT covered (yet)
 
-- **Actual publish.** `-Push` throws by design. Real bot-PR-open + `git push` land when the docs.ms auth pattern is decided.
+- **CI credentials and release trigger.** These must be configured before running `-Push` in CI.
 - **Docset config.** Adding an AzClips moniker to `mapping/monikerMapping.json`, creating `docs-conceptual/<moniker>/toc.yml`, and configuring the docset with `PSMD2Yaml` are docs.ms's responsibility (via desk ticket). Our sync assumes those already exist and fails clearly if they don't.
 - **PR body customization / label management.** Deferred.
 - **Multi-moniker publishing.** Current script assumes a single moniker per invocation. Multi-version support (if we ever version AzClips-PS) means a config extension.

@@ -6,6 +6,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.ArgumentParsing;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources;
@@ -59,14 +60,13 @@ public class ResourceGroupDeploymentCmdletTests
     {
         const string id = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Resources/deployments/dep1";
         var metadata = new ExtensionIndex().GetCommandMetadata("Get-AzResourceGroupDeployment_GetById", ClientType.PowerShell);
-        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService()));
+        var service = new ArgumentParsingService(new PSArgumentParsingProvider(), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
         var processor = (GetResourceGroupDeploymentProcessor_Orchestrator)metadata.GetInstance();
 
         service.BindArgumentsToProcessor(
             processor,
             new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["Id"] = id },
-            metadata.Parameters,
-            metadata.ParameterAliases,
+            metadata,
             new Profile { SubscriptionId = "sub" });
 
         Assert.Equal(id, processor.Id);

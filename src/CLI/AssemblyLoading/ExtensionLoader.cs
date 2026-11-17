@@ -12,8 +12,21 @@ using NuGet.Versioning;
 
 namespace Core.Cli;
 
+/// <summary>
+/// Where an extension copy comes from. Lower values are enumerated and searched first, so for
+/// equal versions a Bundled copy wins over an Installed one.
+/// </summary>
+public enum ExtensionTier
+{
+    Bundled = 0,
+    Installed = 1,
+}
+
 public interface IExtensionLoader
 {
+    /// <summary>The tier this loader serves; defaults to <see cref="ExtensionTier.Installed"/>.</summary>
+    ExtensionTier Tier => ExtensionTier.Installed;
+
     Assembly? LoadExtension(string extensionName, string? version = null);
 
     /// <summary>
@@ -25,6 +38,13 @@ public interface IExtensionLoader
     /// without a static manifest) simply do not contribute.
     /// </summary>
     IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions() => [];
+
+    /// <summary>
+    /// Loads the extension DLL at <paramref name="assemblyPath"/>, a location previously reported by
+    /// <see cref="GetInstalledExtensions"/>. Returns <c>null</c> when the file no longer exists or
+    /// this loader cannot load by path.
+    /// </summary>
+    Assembly? LoadExtensionFromPath(string extensionName, string? version, string assemblyPath) => null;
 }
 
 /// <summary>
@@ -47,8 +67,14 @@ public interface IExtensionLoader
 /// See <c>docs/spec/extension-framework.md §3.2</c>.
 /// </para>
 /// </remarks>
-public class BundledExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
+public class BundledExtensionLoader(
+    ILoggingService loggingService,
+    IConfigurationService configurationService,
+    string? baseDirectory = null) : IExtensionLoader
 {
+    /// <inheritdoc/>
+    public ExtensionTier Tier => ExtensionTier.Bundled;
+
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -135,29 +161,10 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
     /// (<c>&lt;install&gt;/Extensions/</c>) in Release, or <c>artifacts/&lt;Config&gt;/</c> in
     /// local dev builds. Not user-configurable — packaging always writes here.
     /// </summary>
-    public static string GetDefaultRoot()
-    {
-#if DEBUG
-        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
-#else
-        return Path.Combine(AppContext.BaseDirectory, "Extensions");
-#endif
-    }
+    public static string GetDefaultRoot() => ExtensionDiscoveryPaths.GetDefaultBundledRoot(AppContext.BaseDirectory);
 
-    private static IEnumerable<string> GetCandidateRoots()
-    {
-        var roots = new[]
-        {
-            GetDefaultRoot(),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug")),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release"))
-        };
-
-        return roots
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-    }
+    private IEnumerable<string> GetCandidateRoots() =>
+        ExtensionDiscoveryPaths.GetBundledRoots(baseDirectory ?? AppContext.BaseDirectory);
 
     /// <summary>
     /// Attempts to load a Bundled extension by name, optionally at a specific version.
@@ -218,40 +225,57 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
                         continue;
                     }
 
-                    bool isCached = false;
-                    Assembly assembly;
-                    if (_options.BypassExtensionCache)
-                    {
-                        var freshCtx = new ExtensionLoadContext(extensionPath, _loggingService);
-                        assembly = freshCtx.LoadManagedAssembly(extensionPath);
-                    }
-                    else
-                    {
-                        var candidate = new Lazy<(ExtensionLoadContext, Assembly)>(() =>
-                        {
-                            var ctx = new ExtensionLoadContext(extensionPath, _loggingService);
-                            return (ctx, ctx.LoadManagedAssembly(extensionPath));
-                        });
-                        // On a race, GetOrAdd returns the winner's entry, so reference equality shows whether this call created it.
-                        var entry = s_cache.GetOrAdd(extensionPath, candidate);
-                        isCached = !ReferenceEquals(entry, candidate);
-                        assembly = entry.Value.Assembly;
-                    }
-                    stopwatch.Stop();
-
                     var loadedVersion = string.IsNullOrEmpty(version)
                         ? ResolvePackageVersion(packageDir, directoryName, _loggingService)
                         : version;
-                    var loaderName = isCached ? "Cached" : "Bundled";
-                    _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Loaded '{extensionName}' v{(string.IsNullOrEmpty(loadedVersion) ? "?" : loadedVersion)} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
-                    ExtensionLoadTracker.Record(extensionName, loaderName, stopwatch.Elapsed.TotalMilliseconds, loadedVersion, extensionPath);
-                    return assembly;
+                    return LoadAt(extensionName, loadedVersion, extensionPath, stopwatch);
                 }
             }
         }
 
         _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Extension '{extensionName}' (version='{version ?? "any"}') not found; will try other loaders. Checked root(s): '{string.Join(";", GetCandidateRoots())}'.");
         return null;
+    }
+
+    /// <inheritdoc/>
+    public Assembly? LoadExtensionFromPath(string extensionName, string? version, string assemblyPath)
+    {
+        _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}') at '{assemblyPath}'.");
+        if (!File.Exists(assemblyPath))
+        {
+            return null;
+        }
+
+        return LoadAt(extensionName, version, assemblyPath, System.Diagnostics.Stopwatch.StartNew());
+    }
+
+    private Assembly LoadAt(string extensionName, string? loadedVersion, string extensionPath, System.Diagnostics.Stopwatch stopwatch)
+    {
+        bool isCached = false;
+        Assembly assembly;
+        if (_options.BypassExtensionCache)
+        {
+            var freshCtx = new ExtensionLoadContext(extensionPath, _loggingService);
+            assembly = freshCtx.LoadManagedAssembly(extensionPath);
+        }
+        else
+        {
+            var candidate = new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+            {
+                var ctx = new ExtensionLoadContext(extensionPath, _loggingService);
+                return (ctx, ctx.LoadManagedAssembly(extensionPath));
+            });
+            // On a race, GetOrAdd returns the winner's entry, so reference equality shows whether this call created it.
+            var entry = s_cache.GetOrAdd(extensionPath, candidate);
+            isCached = !ReferenceEquals(entry, candidate);
+            assembly = entry.Value.Assembly;
+        }
+        stopwatch.Stop();
+
+        var loaderName = isCached ? "Cached" : "Bundled";
+        _loggingService?.Debug($"[{nameof(BundledExtensionLoader)}] Loaded '{extensionName}' v{(string.IsNullOrEmpty(loadedVersion) ? "?" : loadedVersion)} from '{extensionPath}' in {stopwatch.Elapsed.TotalMilliseconds:F1}ms.");
+        ExtensionLoadTracker.Record(extensionName, loaderName, stopwatch.Elapsed.TotalMilliseconds, loadedVersion ?? string.Empty, extensionPath);
+        return assembly;
     }
 
     /// <inheritdoc/>
@@ -385,6 +409,9 @@ public class BundledExtensionLoader(ILoggingService loggingService, IConfigurati
 
 public class InstalledExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
+    /// <inheritdoc/>
+    public ExtensionTier Tier => ExtensionTier.Installed;
+
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Directory, string AssemblyPath), Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
         new();
 
@@ -487,24 +514,6 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
         return null;
     }
 
-    internal bool HasInstalledVersion(string extensionName, string version)
-    {
-        if (string.IsNullOrWhiteSpace(version))
-        {
-            return false;
-        }
-
-        var extensionDir = ResolveExtensionDirectory(extensionName, version);
-        if (string.IsNullOrWhiteSpace(extensionDir))
-        {
-            return false;
-        }
-
-        return GetCandidateAssemblyNames(extensionName)
-            .Select(assemblyName => Path.Combine(extensionDir, $"{assemblyName}.dll"))
-            .Any(File.Exists);
-    }
-
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
         _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}').");
@@ -528,6 +537,24 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
             return null;
         }
 
+        return LoadAt(extensionName, version, extensionDir, extensionPath, stopwatch);
+    }
+
+    /// <inheritdoc/>
+    public Assembly? LoadExtensionFromPath(string extensionName, string? version, string assemblyPath)
+    {
+        _loggingService?.Debug($"[{nameof(InstalledExtensionLoader)}] Resolving extension '{extensionName}' (version='{version ?? "any"}') at '{assemblyPath}'.");
+        var extensionDir = Path.GetDirectoryName(assemblyPath);
+        if (extensionDir is null || !File.Exists(assemblyPath))
+        {
+            return null;
+        }
+
+        return LoadAt(extensionName, version, extensionDir, assemblyPath, System.Diagnostics.Stopwatch.StartNew());
+    }
+
+    private Assembly LoadAt(string extensionName, string? version, string extensionDir, string extensionPath, System.Diagnostics.Stopwatch stopwatch)
+    {
         bool isCached = false;
         Assembly assembly;
         if (_options.BypassExtensionCache)
@@ -574,10 +601,9 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
             // Strip any known prefix to get the short extension name.
             var shortName = Constants.StripKnownExtensionPrefix(fullPackageName);
 
-            // TODO(dlanguiller): In a future pass, allow this provider to honor persisted
-            // pin/active-version preferences when selecting the resolved installed version.
-            // For now, emit a single deterministic version per package: highest semver.
-            var latestVersion = Directory.GetDirectories(packageDir)
+            // Report every installed version. Choosing between them (pins, highest version) is
+            // the selector's job, so it sees all copies. Highest first, for readable diagnostics.
+            var versions = Directory.GetDirectories(packageDir)
                 .Select(versionDir =>
                 {
                     var versionName = Path.GetFileName(versionDir);
@@ -588,30 +614,28 @@ public class InstalledExtensionLoader(ILoggingService loggingService, IConfigura
                 })
                 .Where(item => item.parsedVersion is not null)
                 .OrderByDescending(item => item.parsedVersion)
-                .Select(item => item.versionName)
-                .FirstOrDefault();
+                .ThenBy(item => item.versionName, StringComparer.OrdinalIgnoreCase)
+                .Select(item => item.versionName);
 
-            if (string.IsNullOrWhiteSpace(latestVersion))
+            foreach (var version in versions)
             {
-                continue;
+                var versionDir = Path.Combine(packageDir, version);
+                var assemblyPath = GetCandidateAssemblyNames(shortName)
+                    .Select(assemblyName => Path.Combine(versionDir, $"{assemblyName}.dll"))
+                    .FirstOrDefault(File.Exists);
+
+                if (assemblyPath is null)
+                {
+                    // Version directory exists but the DLL is missing (corrupt/partial install).
+                    // Skip — dispatch couldn't load it anyway, and consumers rely on Name/Version pairs
+                    // being backed by a loadable assembly. Matches BundledExtensionLoader's gate.
+                    continue;
+                }
+
+                // Normalize to an absolute path — Location is documented as absolute, but a
+                // user-configured relative InstalledExtensionsRoot would otherwise leak through.
+                yield return (shortName, version, Path.GetFullPath(assemblyPath));
             }
-
-            var latestVersionDir = Path.Combine(packageDir, latestVersion);
-            var assemblyPath = GetCandidateAssemblyNames(shortName)
-                .Select(assemblyName => Path.Combine(latestVersionDir, $"{assemblyName}.dll"))
-                .FirstOrDefault(File.Exists);
-
-            if (assemblyPath is null)
-            {
-                // Version directory exists but the DLL is missing (corrupt/partial install).
-                // Skip — dispatch couldn't load it anyway, and consumers rely on Name/Version pairs
-                // being backed by a loadable assembly. Matches BundledExtensionLoader's gate.
-                continue;
-            }
-
-            // Normalize to an absolute path — Location is documented as absolute, but a
-            // user-configured relative InstalledExtensionsRoot would otherwise leak through.
-            yield return (shortName, latestVersion, Path.GetFullPath(assemblyPath));
         }
     }
 }

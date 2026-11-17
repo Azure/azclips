@@ -1,3 +1,266 @@
+## v0.1.8 - 2026-11-15 20:17 UTC
+
+#### Agent
+- Send builtin model requests to the production gateway (#1329)
+- [BREAKING CHANGE] `az agent tool help`: Replace the list invocation with docs list and the name lookup with docs show (#1335)
+- [BREAKING CHANGE] `az agent tool help generate`: Move catalog generation to docs generate (#1335)
+- [BREAKING CHANGE] `az agent tool env`: Move environment snapshots to env show and make env a group only (#1335)
+- `az troubleshoot`: Replace a damaged failure history key instead of failing every later save (#1220)
+
+#### Auth
+- `az login`: Reject `--federated-token` for non-federated profile reauth (#1386)
+- Login requires a subscription ID supplied explicitly (#1340)
+
+#### CLI
+- Allow extensions with distinct command leaves to share a command group during install-hint generation (#1404)
+- Include all contributing extensions in shared command-group and command help (#1404)
+- Install release packages using cross-platform installation scripts (#1413)
+- Simplify extension bundle downloads with download-only Bash and PowerShell helpers (#1413)
+- Restore complete missing-required-argument diagnostics and automatic command help for interactive CLI usage errors (#1380)
+- `az msgraph user list`: Expand parity options for query and projection (#1377)
+- `az msgraph group list`: Expand parity options for query and projection (#1377)
+- `az msgraph group member list`: Add alternate group selector and enforce selector exclusivity (#1377)
+- `az msgraph app list`: Keep display-name semantics aligned with PowerShell (#1377)
+- Fix bold help headings and ANSI formatting in standalone Windows consoles (#1290)
+- Improve Windows persistence reliability during concurrent reads (#1290)
+- `az vm create`: Support `os=SKU` syntax for `--storage-sku` (#1337)
+- `az msgraph user/group/app list`: Improve missing consistency-level advanced-query errors with actionable guidance (#1370)
+- `az identity federated-credential`: Add `create`/`list`/`show`/`update`/`delete` for federated identity credentials on user-assigned managed identities (#1207)
+- Add a debug timing summary for startup, routing, extension loading, preparation, invocation, and shutdown across CLI commands (#1203)
+- `az vm create`: Add `--os-disk-delete-option` to control OS disk retention when deleting a VM (#1267)
+
+#### Compute
+- `az vm create`: Independent handling of `--address-prefixes` and `--subnet-address-prefixes` (#1442)
+- Add default subnet address prefixes when not specified (#1412)
+- `az vm create`: Remove `--network-interface-name` param (#1412)
+- Update error messages on missing / mutually exclusive parameters (#1421)
+- Add SSH keys support for PS `New-AzVM` (#1387)
+- `az vm get-instance-view` / `Get-AzVM -Status`: Add instance view support (#1313)
+
+#### MsGraph
+- Remove CLI parameter-set metadata from group member commands (#1417)
+
+#### Network
+- `az network vnet/nsg/vnet subnet/public-ip/nic`: Report missing required arguments instead of sending a request with empty path segments (#1399)
+
+#### Packaging
+- Label GitHub releases as Public Preview (#1419)
+
+#### PowerShell
+- Install modules using a cross-platform bootstrap with temporary repository cleanup (#1413)
+- `New-AzVM`: Support `os=SKU` syntax for `-StorageSku` (#1337)
+- `*-AzFederatedIdentityCredential`: Add `New-`/`Get-`/`Update-`/`Remove-` cmdlets for federated identity credentials on user-assigned managed identities (#1207)
+- `New-AzVM`: Add `-OSDiskDeleteOption` to control OS disk retention when deleting a VM (#1267)
+- Align module minimum version requirements to PowerShell 7.6 (#1280)
+
+#### Resources
+- Migrate Resources deployments tenant scope (#1276)
+- Add subscription-scope deployment commands for CLI and PowerShell (#1400)
+
+#### Storage
+- Dataplane file+blob support (#1423)
+- `az storage account create/show/list/delete`: Report missing required arguments instead of sending a request with an empty resource group (#1379)
+
+#### Telemetry
+- Remove App Insights exports while preserving Aria and loc… (#1438)
+
+#### Az.Accounts 0.1.5
+* Initial sign-in no longer inherits argument defaults from the active profile; supply subscription ID explicitly.
+* Managed identity sign-in now requires a subscription ID. Profile re-authentication no longer accepts a subscription ID.
+
+#### Az.ManagedServiceIdentity 0.1.4
+* Added federated identity credential lifecycle cmdlets
+    - `New-AzFederatedIdentityCredential`, `Get-AzFederatedIdentityCredential`, `Update-AzFederatedIdentityCredential`, `Remove-AzFederatedIdentityCredential`
+
+#### Az.Resources 0.1.6
+* Added tenant deployment cmdlets: `New-AzTenantDeployment`, `Test-AzTenantDeployment`, `Get-AzTenantDeploymentWhatIfResult`, `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, `Remove-AzTenantDeployment`, and `Save-AzTenantDeploymentTemplate`.
+    - `New-AzTenantDeployment`, `Test-AzTenantDeployment`, and `Get-AzTenantDeploymentWhatIfResult` take `-Location` plus the resource group deployment template and parameter inputs (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-QueryString`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-ValidationLevel`). `-Name` is optional and defaults to a generated GUID. Tenant deployments always use `Incremental` mode, so there is no `-Mode`.
+    - `New-AzTenantDeployment` validates before deploying and waits for the deployment to finish. `-NoWait` returns the initial `DeploymentExtended` once the deployment is submitted; it does not create a PowerShell job.
+    - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors. `Get-AzTenantDeploymentWhatIfResult` outputs the raw what-if result and accepts `-ResultFormat` (`FullResourcePayloads` or `ResourceIdOnly`).
+    - `Get-AzTenantDeployment` lists every tenant deployment, gets one by `-Name`, or lists with an OData `-Filter`.
+    - `Save-AzTenantDeploymentTemplate` writes the exported template to `-Path` (default: the current location) and requires `-Force` to overwrite an existing file.
+* Added subscription-scope deployment cmdlets `New-AzSubDeployment`, `Test-AzSubDeployment`, `Get-AzSubDeployment`, `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, and `Save-AzSubDeploymentTemplate`
+    - Legacy `*-AzSubscriptionDeployment` and `Save-AzSubscriptionDeploymentTemplate` names are accepted as aliases
+    - `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, `Get-AzSubDeployment`, and `Save-AzSubDeploymentTemplate` accept a deployment piped from `Get-AzSubDeployment` (`-InputObject`) and use the subscription in its `Id`; `-PassThru` on Stop/Remove outputs `true` when the cancel or delete runs
+    - `New-AzSubDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
+    - `New-AzSubDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
+* Added `Get-AzSubDeploymentWhatIfResult` to preview subscription-scope deployment changes
+    - The legacy `Get-AzSubscriptionDeploymentWhatIfResult` name is accepted as an alias
+    - The preview always uses `Incremental` mode (no `-Mode`), `-Name` is optional, and `-ResultFormat` selects `FullResourcePayloads` or `ResourceIdOnly`
+* When `-Name` is omitted, `New-AzSubDeployment`, `Test-AzSubDeployment`, `Test-AzResourceGroupDeployment`, and `Test-AzManagementGroupDeployment` name the deployment after the template file or URI instead of a GUID
+    - A GUID is still used when no template file or URI is given, or the derived name is not a valid deployment name
+
+#### Az.Storage 0.1.2
+* Added Blob Storage data-plane cmdlets
+    - `New-AzStorageContainer`, `Remove-AzStorageContainer`
+    - `Get-AzStorageBlob`, `Remove-AzStorageBlob`, `Set-AzStorageBlobContent`, `Get-AzStorageBlobContent`, `Start-AzStorageBlobCopy`, `Copy-AzStorageBlob`
+* Added Azure Files data-plane cmdlets
+    - `New-AzStorageShare`, `Get-AzStorageShare`, `Update-AzStorageShare`, `Remove-AzStorageShare`
+    - `New-AzStorageDirectory`, `Get-AzStorageDirectory`, `Remove-AzStorageDirectory`
+    - `New-AzStorageFile`, `Get-AzStorageFile`, `Remove-AzStorageFile`, `Set-AzStorageFileContent`, `Get-AzStorageFileContent`, `Start-AzStorageFileCopy`
+* Data-plane cmdlets authenticate with `-StorageAccountName` and `-StorageAccountKey`, or with `-SasToken`
+
+## v0.1.7 - 2026-11-04 19:14 UTC
+
+#### Agent
+- Store Agent data under `~/.azclips/agent`; data under the local app data `.azclips/agent` directory from 0.1.6 is no longer used and can be deleted (#1242)
+- `az config`: Hide internal builtin model settings `agent.builtin.modelId` and `agent.builtin.apiVersion` from customer configuration (#1187)
+- [BREAKING CHANGE] `az troubleshoot recover`: Rename the `analyze` subcommand to `recover` (#1198)
+- Read recovery help and environment context in process with on-demand catalog regeneration (#924)
+- `az troubleshoot analyze`: Do not write spinner frames when stdout is redirected (#1181)
+
+#### Auth
+- [BREAKING CHANGE] Move profile and authentication cache files to `~/.azclips`; files in the previous local application data directory are not migrated automatically (#1238)
+
+#### CLI
+- Preserve processor lifecycle tags in runtime help command listings (#1222)
+- Reject extra values for single-value parameters such as `--name` instead of silently dropping them (#1217)
+- Keep the last value when a single-value parameter is repeated, matching classic Azure CLI (#1217)
+- `az vm create`: Add `--storage-sku` to set the storage SKU of the managed OS disk (#1221)
+- `az login`: Add service principal client-secret authentication and saved-profile re-authentication (#1210)
+- `az vm create`: Add `--zone` as a single-value input mapped to a one-item zones array in VM create payload (#1200)
+- Load the extension copy selected by routing (#1186)
+- `az network vnet create`: Accept bare tag keys and stop sending default subnet network policies (#1162)
+
+#### Compute
+- `az vm create` / `New-AzVM`: Enable secure boot and VTPM functionality (#1090)
+
+#### Network
+- `Get-AzVirtualNetworkSubnetConfig`, `Remove-AzVirtualNetworkSubnetConfig`: Add subnet read and remove cmdlets (#1177)
+- `az network vnet subnet create`: Accept bare and repeated `--ipam-allocations` keys and dotted delegation names (#1177)
+
+#### PowerShell
+- [BREAKING CHANGE] Network cmdlets expose resource properties directly instead of under `.Properties` (#1226)
+- [BREAKING CHANGE] `New/Get-AzPublicIpAddress`: Rename the output type from `PublicIpAddress` to `PublicIPAddress` (#1226)
+- [BREAKING CHANGE] `Get-AzPublicIpAddress`: Replace the nested `IpConfiguration` with `IpConfigurationId`, `PrivateIPAddress` and `SubnetId` (#1226)
+- [BREAKING CHANGE] Remove `New-AzVirtualNetworkSubnetConfig`; pass hashtables to `New-AzVirtualNetwork -Subnet` (#1226)
+- Remove stray control characters from help examples while preserving description order and blank-line spacing (#1266)
+- `New-AzVM`: Add `-StorageSku` to set the storage SKU of the managed OS disk (#1221)
+- `Connect-AzAccount`: Add service principal client-secret authentication with SecureString and PSCredential support (#1210)
+- `Get-AzPublicIpAddress`: Display the assigned IP address and attached IP configuration instead of a blank Properties value (#1213)
+- `New-AzVM`: Add `-Zone` as a single-value input while preserving zones array wire compatibility via orchestrator pass-through (#1200)
+- `Remove-Az*` (Network, Storage): `-Force` no longer deletes when `$WhatIfPreference` is set (#1177)
+- `New-AzVirtualNetwork`: Accept array values in subnet hashtables (#1162)
+
+#### Resources
+- Move and Rename Resources Deployment Management Scenario Test Files (#1179)
+
+#### Telemetry
+- Use injected persistence for telemetry traces and boundary cache (#1274)
+
+#### Az.Accounts 0.1.4
+* Added service principal client-secret sign-in with `-ClientSecret <SecureString>` and backward-compatible `-ServicePrincipal -Credential <PSCredential>` syntax.
+
+#### Az.Network 0.1.3
+* Removed `New-AzVirtualNetworkSubnetConfig`
+    - Pass hashtables to `New-AzVirtualNetwork -Subnet` instead.
+* Fixed `Get-AzPublicIpAddress` output exposing a blank `Properties` value instead of the assigned IP address.
+    - Resource properties are available at the top level.
+    - The attached IP configuration is flattened into `IpConfigurationId`, `PrivateIPAddress` and `SubnetId` (the last two with `-ExpandResource`); the nested `IpConfiguration` object is no longer exposed.
+    - `ServicePublicIPAddress` and `LinkedPublicIPAddress` are no longer exposed.
+* Updated `New-AzVirtualNetwork`, `Get-AzVirtualNetwork` and `Remove-AzVirtualNetwork`
+    - `-Name` accepts the `ResourceName` alias.
+    - `-Subnet` hashtables accept array values for multi-valued keys such as `AddressPrefixes`.
+    - Subnets no longer send private endpoint / private link service network policies unless requested.
+* Virtual network, subnet, network security group, network interface and public IP address outputs now use the TypeSpec-generated models
+    - Resource properties are exposed directly on the output object (for example `$vnet.Subnets`, `$subnet.AddressPrefixes`) instead of under `.Properties`.
+    - The public IP address output type is now `PublicIPAddress`.
+
+## v0.1.6 - 2026-10-26 20:00 UTC
+
+#### Agent
+- `az troubleshoot analyze`: Add manual AI troubleshooting from saved failures (#934)
+- [BREAKING CHANGE] Replace `agent.enabled` and `agent.sessionStyle` with `agent.recovery.trigger` and `agent.recovery.style` (#934)
+- Store Agent data under the local app data `.azclips/agent` directory and remove entries older than 90 days (#1152)
+- `az agent tool resource find`: Stop recording tool telemetry when `telemetry.enabled` is false (#1146)
+- Choose the PPE model endpoint from the tenant data boundary (#1094)
+- Send builtin model requests without encrypted reasoning so that Agent sessions no longer fail with invalid_encrypted_content (#1093)
+- Add configurable reasoning effort with a medium default for AI error recovery (#919)
+- Use gpt-5.4-mini by default for builtin AI error recovery while preserving configured model overrides (#918)
+
+#### CLI
+- Route commands using extension sidecars before loading the selected extension, with per-extension DLL discovery fallback (#1129)
+- `az config set`: Include allowed values in invalid configuration value errors (#1119)
+- `az deployment group show`: Add command to show a resource group deployment (#1000)
+- `az deployment group list`: Add command to list resource group deployments, with `--filter` support (#1000)
+- `az deployment group cancel`: Add command to cancel a running resource group deployment (#1000)
+- `az deployment group delete`: Add command to delete a resource group deployment (#1000)
+- `az deployment group validate`: Add resource group scoped deployment validation (#1000)
+- `az deployment group export`: Add support for exporting the template used for a resource group deployment (#1000)
+- `az deployment group create`: Accept JSON parameter files and objects in `--parameter` and reject `--query-string` without `--template-uri` (#1000)
+- `az vm create`: Add subnet selection, existing NIC attachment, and NIC delete options (#1097)
+- Reject explicitly supplied collection options without values, including empty repeated occurrences (#1099)
+- `az config set`: Invalid configuration keys and values now report the `InvalidInput` code with exit code 2 instead of a raw .NET exception message (#1087)
+- Malformed user input across commands now reports the `InvalidInput` code with exit code 2, and the agent is offered the error first when enabled (#1087)
+- `az extension add` and `az extension update`: Unknown packages now report the `ExtensionNotFound` code with exit code 4 (#1087)
+
+#### Compute
+- `az vm create` / `New-AzVM`: Add `--tags` and `-Tag` parameter support (#1092)
+
+#### Key Vault
+- Add certificate creation, import, retrieval, listing, version listing, attribute and policy updates, public download and confirmed soft-delete for CLI and PowerShell (#997)
+- Add Undo-AzKeyVaultCertificateRemoval for PowerShell soft-delete recovery (#997)
+- Support encrypted PFX and PEM import, public-only DER and PEM export, and bounded certificate creation polling (#997)
+- Add secret set, retrieval, listing, version listing, attribute update and deletion for CLI and PowerShell, plus PowerShell secret recovery, with metadata-only output by default (#928)
+
+#### Network
+- `az network nsg`: Add create, show, list, and delete commands (#1018)
+- `*-AzNetworkSecurityGroup`: Add New, Get, and Remove cmdlets (#1018)
+- `az network nic`: Add `create`, `show`, `list` and `delete` (#1147)
+- `New-AzNetworkInterface`: Add network interface cmdlets for create, get and remove (#1147)
+- `az network vnet subnet`: Add `create`, `show`, `list`, and `delete` subnet lifecycle commands (#1014)
+- `New-AzVirtualNetworkSubnetConfig`: Add local subnet configuration object creation (#1014)
+
+#### Packaging
+- AZL3 Docker Images for Azure CLI + Powershell (#892)
+
+#### PowerShell
+- `Get-AzResourceGroupDeployment`: Add cmdlet to get or list resource group deployments, including by `-Id` (#1000)
+- `Stop-AzResourceGroupDeployment`: Add cmdlet to cancel a running resource group deployment (#1000)
+- `Remove-AzResourceGroupDeployment`: Add cmdlet to delete a resource group deployment (#1000)
+- `Test-AzResourceGroupDeployment`: Add resource group scoped deployment validation (#1000)
+- `Save-AzResourceGroupDeploymentTemplate`: Add support for saving the template used for a resource group deployment to a file (#1000)
+- `New-AzResourceGroupDeployment`: Accept JSON parameter files and objects in `-Parameter` and reject `-QueryString` without `-TemplateUri` (#1000)
+- `New-AzVM`: Add subnet selection, existing NIC attachment, and NIC delete options (#1097)
+
+#### Profile
+- Ensure the `Profile List`, `Login`, and `Show` responses are consistent (#1100)
+
+#### Resources
+- `az deployment mg`: Add `create`, `list`, `show`, `cancel`, `delete`, `export`, `validate` and `what-if` (#987)
+- `New-/Get-/Stop-/Remove-/Test-AzManagementGroupDeployment`: Add management-group-scope deployment cmdlets (#987)
+
+#### Storage
+- `az storage account create/show/list/delete`, `New-`/`Get-`/`Remove-AzStorageAccount`: Add storage account commands (#789)
+
+#### Az.KeyVault 0.1.1
+* Accept classic CLI and PowerShell policy inputs alongside REST policy JSON.
+* Align certificate results with classic CLI fields and PowerShell properties. Add explicit Wait and PassThru behavior for certificate cmdlets.
+* Add secret set, retrieval, listing, version listing, attribute update and soft-delete commands.
+* Add Undo-AzKeyVaultSecretRemoval to recover a soft-deleted secret and its versions.
+* Return secret metadata by default, with explicit plaintext retrieval through AsPlainText.
+* Add certificate creation, import, retrieval, listing, version listing, attribute and policy updates, public download and soft-delete commands.
+* Add Undo-AzKeyVaultCertificateRemoval to recover a soft-deleted certificate and its versions.
+* Support encrypted PFX and PEM import, public-only DER and PEM export, and bounded certificate creation polling.
+* Purge, backup and restore are not exposed in this preview.
+
+#### Az.Network 0.1.2
+* Added `New-AzVirtualNetworkSubnetConfig`.
+* Added `New-AzNetworkInterface`, `Get-AzNetworkInterface` and `Remove-AzNetworkInterface`
+    - `New-AzNetworkInterface` creates a network interface with a single IP configuration bound to `-SubnetId`, optionally associating a public IP address (`-PublicIpAddressId`) and a network security group (`-NetworkSecurityGroupId`).
+    - `Get-AzNetworkInterface` serves both the single-interface `Get` set and the `List` set; omitting `-ResourceGroupName` lists every network interface in the subscription.
+* Added `New-AzNetworkSecurityGroup`, `Get-AzNetworkSecurityGroup` and `Remove-AzNetworkSecurityGroup`
+    - `Get-AzNetworkSecurityGroup` serves both the single-group `Get` set and the `List` set; omitting `-ResourceGroupName` lists every network security group in the subscription.
+
+#### Az.Resources 0.1.4
+* Added management-group deployment create, get, stop, remove, and test cmdlets.
+    - `New-AzManagementGroupDeployment` and `Test-AzManagementGroupDeployment` take the same template and parameter inputs as the resource group deployment cmdlets (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-Mode`, `-ValidationLevel`).
+    - `New-AzManagementGroupDeployment` validates using `Incremental` mode before deploying with the selected `-Mode` and outputs `DeploymentExtended`.
+    - `Test-AzManagementGroupDeployment` always validates using `Incremental` mode, outputs `DeploymentValidateResult`, and throws on validation errors.
+    - `Get-AzManagementGroupDeployment`, `Stop-AzManagementGroupDeployment`, and `Remove-AzManagementGroupDeployment` accept `-Id`.
+    - `Remove-AzManagementGroupDeployment` sends delete directly; removing a nonexistent deployment succeeds without output unless `-PassThru` is supplied.
+    - `Stop-AzManagementGroupDeployment -PassThru` outputs `true` only when the cancellation runs, not under `-WhatIf` or a declined confirmation.
+
 ## v0.1.5 - 2026-10-12 20:45 UTC
 
 #### CLI

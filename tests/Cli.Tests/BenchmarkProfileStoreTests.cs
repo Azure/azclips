@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.Runtime;
+using Core.Runtime.Persistence;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
 using Xunit;
@@ -18,7 +19,7 @@ public sealed class BenchmarkProfileStoreTests : IDisposable
         _dir = Path.Combine(Path.GetTempPath(), "azclips-benchmark-store-tests", Guid.NewGuid().ToString("N"));
     }
 
-    private static ProfileService NewService(string dir) => new(new NullLoggingService(), dir);
+    private static ProfileService NewService(string dir) => new(new NullLoggingService(), new FilePersistenceStore(dir));
 
     [Fact]
     public void GetRoot_ShouldPointAtBenchmarkHome_WhenGivenRepoRoot()

@@ -252,6 +252,16 @@ public class PerformanceTimelineTests
         public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) =>
             StartActivity(name ?? "Test.Activity.Root", ActivityKind.Server, startTime);
 
+        public TelemetryActivityScope? StartActivityWithParent(string name, ActivityContext parentContext,
+            ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) =>
+            parentContext == default
+                ? StartIndependentRootActivity(name, kind, startTime)
+                : (_source.StartActivity(name, kind, parentContext, startTime: startTime) is { } started ? new TelemetryActivityScope(started) : null);
+
+        public TelemetryActivityScope? StartIndependentRootActivity(string name, ActivityKind kind = ActivityKind.Server,
+            DateTimeOffset startTime = default, bool activate = true) =>
+            global::Tests.Common.Stubs.StubTelemetryService.CreateIndependentScope(_source, name, kind, startTime, activate);
+
         public Activity? TagInvocation(CommandInvocation commandInvocation) => Activity.Current;
 
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => activity;
@@ -268,6 +278,10 @@ public class PerformanceTimelineTests
     {
         public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => null;
         public Activity? StartRootActivity(DateTimeOffset startTime = default, string? name = null) => null;
+        public TelemetryActivityScope? StartActivityWithParent(string name, ActivityContext parentContext,
+            ActivityKind kind = ActivityKind.Internal, DateTimeOffset startTime = default) => null;
+        public TelemetryActivityScope? StartIndependentRootActivity(string name, ActivityKind kind = ActivityKind.Server,
+            DateTimeOffset startTime = default, bool activate = true) => null;
         public Activity? TagInvocation(CommandInvocation commandInvocation) => null;
         public Activity? AddTag(string propertyName, object? value, Activity? activity = null) => null;
         public void Dispose() { }
