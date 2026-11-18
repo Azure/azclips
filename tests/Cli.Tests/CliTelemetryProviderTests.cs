@@ -2,8 +2,6 @@
 // Licensed under the MIT License.
 
 using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Agent.Tools.Resource.Cache;
@@ -74,18 +72,16 @@ public sealed class CliTelemetryProviderTests : IDisposable
         {
             using var root = provider.ActivitySource.StartActivity("CLI.Activity.Root");
             root!.SetTag(TelemetryTags.ProductName, ClientType.CLI.ToString());
-            using var listener = new TcpListener(IPAddress.Loopback, 0);
-            listener.Start();
-            var endpoint = (IPEndPoint)listener.LocalEndpoint;
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            // Fail the connection inside the process, with no server and no short timeout. A real
+            // server made the error depend on timing and on the OS, so the test failed on busy runners.
+            using var handler = new SocketsHttpHandler
+            {
+                ConnectCallback = (_, _) => throw new IOException("Simulated connection failure."),
+            };
+            using var client = new HttpClient(handler);
 
-            var acceptTask = listener.AcceptTcpClientAsync();
-            var requestTask = client.GetAsync($"http://127.0.0.1:{endpoint.Port}/private/path");
-            using var connection = await acceptTask;
-            listener.Stop();
-            connection.Close();
-
-            await Assert.ThrowsAsync<HttpRequestException>(() => requestTask);
+            await Assert.ThrowsAsync<HttpRequestException>(
+                () => client.GetAsync("http://127.0.0.1/private/path"));
 
             var http = Assert.Single(exported, activity =>
                 activity.Name == "System.Net.Http.HttpRequestOut");
