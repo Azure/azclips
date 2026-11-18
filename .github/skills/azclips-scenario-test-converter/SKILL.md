@@ -90,7 +90,7 @@ Only writing is restricted; read anything. These three paths, and nothing else:
 
 `tests/Scenario.Tests/SessionRecords/**` is written by record mode only, after the recording approval in `Applying A Scenario-Test Change`. When playback fails, never hand-write, hand-edit, or hand-sanitise the JSON to make it pass.
 
-For a worked example, read an existing scenario that resembles the target: `tests/Scenario.Tests/Resources/GroupCreateScenarioTests.cs` for a single command, and `tests/Scenario.Tests/Network/VNetScenarioTests.cs` for a create/read/list/delete lifecycle across both surfaces.
+For a worked example, read an existing scenario that resembles the target: `tests/Scenario.Tests/Resources/GroupCreateScenarioTests.cs` for a single command, and `tests/Scenario.Tests/Network/VirtualNetworkScenarioTests.cs` for a create/read/list/delete lifecycle across both surfaces.
 
 ## Inputs To Resolve
 

@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 10/22/2026
+ms.date: 11/17/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzNetworkSecurityGroup
 ---
@@ -20,15 +20,15 @@ Get a network security group, or list the network security groups in a resource 
 ### List (Default)
 
 ```
-Get-AzNetworkSecurityGroup [-SubscriptionId <string>] [-ResourceGroupName <string>] [-Profile <string>]
- [<CommonParameters>]
+Get-AzNetworkSecurityGroup [-ResourceGroupName <string>] [-SubscriptionId <string>]
+ [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzNetworkSecurityGroup -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-ExpandResource <string>] [-Profile <string>] [<CommonParameters>]
+Get-AzNetworkSecurityGroup -ResourceGroupName <string> -Name <string> [-ExpandResource <string>]
+ [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -112,7 +112,7 @@ HelpMessage: ''
 
 ### -Profile
 
-Azure profile to target, e.g. `latest`.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -133,7 +133,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-Name of the resource group that contains the network security group.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -160,7 +160,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-ID of the subscription that contains the network security group. Defaults to the subscription of the current context.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -168,13 +168,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -203,3 +197,8 @@ The requested network security group, or every network security group in the res
 ## NOTES
 
 ## RELATED LINKS
+
+- [New-AzNetworkSecurityGroup](./New-AzNetworkSecurityGroup.md)
+- [Remove-AzNetworkSecurityGroup](./Remove-AzNetworkSecurityGroup.md)
+- [New-AzNetworkSecurityRule](./New-AzNetworkSecurityRule.md)
+

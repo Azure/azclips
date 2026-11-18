@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 10/22/2026
+ms.date: 11/17/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzNetworkSecurityGroup
 ---
@@ -20,25 +20,32 @@ Delete a network security group.
 ### __AllParameterSets
 
 ```
-Remove-AzNetworkSecurityGroup -Name <string> -ResourceGroupName <string> [-SubscriptionId <string>]
- [-Force] [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzNetworkSecurityGroup -Name <string> -ResourceGroupName <string> [-Force] [-PassThru]
+ [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
 ## DESCRIPTION
 
-Deletes the named network security group from the specified resource group and subscription.
-The delete fails while the network security group is still associated with a subnet or network interface, so dissociate it first.
+Deletes the named network security group from the specified resource group.
+The delete fails while the network security group is still associated with a subnet or network interface.
+The cmdlet asks for confirmation before the delete. Use `-Force` to skip the prompt.
 
 ## EXAMPLES
 
 ### Remove a network security group
 
-Delete the network security group `mynsg` from resource group `myrg`.
+Delete the network security group `mynsg` from resource group `myrg`. The cmdlet asks for confirmation first.
 
 ```powershell
 Remove-AzNetworkSecurityGroup -ResourceGroupName myrg -Name mynsg
+```
+
+### Remove a network security group without a prompt and return the result
+
+```powershell
+Remove-AzNetworkSecurityGroup -ResourceGroupName myrg -Name mynsg -Force -PassThru
 ```
 
 ## PARAMETERS
@@ -67,7 +74,7 @@ HelpMessage: ''
 
 ### -Force
 
-Deletes the network security group without prompting for confirmation.
+Deletes the network security group without asking for confirmation.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -110,7 +117,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Returns `$true` when the operation succeeds. By default this cmdlet does not emit an object.
+Returns `$true` when the delete succeeds. By default this cmdlet does not return an object.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -131,7 +138,7 @@ HelpMessage: ''
 
 ### -Profile
 
-Azure profile to target, e.g. `latest`.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -152,7 +159,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-Name of the resource group that contains the network security group.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -173,7 +180,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-ID of the subscription that contains the network security group. Defaults to the subscription of the current context.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -232,3 +239,8 @@ Returned only when `-PassThru` is specified: `$true` once the network security g
 ## NOTES
 
 ## RELATED LINKS
+
+- [New-AzNetworkSecurityGroup](./New-AzNetworkSecurityGroup.md)
+- [Get-AzNetworkSecurityGroup](./Get-AzNetworkSecurityGroup.md)
+- [New-AzNetworkSecurityRule](./New-AzNetworkSecurityRule.md)
+

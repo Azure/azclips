@@ -14,7 +14,7 @@ public partial class NetworkInterfaceTapConfiguration
 
     /// <summary>The name of the resource that is unique within a resource group. This name can be used to access the resource.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; } = null !;
+    public string Name { get; set; } = null!;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]
@@ -29,114 +29,20 @@ public partial class NetworkInterfaceTapConfiguration
     [JsonPropertyName("etag")]
     public string? Etag { get; set; }
 
+    /// <summary>The reference to the Virtual Network Tap resource.</summary>
+    [JsonIgnore]
+    public VirtualNetworkTap? VirtualNetworkTap
+    {
+        get => Properties?.VirtualNetworkTap;
+        set
+        {
+            Properties ??= new NetworkInterfaceTapConfigurationPropertiesFormat();
+            Properties.VirtualNetworkTap = value;
+        }
+    }
+
     /// <summary>The provisioning state of the network interface tap configuration resource.</summary>
     /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
     [JsonIgnore]
     public string? ProvisioningState { get => Properties?.ProvisioningState; }
-
-    /// <summary>Resource ID.</summary>
-    [JsonIgnore]
-    public string? VirtualNetworkTapId
-    {
-        get => Properties?.VirtualNetworkTap?.Id;
-        set
-        {
-            Properties ??= new NetworkInterfaceTapConfigurationPropertiesFormat();
-            Properties.VirtualNetworkTap ??= new VirtualNetworkTap();
-            Properties.VirtualNetworkTap.Id = value;
-        }
-    }
-
-    /// <summary>The name of virtual network tap.</summary>
-    [JsonIgnore]
-    public string? VirtualNetworkTapName { get => Properties?.VirtualNetworkTap?.Name; }
-
-    /// <summary>Resource type.</summary>
-    [JsonIgnore]
-    public string? VirtualNetworkTapType { get => Properties?.VirtualNetworkTap?.Type; }
-
-    /// <summary>Resource location.</summary>
-    [JsonIgnore]
-    public string? VirtualNetworkTapLocation
-    {
-        get => Properties?.VirtualNetworkTap?.Location;
-        set
-        {
-            Properties ??= new NetworkInterfaceTapConfigurationPropertiesFormat();
-            Properties.VirtualNetworkTap ??= new VirtualNetworkTap();
-            Properties.VirtualNetworkTap.Location = value;
-        }
-    }
-
-    /// <summary>Resource tags.</summary>
-    [JsonIgnore]
-    public IDictionary<string, string>? VirtualNetworkTapTags
-    {
-        get => Properties?.VirtualNetworkTap?.Tags;
-        set
-        {
-            Properties ??= new NetworkInterfaceTapConfigurationPropertiesFormat();
-            Properties.VirtualNetworkTap ??= new VirtualNetworkTap();
-            Properties.VirtualNetworkTap.Tags = value;
-        }
-    }
-
-    /// <summary>A unique read-only string that changes whenever the resource is updated.</summary>
-    [JsonIgnore]
-    public string? VirtualNetworkTapEtag { get => Properties?.VirtualNetworkTap?.Etag; }
-
-    /// <summary>Specifies the list of resource IDs for the network interface IP configuration that needs to be tapped.</summary>
-    [JsonIgnore]
-    public IList<NetworkInterfaceTapConfiguration>? NetworkInterfaceTapConfigurations { get => Properties?.VirtualNetworkTap?.Properties?.NetworkInterfaceTapConfigurations; }
-
-    /// <summary>The resource GUID property of the virtual network tap resource.</summary>
-    [JsonIgnore]
-    public string? ResourceGuid { get => Properties?.VirtualNetworkTap?.Properties?.ResourceGuid; }
-
-    /// <summary>The provisioning state of the virtual network tap resource.</summary>
-    /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
-    [JsonIgnore]
-    public string? PropertiesProvisioningState { get => Properties?.VirtualNetworkTap?.Properties?.ProvisioningState; }
-
-    /// <summary>The reference to the private IP Address of the collector nic that will receive the tap.</summary>
-    [JsonIgnore]
-    public NetworkInterfaceIPConfiguration? DestinationNetworkInterfaceIPConfiguration
-    {
-        get => Properties?.VirtualNetworkTap?.Properties?.DestinationNetworkInterfaceIPConfiguration;
-        set
-        {
-            Properties ??= new NetworkInterfaceTapConfigurationPropertiesFormat();
-            Properties.VirtualNetworkTap ??= new VirtualNetworkTap();
-            Properties.VirtualNetworkTap.Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.VirtualNetworkTap.Properties.DestinationNetworkInterfaceIPConfiguration = value;
-        }
-    }
-
-    /// <summary>The reference to the private IP address on the internal Load Balancer that will receive the tap.</summary>
-    [JsonIgnore]
-    public FrontendIPConfiguration? DestinationLoadBalancerFrontEndIPConfiguration
-    {
-        get => Properties?.VirtualNetworkTap?.Properties?.DestinationLoadBalancerFrontEndIPConfiguration;
-        set
-        {
-            Properties ??= new NetworkInterfaceTapConfigurationPropertiesFormat();
-            Properties.VirtualNetworkTap ??= new VirtualNetworkTap();
-            Properties.VirtualNetworkTap.Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.VirtualNetworkTap.Properties.DestinationLoadBalancerFrontEndIPConfiguration = value;
-        }
-    }
-
-    /// <summary>The VXLAN destination port that will receive the tapped traffic.</summary>
-    [JsonIgnore]
-    public int? DestinationPort
-    {
-        get => Properties?.VirtualNetworkTap?.Properties?.DestinationPort;
-        set
-        {
-            Properties ??= new NetworkInterfaceTapConfigurationPropertiesFormat();
-            Properties.VirtualNetworkTap ??= new VirtualNetworkTap();
-            Properties.VirtualNetworkTap.Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.VirtualNetworkTap.Properties.DestinationPort = value;
-        }
-    }
 }

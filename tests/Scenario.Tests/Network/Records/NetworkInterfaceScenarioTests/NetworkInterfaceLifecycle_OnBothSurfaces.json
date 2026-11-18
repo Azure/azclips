@@ -1,0 +1,2951 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "NetworkInterfaceScenarioTests/NetworkInterfaceLifecycle_OnBothSurfaces"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-nic-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "83c2e768-becb-4cd0-a624-1b9979617bfa"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-nic-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "eb8ae373-d7df-46d8-87f3-b54dde3becf5"
+          ],
+          "x-ms-correlation-request-id": [
+            "eb8ae373-d7df-46d8-87f3-b54dde3becf5"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081813Z:eb8ae373-d7df-46d8-87f3-b54dde3becf5"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 2246A1C2EF1641E29E793BB34A15DC13 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:11Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:13 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg\u0022,\u0022name\u0022:\u0022scenario-nic-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "3dd05217-136a-4eca-918e-924c93719bd6"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022subnets\u0022:[{\u0022name\u0022:\u0022scenario-nic-subnet\u0022,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022}}]}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "3"
+          ],
+          "x-ms-request-id": [
+            "96a4d24a-06b0-452d-8cad-94c17c06afe9"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/96a4d24a-06b0-452d-8cad-94c17c06afe9?api-version=2025-07-01\u0026t=639305002947445940\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=2.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "bc5b2f66-7a1f-472d-b88a-e613c68f492c"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "48619514-2d89-4ea2-a952-6905d86a04a1"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081814Z:bc5b2f66-7a1f-472d-b88a-e613c68f492c"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F69D882468C3408790B7ABBAB23868D4 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:14Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:14 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022fcb7b146-3399-4d8e-a575-bc765c6b4aee\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00228a922926-b1f6-4840-ad4c-bea2a3a0ef1c\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022scenario-nic-subnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022fcb7b146-3399-4d8e-a575-bc765c6b4aee\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00222fe18822-e9fa-43c0-b0cd-4cb1607dcb0a\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022defaultOutboundAccess\u0022:false},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/96a4d24a-06b0-452d-8cad-94c17c06afe9?api-version=2025-07-01\u0026t=639305002947445940\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "725a3ca3-8138-4c5f-aa01-736c29c590da"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "43cb59a2-8cd8-451f-bb70-a2a18671c9f3"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.0, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "718cf7ca-26e9-4d89-96c1-78c41c140b61"
+          ],
+          "x-ms-arm-service-request-id": [
+            "1b44b946-deba-4b04-a49f-b0776c166f83"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081818Z:718cf7ca-26e9-4d89-96c1-78c41c140b61"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0B6C9A7D2C774B35803DACF1E4086CC7 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:17Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:17 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "c4425913-382f-4323-a813-99a11adc177d"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "87b78993-c167-4542-933e-98d41b226e3f"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=2.0, subscriptionReadRatePct=1.0, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "02d6a8f5-e5fb-4825-b749-6757ad42c63a"
+          ],
+          "x-ms-arm-service-request-id": [
+            "7be68477-1311-431b-b9fd-a37d306f54e6"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081818Z:02d6a8f5-e5fb-4825-b749-6757ad42c63a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 985DF347D1E64D0DBBBA0AB78D8FE996 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:18Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:18 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022cb75ddd3-f4ee-46d2-9478-b239f2bab712\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00228a922926-b1f6-4840-ad4c-bea2a3a0ef1c\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022scenario-nic-subnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022cb75ddd3-f4ee-46d2-9478-b239f2bab712\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00222fe18822-e9fa-43c0-b0cd-4cb1607dcb0a\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022defaultOutboundAccess\u0022:false},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "fde49591-a3ff-4746-9065-813ba542a93c"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "a3880388-bb0a-4642-af96-9ea538135596"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/a3880388-bb0a-4642-af96-9ea538135596?api-version=2025-07-01\u0026t=639305002994008058\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=2.3, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "5dc7c0eb-8b6b-4e14-812e-79dfe77601e3"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "da9f5aac-7740-483c-81d8-ea9874d65bd8"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "198"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2998"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081819Z:5dc7c0eb-8b6b-4e14-812e-79dfe77601e3"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 88C17350AAE24E95A64C8ACAA4AED987 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:19Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:18 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-pip\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022,\u0022etag\u0022:\u0022W/\\\u002238fcf51c-5841-419e-975c-5823454b568d\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u002277a19268-db14-4583-98fa-d174d1215b7a\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/a3880388-bb0a-4642-af96-9ea538135596?api-version=2025-07-01\u0026t=639305002994008058\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "defe2f4e-a030-4e6b-87a3-91621404e2d6"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "0104c658-0aca-4c9c-882f-add0419930c7"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "b5a8c1b1-bb5f-4f77-997a-4bd0f143c948"
+          ],
+          "x-ms-arm-service-request-id": [
+            "232d41f6-a77d-4ed9-a83c-76c2904e36cd"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081821Z:b5a8c1b1-bb5f-4f77-997a-4bd0f143c948"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 2B1E4EE0EA254E97ADB6059C1B9FA3F6 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:20Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:20 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "44935403-3ac4-4a97-adb8-7ab3a9c2d424"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u00227eec28fa-d0ba-4a82-a720-ca7482e27acd\u0022"
+          ],
+          "x-ms-request-id": [
+            "f4355b49-07a4-4715-bdf5-52ff7753db32"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "50b9aa9c-9ba1-4dd4-b756-7361040490d5"
+          ],
+          "x-ms-arm-service-request-id": [
+            "f00064ce-7a6d-46b0-9596-e74fedc48cad"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081821Z:50b9aa9c-9ba1-4dd4-b756-7361040490d5"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 762884793B124CF7B324FD05B10B3AD5 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:21Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-pip\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022,\u0022etag\u0022:\u0022W/\\\u00227eec28fa-d0ba-4a82-a720-ca7482e27acd\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002277a19268-db14-4583-98fa-d174d1215b7a\u0022,\u0022ipAddress\u0022:\u002220.110.98.202\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "1dd917c4-8446-4896-ab63-3a294583af6d"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "88edc6de-2213-466b-a1c8-1b7151ba1e6f"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/88edc6de-2213-466b-a1c8-1b7151ba1e6f?api-version=2025-07-01\u0026t=639305003024451822\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=2.4, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "d0367486-a926-484b-b9b8-dce60c217dfd"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "e8ae5450-92e9-4b60-b2d3-60cbc933c00e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081822Z:d0367486-a926-484b-b9b8-dce60c217dfd"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 8EBF0E49D41447118010C01B092239E1 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:22Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-nsg\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg\u0022,\u0022etag\u0022:\u0022W/\\\u002212cb6470-671a-4480-b5ed-5c404d0d95ee\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00227bad9df2-4507-4364-9506-c10ab5ed9184\u0022,\u0022securityRules\u0022:[],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002212cb6470-671a-4480-b5ed-5c404d0d95ee\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002212cb6470-671a-4480-b5ed-5c404d0d95ee\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u002212cb6470-671a-4480-b5ed-5c404d0d95ee\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002212cb6470-671a-4480-b5ed-5c404d0d95ee\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002212cb6470-671a-4480-b5ed-5c404d0d95ee\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u002212cb6470-671a-4480-b5ed-5c404d0d95ee\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/88edc6de-2213-466b-a1c8-1b7151ba1e6f?api-version=2025-07-01\u0026t=639305003024451822\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "95c6d606-bca3-4075-bd08-d843b230e40f"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "93ec45ff-df87-48c9-8ae0-557fe9ec9ff1"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "7009bb3b-7778-4e6a-979b-b7fd8e67cc98"
+          ],
+          "x-ms-arm-service-request-id": [
+            "29f5f504-85c8-4dab-8a5d-55c35e66c2fa"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081823Z:7009bb3b-7778-4e6a-979b-b7fd8e67cc98"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 738D4DAD40C44B1FA918B11090022047 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:23Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:23 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "70a81ca3-eb63-45e4-896a-f76e5bd98520"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022bb1e30b5-99e7-47bb-8acc-8e27efe960bd\u0022"
+          ],
+          "x-ms-request-id": [
+            "28f118be-739c-40f4-8760-e64ace9bd4e5"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "9288116e-f3b1-4ff9-b57c-237f1a397bbe"
+          ],
+          "x-ms-arm-service-request-id": [
+            "554fb8ef-fffe-4aae-a22a-1450ab930cf9"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081824Z:9288116e-f3b1-4ff9-b57c-237f1a397bbe"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 25EE63BE46C64F4B840A25B1ABBE6DAF Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:23Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:23 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-nsg\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg\u0022,\u0022etag\u0022:\u0022W/\\\u0022bb1e30b5-99e7-47bb-8acc-8e27efe960bd\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00227bad9df2-4507-4364-9506-c10ab5ed9184\u0022,\u0022securityRules\u0022:[],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022bb1e30b5-99e7-47bb-8acc-8e27efe960bd\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022bb1e30b5-99e7-47bb-8acc-8e27efe960bd\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022bb1e30b5-99e7-47bb-8acc-8e27efe960bd\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022bb1e30b5-99e7-47bb-8acc-8e27efe960bd\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022bb1e30b5-99e7-47bb-8acc-8e27efe960bd\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022bb1e30b5-99e7-47bb-8acc-8e27efe960bd\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "c6fc4e77-b347-473c-b9e8-de9c7ad14d68"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "ff39a243-5d8a-4f1b-aff2-a74f7dff5abe"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/ff39a243-5d8a-4f1b-aff2-a74f7dff5abe?api-version=2025-07-01\u0026t=639305003048594672\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.3, subscriptionWriteRatePct=2.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "08fadd2d-4e3a-4ecf-b9cd-3528e3a2d559"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "eb320855-c030-4f7f-b4b1-599cf0fe9ffd"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081824Z:08fadd2d-4e3a-4ecf-b9cd-3528e3a2d559"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: BC6D15EBAA2F4DF4A7AE62AAB302F2D3 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:24Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:24 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-nsg-second\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022,\u0022etag\u0022:\u0022W/\\\u0022160a17db-2e7d-4d47-9758-58f012a16492\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022a92792a1-5e4f-41fb-adda-57437e4e89ea\u0022,\u0022securityRules\u0022:[],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022160a17db-2e7d-4d47-9758-58f012a16492\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022160a17db-2e7d-4d47-9758-58f012a16492\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022160a17db-2e7d-4d47-9758-58f012a16492\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022160a17db-2e7d-4d47-9758-58f012a16492\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022160a17db-2e7d-4d47-9758-58f012a16492\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022160a17db-2e7d-4d47-9758-58f012a16492\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/ff39a243-5d8a-4f1b-aff2-a74f7dff5abe?api-version=2025-07-01\u0026t=639305003048594672\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "d8232d95-a726-47d2-aa6f-3f7366488760"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "850e27b3-2b5f-431f-b93c-deddfd13ee75"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "f92dfa80-388e-441b-a03d-9b091c2d9279"
+          ],
+          "x-ms-arm-service-request-id": [
+            "f00de22f-b8a4-4437-bb1d-d6dcb51072f4"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081826Z:f92dfa80-388e-441b-a03d-9b091c2d9279"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: A390115E1D484654A563ACD0F353248C Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:26Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "e3adce13-99d4-48b4-8c82-57550e42b61f"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022b7267d32-2bc4-4978-acde-622d272ee48e\u0022"
+          ],
+          "x-ms-request-id": [
+            "cd8adf2a-e145-499a-a3c9-b9733e5b5070"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.3, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "e90961fc-92de-4712-8c6e-4ef4df96bd25"
+          ],
+          "x-ms-arm-service-request-id": [
+            "48d0b490-7e09-4565-bf43-dede145ac69f"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081826Z:e90961fc-92de-4712-8c6e-4ef4df96bd25"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 03844B1F2B274451B5C634B501CC2F21 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:26Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-nsg-second\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022,\u0022etag\u0022:\u0022W/\\\u0022b7267d32-2bc4-4978-acde-622d272ee48e\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022a92792a1-5e4f-41fb-adda-57437e4e89ea\u0022,\u0022securityRules\u0022:[],\u0022defaultSecurityRules\u0022:[{\u0022name\u0022:\u0022AllowVnetInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/AllowVnetInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022b7267d32-2bc4-4978-acde-622d272ee48e\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow inbound traffic from all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowAzureLoadBalancerInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/AllowAzureLoadBalancerInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022b7267d32-2bc4-4978-acde-622d272ee48e\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022AzureLoadBalancer\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow inbound traffic from azure load balancer\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllInBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/DenyAllInBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022b7267d32-2bc4-4978-acde-622d272ee48e\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all inbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Inbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowVnetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/AllowVnetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022b7267d32-2bc4-4978-acde-622d272ee48e\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022destinationAddressPrefix\u0022:\u0022VirtualNetwork\u0022,\u0022priority\u0022:65000,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to all VMs in VNET\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022AllowInternetOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/AllowInternetOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022b7267d32-2bc4-4978-acde-622d272ee48e\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022Internet\u0022,\u0022priority\u0022:65001,\u0022description\u0022:\u0022Allow outbound traffic from all VMs to Internet\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Allow\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}},{\u0022name\u0022:\u0022DenyAllOutBound\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second/defaultSecurityRules/DenyAllOutBound\u0022,\u0022etag\u0022:\u0022W/\\\u0022b7267d32-2bc4-4978-acde-622d272ee48e\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkSecurityGroups/defaultSecurityRules\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022sourcePortRange\u0022:\u0022*\u0022,\u0022destinationPortRange\u0022:\u0022*\u0022,\u0022sourceAddressPrefix\u0022:\u0022*\u0022,\u0022destinationAddressPrefix\u0022:\u0022*\u0022,\u0022priority\u0022:65500,\u0022description\u0022:\u0022Deny all outbound traffic\u0022,\u0022protocol\u0022:\u0022*\u0022,\u0022access\u0022:\u0022Deny\u0022,\u0022direction\u0022:\u0022Outbound\u0022,\u0022sourcePortRanges\u0022:[],\u0022destinationPortRanges\u0022:[],\u0022sourceAddressPrefixes\u0022:[],\u0022destinationAddressPrefixes\u0022:[]}}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-nic-rg?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "8ed3f93c-b339-4be1-9260-601ab9cdd621"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "37c740b7-33fc-474d-99eb-f95eaa6e51cc"
+          ],
+          "x-ms-correlation-request-id": [
+            "37c740b7-33fc-474d-99eb-f95eaa6e51cc"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081826Z:37c740b7-33fc-474d-99eb-f95eaa6e51cc"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 8E631F5DB28F43E38F397646BBF0F033 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:26Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:26 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg\u0022,\u0022name\u0022:\u0022scenario-nic-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "2f451472-8282-4d84-8f69-1dc82575c989"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022properties\u0022:{\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true}}]}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "92c1bbfc-6ad3-4780-ac5f-fe0a5536ca54"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=2.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "1084ee6a-4ad9-4ded-80b1-a8c7b3b4c15b"
+          ],
+          "x-ms-arm-service-request-id": [
+            "c42108ff-8eeb-41d3-a098-179ab21d2887"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "198"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2998"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081827Z:1084ee6a-4ad9-4ded-80b1-a8c7b3b4c15b"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 9150C629BB3040D48C5AF2484EA82641 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:27Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:26 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u002279932290-f9d2-415e-ac0e-89054661a5d5\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u002279932290-f9d2-415e-ac0e-89054661a5d5\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "2a60b076-acc3-485b-923b-3fb78f6cde1c"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u002279932290-f9d2-415e-ac0e-89054661a5d5\u0022"
+          ],
+          "x-ms-request-id": [
+            "79f7f150-e9e7-4823-a5ca-2b44806cb07d"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.3, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "495bf518-79e9-4ac9-9b88-eb111875f90a"
+          ],
+          "x-ms-arm-service-request-id": [
+            "4f88972b-ab44-42ef-93f7-8d59700cd863"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081842Z:495bf518-79e9-4ac9-9b88-eb111875f90a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 8D9E542009FC433787287B026251132A Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:42Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:41 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u002279932290-f9d2-415e-ac0e-89054661a5d5\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u002279932290-f9d2-415e-ac0e-89054661a5d5\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "79abbeab-3a9e-457e-a6c7-63520bfcaad7"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u002279932290-f9d2-415e-ac0e-89054661a5d5\u0022"
+          ],
+          "x-ms-request-id": [
+            "9fbb5173-8df1-4d68-9235-f0fc9b6efad5"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.3, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "47587788-415b-42c9-bbb6-d9fe98fccc15"
+          ],
+          "x-ms-arm-service-request-id": [
+            "c429cabd-7e55-4d07-8252-70502420a1a7"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081843Z:47587788-415b-42c9-bbb6-d9fe98fccc15"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: BEBAD46FEE8740AE9F4B357534742EFD Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:42Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:42 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u002279932290-f9d2-415e-ac0e-89054661a5d5\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u002279932290-f9d2-415e-ac0e-89054661a5d5\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-nic-rg?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "3ccc744a-729b-49f4-a3c9-db9929d43081"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "21dd7587-f465-4789-b468-96fda109d2bc"
+          ],
+          "x-ms-correlation-request-id": [
+            "21dd7587-f465-4789-b468-96fda109d2bc"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081843Z:21dd7587-f465-4789-b468-96fda109d2bc"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: A7A77ED8672C4231B38C3ED5CB4D7498 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:43Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:42 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg\u0022,\u0022name\u0022:\u0022scenario-nic-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "5ccee730-7651-44a6-8779-2c5e7b69dcff"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022tags\u0022:{\u0022foo\u0022:\u0022doo\u0022},\u0022properties\u0022:{\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022properties\u0022:{\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Static\u0022,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022}}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[\u0022100.1.2.3\u0022],\u0022internalDnsNameLabel\u0022:\u0022test\u0022},\u0022enableAcceleratedNetworking\u0022:true,\u0022enableIPForwarding\u0022:true}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "1e3d1e34-923c-4c4c-b5d5-1eb642162bca"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/1e3d1e34-923c-4c4c-b5d5-1eb642162bca?api-version=2025-07-01\u0026t=639305003242442681\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.3, subscriptionWriteRatePct=2.7, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "825093fd-78ec-4677-86ec-67bb87d0b5cf"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "939ddc98-d4c2-49cc-9020-549722162bff"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081844Z:825093fd-78ec-4677-86ec-67bb87d0b5cf"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 57A0100BC0DE4E6EAFDDCD3FEAB2A9EE Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:43Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:43 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022ec4ec2c4-777c-4522-aa65-9f446ae7fa91\\\u0022\u0022,\u0022tags\u0022:{\u0022foo\u0022:\u0022doo\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u0022ec4ec2c4-777c-4522-aa65-9f446ae7fa91\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[\u0022100.1.2.3\u0022],\u0022appliedDnsServers\u0022:[],\u0022internalDnsNameLabel\u0022:\u0022test\u0022,\u0022internalFqdn\u0022:\u0022test.eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022,\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:true,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:true,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/1e3d1e34-923c-4c4c-b5d5-1eb642162bca?api-version=2025-07-01\u0026t=639305003242442681\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "6d69a2b7-c75f-4bde-9cb0-f95002ecb44d"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "1c5dad80-2c47-44d4-b166-4549c2401a8d"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.3, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "2aa31c93-c14c-40f4-be4d-92255a02d7a5"
+          ],
+          "x-ms-arm-service-request-id": [
+            "6e3c7229-a7f7-47d7-8a0f-cba697caa702"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081845Z:2aa31c93-c14c-40f4-be4d-92255a02d7a5"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 7526FADC59F5458DB655EC356EA46A1F Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:45Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:44 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "aeae060b-8598-41df-a65c-d14ad37816d5"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u002234a28228-68d3-46f4-aa65-84f504775612\u0022"
+          ],
+          "x-ms-request-id": [
+            "e52d2e0f-6041-4a5f-803c-6429d0be2f93"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.3, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "83872736-d967-46d6-a069-af2725a25caf"
+          ],
+          "x-ms-arm-service-request-id": [
+            "b06e42c2-e3f5-446d-a0e3-728fa407a56c"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081845Z:83872736-d967-46d6-a069-af2725a25caf"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: AFABE3BDE8B54BADA8FD473C8598691D Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:45Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:45 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u002234a28228-68d3-46f4-aa65-84f504775612\\\u0022\u0022,\u0022tags\u0022:{\u0022foo\u0022:\u0022doo\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u002234a28228-68d3-46f4-aa65-84f504775612\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[\u0022100.1.2.3\u0022],\u0022appliedDnsServers\u0022:[],\u0022internalDnsNameLabel\u0022:\u0022test\u0022,\u0022internalFqdn\u0022:\u0022test.eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022,\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:true,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:true,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-nic-rg?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "81c8d6db-a857-4557-a5c3-66e5356cea75"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "bc36bf66-369e-4491-9e25-18a50e7e5f2a"
+          ],
+          "x-ms-correlation-request-id": [
+            "bc36bf66-369e-4491-9e25-18a50e7e5f2a"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081846Z:bc36bf66-369e-4491-9e25-18a50e7e5f2a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 706486FA195F4C5880ACE1901C3486DB Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:46Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:45 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg\u0022,\u0022name\u0022:\u0022scenario-nic-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "ceae738c-1a39-4994-adb3-c67208c1f705"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg\u0022},\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022properties\u0022:{\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true}}]}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "66586f73-1f64-4dbe-bf80-bc94d14a041f"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/66586f73-1f64-4dbe-bf80-bc94d14a041f?api-version=2025-07-01\u0026t=639305003268537051\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.3, operationConcurrencyPct=0.3, subscriptionWriteRatePct=2.8, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "dfc6626a-ad04-4e03-aff2-a9ac3ef0fa8e"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "68b8bb92-30ed-467d-9871-30ea98df346e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081846Z:dfc6626a-ad04-4e03-aff2-a9ac3ef0fa8e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: BA76C76E7EAF49108CD94E96630B7ECB Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:46Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:46 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022e6935f6a-5602-4dc5-b41d-647058e86aa3\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u0022e6935f6a-5602-4dc5-b41d-647058e86aa3\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/66586f73-1f64-4dbe-bf80-bc94d14a041f?api-version=2025-07-01\u0026t=639305003268537051\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "e9255f54-d96e-4fc1-a7a0-8bf7bf603fba"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "2d9b25ca-532b-4480-b18e-f7ad6e776e22"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.4, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "c396649c-6ba7-4b56-ad92-d5cc9da94fb6"
+          ],
+          "x-ms-arm-service-request-id": [
+            "25ca925c-2b16-474f-bf91-420a27dce5a4"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081848Z:c396649c-6ba7-4b56-ad92-d5cc9da94fb6"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3B9C663D4B954D6D84BA2B7569D224AB Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:48Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:47 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "92577cb1-259d-4732-87e9-9cfa89af44c9"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022bd764f6a-5f1d-42de-ac5f-4fb56b27a469\u0022"
+          ],
+          "x-ms-request-id": [
+            "87e2b7bb-1505-4959-ad6e-3ff75bf8b82b"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.4, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.4, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "d9b40d35-d41e-4819-835d-ca7c4f249833"
+          ],
+          "x-ms-arm-service-request-id": [
+            "f1142753-0f33-4eb8-afd4-1c87d48f187a"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081849Z:d9b40d35-d41e-4819-835d-ca7c4f249833"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0416DB2D9DA84168992D39F6F21FCEF9 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:48Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:48 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022bd764f6a-5f1d-42de-ac5f-4fb56b27a469\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u0022bd764f6a-5f1d-42de-ac5f-4fb56b27a469\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-nic-rg?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "a4f98171-e4fa-486e-850f-2f5b1d6312e0"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-request-id": [
+            "1aff0a49-bff0-4d02-9e38-e738e5570ee6"
+          ],
+          "x-ms-correlation-request-id": [
+            "1aff0a49-bff0-4d02-9e38-e738e5570ee6"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081849Z:1aff0a49-bff0-4d02-9e38-e738e5570ee6"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3DAF21D305EF40C1B9AF2ADDFC36C1D2 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:49Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:48 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg\u0022,\u0022name\u0022:\u0022scenario-nic-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "5dca1873-d020-45b3-b980-b3c774e30397"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022},\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022properties\u0022:{\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022}}}]}}"
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "aea13c40-017c-4096-b399-2813dd7c9166"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/aea13c40-017c-4096-b399-2813dd7c9166?api-version=2025-07-01\u0026t=639305003298068033\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.4, operationConcurrencyPct=0.3, subscriptionWriteRatePct=2.9, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "c0142f16-2759-42d7-951b-9bf082243667"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "ce4f72ae-b320-4374-be50-ef6960d3498d"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "198"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2998"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081849Z:c0142f16-2759-42d7-951b-9bf082243667"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F6D5D9A579BB4C579673DA95505BBEB8 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:49Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:49 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u002251cc910b-afb0-4cc2-ad0f-cb63510104b3\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u002251cc910b-afb0-4cc2-ad0f-cb63510104b3\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/aea13c40-017c-4096-b399-2813dd7c9166?api-version=2025-07-01\u0026t=639305003298068033\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "3e5e814a-d869-4c79-ba07-0ebcf9c031b2"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "6864970e-b801-4103-a16b-0c6262aba001"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.4, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "737903e7-ef75-4769-a8d0-c1a56a8bfda5"
+          ],
+          "x-ms-arm-service-request-id": [
+            "5550ff8d-b0d2-44f3-bfc7-aab7fc01a655"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081851Z:737903e7-ef75-4769-a8d0-c1a56a8bfda5"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: E44EF1F9DFE94D1EB5423C49D9BDEE88 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:51Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:50 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "f09a55e7-74a4-4604-93f6-e8151edea3c9"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\u0022"
+          ],
+          "x-ms-request-id": [
+            "5f17afee-ae41-4437-8c25-f4f0adc70240"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.5, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.4, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "d62d69f3-1eb3-47a7-9a5d-21b57443dca6"
+          ],
+          "x-ms-arm-service-request-id": [
+            "83e65b7f-6e98-4960-ab95-565d0ffc0741"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "247"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3747"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081851Z:d62d69f3-1eb3-47a7-9a5d-21b57443dca6"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6EE1CB640C1D436EA982D729033D51EA Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:51Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "0cb516f1-6e5f-4579-9164-a9a9229d21b1"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022createipconf\u0022,\u0022properties\u0022:{\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true}}]}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "82d4e619-39fd-4890-a862-b0cebb1f9b48"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.5, operationConcurrencyPct=0.3, subscriptionWriteRatePct=3.0, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "22e44ed0-6c84-4f3c-b899-cfc2660bebc5"
+          ],
+          "x-ms-arm-service-request-id": [
+            "d9e64346-6d6c-4173-8be6-21583d2a889e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081852Z:22e44ed0-6c84-4f3c-b899-cfc2660bebc5"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 8C79697A8E7549A392DEFC6C4F9BE277 Ref B: KUL201100110029 Ref C: 2026-11-17T08:18:52Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:18:51 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-second\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second\u0022,\u0022etag\u0022:\u0022W/\\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002250674d97-074b-4fc9-9c9f-0bdc0b145034\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022createipconf\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second/ipConfigurations/createipconf\u0022,\u0022etag\u0022:\u0022W/\\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "237a349f-f61b-457c-b055-797002612a4d"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\u0022"
+          ],
+          "x-ms-request-id": [
+            "c84a9a42-f645-4a56-9cf3-795367c185ed"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "f44422d5-7db4-471d-9ea5-c14048cfb2f3"
+          ],
+          "x-ms-arm-service-request-id": [
+            "40ee0479-5317-4a39-b660-44c09ca23ebc"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081907Z:f44422d5-7db4-471d-9ea5-c14048cfb2f3"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F27EFEB24F2A40EB950E8114E51F7F1C Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:07Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:06 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-second\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second\u0022,\u0022etag\u0022:\u0022W/\\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002250674d97-074b-4fc9-9c9f-0bdc0b145034\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022createipconf\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second/ipConfigurations/createipconf\u0022,\u0022etag\u0022:\u0022W/\\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "e3c0d9d7-c2f7-427b-8c50-bba88608e846"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\u0022"
+          ],
+          "x-ms-request-id": [
+            "e09690f3-6ebe-4e82-a66b-e7faea982a38"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "b6185405-21bb-4792-a094-6a815a55c388"
+          ],
+          "x-ms-arm-service-request-id": [
+            "752f919b-a422-4646-881b-3e873509f5f5"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081908Z:b6185405-21bb-4792-a094-6a815a55c388"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B630F13EB20C46299D3C0CAE2029AF02 Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:07Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:07 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-second\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second\u0022,\u0022etag\u0022:\u0022W/\\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002250674d97-074b-4fc9-9c9f-0bdc0b145034\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022createipconf\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second/ipConfigurations/createipconf\u0022,\u0022etag\u0022:\u0022W/\\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "24e03f86-dc93-48cd-8491-b5fd6b2e299a"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\u0022"
+          ],
+          "x-ms-request-id": [
+            "432e1fbc-4970-49bd-b162-9dce61a2c551"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "6b47e955-889f-46ef-b8e6-e23d741f0b9d"
+          ],
+          "x-ms-arm-service-request-id": [
+            "b38fc85b-d9a1-47d3-87d4-846639529e58"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081908Z:6b47e955-889f-46ef-b8e6-e23d741f0b9d"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 14296D0443324FFAAFF2403F7705DF70 Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:08Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:07 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01\u0026$expand=ipConfigurations%2FpublicIPAddress",
+        "headers": {
+          "x-ms-client-request-id": [
+            "9f360d86-1075-41be-b065-1efcffe72c33"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\u0022"
+          ],
+          "x-ms-request-id": [
+            "b3679740-b460-4697-a02d-59f8c72d3626"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=1.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "b936f7a7-8555-45fa-b015-b4900dcf6787"
+          ],
+          "x-ms-arm-service-request-id": [
+            "cca08748-ee24-42f2-b1e4-1c2aa7609e92"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081908Z:b936f7a7-8555-45fa-b015-b4900dcf6787"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6B7B1108AE154EF1A5BC49ED5DB85C08 Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:08Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:08 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022name\u0022:\u0022scenario-nic-pip\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022,\u0022etag\u0022:\u0022W/\\\u00225a1bfc35-1f80-4b48-b5fb-a805c2e53e20\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002277a19268-db14-4583-98fa-d174d1215b7a\u0022,\u0022ipAddress\u0022:\u002220.110.98.202\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ipConfiguration\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022},\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "36261522-85e2-4b7d-b140-13cb5144be90"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-original-request-ids": [
+            "238c9cc0-e5c1-46e7-a555-9ff225b4ca04"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.5, subscriptionListRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "b2dc5172-3224-48b9-a021-976966afa289"
+          ],
+          "x-ms-arm-service-request-id": [
+            "f1a7a5c2-fa0a-4c94-8fd2-862bdef7a96e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-request-id": [
+            "b2dc5172-3224-48b9-a021-976966afa289"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081909Z:b2dc5172-3224-48b9-a021-976966afa289"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: D5636E2A202A4DF7ACCC48C8CF435F03 Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:09Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:08 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\u0022name\u0022:\u0022scenario-nic-second\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second\u0022,\u0022etag\u0022:\u0022W/\\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002250674d97-074b-4fc9-9c9f-0bdc0b145034\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022createipconf\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second/ipConfigurations/createipconf\u0022,\u0022etag\u0022:\u0022W/\\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022},{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/networkInterfaces?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "081d289c-c565-497e-ae85-4b632500fb01"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-original-request-ids": [
+            "424837f8-54e5-4d84-b40b-73da5fae8baa",
+            "8a4433d1-0a29-44d6-8e86-70c9886bd3f9",
+            "a7c202cf-c06d-429b-a42b-cb8661609ca3"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "7d87f9e3-d197-451e-bb94-4202f1e0dfbd"
+          ],
+          "x-ms-correlation-request-id": [
+            "7d87f9e3-d197-451e-bb94-4202f1e0dfbd"
+          ],
+          "x-ms-routing-request-id": [
+            "MALAYSIASOUTH:20261117T081910Z:7d87f9e3-d197-451e-bb94-4202f1e0dfbd"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 41A433547EEF4443AD4015533206AB8D Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:09Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:09 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[{\u0022name\u0022:\u0022scenario-nic-second\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second\u0022,\u0022etag\u0022:\u0022W/\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002250674d97-074b-4fc9-9c9f-0bdc0b145034\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022createipconf\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second/ipConfigurations/createipconf\u0022,\u0022etag\u0022:\u0022W/\\u0022dba8bbbb-d1fa-44ce-8781-036674d5d0bf\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.4\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022},{\u0022name\u0022:\u0022scenario-nic\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic\u0022,\u0022etag\u0022:\u0022W/\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u002291555aca-a479-494c-98da-b4912fa8f189\u0022,\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic/ipConfigurations/ipconfig1\u0022,\u0022etag\u0022:\u0022W/\\u0022e16d715f-96f0-4ded-aa21-bf7679b30994\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces/ipConfigurations\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022privateIPAddress\u0022:\u002210.0.0.15\u0022,\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddress\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/publicIPAddresses/scenario-nic-pip\u0022},\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-vnet/subnets/scenario-nic-subnet\u0022},\u0022primary\u0022:true,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022}}],\u0022dnsSettings\u0022:{\u0022dnsServers\u0022:[],\u0022appliedDnsServers\u0022:[],\u0022internalDomainNameSuffix\u0022:\u0022eyuzfcxwwfaerlkmx0rkhihpde.cx.internal.cloudapp.net\u0022},\u0022enableAcceleratedNetworking\u0022:false,\u0022vnetEncryptionSupported\u0022:false,\u0022enableIPForwarding\u0022:false,\u0022disableTcpStateTracking\u0022:false,\u0022networkSecurityGroup\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkSecurityGroups/scenario-nic-nsg-second\u0022},\u0022hostedWorkloads\u0022:[],\u0022tapConfigurations\u0022:[],\u0022nicType\u0022:\u0022Standard\u0022,\u0022allowPort25Out\u0022:false,\u0022defaultOutboundConnectivityEnabled\u0022:false,\u0022auxiliaryMode\u0022:\u0022None\u0022,\u0022auxiliarySku\u0022:\u0022None\u0022},\u0022type\u0022:\u0022Microsoft.Network/networkInterfaces\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022kind\u0022:\u0022Regular\u0022}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "410db9f1-7692-455f-b26f-63ae7cc749da"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639305003508378784\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "4dc79e65-1282-42e7-a297-b6ea25175aed"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/4dc79e65-1282-42e7-a297-b6ea25175aed?api-version=2025-07-01\u0026t=639305003508222515\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=3.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "5096a911-c068-453d-9e10-b7cd773953bc"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "ee758f0c-5175-43c5-931f-25ace31c8063"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081910Z:5096a911-c068-453d-9e10-b7cd773953bc"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 94E85876DEC44931BBCA934CF4361138 Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:10Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:10 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ],
+          "Content-Length": [
+            "0"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/4dc79e65-1282-42e7-a297-b6ea25175aed?api-version=2025-07-01\u0026t=639305003508222515\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "7d086713-2a22-45f3-8e4b-c178d44f5f3a"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "c11865fe-a365-4761-af1e-316e385c822f"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "69fff908-446d-4cd5-bd41-b61ebbca0707"
+          ],
+          "x-ms-arm-service-request-id": [
+            "18f8ba8d-f430-4702-bcf9-0a171d4a5a8d"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081912Z:69fff908-446d-4cd5-bd41-b61ebbca0707"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3BB3A0DA976449478C944983A5ECB66B Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:12Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639305003508378784\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "9614f5b3-0828-43d8-8ce7-caddda841b72"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639305003529299517\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-request-id": [
+            "4dc79e65-1282-42e7-a297-b6ea25175aed"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/4dc79e65-1282-42e7-a297-b6ea25175aed?api-version=2025-07-01\u0026t=639305003529143286\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=1.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "5096a911-c068-453d-9e10-b7cd773953bc"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "ee758f0c-5175-43c5-931f-25ace31c8063"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081912Z:7e62e1b9-58ee-43fd-9a68-cf823201c22f"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: DD031025B6DB4073A200860FBAEF645A Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:12Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:12 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-second?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "63b72efc-f94b-4585-9177-39c9e92be3e3"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639305003534534286\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "4"
+          ],
+          "x-ms-request-id": [
+            "d67b2a94-94d0-4b30-bdcb-a16ec87e8a6e"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/d67b2a94-94d0-4b30-bdcb-a16ec87e8a6e?api-version=2025-07-01\u0026t=639305003534378037\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.3, subscriptionWriteRatePct=3.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "5da5a5a9-e7fe-4a06-bebc-ee284d057123"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "9060d9f0-14fa-41a0-af3c-472be99ad477"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081913Z:5da5a5a9-e7fe-4a06-bebc-ee284d057123"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 431836320F954CDAA8E17E0818F5C58A Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:13Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:12 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ],
+          "Content-Length": [
+            "0"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "ff5fff20-a3d7-4b74-a5a6-aaf8526f28bd"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-request-id": [
+            "ae3affad-6609-4b7e-8953-2d70eb9ff8c2"
+          ],
+          "x-ms-correlation-request-id": [
+            "ae3affad-6609-4b7e-8953-2d70eb9ff8c2"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081913Z:ae3affad-6609-4b7e-8953-2d70eb9ff8c2"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 04A8620527F84A09A6D9486CE9BB8A41 Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:13Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:13 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022ResourceNotFound\u0022,\u0022message\u0022:\u0022The Resource \u0027Microsoft.Network/networkInterfaces/scenario-nic\u0027 under resource group \u0027scenario-nic-rg\u0027 was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-rg/providers/Microsoft.Network/networkInterfaces?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "d1e5d6a7-224c-41c6-8ebb-8e747d05e7f5"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "247"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3747"
+          ],
+          "x-ms-request-id": [
+            "6403df50-4c70-4558-9c59-b87e85477657"
+          ],
+          "x-ms-correlation-request-id": [
+            "6403df50-4c70-4558-9c59-b87e85477657"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081914Z:6403df50-4c70-4558-9c59-b87e85477657"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: FBB402491BCB459083E579E2BCE0E7FF Ref B: KUL201100110029 Ref C: 2026-11-17T08:19:13Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:19:13 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022value\u0022:[]}"
+      }
+    }
+  ]
+}

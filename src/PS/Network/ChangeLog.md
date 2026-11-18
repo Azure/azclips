@@ -16,6 +16,15 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Regenerated the Network extension from the TypeSpec specification.
+* Added `New-AzVirtualNetworkSubnet`, `Set-AzVirtualNetworkSubnet`, `Get-AzVirtualNetworkSubnet` and `Remove-AzVirtualNetworkSubnet`.
+* Added `New-AzNetworkSecurityRule`, `Set-AzNetworkSecurityRule`, `Get-AzNetworkSecurityRule` and `Remove-AzNetworkSecurityRule`.
+* Updated `New-AzVirtualNetwork`
+    - Replaced `-Subnet` hashtables with `-SubnetName` and `-SubnetPrefixes` for one initial subnet.
+    - Added `-EnableDdosProtection`, `-DdosProtectionPlan`, `-FlowTimeoutInMinutes`, `-BgpCommunity`, `-EnableEncryption`, `-EncryptionEnforcement` and `-EdgeZone`.
+* Updated `New-AzPublicIpAddress` and `New-AzNetworkInterface` with more optional properties.
+* Added `-Force` and `-PassThru` to `Remove-AzVirtualNetwork`, `Remove-AzNetworkSecurityGroup`, `Remove-AzPublicIpAddress` and `Remove-AzNetworkInterface`.
+    - `Remove-AzNetworkInterface` asks for confirmation by default (`ConfirmImpact` is `High`).
 
 ## Version 0.1.3
 * Removed `New-AzVirtualNetworkSubnetConfig`

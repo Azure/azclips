@@ -15,4 +15,8 @@ public partial class IpTag
     /// <summary>The value of the IP tag associated with the public IP. Example: SQL.</summary>
     [JsonPropertyName("tag")]
     public string? Tag { get; set; }
+
+    /// <summary>The resource ID of the first party service tag associated with the IP tag.</summary>
+    [JsonPropertyName("firstPartyServiceTagId")]
+    public string? FirstPartyServiceTagId { get; set; }
 }

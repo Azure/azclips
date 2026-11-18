@@ -1,91 +1,100 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Azure.Azclips.Extensions.Network.Models;
-
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 
 /// <summary>
-/// Adapts the legacy <c>az network public-ip create</c> / <c>New-AzPublicIpAddress</c> surface onto
-/// the generated <see cref="CreateOrUpdatePublicIPAddressesProcessor"/>: <c>KEY=VALUE</c> tags and IP
-/// tags, the name-or-id arguments, and the legacy SKU / allocation-method / idle-timeout defaults.
+/// Public IP address create. Adds the location, SKU, allocation method and IP version defaults, and
+/// sends the DNS settings and edge zone only when given. The request route and LRO polling
+/// stay in <see cref="CreateOrUpdatePublicIPAddressesProcessor"/>.
 /// </summary>
 public class CreateOrUpdatePublicIPAddressesProcessor_Customization : CreateOrUpdatePublicIPAddressesProcessor
 {
-    public List<string> TagSpecs { get; set; } = [];
-
-    /// <summary>One <c>TYPE=VALUE</c> token per IP tag, e.g. <c>FirstPartyUsage=/Sql</c>.</summary>
-    public List<string> IpTagSpecs { get; set; } = [];
-
-    public string PublicIpPrefix { get; set; } = string.Empty;
-    public string DdosProtectionPlan { get; set; } = string.Empty;
-    public string DdosCustomPolicy { get; set; } = string.Empty;
-
-    // Both legacy surfaces default the SKU to Standard (`az network public-ip create --sku` carries
-    // default="Standard"; New-AzPublicIpAddress assigns Standard before applying -Sku).
     private const string DefaultSku = "Standard";
+    private const string DefaultVersion = "IPv4";
+    private const string StaticAllocation = "Static";
+    private const string DynamicAllocation = "Dynamic";
+    private static readonly string[] StaticDefaultSkus = ["Standard", "StandardV2"];
 
-    // `az network public-ip create` sends IPv4 and an idle timeout of 4 when the caller omits them.
-    private const string DefaultIpAddressVersion = "IPv4";
-    private const int DefaultIdleTimeoutInMinutes = 4;
+    public string? Sku { get; set; }
+    public string? Tier { get; set; }
+    public string? AllocationMethod { get; set; }
+    public string? Version { get; set; }
+    public string? DomainNameLabel { get; set; }
+    public string? DomainNameLabelScope { get; set; }
+    public string? ReverseFqdn { get; set; }
+    public string? EdgeZone { get; set; }
 
-    protected override PublicIPAddress? CreateRequestBody()
+    /// <summary>CLI tags in KEY[=VALUE] form. They replace <c>Tags</c> when given.</summary>
+    public string[]? TagsInput { get; set; }
+
+    internal override async Task<HttpResponseMessage> SendAsync()
     {
-        if (string.IsNullOrEmpty(SkuName))
+        Tags = NetworkTagsParser.Parse(TagsInput) ?? Tags;
+
+        if (string.IsNullOrWhiteSpace(Location))
         {
-            SkuName = DefaultSku;
-        }
-        if (string.IsNullOrEmpty(PublicIPAddressVersion))
-        {
-            PublicIPAddressVersion = DefaultIpAddressVersion;
-        }
-        if (IdleTimeoutInMinutes is null or <= 0)
-        {
-            IdleTimeoutInMinutes = DefaultIdleTimeoutInMinutes;
-        }
-        if (string.IsNullOrEmpty(PublicIPAllocationMethod))
-        {
-            // Only the Basic SKU supports dynamic allocation; the Standard tiers are static-only.
-            PublicIPAllocationMethod = SkuName.Equals("Basic", StringComparison.OrdinalIgnoreCase) ? "Dynamic" : "Static";
+            Location = await ResourceGroupLocationResolver.GetLocationAsync(
+                CreateExtendedProcessor<GetResourceGroupsProcessor>(p =>
+                {
+                    p.SubscriptionId = SubscriptionId;
+                    p.ResourceGroupName = ResourceGroupName;
+                }),
+                Publisher,
+                JsonOptions);
         }
 
-        // The legacy CLI accepts a bare name for these and resolves it against the command's
-        // resource group; a value that already looks like a resource id is passed through.
-        if (PublicIpPrefix.Length > 0)
-        {
-            PublicIpPrefixId = ResolveResourceId(PublicIpPrefix, "publicIPPrefixes");
-        }
-        if (DdosProtectionPlan.Length > 0)
-        {
-            DdosProtectionPlanId = ResolveResourceId(DdosProtectionPlan, "ddosProtectionPlans");
-        }
-        if (DdosCustomPolicy.Length > 0)
-        {
-            DdosCustomPolicyId = ResolveResourceId(DdosCustomPolicy, "ddosCustomPolicies");
-        }
+        ApplySkuAndAddressDefaults();
+        ApplyDnsSettings();
+        ApplyEdgeZone();
 
-        if (TagSpecs.Count > 0)
-        {
-            Tags = KeyValueTokens.Parse(TagSpecs, "--tags").ToDictionary(pair => pair.Key, pair => pair.Value);
-        }
-        if (IpTagSpecs.Count > 0)
-        {
-            IpTags = KeyValueTokens.Parse(IpTagSpecs, "--ip-tags")
-                .Select(pair => new IpTag { IpTagType = pair.Key, Tag = pair.Value })
-                .ToList();
-        }
-
-        // The legacy surfaces take only the edge zone name; EdgeZone is the only extended location type.
-        if (!string.IsNullOrEmpty(ExtendedLocationName))
-        {
-            ExtendedLocationType ??= "EdgeZone";
-        }
-
-        return base.CreateRequestBody();
+        return await base.SendAsync();
     }
 
-    private string ResolveResourceId(string nameOrId, string resourceType) =>
-        nameOrId.StartsWith('/')
-            ? nameOrId
-            : $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/{resourceType}/{nameOrId}";
+    private void ApplySkuAndAddressDefaults()
+    {
+        string sku = IsGiven(Sku) ? Sku! : DefaultSku;
+        SkuName = sku;
+
+        if (IsGiven(Tier))
+        {
+            SkuTier = Tier;
+        }
+
+        PublicIPAllocationMethod = IsGiven(AllocationMethod)
+            ? AllocationMethod
+            : StaticDefaultSkus.Contains(sku, StringComparer.OrdinalIgnoreCase) ? StaticAllocation : DynamicAllocation;
+
+        PublicIPAddressVersion = IsGiven(Version) ? Version : DefaultVersion;
+    }
+
+    // Each DNS setter creates "dnsSettings" on first use, so a setter runs only for a given input.
+    private void ApplyDnsSettings()
+    {
+        if (IsGiven(DomainNameLabel))
+        {
+            DnsSettingsDomainNameLabel = DomainNameLabel;
+        }
+
+        if (IsGiven(DomainNameLabelScope))
+        {
+            DnsSettingsDomainNameLabelScope = DomainNameLabelScope;
+        }
+
+        if (IsGiven(ReverseFqdn))
+        {
+            DnsSettingsReverseFqdn = ReverseFqdn;
+        }
+    }
+
+    private void ApplyEdgeZone()
+    {
+        if (IsGiven(EdgeZone))
+        {
+            ExtendedLocationName = EdgeZone;
+            ExtendedLocationType = "EdgeZone";
+        }
+    }
+
+    private static bool IsGiven(string? value) => !string.IsNullOrWhiteSpace(value);
 }

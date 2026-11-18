@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Gets the specified network security group.</summary>
-public partial class GetNetworkSecurityGroupsProcessor : ProcessorBase<object, NetworkSecurityGroup>
+public partial class GetNetworkSecurityGroupsProcessor : NetworkProcessorBase<object, NetworkSecurityGroup>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
@@ -20,8 +20,7 @@ public partial class GetNetworkSecurityGroupsProcessor : ProcessorBase<object, N
     public string NetworkSecurityGroupName { get; set; } = string.Empty;
     /// <summary>Expands referenced resources.</summary>
     public string? Expand { get; set; }
-    internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/networkSecurityGroups/{Uri.EscapeDataString(NetworkSecurityGroupName)}?api-version=2025-07-01".WithQuery("$expand", Expand);
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/networkSecurityGroups/{Uri.EscapeDataString(NetworkSecurityGroupName)}?api-version=2026-03-01".WithQuery("$expand", Expand);
 }

@@ -10,14 +10,13 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Gets all network interfaces in a subscription.</summary>
-public partial class ListAllNetworkInterfacesProcessor : ProcessorBase<object, NetworkInterfaceListResult>
+public partial class ListAllNetworkInterfacesProcessor : NetworkProcessorBase<object, NetworkInterfaceListResult>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
-    internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/providers/Microsoft.Network/networkInterfaces?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/providers/Microsoft.Network/networkInterfaces?api-version=2026-03-01";
     private IEnumerable<NetworkInterface>? pageItems(NetworkInterfaceListResult body) => body.Value;
     private string? nextLink(NetworkInterfaceListResult body) => body.NextLink;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(NetworkInterfaceListResult? body)

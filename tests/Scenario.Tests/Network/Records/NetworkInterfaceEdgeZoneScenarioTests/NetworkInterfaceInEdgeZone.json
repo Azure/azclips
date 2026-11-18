@@ -1,0 +1,349 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "NetworkInterfaceEdgeZoneScenarioTests/NetworkInterfaceInEdgeZone"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-nic-edge-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "e44d1731-6f03-431a-8bde-5bf1557ad5a3"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-nic-edge-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "c7a78445-72d6-4bf4-9164-d8a3842cec01"
+          ],
+          "x-ms-correlation-request-id": [
+            "c7a78445-72d6-4bf4-9164-d8a3842cec01"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T082201Z:c7a78445-72d6-4bf4-9164-d8a3842cec01"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 01ED804DC3BD45F8B76A020EC66523AE Ref B: KUL201100110025 Ref C: 2026-11-17T08:21:58Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:22:00 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg\u0022,\u0022name\u0022:\u0022scenario-nic-edge-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-edge-vnet?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "a5188a85-cd24-4fdc-9e45-aebe446271a6"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022subnets\u0022:[{\u0022name\u0022:\u0022scenario-nic-edge-subnet\u0022,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022}}]}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "3"
+          ],
+          "x-ms-request-id": [
+            "a948ab67-2fa5-4e7e-9e32-3542820c223d"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus/operations/a948ab67-2fa5-4e7e-9e32-3542820c223d?api-version=2025-07-01\u0026t=639305005230405352\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "721e6265-18a5-4062-b0ca-434de08e34a3"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "248742b2-e3c5-47f1-a609-2d920e3a2830"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS:20261117T082203Z:721e6265-18a5-4062-b0ca-434de08e34a3"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 15460E3B574F429AAFC5DE739733923E Ref B: KUL201100110025 Ref C: 2026-11-17T08:22:01Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:22:02 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-edge-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-edge-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022a35c60cd-9dbe-4117-8859-5c4c471a473c\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00222d5b5d90-6fe9-44b3-9d55-a14a556c1777\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022scenario-nic-edge-subnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-edge-vnet/subnets/scenario-nic-edge-subnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022a35c60cd-9dbe-4117-8859-5c4c471a473c\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022f9a54d33-5e56-4556-922d-0d9ea031801d\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022defaultOutboundAccess\u0022:false},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/westus/operations/a948ab67-2fa5-4e7e-9e32-3542820c223d?api-version=2025-07-01\u0026t=639305005230405352\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "8f366ba2-8737-48f7-9ecd-c53d9578116f"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "01562ca2-8f7c-43b5-8c31-ada5b532dc43"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "81295d2d-41f2-4f91-afb8-47c648c0cb56"
+          ],
+          "x-ms-arm-service-request-id": [
+            "16e3b225-90ae-4707-b04a-04af8f24ce94"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T082207Z:81295d2d-41f2-4f91-afb8-47c648c0cb56"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: BE41C6032E3B463BB9C069BD7C5AB44F Ref B: KUL201100110025 Ref C: 2026-11-17T08:22:06Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:22:06 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-edge-vnet?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "61cc0675-aac0-46ad-902e-9ed998f3f76d"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "b8a3fd6e-b96d-432d-8bae-fffa2501dbd6"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=2.0, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "4ab9fc28-054e-43e3-8186-d55d41d76470"
+          ],
+          "x-ms-arm-service-request-id": [
+            "1f84cb20-ac57-4502-99f3-2694057ed605"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS:20261117T082207Z:4ab9fc28-054e-43e3-8186-d55d41d76470"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: FF75EC3706F744B38519AE58B5A475E1 Ref B: KUL201100110025 Ref C: 2026-11-17T08:22:07Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:22:07 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-nic-edge-vnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-edge-vnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022a7990f6c-b9f3-484b-804d-6ed593cf8857\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00222d5b5d90-6fe9-44b3-9d55-a14a556c1777\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[{\u0022name\u0022:\u0022scenario-nic-edge-subnet\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-edge-vnet/subnets/scenario-nic-edge-subnet\u0022,\u0022etag\u0022:\u0022W/\\\u0022a7990f6c-b9f3-484b-804d-6ed593cf8857\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022f9a54d33-5e56-4556-922d-0d9ea031801d\u0022,\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022,\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022defaultOutboundAccess\u0022:false},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg/providers/Microsoft.Network/networkInterfaces/scenario-nic-edge?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "d0ad5b75-8e60-4cef-acd8-55bf1b333d88"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022ipConfigurations\u0022:[{\u0022name\u0022:\u0022ipconfig1\u0022,\u0022properties\u0022:{\u0022privateIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022privateIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022subnet\u0022:{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-nic-edge-rg/providers/Microsoft.Network/virtualNetworks/scenario-nic-edge-vnet/subnets/scenario-nic-edge-subnet\u0022},\u0022primary\u0022:true}}]},\u0022extendedLocation\u0022:{\u0022name\u0022:\u0022microsoftlosangeles1\u0022,\u0022type\u0022:\u0022EdgeZone\u0022}}"
+      },
+      "response": {
+        "statusCode": 400,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-request-id": [
+            "b75c281d-c940-4e14-b3be-7725f7e14210"
+          ],
+          "x-ms-correlation-request-id": [
+            "b75c281d-c940-4e14-b3be-7725f7e14210"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS:20261117T082207Z:b75c281d-c940-4e14-b3be-7725f7e14210"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0C02A11CCBA240C0BE7FE3EBE0E716B8 Ref B: KUL201100110025 Ref C: 2026-11-17T08:22:07Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:22:07 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022UnsupportedEdgeZone\u0022,\u0022message\u0022:\u0022Edge zone \u0027microsoftlosangeles1\u0027 not found. The available edge zones in location \u0027westus\u0027 are \u0027\u0027.\u0022}}"
+      }
+    }
+  ]
+}

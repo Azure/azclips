@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Creates or updates a subnet in the specified virtual network.</summary>
-public partial class CreateOrUpdateSubnetsProcessor : ProcessorBase<Subnet, Subnet>
+public partial class CreateOrUpdateSubnetsProcessor : NetworkProcessorBase<Subnet, Subnet>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
@@ -21,8 +21,6 @@ public partial class CreateOrUpdateSubnetsProcessor : ProcessorBase<Subnet, Subn
     /// <summary>The name of the subnet.</summary>
     public string SubnetName { get; set; } = string.Empty;
     /// <summary>Body parameter's content type. Known values are application/json</summary>
-    internal string ContentType { get; set; } = string.Empty;
-    internal string Accept { get; set; } = string.Empty;
     /// <summary>Parameters supplied to the create or update subnet operation.</summary>
     internal Subnet? Body { get; set; }
     /// <summary>Resource ID.</summary>
@@ -89,7 +87,7 @@ public partial class CreateOrUpdateSubnetsProcessor : ProcessorBase<Subnet, Subn
     public string? ServiceGatewayId { get => Body?.ServiceGatewayId; set => (Body ??= new Subnet()).ServiceGatewayId = value; }
     protected override HttpMethod Method => HttpMethod.Put;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/virtualNetworks/{Uri.EscapeDataString(VirtualNetworkName)}/subnets/{Uri.EscapeDataString(SubnetName)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/virtualNetworks/{Uri.EscapeDataString(VirtualNetworkName)}/subnets/{Uri.EscapeDataString(SubnetName)}?api-version=2026-03-01";
     protected override Subnet? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");

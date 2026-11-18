@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Gets the specified public IP address in a specified resource group.</summary>
-public partial class GetPublicIPAddressesProcessor : ProcessorBase<object, PublicIPAddress>
+public partial class GetPublicIPAddressesProcessor : NetworkProcessorBase<object, PublicIPAddress>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
@@ -20,8 +20,7 @@ public partial class GetPublicIPAddressesProcessor : ProcessorBase<object, Publi
     public string PublicIpAddressName { get; set; } = string.Empty;
     /// <summary>Expands referenced resources.</summary>
     public string? Expand { get; set; }
-    internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/publicIPAddresses/{Uri.EscapeDataString(PublicIpAddressName)}?api-version=2025-07-01".WithQuery("$expand", Expand);
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/publicIPAddresses/{Uri.EscapeDataString(PublicIpAddressName)}?api-version=2026-03-01".WithQuery("$expand", Expand);
 }

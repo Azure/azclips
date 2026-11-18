@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "PublicIpScenarioTests/CreatesPublicIpInEdgeZone"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-pip-edge-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "64d27685-b1d2-43e5-8bba-b7e0b2c19fce"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-pip-edge-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "562757cd-76de-433f-a628-539f1cc9c351"
+          ],
+          "x-ms-correlation-request-id": [
+            "562757cd-76de-433f-a628-539f1cc9c351"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081746Z:562757cd-76de-433f-a628-539f1cc9c351"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 2CF05F3BF0D84F72944D4D2A57C28267 Ref B: KUL201100111031 Ref C: 2026-11-17T08:17:43Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:17:45 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-edge-rg\u0022,\u0022name\u0022:\u0022scenario-pip-edge-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-edge-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-a?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "438c898e-4ae3-4a82-9e55-dcc14d3e61ec"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022},\u0022extendedLocation\u0022:{\u0022name\u0022:\u0022microsoftlosangeles1\u0022,\u0022type\u0022:\u0022EdgeZone\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022}}"
+      },
+      "response": {
+        "statusCode": 400,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-request-id": [
+            "4e5463a5-9f00-4ccc-b3ed-d55fb9213921"
+          ],
+          "x-ms-correlation-request-id": [
+            "4e5463a5-9f00-4ccc-b3ed-d55fb9213921"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS:20261117T081747Z:4e5463a5-9f00-4ccc-b3ed-d55fb9213921"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0DA27AA4BA8C4893B601DF9298817870 Ref B: KUL201100111031 Ref C: 2026-11-17T08:17:46Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:17:47 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022UnsupportedEdgeZone\u0022,\u0022message\u0022:\u0022Edge zone \u0027microsoftlosangeles1\u0027 not found. The available edge zones in location \u0027westus\u0027 are \u0027\u0027.\u0022}}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+# Generated models: deep flattened setters create every level with ??= before use, but the
+# compiler stops tracking null-state after about five member levels and reports CS8602.
+[*.cs]
+dotnet_diagnostic.CS8602.severity = none

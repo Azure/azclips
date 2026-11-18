@@ -34,17 +34,8 @@ az network public-ip create --name mypip --resource-group myrg --location eastus
     --sku Basic --version IPv6 --allocation-method Dynamic
 ```
 
-### Allocate from a public IP prefix
+### Create an address with DDoS protection and a longer idle timeout
 
 ```bash
-az network public-ip create --name mypip --resource-group myrg --location eastus \
-    --public-ip-prefix myprefix
-```
-
-### Create an address with DDoS protection and an IP tag
-
-```bash
-az network public-ip create --name mypip --resource-group myrg --location eastus \
-    --protection-mode Enabled --ddos-protection-plan myplan \
-    --ip-tags FirstPartyUsage=/Sql
+az network public-ip create --name mypip --resource-group myrg --location eastus --protection-mode Enabled --idle-timeout 15
 ```

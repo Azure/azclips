@@ -21,6 +21,10 @@ public partial class DdosCustomPolicyPropertiesFormat
     [JsonPropertyName("detectionRules")]
     public IList<DdosDetectionRule>? DetectionRules { get; set; }
 
+    /// <summary>The list of DDoS mitigation rules associated with the custom policy.</summary>
+    [JsonPropertyName("mitigationRules")]
+    public IList<DdosMitigationRule>? MitigationRules { get; set; }
+
     /// <summary>The list of frontend IP configurations associated with the custom policy.</summary>
     [JsonPropertyName("frontEndIpConfiguration")]
     public IList<SubResource>? FrontEndIpConfiguration { get; set; }

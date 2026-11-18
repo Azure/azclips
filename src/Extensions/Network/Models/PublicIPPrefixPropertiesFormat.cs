@@ -53,6 +53,10 @@ public partial class PublicIPPrefixPropertiesFormat
     [JsonInclude]
     internal NatGateway? NatGateway { get; set; }
 
+    /// <summary>Whether the public IP prefix SKU has been upgraded from Standard to StandardV2.</summary>
+    [JsonPropertyName("upgradedToV2")]
+    public bool? UpgradedToV2 { get; set; }
+
     /// <summary>Resource ID.</summary>
     [JsonIgnore]
     public string? LoadBalancerFrontendIpConfigurationId { get => LoadBalancerFrontendIpConfiguration?.Id; }

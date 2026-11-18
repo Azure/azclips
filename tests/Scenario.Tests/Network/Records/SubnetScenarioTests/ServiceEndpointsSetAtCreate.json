@@ -1,0 +1,565 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "SubnetScenarioTests/ServiceEndpointsSetAtCreate"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-subnet-endpoint-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "87154cab-26b2-4eb0-bcef-9fdaf7f0e72b"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-subnet-endpoint-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "c08d28c0-8ac7-4a45-8bb7-abfa4bc7241f"
+          ],
+          "x-ms-correlation-request-id": [
+            "c08d28c0-8ac7-4a45-8bb7-abfa4bc7241f"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T080416Z:c08d28c0-8ac7-4a45-8bb7-abfa4bc7241f"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 44AFDC14FCBF4BC68D1C405E6AF5320E Ref B: KUL201100111060 Ref C: 2026-11-17T08:04:13Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:04:15 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg\u0022,\u0022name\u0022:\u0022scenario-subnet-endpoint-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-subnet-endpoint-rg?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "80d0e078-64db-4554-9896-9f438bc7c288"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "3dd080f8-3d75-4aee-a424-2a8d1a691103"
+          ],
+          "x-ms-correlation-request-id": [
+            "3dd080f8-3d75-4aee-a424-2a8d1a691103"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T080416Z:3dd080f8-3d75-4aee-a424-2a8d1a691103"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 9532C83411F247AA95DE1D697FCCBCEE Ref B: KUL201100111060 Ref C: 2026-11-17T08:04:16Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:04:16 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg\u0022,\u0022name\u0022:\u0022scenario-subnet-endpoint-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg/providers/Microsoft.Network/virtualNetworks/vnet1?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "8b06c9ab-b6b5-4ef5-884b-970e7824c92f"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]}}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "3"
+          ],
+          "x-ms-request-id": [
+            "0038e0c0-b0a5-491e-bfcf-592206856a90"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/0038e0c0-b0a5-491e-bfcf-592206856a90?api-version=2025-07-01\u0026t=639304994576711728\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "49ed7622-8a3c-437e-b5c0-21cfee382f5d"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "54d37354-3606-442f-aa92-3d0b8665b448"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T080417Z:49ed7622-8a3c-437e-b5c0-21cfee382f5d"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 52614598905B4E839FBA1DC6FA6BFAF9 Ref B: KUL201100111060 Ref C: 2026-11-17T08:04:16Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:04:17 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022vnet1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg/providers/Microsoft.Network/virtualNetworks/vnet1\u0022,\u0022etag\u0022:\u0022W/\\\u0022374d9c1e-7a8c-482a-a43f-1a9050dfdc74\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00227401c0d7-6e14-44e9-a97f-cfa481dd4f7b\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/0038e0c0-b0a5-491e-bfcf-592206856a90?api-version=2025-07-01\u0026t=639304994576711728\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "3240e7d9-5556-4247-8254-20356ff3e898"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "290db71d-058f-480b-b92b-f04364ede079"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "bae4ea39-bded-439a-8c4b-a7cc47f003d4"
+          ],
+          "x-ms-arm-service-request-id": [
+            "c58179f7-1dae-404e-b18c-ae84da568c91"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T080421Z:bae4ea39-bded-439a-8c4b-a7cc47f003d4"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 548DCB880B17458EBF87F6E3BA901F4C Ref B: KUL201100111060 Ref C: 2026-11-17T08:04:20Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:04:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg/providers/Microsoft.Network/virtualNetworks/vnet1?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "3c3d2e2e-1f49-4001-b7af-6e452a17b53a"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "5c336b90-5906-4006-9500-5754ae8c1efc"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=2.0, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "769316fe-2fe8-466e-a006-4bf186abd56e"
+          ],
+          "x-ms-arm-service-request-id": [
+            "158596d4-4ef8-4202-8b62-21a0770dfcfa"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T080421Z:769316fe-2fe8-466e-a006-4bf186abd56e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 964F3D41B09946639969ED6D31B50751 Ref B: KUL201100111060 Ref C: 2026-11-17T08:04:21Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:04:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022vnet1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg/providers/Microsoft.Network/virtualNetworks/vnet1\u0022,\u0022etag\u0022:\u0022W/\\\u0022ac36a22e-9a60-4954-900f-63320d0e74c7\\\u0022\u0022,\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00227401c0d7-6e14-44e9-a97f-cfa481dd4f7b\u0022,\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022privateEndpointVNetPolicies\u0022:\u0022Disabled\u0022,\u0022subnets\u0022:[],\u0022virtualNetworkPeerings\u0022:[],\u0022enableDdosProtection\u0022:false}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg/providers/Microsoft.Network/virtualNetworks/vnet1/subnets/subnet1?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "5cb2b253-31ef-4bff-b2f3-c5abcf27e0a5"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022subnet1\u0022,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u002210.0.1.0/24\u0022,\u0022serviceEndpoints\u0022:[{\u0022service\u0022:\u0022Microsoft.Storage\u0022}],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022defaultOutboundAccess\u0022:false}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "3"
+          ],
+          "x-ms-request-id": [
+            "61bf14fa-ca66-480e-b752-5e105f3b5e81"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/61bf14fa-ca66-480e-b752-5e105f3b5e81?api-version=2025-07-01\u0026t=639304994623676736\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "1a4e9fbc-e706-4dc4-8885-468b685f58c3"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "d9561da5-b538-4dc7-9dac-9090fbfc9d96"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T080422Z:1a4e9fbc-e706-4dc4-8885-468b685f58c3"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: EE7D2EA558BE414493728A297A2120D7 Ref B: KUL201100111060 Ref C: 2026-11-17T08:04:22Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:04:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022subnet1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg/providers/Microsoft.Network/virtualNetworks/vnet1/subnets/subnet1\u0022,\u0022etag\u0022:\u0022W/\\\u00225de75fb9-2b7e-4a4e-81a8-43f457588b63\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00221c777f37-932f-494a-bad8-1783f132d441\u0022,\u0022addressPrefix\u0022:\u002210.0.1.0/24\u0022,\u0022serviceEndpoints\u0022:[{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022service\u0022:\u0022Microsoft.Storage\u0022,\u0022locations\u0022:[\u0022*\u0022]}],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022defaultOutboundAccess\u0022:false},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/61bf14fa-ca66-480e-b752-5e105f3b5e81?api-version=2025-07-01\u0026t=639304994623676736\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "d1cd59f1-fd9f-4035-9735-203b6b36804b"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "6ba7d24c-dea8-4599-b893-b001b899719e"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "dee8e3e3-8cf9-4e9f-857e-e8c0be879ed2"
+          ],
+          "x-ms-arm-service-request-id": [
+            "8311cf2f-c13e-484c-aecf-a2f23bae9c60"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T080426Z:dee8e3e3-8cf9-4e9f-857e-e8c0be879ed2"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 510053B0A8D34D49AA499AF4152BA9D3 Ref B: KUL201100111060 Ref C: 2026-11-17T08:04:25Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:04:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg/providers/Microsoft.Network/virtualNetworks/vnet1/subnets/subnet1?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "99fee418-abb2-47f7-bffc-dc4bc0209389"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022a58e1e1a-dfe6-4592-9ebb-31eea7c4bd6c\u0022"
+          ],
+          "x-ms-request-id": [
+            "ef93df08-53ba-4860-82b0-829aba1da018"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "07ae244f-4ffb-49d9-9362-c34aedcf3929"
+          ],
+          "x-ms-arm-service-request-id": [
+            "a647a067-6871-4c09-8f8e-7ca8a2ec3a3e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T080426Z:07ae244f-4ffb-49d9-9362-c34aedcf3929"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 36586CAA14FF44968E8918E582E34AF1 Ref B: KUL201100111060 Ref C: 2026-11-17T08:04:26Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:04:26 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022subnet1\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-subnet-endpoint-rg/providers/Microsoft.Network/virtualNetworks/vnet1/subnets/subnet1\u0022,\u0022etag\u0022:\u0022W/\\\u0022a58e1e1a-dfe6-4592-9ebb-31eea7c4bd6c\\\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00221c777f37-932f-494a-bad8-1783f132d441\u0022,\u0022addressPrefix\u0022:\u002210.0.1.0/24\u0022,\u0022serviceEndpoints\u0022:[{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022service\u0022:\u0022Microsoft.Storage\u0022,\u0022locations\u0022:[\u0022*\u0022]}],\u0022delegations\u0022:[],\u0022privateEndpointNetworkPolicies\u0022:\u0022Disabled\u0022,\u0022privateLinkServiceNetworkPolicies\u0022:\u0022Enabled\u0022,\u0022defaultOutboundAccess\u0022:false},\u0022type\u0022:\u0022Microsoft.Network/virtualNetworks/subnets\u0022}"
+      }
+    }
+  ]
+}

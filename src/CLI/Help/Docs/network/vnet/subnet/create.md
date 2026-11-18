@@ -16,6 +16,6 @@ az network vnet subnet create --resource-group myrg --vnet-name myvnet --name we
 ### Create a delegated subnet
 
 ```bash
-az network vnet subnet create --resource-group myrg --vnet-name myvnet --name apps \
-  --address-prefixes 10.0.2.0/24 --delegations Microsoft.Web/serverFarms
+az network vnet subnet create --resource-group myrg --vnet-name myvnet --name apps --address-prefixes 10.0.2.0/24 \
+  --delegations Microsoft.Web/serverFarms
 ```

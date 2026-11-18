@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/25/2026
+ms.date: 11/17/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzPublicIpAddress
 ---
@@ -20,13 +20,12 @@ Create a public IP address.
 ### __AllParameterSets
 
 ```
-New-AzPublicIpAddress -Name <string> -Location <string> -ResourceGroupName <string>
- [-SubscriptionId <string>] [-Sku <string>] [-Tier <string>] [-AllocationMethod <string>]
- [-IpAddressVersion <string>] [-DomainNameLabel <string>] [-DomainNameLabelScope <string>]
- [-ReverseFqdn <string>] [-IdleTimeoutInMinutes <int>] [-IpAddress <string>] [-IpTag <hashtable>]
- [-PublicIpPrefix <string>] [-DdosProtectionMode <string>] [-DdosProtectionPlanId <string>]
- [-DdosCustomPolicyId <string>] [-Zone <string[]>] [-EdgeZone <string>] [-Tag <hashtable>]
- [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+New-AzPublicIpAddress -Name <string> -ResourceGroupName <string> [-Location <string>]
+ [-Tag <hashtable>] [-Sku <string>] [-Tier <string>] [-AllocationMethod <string>]
+ [-Version <string>] [-Zone <string[]>] [-DomainNameLabel <string>] [-DomainNameLabelScope <string>]
+ [-ReverseFqdn <string>] [-IdleTimeoutInMinutes <int>] [-IpAddress <string>]
+ [-DdosProtectionMode <string>] [-EdgeZone <string>] [-SubscriptionId <string>] [-Profile <string>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -35,9 +34,9 @@ New-AzPublicIpAddress -Name <string> -Location <string> -ResourceGroupName <stri
 
 Creates a public IP address that gives internet-facing connectivity to resources such as load balancers, application gateways, VPN gateways, and virtual machine network interfaces.
 
-`-Sku` defaults to `Standard`, `-IpAddressVersion` defaults to `IPv4`, and `-IdleTimeoutInMinutes` defaults to `4`.
+`-Sku` defaults to `Standard` and `-Version` defaults to `IPv4`.
 When `-AllocationMethod` is omitted it is inferred from the SKU: `Static` for `Standard` and `StandardV2`, `Dynamic` for `Basic`.
-Standard SKU addresses are zone-redundant by default; use `-Zone` to pin the address to specific availability zones.
+Use `-Zone` to pin the address to specific availability zones.
 
 ## EXAMPLES
 
@@ -60,15 +59,13 @@ New-AzPublicIpAddress -ResourceGroupName myrg -Name mypip -Location eastus `
 
 ```powershell
 New-AzPublicIpAddress -ResourceGroupName myrg -Name mypip -Location eastus `
-    -Sku Basic -IpAddressVersion IPv6 -AllocationMethod Dynamic
+    -Sku Basic -Version IPv6 -AllocationMethod Dynamic
 ```
 
-### Create an address with DDoS protection and an IP tag
+### Create an address with DDoS protection turned on
 
 ```powershell
-New-AzPublicIpAddress -ResourceGroupName myrg -Name mypip -Location eastus `
-    -DdosProtectionMode Enabled -DdosProtectionPlanId myplan `
-    -IpTag @{ FirstPartyUsage = '/Sql' }
+New-AzPublicIpAddress -ResourceGroupName myrg -Name mypip -Location eastus -DdosProtectionMode Enabled
 ```
 
 ## PARAMETERS
@@ -116,51 +113,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -DdosCustomPolicyId
-
-Name or resource ID of the DDoS custom policy associated with the public IP address.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -DdosProtectionMode
 
 DDoS protection mode of the public IP address. Accepted values are `Enabled`, `Disabled` and `VirtualNetworkInherited`.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -DdosProtectionPlanId
-
-Name or resource ID of the DDoS protection plan associated with the public IP address.
 
 ```yaml
 Type: System.String
@@ -284,52 +239,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -IpAddressVersion
-
-IP address version. Accepted values are `IPv4` and `IPv6`. Defaults to `IPv4`.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -IpTag
-
-IP tags to apply, as a hashtable of tag type to tag value, e.g. `@{ FirstPartyUsage = '/Sql' }`.
-
-```yaml
-Type: System.Collections.Hashtable
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- IpTags
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -Location
 
-Azure region in which to create the public IP address.
+Azure region in which to create the public IP address. Defaults to the location of the resource group.
 
 ```yaml
 Type: System.String
@@ -339,7 +251,7 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -372,28 +284,7 @@ HelpMessage: ''
 
 ### -Profile
 
-Azure profile to target, e.g. `latest`.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -PublicIpPrefix
-
-Name or resource ID of the public IP prefix to allocate the address from.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -414,7 +305,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-Name of the resource group that contains the public IP address.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -477,7 +368,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-ID of the subscription that contains the public IP address. Defaults to the subscription of the current context.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -539,6 +430,28 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
+### -Version
+
+IP address version. Defaults to `IPv4`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- IpAddressVersion
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
 ### -WhatIf
 
 Runs the command in a mode that only reports what would happen without performing the actions.
@@ -569,8 +482,7 @@ Availability zones to allocate the public IP address in. Only supported for the 
 Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
-Aliases:
-- Zones
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -601,3 +513,8 @@ The public IP address that was created.
 ## NOTES
 
 ## RELATED LINKS
+
+- [Get-AzPublicIpAddress](./Get-AzPublicIpAddress.md)
+- [Remove-AzPublicIpAddress](./Remove-AzPublicIpAddress.md)
+- [New-AzNetworkInterface](./New-AzNetworkInterface.md)
+

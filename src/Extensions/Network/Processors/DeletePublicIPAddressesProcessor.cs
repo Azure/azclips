@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Deletes the specified public IP address.</summary>
-public partial class DeletePublicIPAddressesProcessor : ProcessorBase<object, object>
+public partial class DeletePublicIPAddressesProcessor : NetworkProcessorBase<object, object>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
@@ -20,7 +20,7 @@ public partial class DeletePublicIPAddressesProcessor : ProcessorBase<object, ob
     public string PublicIpAddressName { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Delete;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/publicIPAddresses/{Uri.EscapeDataString(PublicIpAddressName)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/publicIPAddresses/{Uri.EscapeDataString(PublicIpAddressName)}?api-version=2026-03-01";
     protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");

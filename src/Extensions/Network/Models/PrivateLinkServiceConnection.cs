@@ -108,4 +108,17 @@ public partial class PrivateLinkServiceConnection
             Properties.PrivateLinkServiceConnectionState.ActionsRequired = value;
         }
     }
+
+    /// <summary>The ARM resource id of an existing approved private endpoint whose approval state is inherited by this connection.</summary>
+    [JsonIgnore]
+    public string? ApprovalReferencePrivateEndpointId
+    {
+        get => Properties?.ApprovalReference?.PrivateEndpointId;
+        set
+        {
+            Properties ??= new PrivateLinkServiceConnectionProperties();
+            Properties.ApprovalReference ??= new ApprovalReference();
+            Properties.ApprovalReference.PrivateEndpointId = value;
+        }
+    }
 }

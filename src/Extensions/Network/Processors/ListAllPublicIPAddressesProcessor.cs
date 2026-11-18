@@ -10,14 +10,13 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Gets all the public IP addresses in a subscription.</summary>
-public partial class ListAllPublicIPAddressesProcessor : ProcessorBase<object, PublicIPAddressListResult>
+public partial class ListAllPublicIPAddressesProcessor : NetworkProcessorBase<object, PublicIPAddressListResult>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
-    internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/providers/Microsoft.Network/publicIPAddresses?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/providers/Microsoft.Network/publicIPAddresses?api-version=2026-03-01";
     private IEnumerable<PublicIPAddress>? pageItems(PublicIPAddressListResult body) => body.Value;
     private string? nextLink(PublicIPAddressListResult body) => body.NextLink;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(PublicIPAddressListResult? body)

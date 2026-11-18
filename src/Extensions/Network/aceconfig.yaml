@@ -1,18 +1,16 @@
 schema-version: 1
 
-output-dir: .
-tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/90e63e5fe2c596e8bd807aad7dd9d62cee1746dd/specification/network/resource-manager/Microsoft.Network/Network
-entrypoints:
+# Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
+output-dir: .                            # default: this file's folder
+tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/main/specification/network/resource-manager/Microsoft.Network/Network
+# additional-directories:                # folders the compile needs, not under tsp-location
+#   - ../Shared                          # relative to tsp-location, or absolute
+entrypoints:                             # relative to tsp-location
   - path: ./Network
-    api-version: 2025-07-01
+    api-version: 2026-03-01
 
+# Document facts: what the spec cannot provide; seed-ir writes them into the IR's target.
 service-name: Network
 root-namespace: Microsoft.Azure.Azclips.Extensions.Network
 project-name: Microsoft.Azure.Azclips.Extensions.Network
 description: Network extension for AzClips
-
-stages:
-  flatten-model:
-    options:
-      noInline:
-        - IPConfiguration

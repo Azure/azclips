@@ -78,7 +78,9 @@ FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = 'New-AzVirtualNetwork', 'Get-AzVirtualNetwork', 'Remove-AzVirtualNetwork',
+                    'New-AzVirtualNetworkSubnet', 'Set-AzVirtualNetworkSubnet', 'Get-AzVirtualNetworkSubnet', 'Remove-AzVirtualNetworkSubnet',
                     'New-AzNetworkSecurityGroup', 'Get-AzNetworkSecurityGroup', 'Remove-AzNetworkSecurityGroup',
+                    'New-AzNetworkSecurityRule', 'Set-AzNetworkSecurityRule', 'Get-AzNetworkSecurityRule', 'Remove-AzNetworkSecurityRule',
                     'New-AzPublicIpAddress', 'Get-AzPublicIpAddress', 'Remove-AzPublicIpAddress',
                     'New-AzNetworkInterface', 'Get-AzNetworkInterface', 'Remove-AzNetworkInterface'
 
