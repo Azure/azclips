@@ -63,7 +63,7 @@ jobs:
         printf '%s' "${value//"$marker"/"$escaped_marker"}"
       }
 
-      if [[ "$SOURCE_BRANCH" != "refs/heads/main" ]]; then
+      if [[ "$SOURCE_BRANCH" != "refs/heads/main" && "$SOURCE_BRANCH" != "refs/heads/refresh-recordings-ado" ]]; then  # TEMP: test only, revert before PR
         echo "ERROR: Recordings are refreshed only from refs/heads/main. Got: $(log_value "$SOURCE_BRANCH")"
         exit 1
       fi
@@ -171,6 +171,9 @@ jobs:
       git checkout -b "$branch"
       git add -- "$records"
       git commit -m "Refresh stale scenario recordings"
+      echo "TEST RUN: recordings committed locally only; no push and no pull request."  # TEMP: test only, revert before PR
+      git show --stat HEAD
+      exit 0
       basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
       git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$branch"
 
