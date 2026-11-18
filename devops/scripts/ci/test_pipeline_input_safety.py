@@ -338,6 +338,55 @@ class PipelineInputSafetyTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertNotIn(archive_option, arguments)
 
+    def validate_refresh_inputs(self, scenario_filter=" ", branch="refs/heads/main"):
+        script, environment = self.load_step(
+            "azclips-refresh-recordings.yml",
+            "Validate Refresh Inputs",
+            {
+                "${{ parameters.scenario_filter }}": scenario_filter,
+                "$(Build.SourceBranch)": branch,
+            },
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            return self.run_step(script, environment, Path(directory))
+
+    def test_refresh_filter_is_trimmed_and_passed_on(self):
+        for scenario_filter, expected in (
+            (" ", ""),
+            ("", ""),
+            ("GroupCreate", "GroupCreate"),
+            ("  Resources.GroupDelete_1 ", "Resources.GroupDelete_1"),
+        ):
+            with self.subTest(scenario_filter=scenario_filter):
+                result = self.validate_refresh_inputs(scenario_filter)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assert_logging_commands(
+                    result.stdout, [f"##vso[task.setvariable variable=ScenarioFilter]{expected}"])
+
+    def test_refresh_filter_is_rejected_as_data(self):
+        for payload in (*self.payloads, *self.logging_payloads, "a b", "Group*", "a|b", "$(ScenarioFilter)"):
+            with self.subTest(payload=payload):
+                result = self.validate_refresh_inputs(payload)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("ERROR: scenario_filter may contain only", result.stdout)
+                self.assert_logging_commands(result.stdout)
+
+    def test_refresh_runs_only_from_main(self):
+        for branch in ("refs/heads/other", "refs/pull/1/merge", "refs/heads/main2", *self.logging_payloads):
+            with self.subTest(branch=branch):
+                result = self.validate_refresh_inputs(branch=branch)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("ERROR: Recordings are refreshed only from refs/heads/main", result.stdout)
+                self.assert_logging_commands(result.stdout)
+
+    def test_refresh_pipeline_runs_in_release_on_a_weekly_schedule(self):
+        pipeline = (self.pipeline_root / "azclips-refresh-recordings.yml").read_text(encoding="utf-8")
+        self.assertIn("trigger: none\npr: none\n", pipeline)
+        self.assertIn("- cron: '0 6 * * 1'", pipeline)
+        self.assertIn("  always: true\n", pipeline)
+        self.assertIn("validate-release-project.yml", pipeline)
+        self.assertEqual(pipeline.count("in(variables['RefreshExitCode'], '0', '3')"), 2)
+
 
 class ShellPipelineSafetyTests(unittest.TestCase):
     @classmethod

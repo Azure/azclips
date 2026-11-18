@@ -140,10 +140,10 @@ CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** 
 | `build-and-test.yml` | GitHub | PR to `main`, dispatch | Restore/build/test `azclips.slnx`, CLI + PowerShell E2E smoke, help validation, help-tool tests |
 | `benchmark.yml` / `benchmark-comment.yml` | GitHub | push/PR touching `src/**`, `tests/Benchmark/**`, `global.json`, `azclips.slnx` | Run CLI+PS benchmarks, gate at 115% of baseline, publish dashboard |
 | `extension-test-coverage.yml` | GitHub | Relevant push/PR paths, dispatch | Advisory command-surface attribution report, separate from merge-gating product tests |
-| `refresh-recordings.yml` | GitHub | See workflow configuration | Refresh recorded scenario evidence |
 | `build-wiki.yml` | GitHub | Wiki changes on `main`, successful benchmark/coverage workflow completion, dispatch | Build/publish this wiki and merge generated dev dashboards |
 | `azclips-alpha-build.yml` | Azure DevOps | any PR (`pr-alpha` channel) | Unsigned per-PR distribution build |
 | `azclips-beta-build.yml` | Azure DevOps | beta channel | Unsigned beta distribution |
+| `azclips-refresh-recordings.yml` | Azure DevOps | Weekly schedule on `main`, manual | Re-record stale scenario recordings against the live test subscription and open a refresh PR |
 | `azclips-stable-{build,sign,publish,release}.yml` | Azure DevOps | `v*.*.*` tags | Versioned, signed, published stable release |
 
 The GitHub gate is intentionally pragmatic: `build-and-test.yml` builds and tests in **Debug**, not Release, with an inline comment noting Release currently has extension-DLL-location and `RequiredAssemblies` issues (`.github/workflows/build-and-test.yml:28-32`). E2E is a smoke test — run `az --help` and assert exit 0, and import the `Accounts` PS module and assert commands exist (`.github/workflows/build-and-test.yml:34-52`) — mirroring the criteria in `eng-docs/spec/ci.md:5-15` ("the code builds; all tests pass; E2E tests pass").

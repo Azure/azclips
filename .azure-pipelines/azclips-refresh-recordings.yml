@@ -1,0 +1,187 @@
+name: azclips-refresh-recordings-$(Date:yyyyMMdd)$(Rev:.r)
+
+# Records scenarios against a live test subscription, so it runs only in the internal
+# release project. Who may queue or edit it, which branches may use the live test service
+# connection, and which pipelines may use that connection are enforced by Azure DevOps
+# resource settings; the guards below are defense in depth, not the boundary.
+trigger: none
+pr: none
+
+schedules:
+- cron: '0 6 * * 1'
+  displayName: Weekly recording refresh
+  branches:
+    include:
+    - main
+  # Recordings go stale when Azure changes, not when the repository does.
+  always: true
+
+parameters:
+- name: scenario_filter
+  displayName: Only refresh scenario classes whose name contains this (blank for all)
+  type: string
+  default: ' '
+
+variables:
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'get-github-pat-token'
+- template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- name: GitHubTargetRepo
+  value: ${{ variables.github_target_repo }}
+# Workload identity federation connection scoped to the live test subscription. Referenced
+# with a template expression so Azure DevOps can authorize it when the run is queued.
+- name: live_test_service_connection
+  value: 'azclips-live-recording'
+# Set by Validate Refresh Inputs; declared so the refresh step never sees an unexpanded macro.
+- name: ScenarioFilter
+  value: ''
+
+jobs:
+- job: RefreshRecordings
+  displayName: Refresh Stale Recordings
+  timeoutInMinutes: 360
+  pool:
+    name: $(ubuntu_pool)
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - template: templates/dist/steps/validate-release-project.yml
+    parameters:
+      error_message: azclips-refresh-recordings must run in the 'release' project because it records against the live test subscription and opens pull requests.
+
+  - bash: |
+      set -euo pipefail
+
+      # Azure Pipelines treats this marker anywhere in output as a logging command.
+      log_value() {
+        local value="$1"
+        local marker='##vso['
+        local escaped_marker='##vso_['
+        printf '%s' "${value//"$marker"/"$escaped_marker"}"
+      }
+
+      if [[ "$SOURCE_BRANCH" != "refs/heads/main" ]]; then
+        echo "ERROR: Recordings are refreshed only from refs/heads/main. Got: $(log_value "$SOURCE_BRANCH")"
+        exit 1
+      fi
+
+      filter="$SCENARIO_FILTER"
+      filter="${filter#"${filter%%[![:space:]]*}"}"
+      filter="${filter%"${filter##*[![:space:]]}"}"
+      if [[ ! "$filter" =~ ^[A-Za-z0-9_.]*$ ]]; then
+        echo "ERROR: scenario_filter may contain only letters, digits, '_' and '.'. Got: $(log_value "$filter")"
+        exit 1
+      fi
+
+      echo "Scenario filter: ${filter:-(all scenario classes)}"
+      echo "##vso[task.setvariable variable=ScenarioFilter]$filter"
+    displayName: Validate Refresh Inputs
+    env:
+      SCENARIO_FILTER: ${{ parameters.scenario_filter }}
+      SOURCE_BRANCH: $(Build.SourceBranch)
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - bash: |
+      set -euo pipefail
+      dotnet build azclips.slnx -p:CopilotSkipCliDownload=true
+    displayName: Build
+
+  # The service connection uses workload identity federation scoped to the live test
+  # subscription; its federated token signs the built azclips CLI in. Azure CLI on the agent
+  # is only the task's carrier: azclips keeps its own profile under ~/.azclips.
+  - task: AzureCLI@2
+    displayName: Sign In To The Live Test Subscription
+    inputs:
+      azureSubscription: ${{ variables.live_test_service_connection }}
+      scriptType: bash
+      scriptLocation: inlineScript
+      addSpnToEnvironment: true
+      workingDirectory: $(Build.SourcesDirectory)
+      inlineScript: |
+        set -euo pipefail
+        subscription_id="$(az account show --query id --output tsv)"
+        ./artifacts/Debug/Core.Cli/az login --service-principal \
+          --client-id "$servicePrincipalId" \
+          --tenant-id "$tenantId" \
+          --federated-token "$idToken" \
+          --subscription-id "$subscription_id"
+
+  # The script's exit code separates refresh failures (3) from secret scan findings (4);
+  # see refresh_recordings.py. Only 0 and 3 leave recordings that may be published.
+  - bash: |
+      set -uo pipefail
+      if [[ "$SCENARIO_FILTER" == \$\(* ]]; then
+        echo "ERROR: The validated scenario filter was not set."
+        exit 1
+      fi
+      status=0
+      python3 devops/scripts/live/refresh_recordings.py --filter "$SCENARIO_FILTER" || status=$?
+      if [[ -f refresh-summary.md ]]; then
+        echo "##vso[task.uploadsummary]$BUILD_SOURCESDIRECTORY/refresh-summary.md"
+      fi
+      echo "##vso[task.setvariable variable=RefreshExitCode]$status"
+      exit "$status"
+    displayName: Refresh Stale Recordings
+    env:
+      SCENARIO_FILTER: $(ScenarioFilter)
+      # Ties run-scoped resource names (-t<8hex>) to this build, so a resource group left
+      # behind by an interrupted run maps back to the run that created it.
+      AZCLIPS_TEST_RUN_ID: $(Build.BuildId)
+
+  - template: templates/dist/steps/get-github-pat-token.yml
+    parameters:
+      azureSubscription: $(AzureSubscription)
+      keyVaultName: $(GitHubPatKeyVault)
+      secretName: $(GitHubPatSecretName)
+      execCondition: and(not(canceled()), in(variables['RefreshExitCode'], '0', '3'))
+
+  - bash: |
+      set -euo pipefail
+
+      if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
+        echo "ERROR: GH_TOKEN was not obtained from Azure Key Vault."
+        exit 1
+      fi
+
+      if ! command -v gh >/dev/null 2>&1; then
+        echo "ERROR: GitHub CLI 'gh' is required to open the refresh PR."
+        exit 1
+      fi
+
+      records='tests/Scenario.Tests/*/Records/*'
+      changes="$(git status --porcelain --untracked-files=all -- "$records")"
+      if [[ -z "$changes" ]]; then
+        echo "No recordings were rewritten; no pull request is opened."
+        exit 0
+      fi
+
+      repo="$GITHUB_TARGET_REPO"
+      branch="live/recording-refresh-$BUILD_BUILDID"
+
+      git config user.name "Azclips Release Automation"
+      git config user.email "azclips-release-automation@microsoft.com"
+      git checkout -b "$branch"
+      git add -- "$records"
+      git commit -m "Refresh stale scenario recordings"
+      basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+      git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$branch"
+
+      gh pr create \
+        --repo "$repo" \
+        --base main \
+        --head "$branch" \
+        --title "{Tests} Refresh stale scenario recordings" \
+        --body-file refresh-summary.md
+    displayName: Push Refreshed Recordings And Open PR
+    condition: and(not(canceled()), in(variables['RefreshExitCode'], '0', '3'))
+    env:
+      GH_TOKEN: $(GH_TOKEN)
+      GITHUB_TARGET_REPO: $(GitHubTargetRepo)
