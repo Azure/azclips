@@ -137,18 +137,16 @@ public class EnvSnapshotFormatterTests
     }
 
     [Fact]
-    public void InstallableGroups_ShowPackageIds()
+    public void InstallableGroups_ShowFullPackageIds()
     {
         const string json = """
             { "signedIn": true, "commandGroups": ["vm"],
-              "installableGroups": [ { "group": "aks", "packageId": "azclips.aks" }, { "group": "sql", "packageId": "azclips.sql" } ] }
+              "installableGroups": [ { "group": "vm", "packageId": "Microsoft.Azure.Azclips.Extensions.Compute" }, { "group": "network", "packageId": "Microsoft.Azure.Azclips.Extensions.Network" }, { "group": "foo", "packageId": "Contoso.Foo" } ] }
             """;
 
         var block = EnvSnapshotFormatter.Format(json);
 
-        Assert.Contains("installable-command-groups", block);
-        Assert.Contains("installable-command-groups (not installed;", block);
-        Assert.Contains("aks (azclips.aks), sql (azclips.sql)", block);
+        Assert.Contains("installable-command-groups (not installed; install with `az extension add --name <package>`)\n  vm: Microsoft.Azure.Azclips.Extensions.Compute, network: Microsoft.Azure.Azclips.Extensions.Network, foo: Contoso.Foo\n", block);
     }
 
     [Fact]
@@ -156,8 +154,7 @@ public class EnvSnapshotFormatterTests
     {
         var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": ["vm"], "installableGroups": [] }""");
 
-        Assert.Contains("installable-command-groups (not installed;", block);
-        Assert.Contains("extension package))\n  none\n", block);
+        Assert.Contains("installable-command-groups (not installed; install with `az extension add --name <package>`)\n  none\n", block);
     }
 
     [Fact]

@@ -72,7 +72,7 @@ internal static class EnvSnapshotFormatter
                 && installableElement.ValueKind == JsonValueKind.Array)
             {
                 var installable = GetInstallableGroups(root);
-                sb.Append("installable-command-groups (not installed; group (extension package))\n");
+                sb.Append("installable-command-groups (not installed; install with `az extension add --name <package>`)\n");
                 sb.Append("  ").Append(installable.Count > 0 ? string.Join(", ", installable) : "none").Append('\n');
             }
 
@@ -123,7 +123,7 @@ internal static class EnvSnapshotFormatter
             .ToList();
     }
 
-    // Entries of installableGroups as "group (package)".
+    // Entries of installableGroups as "group: packageId".
     private static List<string> GetInstallableGroups(JsonElement root)
     {
         if (!root.TryGetProperty("installableGroups", out var el) || el.ValueKind != JsonValueKind.Array) return [];
@@ -131,7 +131,7 @@ internal static class EnvSnapshotFormatter
             .Where(e => e.ValueKind == JsonValueKind.Object)
             .Select(e => (Group: GetString(e, "group", ""), Package: GetString(e, "packageId", "")))
             .Where(x => !string.IsNullOrWhiteSpace(x.Group) && !string.IsNullOrWhiteSpace(x.Package))
-            .Select(x => $"{x.Group} ({x.Package})")
+            .Select(x => $"{x.Group}: {x.Package}")
             .ToList();
     }
 

@@ -71,7 +71,7 @@ public class EnvironmentProberTests
         var block = EnvSnapshotFormatter.Format(JsonSerializer.Serialize(snapshot, s_json));
 
         Assert.Contains("command-groups (installed root commands and groups; confirm with get_command)\n  group, vm\n", block);
-        Assert.Contains("extension package))\n  none\n", block);
+        Assert.Contains("installable-command-groups (not installed; install with `az extension add --name <package>`)\n  none\n", block);
     }
 
     [Fact]
@@ -81,13 +81,15 @@ public class EnvironmentProberTests
             { "groups": [ { "verb": "vm", "summary": "" } ], "commands": [] }
             """;
         var hints = Hints(("vm", "azclips.compute"), ("vm create", "azclips.compute"),
-            ("aks", "azclips.aks"), ("aks nodepool add", "azclips.aks"));
+            ("aks", "Microsoft.Azure.Azclips.Extensions.Aks"), ("aks nodepool add", "Microsoft.Azure.Azclips.Extensions.Aks"));
         var prober = new EnvironmentProber(new StubProfileService(), flavor: "cli", azclipsVersion: "1",
             readCommandCatalog: _ => Task.FromResult(catalog), extensionHints: hints);
 
         var snapshot = await prober.ProbeAsync();
 
-        Assert.Equal([new InstallableGroup("aks", "azclips.aks")], snapshot.InstallableGroups);
+        Assert.Equal([new InstallableGroup("aks", "Microsoft.Azure.Azclips.Extensions.Aks")], snapshot.InstallableGroups);
+        var block = EnvSnapshotFormatter.Format(JsonSerializer.Serialize(snapshot, s_json));
+        Assert.Contains("installable-command-groups (not installed; install with `az extension add --name <package>`)\n  aks: Microsoft.Azure.Azclips.Extensions.Aks\n", block);
     }
 
     [Fact]
