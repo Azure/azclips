@@ -245,15 +245,23 @@ export {
 } from "./command.js";
 
 export {
+  PsModuleDialectSchema,
   PsCommandDialectSchema,
   PsParameterDialectSchema,
   PsParameterSetMembershipSchema,
+  ConfirmImpacts,
+  PSDeprecatedSchema,
+  PSPreviewSchema,
   CliCommandDialectSchema,
   CliParameterDialectSchema,
   type IRClientDialect,
+  type PsModuleDialect,
   type PsCommandDialect,
   type PsParameterDialect,
   type PsParameterSetMembership,
+  type ConfirmImpact,
+  type PSDeprecated,
+  type PSPreview,
   type CliCommandDialect,
   type CliParameterDialect,
 } from "./dialect.js";

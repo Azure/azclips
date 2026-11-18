@@ -568,6 +568,19 @@ public enum IRVisibility
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PsCommandDialectConfirmImpact
+{
+    [JsonStringEnumMemberName("None")]
+    None,
+    [JsonStringEnumMemberName("Low")]
+    Low,
+    [JsonStringEnumMemberName("Medium")]
+    Medium,
+    [JsonStringEnumMemberName("High")]
+    High
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SerializationHintOmitWhen
 {
     [JsonStringEnumMemberName("never")]
@@ -2023,6 +2036,30 @@ public partial class IRTarget
 
     [JsonPropertyName("description")]
     public string? Description { get; set; }
+
+    [JsonPropertyName("dialect")]
+    public IRTargetDialect? Dialect { get; set; }
+}
+
+public partial class IRTargetDialect
+{
+    [JsonPropertyName("ps")]
+    public IRTargetDialectPs? Ps { get; set; }
+}
+
+public partial class IRTargetDialectPs
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("prefix")]
+    public string? Prefix { get; set; }
+
+    [JsonPropertyName("subjectPrefix")]
+    public string? SubjectPrefix { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -2118,6 +2155,21 @@ public partial class OperationHints
     public DocsHint? Docs { get; set; }
 }
 
+public partial class PSDeprecated
+{
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = default !;
+}
+
+public partial class PSPreview
+{
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = default !;
+
+    [JsonPropertyName("estimatedGaDate")]
+    public string? EstimatedGaDate { get; set; }
+}
+
 public partial class ParameterHints
 {
     [JsonPropertyName("clientApi")]
@@ -2144,14 +2196,44 @@ public partial class PsCommandDialect
     [JsonPropertyName("verb")]
     public string Verb { get; set; } = default !;
 
-    [JsonPropertyName("noun")]
-    public string Noun { get; set; } = default !;
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = default !;
 
     [JsonPropertyName("defaultParameterSet")]
     public string? DefaultParameterSet { get; set; }
 
     [JsonPropertyName("supportsShouldProcess")]
     public bool? SupportsShouldProcess { get; set; }
+
+    [JsonPropertyName("confirmImpact")]
+    public PsCommandDialectConfirmImpact? ConfirmImpact { get; set; }
+
+    [JsonPropertyName("examples")]
+    public IReadOnlyList<string>? Examples { get; set; }
+
+    [JsonPropertyName("deprecated")]
+    public PSDeprecated? Deprecated { get; set; }
+
+    [JsonPropertyName("preview")]
+    public PSPreview? Preview { get; set; }
+
+    [JsonPropertyName("helpUri")]
+    public string? HelpUri { get; set; }
+
+    [JsonPropertyName("outputTypes")]
+    public IReadOnlyList<IRTypeRef>? OutputTypes { get; set; }
+
+    [JsonPropertyName("httpPath")]
+    public PsCommandDialectHttpPath? HttpPath { get; set; }
+}
+
+public partial class PsCommandDialectHttpPath
+{
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = default !;
+
+    [JsonPropertyName("apiVersion")]
+    public string ApiVersion { get; set; } = default !;
 }
 
 public partial class PsParameterDialect
@@ -2170,6 +2252,21 @@ public partial class PsParameterDialect
 
     [JsonPropertyName("parameterSets")]
     public IReadOnlyList<PsParameterSetMembership>? ParameterSets { get; set; }
+
+    [JsonPropertyName("completer")]
+    public IReadOnlyList<IRLiteralValue>? Completer { get; set; }
+
+    [JsonPropertyName("defaultValue")]
+    public IRLiteralValue? DefaultValue { get; set; }
+
+    [JsonPropertyName("validateSet")]
+    public IReadOnlyList<string>? ValidateSet { get; set; }
+
+    [JsonPropertyName("deprecated")]
+    public PSDeprecated? Deprecated { get; set; }
+
+    [JsonPropertyName("preview")]
+    public PSPreview? Preview { get; set; }
 }
 
 public partial class PsParameterSetMembership
