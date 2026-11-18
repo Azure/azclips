@@ -185,6 +185,22 @@ public class ConsoleKeyReaderTests
     }
 
     [Fact]
+    public async Task AltGr_TypesText_NotCtrlCOrEndOfInput()
+    {
+        var source = new FakeKeySource();
+        using var reader = new ConsoleKeyReader(source);
+        reader.Start();
+        // AltGr arrives as Ctrl+Alt with the typed character.
+        source.Type(new ConsoleKeyInfo('©', ConsoleKey.C, false, true, true));
+        source.Type(new ConsoleKeyInfo('ð', ConsoleKey.D, false, true, true));
+        source.Type(new ConsoleKeyInfo('æ', ConsoleKey.Z, false, true, true));
+        source.Type(Keys.Enter);
+        var read = await reader.ReadLineAsync(new LineEditor(), "> ", new StringWriter(), CancellationToken.None)
+            .WaitAsync(AgentTestTimeouts.HangGuard);
+        Assert.Equal(new LineRead(LineReadKind.Submitted, "©ðæ"), read);
+    }
+
+    [Fact]
     public void IsCtrlC_RawControlCharacter_WithoutModifier()
     {
         Assert.True(ConsoleKeyReader.IsCtrlC(new ConsoleKeyInfo('\x03', default, false, false, false)));

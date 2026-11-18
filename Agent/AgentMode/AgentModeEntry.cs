@@ -540,7 +540,11 @@ public static class AgentModeEntry
         if (!interactive)
         {
             while (!agent.SessionClosed && nextPrompt is not null && !ct.IsCancellationRequested)
-                nextPrompt = (await SendWithToolEnforcementAsync(agent, approval, keys, spinner, nextPrompt, ct)).Redirect;
+            {
+                var redirected = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, nextPrompt, ct);
+                if (redirected.Quit) return ChatLoopEnd.CtrlCQuit;
+                nextPrompt = redirected.Redirect;
+            }
             return ChatLoopEnd.Finished;
         }
 
@@ -674,7 +678,7 @@ public static class AgentModeEntry
             // (get_command/bash alone do NOT count — a query-then-prose turn is a violation.)
             if (agent.LastSendCalledClosingTool) break;
             // Errored turn: don't pile a correction on top of a failure.
-            if (agent.LastError is not null) break;
+            if (result.Errored || agent.LastError is not null) break;
 
             using var reprompt = agent.StartActivity("Agent.Reprompt");
             reprompt?.SetTag(TelemetryTags.RecoveryReprompts, attempt + 1);
@@ -690,7 +694,7 @@ public static class AgentModeEntry
         return result;
     }
 
-    private readonly record struct TurnResult(string? Redirect, bool Interrupted, bool Quit = false);
+    private readonly record struct TurnResult(string? Redirect, bool Interrupted, bool Quit = false, bool Errored = false);
 
     // Runs one turn. While it runs, keys go to the thinking view (Esc and Ctrl+C
     // interrupt the turn) and approval requests open the approval view. Keys queued
@@ -774,12 +778,22 @@ public static class AgentModeEntry
             WriteColor(ConsoleColor.DarkGray, redirect is not null
                 ? $"  ↯ told to do differently: {Truncate(redirect, 60)}"
                 : "  ↯ aborted by user");
+            if (quit)
+            {
+                // Quitting does not wait for a send that has not ended.
+                _ = sendTask.ContinueWith(static t => _ = t.Exception, CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                approval.DenyPending();
+                return new TurnResult(redirect, interrupted, Quit: true);
+            }
         }
 
+        var errored = false;
         try { await sendTask.ConfigureAwait(false); }
         catch (OperationCanceledException) when (agent.LastError is { } err)
         {
             // Allow another interactive turn; a oneshot session reads LastError at the end.
+            errored = true;
             WriteColor(ConsoleColor.Red, $"  ✗ session.error [{err.ErrorType}] {err.Message}");
         }
         catch (OperationCanceledException) when ((redirect is not null || interrupted) && !ct.IsCancellationRequested)
@@ -789,6 +803,7 @@ public static class AgentModeEntry
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // RPC and IO failures end only this turn; the session returns to the prompt.
+            errored = true;
             WriteColor(ConsoleColor.Red, $"  ✗ session.error {ex.Message}");
         }
         finally
@@ -797,7 +812,7 @@ public static class AgentModeEntry
             approval.DenyPending();
         }
 
-        return new TurnResult(redirect, interrupted, quit);
+        return new TurnResult(redirect, interrupted, Errored: errored);
     }
 
     // Pumps one approval. When the turn ends while the approval is open, the approval

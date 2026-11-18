@@ -71,8 +71,11 @@ public sealed class ConsoleKeyReader : IDisposable
         return CtrlCAction.Quit;
     }
 
+    /// <summary>Ctrl+C, but not Ctrl+Alt+C: Ctrl+Alt is AltGr and types text.</summary>
     public static bool IsCtrlC(ConsoleKeyInfo key) =>
-        (key.Key == ConsoleKey.C && (key.Modifiers & ConsoleModifiers.Control) != 0) || key.KeyChar == '\x03';
+        (key.Key == ConsoleKey.C
+            && (key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) == ConsoleModifiers.Control)
+        || key.KeyChar == '\x03';
 
     public static bool IsEscape(ConsoleKeyInfo key) => key.Key == ConsoleKey.Escape;
 

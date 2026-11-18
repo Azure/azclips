@@ -373,6 +373,161 @@ public class ConsoleApprovalPromptTests
     }
 
     [Fact]
+    public async Task KeyInput_AltGr_IsText()
+    {
+        var (outcome, approved) = await DriveKeysAsync(s =>
+        {
+            s.Type(new ConsoleKeyInfo('\u00A9', ConsoleKey.C, false, true, true));
+            s.Type(Keys.Enter);
+        });
+        Assert.False(approved);
+        Assert.Equal("\u00A9", outcome.FeedbackPrompt);
+    }
+
+    /// <summary>Line reader that ends the turn while the read is blocked, then returns the answer.</summary>
+    private sealed class TurnEndingReader(CancellationTokenSource turn, string answer) : TextReader
+    {
+        public override string? ReadLine()
+        {
+            turn.Cancel();
+            return answer;
+        }
+    }
+
+    [Fact]
+    public async Task TurnEndsDuringSynchronousRead_CannotApprove()
+    {
+        using var turn = new CancellationTokenSource();
+        var prompt = new ConsoleApprovalPrompt();
+        var prevIn = Console.In;
+        var prevOut = Console.Out;
+        Console.SetIn(new TurnEndingReader(turn, "y"));
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var outcome = await prompt.PumpOneAsync(turn.Token).WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.NotHandled, outcome);
+            Assert.False(await toolTask.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            Console.SetIn(prevIn);
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Fact]
+    public async Task EndingOpenApproval_EndsItsLine()
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        keys.Start();
+        using var turn = new CancellationTokenSource();
+        var prompt = new ConsoleApprovalPrompt(keys: keys);
+        var writer = new PromptSignalWriter();
+        var prevOut = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var pump = prompt.PumpOneAsync(turn.Token);
+            await writer.ApprovalShown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            turn.Cancel();
+            Assert.Equal(ConsoleApprovalPrompt.ApprovalOutcome.NotHandled, await pump.WaitAsync(AgentTestTimeouts.HangGuard));
+            Assert.False(await toolTask.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            Console.SetOut(prevOut);
+        }
+        Assert.EndsWith(Environment.NewLine, writer.ToString());
+    }
+
+    /// <summary>Renderer that signals the first RunExclusive call after it is armed.</summary>
+    private sealed class ExclusiveSignalRenderer(ConsoleAgentRenderer inner) : IAgentRenderer
+    {
+        public volatile bool Armed;
+        public readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void OnText(string chunk) => inner.OnText(chunk);
+        public void OnEvent(AgentEvent ev) => inner.OnEvent(ev);
+        public void OnSpinnerFrame(string frame, string verb) => inner.OnSpinnerFrame(frame, verb);
+        public void OnSpinnerStop() => inner.OnSpinnerStop();
+        public void RunExclusive(Action action)
+        {
+            if (Armed) Entered.TrySetResult();
+            inner.RunExclusive(action);
+        }
+    }
+
+    /// <summary>Writer whose first prompt write after it is armed blocks until released.</summary>
+    private sealed class BlockingPromptWriter : StringWriter
+    {
+        public readonly TaskCompletionSource ApprovalShown = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly TaskCompletionSource Blocked = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly ManualResetEventSlim Release = new();
+        public volatile bool Armed;
+
+        public override void Write(string? value)
+        {
+            if (value?.Contains("[y]es", StringComparison.Ordinal) == true)
+            {
+                ApprovalShown.TrySetResult();
+                if (Armed)
+                {
+                    Armed = false;
+                    Blocked.TrySetResult();
+                    Release.Wait();
+                }
+            }
+            lock (this) base.Write(value);
+        }
+
+        public override void Write(char value)
+        {
+            lock (this) base.Write(value);
+        }
+    }
+
+    [Fact]
+    public async Task ApprovalKeyEditing_IsSerializedWithRendererRedraw()
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        keys.Start();
+        var inner = new ConsoleAgentRenderer();
+        var renderer = new ExclusiveSignalRenderer(inner);
+        var prompt = new ConsoleApprovalPrompt(renderer: renderer, keys: keys, output: inner);
+        var writer = new BlockingPromptWriter();
+        var prevOut = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
+            var pump = prompt.PumpOneAsync(CancellationToken.None);
+            await writer.ApprovalShown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            // The renderer redraws the approval line and stops inside that redraw.
+            writer.Armed = true;
+            var redraw = Task.Run(() => inner.OnText("streamed"));
+            await writer.Blocked.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            // Keys arrive while the redraw holds the renderer lock.
+            renderer.Armed = true;
+            source.Type("abcdef");
+            source.Type(Keys.Enter);
+            await renderer.Entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            writer.Release.Set();
+            await redraw.WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal("abcdef", (await pump.WaitAsync(AgentTestTimeouts.HangGuard)).FeedbackPrompt);
+            Assert.False(await toolTask.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            writer.Release.Set();
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Fact]
     public void Settle_EofDenies_FreeTextRedirects()
     {
         var eof = new TaskCompletionSource<bool>();

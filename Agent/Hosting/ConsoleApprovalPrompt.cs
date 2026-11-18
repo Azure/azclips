@@ -446,6 +446,12 @@ public sealed class ConsoleApprovalPrompt
             }
 
             answer = await ReadAnswerAsync(prompt, pending.Result.Task, ct).ConfigureAwait(false);
+            // A read that completes after the request ended or the turn ended answers nothing.
+            if (pending.Result.Task.IsCompleted || ct.IsCancellationRequested)
+            {
+                pending.Result.TrySetResult(false);
+                return ApprovalOutcome.NotHandled;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -484,11 +490,21 @@ public sealed class ConsoleApprovalPrompt
         using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         try
         {
-            var read = _keys.ReadLineAsync(editor, prompt, output, readCts.Token, exclusive);
+            var read = ReadKeysAsync(editor, prompt, output, exclusive, readCts.Token);
             await Task.WhenAny(read, requestDone).ConfigureAwait(false);
             if (!read.IsCompleted)
                 readCts.Cancel();
-            var answer = await read.ConfigureAwait(false);
+            LineRead answer;
+            try
+            {
+                answer = await read.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The turn ended while the approval was open: close its line.
+                exclusive(() => editor.Finish(output, prompt));
+                throw;
+            }
             if (answer.Kind is LineReadKind.Escape or LineReadKind.CtrlC)
                 exclusive(() => editor.Finish(output, prompt));
             return answer;
@@ -496,6 +512,56 @@ public sealed class ConsoleApprovalPrompt
         finally
         {
             _output?.SetInputLine(null, null);
+        }
+    }
+
+    // Reads one line key by key. Each batch of queued keys is taken, applied and
+    // redrawn under the renderer lock, so a renderer redraw never sees a half-applied
+    // edit. Ctrl+C and Esc end the read; the keys after them stay queued.
+    private async Task<LineRead> ReadKeysAsync(
+        LineEditor editor, string prompt, TextWriter output, Action<Action> exclusive, CancellationToken ct)
+    {
+        var keys = _keys!;
+        exclusive(() => editor.Render(output, prompt));
+        while (true)
+        {
+            if (!await keys.WaitToReadAsync(ct).ConfigureAwait(false))
+            {
+                exclusive(() => editor.Finish(output, prompt));
+                return new LineRead(LineReadKind.EndOfInput);
+            }
+
+            LineRead? done = null;
+            exclusive(() =>
+            {
+                while (keys.TryRead(out var key))
+                {
+                    if (ConsoleKeyReader.IsCtrlC(key))
+                    {
+                        done = new LineRead(LineReadKind.CtrlC, editor.Text);
+                        return;
+                    }
+                    if (ConsoleKeyReader.IsEscape(key))
+                    {
+                        done = new LineRead(LineReadKind.Escape, editor.Text);
+                        return;
+                    }
+                    switch (editor.Apply(key))
+                    {
+                        case LineEditResult.Submit:
+                            editor.Finish(output, prompt);
+                            done = new LineRead(LineReadKind.Submitted, editor.Text);
+                            return;
+                        case LineEditResult.EndOfInput:
+                            editor.Finish(output, prompt);
+                            done = new LineRead(LineReadKind.EndOfInput);
+                            return;
+                    }
+                }
+                editor.Render(output, prompt);
+            });
+            if (done is { } result)
+                return result;
         }
     }
 

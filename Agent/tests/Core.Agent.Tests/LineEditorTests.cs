@@ -126,6 +126,11 @@ public class LineEditorTests
     [InlineData("\U0001F1E6\U0001F1E7", 2)]
     [InlineData("e\u0301", 1)]
     [InlineData("中a", 3)]
+    [InlineData("🟰", 2)]
+    [InlineData("👋🏽", 2)]
+    [InlineData("中文", 4)]
+    [InlineData("ｶﾞﾊﾟ", 4)]
+    [InlineData("界ﾞ", 3)]
     public void DisplayWidth_CountsGraphemeClusters(string text, int width) =>
         Assert.Equal(width, LineEditor.DisplayWidth(text));
 
@@ -147,6 +152,17 @@ public class LineEditorTests
         editor.Apply(Keys.Char('\u0301'));
         Assert.Equal("a\u0301b", editor.Text);
         Assert.Equal(2, editor.Cursor);
+    }
+
+    [Fact]
+    public void SurrogatePairTypedBeforeALeadingCombiningMark_IsNotSplit()
+    {
+        var editor = new LineEditor();
+        TypeChars(editor, "́");
+        editor.Apply(Keys.Home);
+        TypeChars(editor, "🚀");
+        Assert.Equal("🚀́", editor.Text);
+        Assert.Equal(3, editor.Cursor);
     }
 
     [Fact]

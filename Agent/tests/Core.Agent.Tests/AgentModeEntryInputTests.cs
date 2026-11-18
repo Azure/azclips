@@ -18,7 +18,7 @@ internal sealed class ScriptedTurns : AgentModeEntry.IChatTurns
 
     public bool SessionClosed => false;
     public SessionErrored? LastError { get; set; }
-    public bool LastSendCalledClosingTool => true;
+    public bool LastSendCalledClosingTool { get; set; } = true;
     public Activity? StartActivity(string name) => null;
 
     public ScriptedTurns Then(Func<CancellationToken, Task> step)
@@ -488,6 +488,107 @@ public class AgentModeEntryInputTests
         source.Type(Keys.CtrlC);
         var (end, _) = await RunLoopAsync(turns, source);
         Assert.Equal(AgentModeEntry.ChatLoopEnd.CtrlCQuit, end);
+    }
+
+    [Fact]
+    public async Task AbortWaitQuit_DoesNotAwaitStalledSend()
+    {
+        var source = new FakeKeySource();
+        var turns = new ScriptedTurns { AbortReply = new TaskCompletionSource().Task };
+        turns.Then(_ => new TaskCompletionSource().Task);
+        source.Type(Keys.Esc);
+        source.Type(Keys.CtrlC);
+        var (end, _) = await RunLoopAsync(turns, source);
+        Assert.Equal(AgentModeEntry.ChatLoopEnd.CtrlCQuit, end);
+        Assert.Equal(1, turns.Aborts);
+    }
+
+    [Fact]
+    public async Task CtrlC_DuringTheAbortWait_ExitsWith130()
+    {
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
+        {
+            var scope = harness.CreateScope();
+            var source = new FakeKeySource();
+            var turns = new ScriptedTurns { AbortReply = new TaskCompletionSource().Task };
+            turns.Then(_ => turns.UntilAborted());
+            source.Type(Keys.Esc);
+            source.Type(Keys.CtrlC);
+            var code = await AgentModeEntry.RunSessionAsync(() => scope, async (_, _) =>
+            {
+                var (end, _) = await RunLoopAsync(turns, source);
+                AgentModeEntry.ThrowIfQuitByCtrlC(end);
+            }, () => { }, harness.Clock).WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal(130, code);
+        });
+    }
+
+    [Fact]
+    public async Task RealRpcError_DoesNotSendCorrection()
+    {
+        var source = new FakeKeySource();
+        var turns = new ScriptedTurns { LastSendCalledClosingTool = false };
+        turns.Then(_ => Task.FromException(new IOException("rpc failed")));
+        source.Type("exit");
+        source.Type(Keys.Enter);
+        var (end, output) = await RunLoopAsync(turns, source);
+        Assert.Equal(AgentModeEntry.ChatLoopEnd.Finished, end);
+        Assert.Equal(["first"], turns.Prompts);
+        Assert.Contains("rpc failed", output);
+        Assert.DoesNotContain("asking it to use a tool", output);
+    }
+
+    [Fact]
+    public async Task OneshotRedirect_CtrlCQuit_ExitsWith130()
+    {
+        await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
+        {
+            var scope = harness.CreateScope();
+            var source = new FakeKeySource();
+            var approval = NewApproval(source, out var keys);
+            using var _ = keys;
+            keys.Start();
+            var turns = new ScriptedTurns();
+            var redirectStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            turns.Then(_ =>
+            {
+                approval.RequestRewriteAsync("powershell", "az group delete", CancellationToken.None);
+                return turns.UntilAborted();
+            });
+            turns.Then(_ =>
+            {
+                turns.AbortReply = new TaskCompletionSource().Task;
+                redirectStarted.TrySetResult();
+                return turns.UntilAborted();
+            });
+
+            var code = await AgentModeEntry.RunSessionAsync(() => scope, async (_, _) =>
+            {
+                var prevOut = Console.Out;
+                var writer = new PromptSignalWriter();
+                Console.SetOut(writer);
+                AgentModeEntry.ChatLoopEnd end;
+                try
+                {
+                    var loop = AgentModeEntry.RunChatLoopAsync(turns, approval, keys, null, "first",
+                        interactive: false, CancellationToken.None);
+                    await writer.ApprovalShown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+                    source.Type("use rg2");
+                    source.Type(Keys.Enter);
+                    await redirectStarted.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+                    source.Type(Keys.Esc);
+                    source.Type(Keys.CtrlC);
+                    end = await loop.WaitAsync(AgentTestTimeouts.HangGuard);
+                }
+                finally
+                {
+                    Console.SetOut(prevOut);
+                }
+                Assert.Equal(["first", "use rg2"], turns.Prompts);
+                AgentModeEntry.ThrowIfQuitByCtrlC(end);
+            }, () => { }, harness.Clock).WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.Equal(130, code);
+        });
     }
 
     [Fact]
