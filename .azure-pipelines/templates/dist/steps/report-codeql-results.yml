@@ -1,0 +1,56 @@
+parameters:
+- name: sarif_directory
+  type: string
+  default: '$(Build.ArtifactStagingDirectory)/CodeAnalysisLogs'
+
+steps:
+- pwsh: |
+    $directory = '${{ parameters.sarif_directory }}'
+
+    function Escape-Issue([string] $text) {
+      if (-not $text) { return '' }
+      return $text.Replace('%', '%AZP25').Replace("`r", '%0D').Replace("`n", '%0A')
+    }
+
+    function Write-WarningIssue([string] $message, [string] $path, $line, [string] $code) {
+      $properties = 'type=warning'
+      if ($path) { $properties += ";sourcepath=$(Escape-Issue $path)" }
+      if ($line) { $properties += ";linenumber=$line" }
+      if ($code) { $properties += ";code=$(Escape-Issue $code)" }
+      Write-Host "##vso[task.logissue $properties]$(Escape-Issue $message)"
+    }
+
+    $files = @()
+    if (Test-Path $directory) {
+      $files = @(Get-ChildItem -Path $directory -Filter '*.sarif' -Recurse -File)
+    }
+    if ($files.Count -eq 0) {
+      Write-Host "No CodeQL SARIF files found in '$directory'; local analysis did not run for this build."
+      exit 0
+    }
+
+    $errorCount = 0
+    foreach ($file in $files) {
+      Write-Host "Reading $($file.Name)"
+      $sarif = Get-Content -Path $file.FullName -Raw | ConvertFrom-Json
+      foreach ($run in $sarif.runs) {
+        $ruleLevels = @{}
+        foreach ($rule in $run.tool.driver.rules) {
+          if ($rule.defaultConfiguration.level) { $ruleLevels[$rule.id] = $rule.defaultConfiguration.level }
+        }
+
+        foreach ($result in @($run.results)) {
+          $level = if ($result.level) { $result.level } elseif ($ruleLevels.ContainsKey($result.ruleId)) { $ruleLevels[$result.ruleId] } else { 'warning' }
+          if ($level -ne 'error') { continue }
+          $location = $result.locations | Select-Object -First 1
+          $path = $location.physicalLocation.artifactLocation.uri
+          $line = $location.physicalLocation.region.startLine
+          $errorCount++
+          Write-WarningIssue "CodeQL $($result.ruleId): $($result.message.text)" $path $line $result.ruleId
+        }
+      }
+    }
+
+    Write-Host "CodeQL reported $errorCount error-level finding(s), logged as warnings."
+  displayName: Report CodeQL results
+  condition: succeeded()
