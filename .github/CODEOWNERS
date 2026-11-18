@@ -15,3 +15,13 @@
 /build/ @Azure/act-quality-productivity-squad @Azure/act-codegen-extensibility-squad
 /install/ @Azure/act-platform-engineering-squad
 /toolkit/ @Azure/act-codegen-extensibility-squad
+
+# Keep these ownerless exceptions last so release metadata does not request squad reviews.
+# All edits to these files, including functional changes, skip automatic owner requests.
+# Add explicit exceptions when future owned modules need the same release behavior.
+/src/Extensions/Accounts/Extensions.Accounts.csproj
+/src/Extensions/Config/Extensions.Config.csproj
+/src/PS/Accounts/Accounts.psd1
+/src/PS/Accounts/ChangeLog.md
+/src/PS/Config/Config.psd1
+/src/PS/Config/ChangeLog.md
