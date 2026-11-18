@@ -55,20 +55,6 @@ public class ExtensionIndex : IExtensionIndex
         ParameterAliases: new Dictionary<string, string>()
     );
 
-    private static readonly CommandMetadata s_listConfig_PS = new(
-        Name: "ListConfigCommand",
-        InvocationName: "Get-AzConfigList",
-        Aliases: [],
-        FullName: "Microsoft.Azure.Azclips.Extensions.Config.Commands.ListConfigCommand",
-        AssemblyName: "Microsoft.Azure.Azclips.Extensions.Config",
-        ProcessorType: typeof(Commands.ListConfigCommand),
-        Parameters: new Dictionary<string, ParameterMetadata>
-        {
-            ["ConfiguredOnly"] = new("ConfiguredOnly", "ConfiguredOnly", typeof(bool), "Show only values configured in the configuration file or environment.", IsRequired: false, Aliases: [], AllowedValues: [])
-        },
-        ParameterAliases: new Dictionary<string, string>()
-    );
-
     private static readonly CommandMetadata s_infoConfig_PS = new(
         Name: "InfoConfigCommand",
         InvocationName: "Get-AzConfigInfo",
@@ -162,7 +148,6 @@ public class ExtensionIndex : IExtensionIndex
         ["Get-AzConfig"] = s_getConfig_PS,
         ["Set-AzConfig"] = s_setConfig_PS,
         ["Remove-AzConfig"] = s_removeConfig_PS,
-        ["Get-AzConfigList"] = s_listConfig_PS,
         ["Get-AzConfigInfo"] = s_infoConfig_PS,
     };
     // Full-path keys.

@@ -34,18 +34,18 @@ the command surface down to the bytes on disk.
 ### Command surface
 
 The `Config` extension (`src/Extensions/Config/`) registers five verbs under the `config`
-group (`src/Extensions/Config/ExtensionIndex.cs:8`). Each has a CLI invocation name and a
-mirror PowerShell cmdlet:
+group (`src/Extensions/Config/ExtensionIndex.cs:8`). PowerShell uses four cmdlets,
+combining keyed reads and enumeration in `Get-AzConfig`:
 
 | CLI command        | Processor             | PowerShell cmdlet  | Purpose                                       |
 | ------------------ | --------------------- | ------------------ | --------------------------------------------- |
 | `az config get`    | `GetConfigCommand`    | `Get-AzConfig`     | Read a key or section; PowerShell also lists all settings without `-Key` |
 | `az config set`    | `SetConfigCommand`    | `Set-AzConfig`     | Write a key; `--force` allows unknown keys    |
 | `az config delete` | `DeleteConfigCommand` | `Remove-AzConfig`  | Remove a key                                  |
-| `az config list`   | `ListConfigCommand`   | `Get-AzConfigList` | Enumerate effective values including defaults; configured-only filter available |
+| `az config list`   | `ListConfigCommand`   | `Get-AzConfig` (no `-Key`) | Enumerate effective values including defaults; configured-only filter available |
 | `az config info`   | `InfoConfigCommand`   | `Get-AzConfigInfo` | Describe the schema (keys, types, validation) |
 
-`az config list`, `Get-AzConfig`, and `Get-AzConfigList` include defaults unless
+`az config list` and parameterless `Get-AzConfig` include defaults unless
 `--configured-only` / `-ConfiguredOnly` is specified. The filter keeps file and
 environment values, including explicit assignments equal to their defaults.
 The old `--all` / `-IncludeDefaults` switches have been removed.
@@ -53,7 +53,7 @@ The old `--all` / `-IncludeDefaults` switches have been removed.
 All five processors derive from `ConfigCommandBase` (`src/Extensions/Config/Commands/ConfigCommandBase.cs:15`),
 which implements `IProcessor` and centralizes key normalization, value parsing, resolved-entry
 construction, and schema access. The PowerShell mirror lives in `src/PS/Config` (`Cmdlets.Config.csproj`)
-and shares the exact same processors, so behavior cannot drift between the two shells.
+and shares the same keyed-read processor and enumeration helpers with CLI.
 
 ### Key normalization — one canonical form for two shells
 

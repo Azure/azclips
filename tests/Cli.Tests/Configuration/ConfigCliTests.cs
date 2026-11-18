@@ -750,7 +750,7 @@ public class ConfigCliTests
     }
 
     [Fact]
-    public void PowerShellModule_ShouldDeclareFiveBinaryCmdlets()
+    public void PowerShellModule_ShouldDeclareFourBinaryCmdlets()
     {
         // Resolve path from test assembly location
         var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
@@ -773,7 +773,6 @@ public class ConfigCliTests
             "Get-AzConfig",
             "Set-AzConfig",
             "Remove-AzConfig",
-            "Get-AzConfigList",
             "Get-AzConfigInfo"
         };
 
@@ -784,6 +783,7 @@ public class ConfigCliTests
 
         Assert.Contains("Microsoft.Azure.Azclips.Cmdlets.Config.dll", manifestContent);
         Assert.Contains("FunctionsToExport = @()", manifestContent);
+        Assert.DoesNotContain("Get-AzConfigList", manifestContent);
     }
 
     [Fact]
@@ -815,7 +815,6 @@ public class ConfigCliTests
         Assert.Contains("Get-AzConfig", manifestContent);
         Assert.Contains("Set-AzConfig", manifestContent);
         Assert.Contains("Remove-AzConfig", manifestContent);
-        Assert.Contains("Get-AzConfigList", manifestContent);
         Assert.Contains("Get-AzConfigInfo", manifestContent);
     }
 
@@ -825,11 +824,10 @@ public class ConfigCliTests
         var extensionIndex = new Microsoft.Azure.Azclips.Extensions.Config.ExtensionIndex();
 
         var getMetadata = extensionIndex.GetCommandMetadata("Get-AzConfig", ClientType.PowerShell);
+        Assert.Contains("ConfiguredOnly", getMetadata.Parameters.Keys);
+        Assert.False(getMetadata.Parameters["Key"].IsRequired);
         Assert.DoesNotContain("Json", getMetadata.Parameters.Keys);
-
-        var listMetadata = extensionIndex.GetCommandMetadata("Get-AzConfigList", ClientType.PowerShell);
-        Assert.Contains("ConfiguredOnly", listMetadata.Parameters.Keys);
-        Assert.DoesNotContain("Json", listMetadata.Parameters.Keys);
+        Assert.DoesNotContain("Get-AzConfigList", extensionIndex.GetCommandKeys(ClientType.PowerShell));
     }
 
     private sealed class TestConfigurationProvider(string configFilePath) : IConfigurationProvider

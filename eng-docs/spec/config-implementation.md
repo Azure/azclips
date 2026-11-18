@@ -261,11 +261,11 @@ Add config cmdlets:
 - Get-AzConfig
 - Set-AzConfig
 - Remove-AzConfig
-- Get-AzConfigList
 - Get-AzConfigInfo
 
 Cmdlet behavior:
 
+- `Get-AzConfig` lists all effective settings without `-Key`, or reads a key or section with `-Key`; `-ConfiguredOnly` filters enumeration to file and environment values
 - same validation and force semantics as CLI
 - output typed PS objects
 - register key completer on module import
@@ -274,7 +274,7 @@ Cmdlet behavior:
 
 **What was built:**
 
-- `src/PS/Config/` — Config PowerShell module (5 cmdlets)
+- `src/PS/Config/` — Config PowerShell module (4 cmdlets)
 - `src/Extensions/Config/ExtensionIndex.cs` — Extended with PS metadata (s_psTable)
 
 **Key Implementation Details:**

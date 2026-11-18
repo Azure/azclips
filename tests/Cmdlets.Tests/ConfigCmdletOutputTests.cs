@@ -17,7 +17,6 @@ using Moq;
 using Tests.Common.Stubs;
 using GetAzConfigCmdlet = CmdletsConfig::Microsoft.Azure.Azclips.Cmdlets.Config.GetAzConfigCmdlet;
 using GetAzConfigInfoCmdlet = CmdletsConfig::Microsoft.Azure.Azclips.Cmdlets.Config.GetAzConfigInfoCmdlet;
-using GetAzConfigListCmdlet = CmdletsConfig::Microsoft.Azure.Azclips.Cmdlets.Config.GetAzConfigListCmdlet;
 
 namespace Cmdlets.Tests;
 
@@ -25,16 +24,13 @@ namespace Cmdlets.Tests;
 public class ConfigCmdletOutputTests
 {
     [Theory]
-    [InlineData("Get-AzConfig", null)]
-    [InlineData("Get-AzConfig", false)]
-    [InlineData("Get-AzConfig", true)]
-    [InlineData("Get-AzConfigList", null)]
-    [InlineData("Get-AzConfigList", false)]
-    [InlineData("Get-AzConfigList", true)]
-    public void ReadCmdlets_ShouldListDefaultsUnlessConfiguredOnly(string command, bool? configuredOnly)
+    [InlineData(null)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetConfig_ShouldListDefaultsUnlessConfiguredOnly(bool? configuredOnly)
     {
         using var fixture = new ConfigRunspace();
-        fixture.Shell.AddCommand(command);
+        fixture.Shell.AddCommand("Get-AzConfig");
         if (configuredOnly.HasValue)
         {
             fixture.Shell.AddParameter("ConfiguredOnly", new SwitchParameter(configuredOnly.Value));
@@ -84,7 +80,6 @@ public class ConfigCmdletOutputTests
 
     [Theory]
     [InlineData(typeof(GetAzConfigCmdlet))]
-    [InlineData(typeof(GetAzConfigListCmdlet))]
     [InlineData(typeof(GetAzConfigInfoCmdlet))]
     public void ReadCmdlets_ShouldEnumerateStructuredOutput(Type cmdletType)
     {
@@ -97,19 +92,16 @@ public class ConfigCmdletOutputTests
         Assert.True((bool)enumerateOutput.GetValue(cmdlet)!);
     }
 
-    [Theory]
-    [InlineData(typeof(GetAzConfigCmdlet))]
-    [InlineData(typeof(GetAzConfigListCmdlet))]
-    public void ReadCmdlets_ShouldNotExposeAsJson(Type cmdletType)
+    [Fact]
+    public void GetConfig_ShouldNotExposeAsJson()
     {
-        Assert.Null(cmdletType.GetProperty("AsJson"));
+        Assert.Null(typeof(GetAzConfigCmdlet).GetProperty("AsJson"));
     }
 
     [Fact]
     public void GetConfigCmdlets_ShouldDeclareStructuredOutputTypes()
     {
         AssertOutputType<GetAzConfigCmdlet>("Microsoft.Azure.Azclips.Extensions.Config.Models.ConfigEntry");
-        AssertOutputType<GetAzConfigListCmdlet>("Microsoft.Azure.Azclips.Extensions.Config.Models.ConfigEntry");
         AssertOutputType<GetAzConfigInfoCmdlet>(
             "Microsoft.Azure.Azclips.Extensions.Config.Models.ConfigKeyInfo",
             typeof(string).FullName!);
@@ -160,7 +152,6 @@ public class ConfigCmdletOutputTests
 
             var state = InitialSessionState.CreateDefault2();
             state.Commands.Add(new SessionStateCmdletEntry("Get-AzConfig", typeof(GetAzConfigCmdlet), null));
-            state.Commands.Add(new SessionStateCmdletEntry("Get-AzConfigList", typeof(GetAzConfigListCmdlet), null));
             _runspace = RunspaceFactory.CreateRunspace(state);
             _runspace.Open();
             Shell = PowerShell.Create();

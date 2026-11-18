@@ -136,6 +136,9 @@ One object per effective setting when listing, one configuration entry for an ex
 
 ## NOTES
 
+`Get-AzConfig` replaces `Get-AzConfigList`. Defaults are included automatically.
+Use `Get-AzConfig -ConfiguredOnly` to list only file and environment values.
+
 ## RELATED LINKS
 
-[Get-AzConfigList](Get-AzConfigList.md)
+[Get-AzConfigInfo](Get-AzConfigInfo.md)
