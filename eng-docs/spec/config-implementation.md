@@ -283,7 +283,7 @@ Cmdlet behavior:
 2. **Module Manifests:**
     - GUID must be valid hex only (0-9, a-f); invalid chars cause import failure
     - RequiredAssemblies path: `../../../artifacts/Debug/Core/` for Core DLLs and Microsoft.Extensions.\* dlls
-3. **Parameter Mapping:** PS uses PascalCase (-AsJson, -IncludeDefaults), cmdlet function maps to CLI command names before calling engine
+3. **Parameter Mapping:** PS uses PascalCase (-Key, -ConfiguredOnly), cmdlet function maps to CLI command names before calling engine
 4. **ShouldProcess:** Set-AzConfig and Remove-AzConfig use standard PowerShell ShouldProcess/Confirm semantics
 5. **Module Initialization:** Config.psm1 initializes DI container and loads all exported functions from exports/ folder
 

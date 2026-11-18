@@ -109,10 +109,7 @@ Get-AzConfig | Export-Csv -NoTypeInformation config.csv
 
 Environment overrides win over file settings, which win over built-in defaults.
 `-ConfiguredOnly` removes default-sourced entries, not values equal to defaults.
-`Get-AzConfig` combines single-setting and collection reads. The separate
-`Get-AzConfigList` cmdlet and its `-IncludeDefaults` switch have been removed.
-Defaults are now included automatically. Replace previous list invocations with
-`Get-AzConfig`; to retain configured-only output, use `Get-AzConfig -ConfiguredOnly`.
+`Get-AzConfig` combines single-setting and collection reads.
 
 ### Delete a configuration value
 

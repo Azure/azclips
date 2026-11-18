@@ -48,7 +48,6 @@ combining keyed reads and enumeration in `Get-AzConfig`:
 `az config list` and parameterless `Get-AzConfig` include defaults unless
 `--configured-only` / `-ConfiguredOnly` is specified. The filter keeps file and
 environment values, including explicit assignments equal to their defaults.
-The old `--all` / `-IncludeDefaults` switches have been removed.
 
 All five processors derive from `ConfigCommandBase` (`src/Extensions/Config/Commands/ConfigCommandBase.cs:15`),
 which implements `IProcessor` and centralizes key normalization, value parsing, resolved-entry

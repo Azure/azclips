@@ -224,8 +224,6 @@ az config list --output table
 
 Environment overrides win over file settings, which win over built-in defaults.
 `--configured-only` removes default-sourced entries, not values equal to defaults.
-Defaults are now included automatically; the previous `--all` flag has been removed.
-Scripts needing the previous list behavior should use `--configured-only`.
 
 ### Delete a configuration value
 

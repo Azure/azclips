@@ -30,7 +30,3 @@ az config list --output json
 ```bash
 az config list --output table
 ```
-
-### Migration from the previous default
-
-Defaults are now included automatically. Replace `az config list --all` with `az config list`. To retain the previous configured-only behavior, use `az config list --configured-only`.
