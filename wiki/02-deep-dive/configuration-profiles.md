@@ -39,11 +39,16 @@ mirror PowerShell cmdlet:
 
 | CLI command        | Processor             | PowerShell cmdlet  | Purpose                                       |
 | ------------------ | --------------------- | ------------------ | --------------------------------------------- |
-| `az config get`    | `GetConfigCommand`    | `Get-AzConfig`     | Read a key or a whole section (with defaults) |
+| `az config get`    | `GetConfigCommand`    | `Get-AzConfig`     | Read a key or section; PowerShell also lists all settings without `-Key` |
 | `az config set`    | `SetConfigCommand`    | `Set-AzConfig`     | Write a key; `--force` allows unknown keys    |
 | `az config delete` | `DeleteConfigCommand` | `Remove-AzConfig`  | Remove a key                                  |
-| `az config list`   | `ListConfigCommand`   | `Get-AzConfigList` | Enumerate effective values with their source  |
+| `az config list`   | `ListConfigCommand`   | `Get-AzConfigList` | Enumerate effective values including defaults; configured-only filter available |
 | `az config info`   | `InfoConfigCommand`   | `Get-AzConfigInfo` | Describe the schema (keys, types, validation) |
+
+`az config list`, `Get-AzConfig`, and `Get-AzConfigList` include defaults unless
+`--configured-only` / `-ConfiguredOnly` is specified. The filter keeps file and
+environment values, including explicit assignments equal to their defaults.
+The old `--all` / `-IncludeDefaults` switches have been removed.
 
 All five processors derive from `ConfigCommandBase` (`src/Extensions/Config/Commands/ConfigCommandBase.cs:15`),
 which implements `IProcessor` and centralizes key normalization, value parsing, resolved-entry

@@ -17,6 +17,10 @@
 -->
 ## Upcoming Release
 
+* List effective configuration including built-in defaults with `Get-AzConfig` and `Get-AzConfigList`.
+    - Defaults are now included automatically; `-IncludeDefaults` has been removed. Use `-ConfiguredOnly` to show only file and environment values.
+    - `Get-AzConfig` no longer requires `-Key`; keyed and section reads retain their existing behavior.
+
 ## Version 0.1.0
 
 * First preview

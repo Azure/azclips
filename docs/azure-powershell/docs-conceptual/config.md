@@ -97,15 +97,22 @@ Set-AzConfig -Key core.logging.level -Value debug -Force
 ### List all configuration
 
 ```powershell
-# List user config only
-Get-AzConfigList
+# List all effective values, including defaults for unset keys
+Get-AzConfig
 
-# List with defaults
-Get-AzConfigList -IncludeDefaults
+# List only values configured in the file or environment
+Get-AzConfig -ConfiguredOnly
 
 # Export structured objects
-Get-AzConfigList -IncludeDefaults | Export-Csv -NoTypeInformation config.csv
+Get-AzConfig | Export-Csv -NoTypeInformation config.csv
 ```
+
+Environment overrides win over file settings, which win over built-in defaults.
+`-ConfiguredOnly` removes default-sourced entries, not values equal to defaults.
+`Get-AzConfigList` supports the same listing behavior and switch.
+Defaults are now included automatically; the previous `-IncludeDefaults` switch
+has been removed. Scripts needing the previous list behavior should use
+`Get-AzConfigList -ConfiguredOnly`.
 
 ### Delete a configuration value
 
@@ -155,13 +162,16 @@ Get-AzConfig -Key core.logging.level
 ### Workflow: Check all settings with defaults
 
 ```powershell
-Get-AzConfigList -IncludeDefaults
+Get-AzConfig
 ```
 
 ### Workflow: Reset to defaults
 
 ```powershell
-Get-AzConfigList | ForEach-Object {
+# Delete file settings that are not shadowed by environment overrides
+Get-AzConfig -ConfiguredOnly | Where-Object Source -eq 'global config' | ForEach-Object {
   Remove-AzConfig -Key $_.Key -Force
 }
 ```
+
+Unset mapped environment variables first to also reset file settings they shadow.

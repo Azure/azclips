@@ -20,7 +20,7 @@ List all configuration settings.
 ### __AllParameterSets
 
 ```
-Get-AzConfigList [-IncludeDefaults] [<CommonParameters>]
+Get-AzConfigList [-ConfiguredOnly] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -28,33 +28,36 @@ Get-AzConfigList [-IncludeDefaults] [<CommonParameters>]
 ## DESCRIPTION
 
 Display all current configuration values.
-By default, only explicitly-set values are shown.
-Use `-IncludeDefaults` to include default values.
+By default, built-in defaults are included for unset keys.
+Environment variables override the configuration file, which overrides defaults.
+Use `-ConfiguredOnly` to omit entries whose source is `default`.
+File and environment values are retained even when equal to their default.
 Each configuration entry is emitted as a structured object.
+You can also use `Get-AzConfig` to list settings.
 
 ## EXAMPLES
 
 ### List all configuration
 
-Display every explicitly-set configuration value.
+Display every effective configuration value, including defaults for unset keys.
 
 ```powershell
 Get-AzConfigList
 ```
 
-### List with defaults
+### List only explicitly configured values
 
-Include default values for keys that have not been explicitly set.
+Include only values configured in the configuration file or environment.
 
 ```powershell
-Get-AzConfigList -IncludeDefaults
+Get-AzConfigList -ConfiguredOnly
 ```
 
 ## PARAMETERS
 
-### -IncludeDefaults
+### -ConfiguredOnly
 
-Include keys that have not been explicitly set, showing their built-in default values. Without this switch only keys with user-assigned values are listed.
+Show only values configured in the configuration file or environment, omitting entries whose effective source is `default`.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -86,8 +89,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Config.Models.ConfigEntry
 
-One object per configured entry. Add `-IncludeDefaults` to also emit keys that have not been explicitly set.
+One object per effective entry, including defaults unless `-ConfiguredOnly` is specified.
 
 ## NOTES
 
+Defaults are now included automatically. Replace `Get-AzConfigList -IncludeDefaults` with `Get-AzConfigList` or `Get-AzConfig`. To retain the previous configured-only behavior, use `-ConfiguredOnly`.
+
 ## RELATED LINKS
+
+[Get-AzConfig](Get-AzConfig.md)

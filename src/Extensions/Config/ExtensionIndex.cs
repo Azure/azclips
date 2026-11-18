@@ -18,7 +18,8 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Commands.GetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["Key"] = new("Key", "Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: [])
+            ["Key"] = new("Key", "Key", typeof(string), "Configuration key or section in dot notation. Omit to list all effective settings, including defaults.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["ConfiguredOnly"] = new("ConfiguredOnly", "ConfiguredOnly", typeof(bool), "Show only values configured in the configuration file or environment.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
     );
@@ -63,7 +64,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["All"] = new("All", "All", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: [])
+            ["ConfiguredOnly"] = new("ConfiguredOnly", "ConfiguredOnly", typeof(bool), "Show only values configured in the configuration file or environment.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
     );
@@ -137,7 +138,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["all"] = new("All", "all", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: [])
+            ["configured-only"] = new("ConfiguredOnly", "configured-only", typeof(bool), "Show only values configured in the configuration file or environment.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
     );
