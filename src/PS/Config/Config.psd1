@@ -85,7 +85,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'Get-AzConfig', 'Set-AzConfig', 'Remove-AzConfig', 'Get-AzConfigList', 'Get-AzConfigInfo'
+CmdletsToExport = 'Get-AzConfig', 'Set-AzConfig', 'Remove-AzConfig', 'Get-AzConfigInfo'
 
 # Variables to export from this module
 VariablesToExport = @()

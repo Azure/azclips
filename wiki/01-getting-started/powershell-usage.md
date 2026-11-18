@@ -23,7 +23,7 @@ The `Az` rollup loads feature modules through its `RequiredModules` list
 | **Accounts** | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzProfile`, `Set-AzProfile`, `Remove-AzProfile` | `src/PS/Accounts/Cmdlets/ConnectAccountCmdlet.cs:11` |
 | **Resources** | `New-AzResourceGroup`, `Get-AzResourceGroup`, `New-AzResourceGroupDeployment`, `Invoke-AzRestMethod` | `src/PS/Resources/Cmdlets/NewResourceGroupCmdlet.cs` |
 | **Compute** | `New-AzVM`, `Get-AzVM`, `Remove-AzVM` | `src/PS/Compute/Cmdlets/NewVMCmdlet.cs:11` |
-| **Config** | `Get-AzConfig`, `Set-AzConfig`, `Get-AzConfigList`, `Get-AzConfigInfo`, `Remove-AzConfig` | `src/PS/Config/Cmdlets/SetAzConfigCmdlet.cs` |
+| **Config** | `Get-AzConfig`, `Set-AzConfig`, `Get-AzConfigInfo`, `Remove-AzConfig` | `src/PS/Config/Cmdlets/SetAzConfigCmdlet.cs` |
 | **Network** | `Get-AzPublicIpAddress`, `New-AzNetworkInterface`, `Get-AzNetworkSecurityGroup` | `src/PS/Network/Network.psd1:1` |
 | **KeyVault** | Secret and certificate lifecycle cmdlets | `src/PS/KeyVault/KeyVault.psd1:1` |
 | **ManagedServiceIdentity**, **MsGraph**, **Storage** | Identity, directory, and storage module surfaces; inspect `Get-Command` for the actual exported commands | `src/PS/Az/Az.psd1:17` |

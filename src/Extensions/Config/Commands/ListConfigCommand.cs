@@ -8,18 +8,13 @@ namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
 public sealed class ListConfigCommand : ConfigCommandBase
 {
-    [ArgumentInfo(Required = false, Description = @"Include default values.", SerializedName = @"All")]
-    public bool All { get; set; }
+    [ArgumentInfo(Required = false, Description = @"Show only values configured in the configuration file or environment.", SerializedName = @"ConfiguredOnly")]
+    public bool ConfiguredOnly { get; set; }
 
     public override async Task ProcessAsync()
     {
         using var _ = StartActivity($"{nameof(ListConfigCommand)}.{nameof(ProcessAsync)}", ActivityKind.Internal);
 
-        var entries = (await GetResolvedEntriesAsync(includeDefaults: All).ConfigureAwait(false))
-            .Values
-            .OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        await WriteOutput(entries, CancellationToken).ConfigureAwait(false);
+        await WriteEntriesAsync(includeDefaults: !ConfiguredOnly).ConfigureAwait(false);
     }
 }

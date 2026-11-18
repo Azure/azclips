@@ -32,7 +32,7 @@ public class PsColdStartupBenchmarks : StartupBenchmarkBase
     public void Evict() => StartupEviction.Evict();
 
     [Benchmark(Description = "config")]
-    public void Config() => RunToExit(PsStartInfo(_configManifest, "Get-AzConfigList"));
+    public void Config() => RunToExit(PsStartInfo(_configManifest, "Get-AzConfig"));
 
     [Benchmark(Description = "login")]
     public void Login() => RunToExit(PsStartInfo(_accountsManifest, "Connect-AzAccount", "-SubscriptionId", "00000000-0000-0000-0000-000000000000"));
