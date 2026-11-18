@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Management.Automation;
+using System.Management.Automation.Host;
+using System.Management.Automation.Language;
 using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Agent.Providers;
@@ -10,6 +12,7 @@ using Core.Telemetry;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ParameterMetadata = System.Management.Automation.ParameterMetadata;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
@@ -42,7 +45,7 @@ public class SendRecoveryCmdlet : PSCmdlet
         if (!options.Recovery.IsEnabled)
             throw new PSInvalidOperationException(
                 "AI recovery is off. Set agent.recovery.trigger to manual or auto before troubleshooting. " +
-                "In PowerShell, run: Set-AzConfig -Key agent.recovery.trigger -Value manual");
+                "Install and import the AzCLIPS Az.Config module, then run: Set-AzConfig -Key agent.recovery.trigger -Value manual");
         if (!options.IsBuiltinProvider)
             throw new PSInvalidOperationException("PowerShell recovery requires agent.provider to be builtin.");
 
@@ -52,7 +55,12 @@ public class SendRecoveryCmdlet : PSCmdlet
                 : "That recovery ID is not in this session. Use Get-AzRecoveryId to list available errors.");
 
         var style = RecoverySessionSettings.Resolve(options, RecoveryTrigger.Manual, Style);
-        if (!ShouldProcess(failure.Id, "Send Azure PowerShell error to Azure AI"))
+        if (!ShouldProcess(failure.Id, "Send Azure PowerShell diagnostic metadata to Azure AI"))
+            return;
+
+        var diagnostic = DescribeError(failure.Error);
+        var ui = style.IsInteractive ? Host.UI : null;
+        if (style.IsInteractive && !ConfirmInteractive(ui, diagnostic))
             return;
 
         var endpointWarnings = new List<string>();
@@ -62,22 +70,105 @@ public class SendRecoveryCmdlet : PSCmdlet
 
         List<RecoveryMessage> messages =
         [
-            new("user", $"Command: {failure.Error.InvocationInfo.MyCommand.Name}\nError: {failure.Error}"),
+            new("user", diagnostic),
         ];
         while (true)
         {
-            var answer = SendAsync(s_http, endpoint, options.Builtin, accessToken, messages, style, _cts.Token).GetAwaiter().GetResult();
-            WriteObject(answer);
-            if (!style.IsInteractive)
-                return;
-
-            Host.UI.Write("Follow-up (Enter to finish): ");
-            var followUp = Host.UI.ReadLine();
-            if (string.IsNullOrWhiteSpace(followUp))
+            var answer = SendAsync(s_http, endpoint, options, accessToken, messages, style, _cts.Token).GetAwaiter().GetResult();
+            var followUp = WriteAnswerAndReadFollowUp(answer, ui, WriteObject);
+            if (followUp is null)
                 return;
             messages.Add(new("assistant", answer));
             messages.Add(new("user", followUp));
         }
+    }
+
+    internal static string DescribeError(ErrorRecord error)
+    {
+        var invocation = error.InvocationInfo;
+        var cmdlet = (CmdletInfo)invocation.MyCommand;
+        var parameterNames = invocation.BoundParameters.Keys.ToList();
+        var bindingError = error.Exception as ParameterBindingException;
+        var kind = bindingError?.ErrorId switch
+        {
+            "AmbiguousParameterSet" => "Conflicting or incomplete parameter set",
+            "NamedParameterNotFound" => "Unknown parameter",
+            "MissingMandatoryParameter" => "Missing mandatory parameter",
+            _ when bindingError is not null => "Parameter binding failed",
+            _ => null,
+        };
+        if (kind is not null && invocation.Statement is { Length: > 0 } statement)
+        {
+            // Binding can fail before PowerShell populates BoundParameters. Read names, never values.
+            var ast = Parser.ParseInput(statement, out _, out _);
+            if (ast.EndBlock?.Statements.FirstOrDefault() is PipelineAst pipeline &&
+                pipeline.PipelineElements.FirstOrDefault() is CommandAst command)
+            {
+                parameterNames.AddRange(command.CommandElements.OfType<CommandParameterAst>()
+                    .Select(parameter => parameter.ParameterName));
+            }
+        }
+
+        // Only emit metadata from the cmdlet definition and fixed classifications, not error text.
+        var metadata = cmdlet.Parameters;
+        var parameters = parameterNames.Select(name => FindParameterName(metadata, name))
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .Select(name => $"-{name}")
+            .Order(StringComparer.Ordinal);
+        return $"Command: {cmdlet.Name}\nError category: {error.CategoryInfo.Category}" +
+            (kind is null ? "" : $"\nBinding error: {kind}") +
+            $"\nRecognized parameters: {string.Join(", ", parameters)}";
+    }
+
+    private static string? FindParameterName(Dictionary<string, ParameterMetadata> metadata, string name)
+    {
+        var exact = metadata.Values.FirstOrDefault(parameter =>
+            parameter.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+            parameter.Aliases.Contains(name, StringComparer.OrdinalIgnoreCase));
+        if (exact is not null)
+            return exact.Name;
+
+        var matches = metadata.Values.Where(parameter => parameter.Name.StartsWith(name, StringComparison.OrdinalIgnoreCase) ||
+            parameter.Aliases.Any(alias => alias.StartsWith(name, StringComparison.OrdinalIgnoreCase))).Take(2).ToArray();
+        return matches.Length == 1 ? matches[0].Name : null;
+    }
+
+    internal static bool ConfirmInteractive(PSHostUserInterface? ui, string diagnostic)
+    {
+        const string unsupported = "Interactive recovery requires a host that can read input. Use -Style oneshot instead.";
+        if (ui is null)
+            throw new PSInvalidOperationException(unsupported);
+
+        string? answer;
+        try
+        {
+            ui.WriteLine("Azure AI will receive this diagnostic:");
+            ui.WriteLine(diagnostic);
+            ui.WriteLine("Follow-ups are sent as typed and are not redacted. Do not include secrets or sensitive data.");
+            ui.Write("Start interactive recovery? [y/N]: ");
+            answer = ui.ReadLine();
+        }
+        catch (Exception ex) when (ex is PSInvalidOperationException or HostException or NotSupportedException)
+        {
+            throw new PSInvalidOperationException(unsupported, ex);
+        }
+
+        return answer is null
+            ? throw new PSInvalidOperationException(unsupported)
+            : string.Equals(answer.Trim(), "y", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static string? WriteAnswerAndReadFollowUp(string answer, PSHostUserInterface? ui, Action<string> writeOutput)
+    {
+        ui?.WriteLine(answer);
+        writeOutput(answer);
+        if (ui is null)
+            return null;
+
+        ui.Write("Follow-up (Enter to finish): ");
+        var followUp = ui.ReadLine();
+        return string.IsNullOrWhiteSpace(followUp) ? null : followUp;
     }
 
     private static async Task<(string Endpoint, string AccessToken)> ResolveModelAsync(
@@ -100,18 +191,19 @@ public class SendRecoveryCmdlet : PSCmdlet
 
     internal sealed record RecoveryMessage(string Role, string Content);
 
-    internal static async Task<string> SendAsync(HttpClient http, string endpoint, BuiltinProviderOptions options,
+    internal static async Task<string> SendAsync(HttpClient http, string endpoint, AgentOptions options,
         string accessToken, IReadOnlyList<RecoveryMessage> messages, RecoverySessionSettings style, CancellationToken token)
     {
         var promptName = $"RecoveryPrompts.{style.SessionStyle}.md";
         using var prompt = new StreamReader(typeof(SendRecoveryCmdlet).Assembly.GetManifestResourceStream(promptName)
             ?? throw new InvalidOperationException($"The embedded PowerShell recovery prompt '{promptName}' was not found."));
-        var url = $"{endpoint.TrimEnd('/')}/responses?api-version={Uri.EscapeDataString(options.ApiVersion)}";
+        var url = $"{endpoint.TrimEnd('/')}/responses?api-version={Uri.EscapeDataString(options.Builtin.ApiVersion)}";
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Content = JsonContent.Create(new
         {
-            model = options.ModelId,
+            model = options.Builtin.ModelId,
+            reasoning = new { effort = options.ReasoningEffort.ToLowerInvariant() },
             instructions = await prompt.ReadToEndAsync(token).ConfigureAwait(false),
             input = messages,
             store = false,

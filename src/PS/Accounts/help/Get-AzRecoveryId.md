@@ -29,7 +29,9 @@ Get-AzRecoveryId [<CommonParameters>]
 
 Lists errors from AzCLIPS cmdlets in the current PowerShell session, newest first.
 Each result includes an `Id` and the original PowerShell `Error` record. An ID remains
-valid while its error is in `$Error`. CLI recovery IDs cannot be used here.
+valid while its error is in `$Error`, unless the recovery trigger is set to `off` or
+reset through AzCLIPS configuration in the PowerShell process. This invalidates
+issued IDs without clearing `$Error`. CLI recovery IDs cannot be used here.
 
 This cmdlet does not send error details to Azure AI.
 

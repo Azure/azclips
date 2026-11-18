@@ -27,12 +27,21 @@ Send-AzRecovery [-Id <string>] [-Style <string>] [-WhatIf] [-Confirm] [<CommonPa
 
 ## DESCRIPTION
 
-Sends the failed cmdlet's name and error text to the built-in Azure AI provider.
+Sends the failed cmdlet's name, error category, recognized parameter names, and,
+for binding failures, a general description of the binding problem to the built-in
+Azure AI provider. The initial request omits raw error text, URLs, argument values,
+and script text. Use `Get-AzRecoveryId` to inspect the original error locally.
 By default, it selects the latest AzCLIPS cmdlet error in the current PowerShell session.
 Suggested commands are not run automatically.
 
-Sign in with `Connect-AzAccount`, use the `builtin` provider, and enable recovery
-with `Set-AzConfig -Key agent.recovery.trigger -Value manual`.
+Sign in with `Connect-AzAccount` and use the `builtin` provider. Install and import
+the AzCLIPS `Az.Config` module (separate from Accounts), then enable recovery with
+`Set-AzConfig -Key agent.recovery.trigger -Value manual`.
+
+Interactive recovery previews the diagnostic and asks before sending it. Follow-ups
+are sent as typed, without redaction, and previous turns are included in each
+subsequent request. Do not include passwords, tokens, sensitive URLs, or other
+private data in follow-ups.
 
 ## EXAMPLES
 
@@ -57,7 +66,7 @@ Send-AzRecovery -Id '48212-cfd9ddb4' -WhatIf
 
 ### -Confirm
 
-Prompts for confirmation before sending the error.
+Prompts for confirmation before sending the diagnostic.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -102,7 +111,9 @@ HelpMessage: ''
 ### -Style
 
 Overrides `agent.recovery.style` for this invocation. `oneshot` returns one response.
-`interactive` accepts follow-up input; press Enter at the empty prompt to finish.
+`interactive` displays each response in the host as well as returning it to the
+pipeline. Press Enter at the empty follow-up prompt to finish. Use `oneshot` in
+noninteractive hosts.
 
 ```yaml
 Type: System.String
@@ -125,7 +136,7 @@ HelpMessage: ''
 
 ### -WhatIf
 
-Shows which error would be sent without sending it.
+Shows which error would be used without sending a diagnostic.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
