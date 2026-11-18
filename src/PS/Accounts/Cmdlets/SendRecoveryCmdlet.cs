@@ -20,7 +20,10 @@ namespace Microsoft.Azure.Azclips.Cmdlets.Accounts;
 [OutputType(typeof(string))]
 public class SendRecoveryCmdlet : PSCmdlet
 {
-    private static readonly HttpClient s_http = new(new HttpClientHandler { AllowAutoRedirect = false });
+    private static readonly HttpClient s_http = new(new HttpClientHandler { AllowAutoRedirect = false })
+    {
+        Timeout = TimeSpan.FromMinutes(10),
+    };
     private readonly CancellationTokenSource _cts = new();
 
     [Parameter]
