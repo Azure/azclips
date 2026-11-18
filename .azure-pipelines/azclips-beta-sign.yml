@@ -154,7 +154,7 @@ stages:
     dependency_stage: VerifySignedDistribution
     signed_artifact_name: ${{ variables.SignedArtifactName }}
 
-- template: templates/dist/stages/build-signed-powershell-docker.yml
+- template: templates/dist/stages/build-signed-docker.yml
   parameters:
     dependency_stage: VerifySignedDistribution
     amd64_pool: ${{ variables.ubuntu_pool }}
