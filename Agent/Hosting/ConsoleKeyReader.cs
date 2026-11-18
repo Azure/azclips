@@ -75,7 +75,7 @@ public sealed class ConsoleKeyReader : IDisposable
     public static bool IsCtrlC(ConsoleKeyInfo key) =>
         (key.Key == ConsoleKey.C
             && (key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) == ConsoleModifiers.Control)
-        || key.KeyChar == '\x03';
+        || (key.KeyChar == '\x03' && (key.Modifiers & ConsoleModifiers.Alt) == 0);
 
     public static bool IsEscape(ConsoleKeyInfo key) => key.Key == ConsoleKey.Escape;
 

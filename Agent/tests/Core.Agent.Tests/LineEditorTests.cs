@@ -241,4 +241,34 @@ public class LineEditorTests
         editor.Render(output, "> ");
         Assert.Equal("\x1b[2A\r\x1b[J> \r\x1b[2C", output.ToString());
     }
+
+    [Theory]
+    [InlineData("ﾞ", 1)]
+    [InlineData("ﾟ", 1)]
+    [InlineData("ﾞﾟ", 2)]
+    [InlineData("\U0001F44B\U0001F3FDﾞ", 3)]
+    [InlineData("\U0001F468‍\U0001F469ﾟ", 3)]
+    [InlineData("界ﾞ️", 3)]
+    public void AttachedHalfwidthMark_CountsAfterEmoji(string input, int expected)
+    {
+        Assert.Equal(expected, LineEditor.DisplayWidth(input));
+    }
+
+    [Fact]
+    public void HalfwidthMarkAfterEmoji_AlsoMovesRenderedCursorOneColumn()
+    {
+        var editor = new LineEditor(() => 80);
+        foreach (var ch in "\U0001F44B\U0001F3FDﾞ") editor.Apply(Keys.Char(ch));
+        var output = new StringWriter();
+        editor.Render(output, "> ");
+        Assert.EndsWith("\r\x1b[5C", output.ToString());
+    }
+
+    [Theory]
+    [InlineData('\x04', ConsoleKey.D)]
+    [InlineData('\x1a', ConsoleKey.Z)]
+    public void AltGrControlEof_IsNotEof(char ch, ConsoleKey key)
+    {
+        Assert.Equal(LineEditResult.Continue, new LineEditor().Apply(new ConsoleKeyInfo(ch, key, false, true, true)));
+    }
 }

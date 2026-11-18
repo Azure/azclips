@@ -262,4 +262,10 @@ public class ConsoleKeyReaderTests
             .WaitAsync(AgentTestTimeouts.HangGuard);
         Assert.Equal(new LineRead(LineReadKind.Submitted, "y"), next);
     }
+
+    [Fact]
+    public void AltGrControlC_IsNotInterrupt()
+    {
+        Assert.False(ConsoleKeyReader.IsCtrlC(new ConsoleKeyInfo('\x03', ConsoleKey.C, false, true, true)));
+    }
 }

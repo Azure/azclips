@@ -389,7 +389,8 @@ public sealed class ConsoleApprovalPrompt
     /// <see cref="ApprovalOutcome.Interrupted"/> for Ctrl+C. The SDK tool call is
     /// settled (true only for Yes) before this method returns.
     /// </returns>
-    public async Task<ApprovalOutcome> PumpOneAsync(CancellationToken ct)
+    /// <param name="turnEnded">A task that completes when the turn ends; an answer read after that is denied.</param>
+    public async Task<ApprovalOutcome> PumpOneAsync(CancellationToken ct, Task? turnEnded = null)
     {
         PendingApproval pending;
         try
@@ -447,7 +448,7 @@ public sealed class ConsoleApprovalPrompt
 
             answer = await ReadAnswerAsync(prompt, pending.Result.Task, ct).ConfigureAwait(false);
             // A read that completes after the request ended or the turn ended answers nothing.
-            if (pending.Result.Task.IsCompleted || ct.IsCancellationRequested)
+            if (pending.Result.Task.IsCompleted || ct.IsCancellationRequested || turnEnded?.IsCompleted == true)
             {
                 pending.Result.TrySetResult(false);
                 return ApprovalOutcome.NotHandled;
@@ -485,12 +486,19 @@ public sealed class ConsoleApprovalPrompt
             editor.Detach();
             editor.Render(output, prompt);
         });
+        // Ends the line and unregisters the redraw in one renderer lock, so renderer
+        // output never redraws a closed approval.
+        Action finish = () =>
+        {
+            editor.Finish(output, prompt);
+            _output?.SetInputLine(null, null);
+        };
         // The read stops when the request ends (the turn finished) or ct fires.
         // readCts is cancelled only here, before it is disposed.
         using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         try
         {
-            var read = ReadKeysAsync(editor, prompt, output, exclusive, readCts.Token);
+            var read = ReadKeysAsync(editor, prompt, output, exclusive, finish, readCts.Token);
             await Task.WhenAny(read, requestDone).ConfigureAwait(false);
             if (!read.IsCompleted)
                 readCts.Cancel();
@@ -502,11 +510,11 @@ public sealed class ConsoleApprovalPrompt
             catch (OperationCanceledException)
             {
                 // The turn ended while the approval was open: close its line.
-                exclusive(() => editor.Finish(output, prompt));
+                exclusive(finish);
                 throw;
             }
             if (answer.Kind is LineReadKind.Escape or LineReadKind.CtrlC)
-                exclusive(() => editor.Finish(output, prompt));
+                exclusive(finish);
             return answer;
         }
         finally
@@ -519,7 +527,8 @@ public sealed class ConsoleApprovalPrompt
     // redrawn under the renderer lock, so a renderer redraw never sees a half-applied
     // edit. Ctrl+C and Esc end the read; the keys after them stay queued.
     private async Task<LineRead> ReadKeysAsync(
-        LineEditor editor, string prompt, TextWriter output, Action<Action> exclusive, CancellationToken ct)
+        LineEditor editor, string prompt, TextWriter output, Action<Action> exclusive, Action finish,
+        CancellationToken ct)
     {
         var keys = _keys!;
         exclusive(() => editor.Render(output, prompt));
@@ -527,7 +536,7 @@ public sealed class ConsoleApprovalPrompt
         {
             if (!await keys.WaitToReadAsync(ct).ConfigureAwait(false))
             {
-                exclusive(() => editor.Finish(output, prompt));
+                exclusive(finish);
                 return new LineRead(LineReadKind.EndOfInput);
             }
 
@@ -549,11 +558,11 @@ public sealed class ConsoleApprovalPrompt
                     switch (editor.Apply(key))
                     {
                         case LineEditResult.Submit:
-                            editor.Finish(output, prompt);
+                            finish();
                             done = new LineRead(LineReadKind.Submitted, editor.Text);
                             return;
                         case LineEditResult.EndOfInput:
-                            editor.Finish(output, prompt);
+                            finish();
                             done = new LineRead(LineReadKind.EndOfInput);
                             return;
                     }

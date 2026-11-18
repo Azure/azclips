@@ -762,4 +762,41 @@ public class AgentModeEntryInputTests
             release.SetResult();
         });
     }
+
+    private sealed class CompletingReader(TaskCompletionSource send) : TextReader
+    {
+        public override string? ReadLine()
+        {
+            send.SetResult();
+            return "y";
+        }
+    }
+
+    [Fact]
+    public async Task ActualTurnEndDuringSynchronousRead_CannotApprove()
+    {
+        var send = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var approval = new ConsoleApprovalPrompt();
+        Task<bool>? tool = null;
+        var turns = new ScriptedTurns().Then(_ =>
+        {
+            tool = approval.RequestRewriteAsync("powershell", "az group delete", CancellationToken.None);
+            return send.Task;
+        });
+        var originalInput = Console.In;
+        var originalOutput = Console.Out;
+        Console.SetIn(new CompletingReader(send));
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            await AgentModeEntry.RunChatLoopAsync(turns, approval, null, null, "first", false, CancellationToken.None)
+                .WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.False(await tool!.WaitAsync(AgentTestTimeouts.HangGuard));
+        }
+        finally
+        {
+            Console.SetIn(originalInput);
+            Console.SetOut(originalOutput);
+        }
+    }
 }

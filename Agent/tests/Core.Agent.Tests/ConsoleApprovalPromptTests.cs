@@ -538,4 +538,54 @@ public class ConsoleApprovalPromptTests
         Assert.Equal("use rg2", ConsoleApprovalPrompt.Settle(text, new LineRead(LineReadKind.Submitted, "use rg2")).FeedbackPrompt);
         Assert.False(text.Task.Result);
     }
+
+    private sealed class AfterExclusiveRenderer(ConsoleAgentRenderer inner) : IAgentRenderer
+    {
+        public Action? After;
+        public void OnText(string text) => inner.OnText(text);
+        public void OnEvent(AgentEvent ev) => inner.OnEvent(ev);
+        public void OnSpinnerFrame(string frame, string verb) => inner.OnSpinnerFrame(frame, verb);
+        public void OnSpinnerStop() => inner.OnSpinnerStop();
+        public void RunExclusive(Action action)
+        {
+            inner.RunExclusive(action);
+            After?.Invoke();
+        }
+    }
+
+    [Fact]
+    public async Task RendererOutputBetweenFinishAndUnregister_DoesNotReopenApproval()
+    {
+        var source = new FakeKeySource();
+        using var keys = new ConsoleKeyReader(source);
+        keys.Start();
+        var inner = new ConsoleAgentRenderer();
+        var renderer = new AfterExclusiveRenderer(inner);
+        var approval = new ConsoleApprovalPrompt(renderer: renderer, keys: keys, output: inner);
+        var writer = new PromptSignalWriter();
+        var previous = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var tool = approval.RequestRewriteAsync("powershell", "az group delete", CancellationToken.None);
+            var pump = approval.PumpOneAsync(CancellationToken.None);
+            await writer.ApprovalShown.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            // Renderer output right after the lock that ends the approval line.
+            renderer.After = () =>
+            {
+                if (!writer.ToString().EndsWith(Environment.NewLine, StringComparison.Ordinal)) return;
+                renderer.After = null;
+                inner.OnText("tool output");
+            };
+            source.Type(Keys.Esc);
+            await pump.WaitAsync(AgentTestTimeouts.HangGuard);
+            Assert.False(await tool.WaitAsync(AgentTestTimeouts.HangGuard));
+            var afterOutput = writer.ToString().Split("tool output")[1];
+            Assert.DoesNotContain("[y]es", afterOutput);
+        }
+        finally
+        {
+            Console.SetOut(previous);
+        }
+    }
 }

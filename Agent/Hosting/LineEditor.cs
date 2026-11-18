@@ -59,7 +59,7 @@ public sealed class LineEditor
         if (control && key.Key is ConsoleKey.D or ConsoleKey.Z)
             return IsEmpty ? LineEditResult.EndOfInput : LineEditResult.Continue;
         // Ctrl+D / Ctrl+Z can also arrive as the raw control characters.
-        if (key.KeyChar is '\x04' or '\x1a')
+        if (!alt && key.KeyChar is '\x04' or '\x1a')
             return IsEmpty ? LineEditResult.EndOfInput : LineEditResult.Continue;
 
         switch (key.Key)
@@ -239,7 +239,9 @@ public sealed class LineEditor
     private static int ClusterWidth(ReadOnlySpan<char> cluster)
     {
         var first = true;
+        var emoji = false;
         var width = 0;
+        var marks = 0;
         foreach (var rune in cluster.EnumerateRunes())
         {
             if (first)
@@ -249,11 +251,11 @@ public sealed class LineEditor
                 continue;
             }
             if (rune.Value is 0x200D or 0xFE0F or (>= 0x1F3FB and <= 0x1F3FF) or (>= 0x1F1E6 and <= 0x1F1FF))
-                return 2;
-            if (rune.Value is 0xFF9E or 0xFF9F)
-                width++;
+                emoji = true;
+            else if (rune.Value is 0xFF9E or 0xFF9F)
+                marks++;
         }
-        return width;
+        return (emoji ? 2 : width) + marks;
     }
 
     private static int RuneWidth(Rune rune)

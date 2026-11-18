@@ -821,7 +821,7 @@ public static class AgentModeEntry
         ConsoleApprovalPrompt approval, Task sendTask, CancellationToken ct)
     {
         using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var pump = approval.PumpOneAsync(pumpCts.Token);
+        var pump = approval.PumpOneAsync(pumpCts.Token, sendTask);
         if (await Task.WhenAny(pump, sendTask).ConfigureAwait(false) != pump)
             pumpCts.Cancel();
         return await pump.ConfigureAwait(false);
