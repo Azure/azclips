@@ -1,0 +1,39 @@
+description: "[read/group-typo] group-show-verb-typo"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: group-show-verb-typo
+  command_group: group
+  goal: Show resource group azclips-test-rg.
+  command: group shwo --name azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az group show
+          match: all
+          requiredArguments:
+            - --name
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az group show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show resource group azclips-test-rg."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

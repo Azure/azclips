@@ -1,0 +1,38 @@
+description: "[mutate/missing-param] config-set-missing-value"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: config-set-missing-value
+  command_group: config
+  goal: Enable agent tracing.
+  command: config set --key agent.trace.enabled
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az config set
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --key: agent.trace.enabled
+            --value: "true"
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az config set
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Enable agent tracing."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

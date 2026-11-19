@@ -1,0 +1,46 @@
+description: "[mutate/missing-param] vm-create-missing-size"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: vm-create-missing-size
+  command_group: vm
+  goal: Create VM azclips-eval-vm3 with the supplied settings.
+  command: vm create --name azclips-eval-vm3 --resource-group azclips-test-rg --location eastus --admin-username azureuser
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm create
+          match: all
+          requiredArguments:
+            - --size
+            - --network-interface-name
+            - --virtual-network-name
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-vm3
+            --resource-group: azclips-test-rg
+            --location: eastus
+            --admin-username: azureuser
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm create
+        - az group show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create VM azclips-eval-vm3 with the supplied settings."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - The CLI reported a missing NIC name; the plan must also add any other required inputs (size) and keep credentials as placeholders.

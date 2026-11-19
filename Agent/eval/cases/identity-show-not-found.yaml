@@ -1,0 +1,38 @@
+description: "[read/invalid-value] identity-show-not-found"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: identity-show-not-found
+  command_group: identity
+  goal: Show the named identity, which does not exist.
+  command: identity show --name azclips-eval-id-404 --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az identity list
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az identity list
+        - az identity show
+        - az group show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show the named identity, which does not exist."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Listing identities is expected. Do not make creation mandatory.

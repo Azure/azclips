@@ -1,0 +1,39 @@
+description: "[read/invalid-value] vm-show-not-found"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: vm-show-not-found
+  command_group: vm
+  goal: Show the named VM, which does not exist.
+  command: vm show --name azclips-eval-vm-404 --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm list
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm list
+        - az vm show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show the named VM, which does not exist."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Listing VMs in the group to find the right name is the expected recovery. Do not propose creating the VM as mandatory.

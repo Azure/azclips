@@ -1,0 +1,39 @@
+description: "[mutate/flag-typo] vnet-create-flag-typo"
+metadata:
+  mode: mutate
+  failureType: flag-typo
+vars:
+  case_id: vnet-create-flag-typo
+  command_group: network
+  goal: Create VNet azclips-eval-vnet3.
+  command: network vnet create --nme azclips-eval-vnet3 --resource-group azclips-test-rg --location eastus
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network vnet create
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-vnet3
+            --resource-group: azclips-test-rg
+            --location: eastus
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network vnet create
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create VNet azclips-eval-vnet3."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

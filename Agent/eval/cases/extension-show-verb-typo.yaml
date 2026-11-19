@@ -1,0 +1,40 @@
+description: "[read/group-typo] extension-show-verb-typo"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: extension-show-verb-typo
+  command_group: extension
+  goal: Show the named extension, or find the right name.
+  command: extension sho --name azure-devops
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az extension show
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azure-devops
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az extension show
+        - az extension list
+        - az extension add
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show the named extension, or find the right name."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Accept either retrying extension show with the supplied name or listing installed extensions first; an optional conditional extension add is acceptable.

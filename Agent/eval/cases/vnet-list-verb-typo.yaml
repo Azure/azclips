@@ -1,0 +1,37 @@
+description: "[read/group-typo] vnet-list-verb-typo"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: vnet-list-verb-typo
+  command_group: network
+  goal: List virtual networks in azclips-test-rg.
+  command: network vnet lsit --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network vnet list
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network vnet list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List virtual networks in azclips-test-rg."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

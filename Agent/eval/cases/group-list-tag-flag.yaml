@@ -1,0 +1,37 @@
+description: "[read/flag-typo] group-list-tag-flag"
+metadata:
+  mode: read
+  failureType: flag-typo
+vars:
+  case_id: group-list-tag-flag
+  command_group: group
+  goal: List resource groups tagged env=dev.
+  command: group list --tag env=dev
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az group list
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+            - --tag
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az group list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List resource groups tagged env=dev."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - az group list has no tag filter. Listing groups and filtering client-side (for example with --query on tags.env) is acceptable.

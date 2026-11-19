@@ -1,0 +1,37 @@
+description: "[read/group-typo] account-show-unsupported"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: account-show-unsupported
+  command_group: account
+  goal: Show the signed-in account and active subscription.
+  command: account show
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az profile show
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az profile show
+        - az profile list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show the signed-in account and active subscription."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - This CLI has no account show; the active profile carries the account and subscription. Do not invent account show.

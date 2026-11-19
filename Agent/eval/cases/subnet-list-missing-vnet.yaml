@@ -1,0 +1,42 @@
+description: "[read/missing-param] subnet-list-missing-vnet"
+metadata:
+  mode: read
+  failureType: missing-param
+vars:
+  case_id: subnet-list-missing-vnet
+  command_group: network
+  goal: List subnets of a VNet in azclips-test-rg; the VNet name was omitted.
+  command: network vnet subnet list --resource-group azclips-test-rg
+assert:
+  - commandSet:
+      anyOf:
+        - - command: az network vnet list
+            match: any
+            forbiddenArguments:
+              - -n
+              - -g
+            argumentValues:
+              --resource-group: azclips-test-rg
+        - - command: az network vnet subnet list
+            match: all
+            forbiddenArguments:
+              - -n
+              - -g
+            argumentValues:
+              --resource-group: azclips-test-rg
+            placeholders:
+              - --vnet-name
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network vnet list
+        - az network vnet subnet list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List subnets of a VNet in azclips-test-rg; the VNet name was omitted."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Listing VNets in the group to find the name, or a <vnet-name> placeholder, is acceptable.
