@@ -372,7 +372,7 @@ class PipelineInputSafetyTests(unittest.TestCase):
         pipeline = (self.pipeline_root / "azclips-beta-sign.yml").read_text(encoding="utf-8")
         self.assertIsNone(re.search(r"(?m)^parameters:", pipeline))
         self.assertIn("- name: SignedArtifactName\n  value: Final_Signed_Beta_Distribution\n", pipeline)
-        self.assertEqual(pipeline.count("signed_artifact_name: ${{ variables.SignedArtifactName }}"), 3)
+        self.assertEqual(pipeline.count("signed_artifact_name: ${{ variables.SignedArtifactName }}"), 4)
 
     def run_musl_validation(self, artifact_name, include_variable=True):
         replacements = {
