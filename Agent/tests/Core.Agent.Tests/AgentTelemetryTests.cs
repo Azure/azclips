@@ -295,17 +295,38 @@ public sealed class AgentTelemetryProviderTests
         Assert.Equal(RecoveryFailure.Unknown, AgentModeEntry.ClassifySdkFailure(rendered.ErrorType));
     }
 
+    [Fact]
+    public void TerminalError_WithoutCtrlC_IsAFailure()
+    {
+        var error = new SessionErrored("authentication", "offline error", null, 401, null, DateTimeOffset.UtcNow);
+        var failure = Assert.Throws<AgentSessionFailedException>(() =>
+            AgentModeEntry.ThrowIfSessionEndedInError(error, CancellationToken.None));
+        Assert.Equal("authentication", failure.ErrorType);
+    }
+
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void TerminalError_WinsOverCancellation(bool cancelled)
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void CtrlC_WinsOverTerminalError(bool ctrlCRequested, bool cancelled)
     {
         using var cancellation = new CancellationTokenSource();
         if (cancelled) cancellation.Cancel();
         var error = new SessionErrored("authentication", "offline error", null, 401, null, DateTimeOffset.UtcNow);
-        var failure = Assert.Throws<AgentSessionFailedException>(() =>
-            AgentModeEntry.ThrowIfSessionEndedInError(error, cancellation.Token));
-        Assert.Equal("authentication", failure.ErrorType);
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            AgentModeEntry.ThrowIfSessionEndedInError(error, cancellation.Token, ctrlCRequested));
+    }
+
+    [Fact]
+    public void CtrlCHandler_SetsTheFlagTheExitDecisionReads()
+    {
+        var ctrlCRequested = false;
+        bool? flagSeenByCancel = null;
+        AgentModeEntry.OnCtrlC(ref ctrlCRequested, () => flagSeenByCancel = Volatile.Read(ref ctrlCRequested));
+        Assert.True(flagSeenByCancel);
+        var error = new SessionErrored("authentication", "offline error", null, 401, null, DateTimeOffset.UtcNow);
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            AgentModeEntry.ThrowIfSessionEndedInError(error, CancellationToken.None, ctrlCRequested));
     }
 
     [Fact]

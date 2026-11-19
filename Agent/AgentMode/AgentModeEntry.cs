@@ -47,8 +47,14 @@ public static class AgentModeEntry
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         using var cts = new CancellationTokenSource();
+        // The handler sets this first, so the exit decision sees every Ctrl+C whose handler started.
+        var ctrlCRequested = false;
         AgentRuntimeLifetime? activeLifetime = null;
-        ConsoleCancelEventHandler cancelHandler = (_, e) => { e.Cancel = true; RequestCancellation(); };
+        ConsoleCancelEventHandler cancelHandler = (_, e) =>
+        {
+            e.Cancel = true;
+            OnCtrlC(ref ctrlCRequested, RequestCancellation);
+        };
         Console.CancelKeyPress += cancelHandler;
 
         var failedCommand = string.Empty;
@@ -231,9 +237,9 @@ public static class AgentModeEntry
 
             try
             {
-                await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
+                await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, SessionCancelled, cts.Token);
                 // Classify the last turn at the shared exit for both interaction modes.
-                ThrowIfSessionEndedInError(agent.LastError, cts.Token);
+                ThrowIfSessionEndedInError(agent.LastError, cts.Token, Volatile.Read(ref ctrlCRequested));
                 if (!agent.SubmitRendered && !agent.HasPendingPlan)
                     throw new InvalidOperationException("AI diagnosis ended without a recovery plan or final response.");
             }
@@ -244,6 +250,8 @@ public static class AgentModeEntry
         }
 
         void RequestCancellation() => _ = CancelAsync();
+
+        bool SessionCancelled() => Volatile.Read(ref ctrlCRequested) || cts.IsCancellationRequested;
 
         async Task CancelAsync()
         {
@@ -259,6 +267,13 @@ public static class AgentModeEntry
                 Console.Error.WriteLine("Agent telemetry: cancellation_callback_failed");
             }
         }
+    }
+
+    /// <summary>Records a Ctrl+C for the exit decision, then cancels the session.</summary>
+    internal static void OnCtrlC(ref bool ctrlCRequested, Action requestCancellation)
+    {
+        Volatile.Write(ref ctrlCRequested, true);
+        requestCancellation();
     }
 
     internal static Task<int> RunSessionAsync(
@@ -375,6 +390,7 @@ public static class AgentModeEntry
         SpinnerService spinner,
         string firstPrompt,
         bool interactive,
+        Func<bool> sessionCancelled,
         CancellationToken ct)
     {
         // Session-level interaction brake: counts user<->agent messages and never
@@ -384,8 +400,8 @@ public static class AgentModeEntry
         int userMessages = 1;
         // The very first turn is the error-recovery opener — show a spinner verb
         // that says so. Later turns (and any redirect) fall back to "thinking".
-        var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt, ct,
-            initialVerb: "Analyzing error root cause using AI");
+        var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt,
+            interactive, sessionCancelled, ct, initialVerb: "Analyzing error root cause using AI");
 
         // oneshot closes on its first valid plan (rendered by the plan hook) or on
         // submit_response; drain any redirect until it does (or the agent stops
@@ -393,7 +409,8 @@ public static class AgentModeEntry
         if (!interactive)
         {
             while (!agent.SessionClosed && nextPrompt is not null && !ct.IsCancellationRequested)
-                nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, nextPrompt, ct);
+                nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, nextPrompt,
+                    interactive, sessionCancelled, ct);
 
             // Fallback render: if a plan is still pending (nothing rendered it), show
             // it here so one-shot never exits on a blank screen.
@@ -422,7 +439,7 @@ public static class AgentModeEntry
             {
                 Console.WriteLine();
                 Console.Write("> ");
-                var read = Console.ReadLine();
+                var read = await ConsoleLineInput.ReadLineOrCancelAsync(ct).ConfigureAwait(false);
                 if (read is null) break;
                 line = read.Trim();
                 if (line.Length == 0) continue;
@@ -441,7 +458,8 @@ public static class AgentModeEntry
                 break;
             }
 
-            nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, line, ct);
+            nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, line,
+                interactive, sessionCancelled, ct);
         }
     }
 
@@ -450,16 +468,19 @@ public static class AgentModeEntry
     /// Call once after the loop; it may return after catching a failed send.
     /// Pass <see cref="ChatAgent.LastError"/>, not <see cref="ChatAgent.StartupError"/>.
     /// Earlier failures do not override a successful final turn.
-    /// A terminal SDK error takes precedence over caller cancellation.
+    /// Ctrl+C (<paramref name="ctrlCRequested"/> or a cancelled <paramref name="ct"/>) takes
+    /// precedence over a terminal SDK error, so a session the user cancelled exits as cancelled.
     /// </remarks>
-    internal static void ThrowIfSessionEndedInError(SessionErrored? terminalError, CancellationToken ct)
+    internal static void ThrowIfSessionEndedInError(
+        SessionErrored? terminalError, CancellationToken ct, bool ctrlCRequested = false)
     {
+        if (ctrlCRequested) throw new OperationCanceledException(ct);
+        ct.ThrowIfCancellationRequested();
+
         if (terminalError is { } err)
         {
             throw new AgentSessionFailedException(err.ErrorType, err.Message);
         }
-
-        ct.ThrowIfCancellationRequested();
     }
 
     // Max times we re-prompt a bare-prose turn before giving up and letting it
@@ -480,14 +501,19 @@ public static class AgentModeEntry
         AbortKeyWatcher watcher,
         SpinnerService spinner,
         string prompt,
+        bool interactive,
+        Func<bool> sessionCancelled,
         CancellationToken ct,
         string initialVerb = "thinking")
     {
         using var turn = agent.Telemetry.StartActivity("Agent.Turn");
-        var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct, initialVerb);
+        var (redirect, userAborted) = await SendAndPumpAsync(
+            agent, approval, watcher, spinner, prompt, interactive, sessionCancelled, ct, initialVerb);
 
         for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
         {
+            // The user aborted this turn with Esc; do not re-prompt it.
+            if (userAborted) break;
             // A redirect means the user steered the turn — respect it, don't enforce.
             if (redirect is not null) break;
             // One-shot already showed its final outcome (a valid plan ends the session).
@@ -506,7 +532,8 @@ public static class AgentModeEntry
                 "You replied with prose instead of calling a tool. That is not allowed. " +
                 "Call propose_plan to suggest a fix (the user must approve before any command runs), " +
                 "or submit_response to end the session. Do it now.";
-            redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, correction, ct);
+            (redirect, userAborted) = await SendAndPumpAsync(
+                agent, approval, watcher, spinner, correction, interactive, sessionCancelled, ct);
         }
 
         return redirect;
@@ -514,12 +541,15 @@ public static class AgentModeEntry
 
     // Returns a feedback prompt when the user typed free text at a y/n
     // approval; null otherwise. The caller replays that text as the next turn.
-    private static async Task<string?> SendAndPumpAsync(
+    // UserAborted is true when Esc ended only this turn in interactive mode.
+    private static async Task<(string? Redirect, bool UserAborted)> SendAndPumpAsync(
         ChatAgent agent,
         ConsoleApprovalPrompt approval,
         AbortKeyWatcher watcher,
         SpinnerService spinner,
         string prompt,
+        bool interactive,
+        Func<bool> sessionCancelled,
         CancellationToken ct,
         string initialVerb = "thinking")
     {
@@ -530,12 +560,13 @@ public static class AgentModeEntry
         var watcherTask = watcher.RunAsync(watcherCts.Token);
 
         string? redirect = null;
+        var userAborted = false;
         try
         {
             while (!sendTask.IsCompleted)
             {
                 using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                var pumpTask = approval.PumpOneAsync(pumpCts.Token);
+                var pumpTask = approval.PumpOneAsync(pumpCts.Token, ct);
                 var completed = await Task.WhenAny(sendTask, pumpTask, watcherTask).ConfigureAwait(false);
 
                 if (completed == sendTask)
@@ -549,7 +580,6 @@ public static class AgentModeEntry
                 {
                     pumpCts.Cancel();
                     try { await pumpTask.ConfigureAwait(false); } catch { }
-                    WriteColor(ConsoleColor.DarkGray, "  ↯ aborted by user");
                     break;
                 }
 
@@ -569,23 +599,56 @@ public static class AgentModeEntry
         finally
         {
             watcherCts.Cancel();
-            try { await watcherTask.ConfigureAwait(false); } catch { }
+            // Esc cancels the send before the watcher returns, so the send can finish first.
+            try { userAborted = await watcherTask.ConfigureAwait(false); } catch { }
             watcherCts.Dispose();
             spinner.Stop();
         }
+        if (userAborted) WriteColor(ConsoleColor.DarkGray, "  ↯ aborted by user");
 
+        var turnAborted = await AwaitTurnAsync(
+            sendTask, () => agent.LastError, redirect is not null, userAborted, interactive, sessionCancelled)
+            .ConfigureAwait(false);
+        return (redirect, turnAborted);
+    }
+
+    /// <summary>Awaits a finished turn and decides whether its cancellation ends the session.</summary>
+    /// <returns>True when Esc aborted only this turn and the session continues.</returns>
+    /// <exception cref="OperationCanceledException">
+    /// Ctrl+C, Esc in oneshot mode, or a cancellation nothing else explains.
+    /// </exception>
+    internal static async Task<bool> AwaitTurnAsync(
+        Task sendTask, Func<SessionErrored?> lastError, bool redirected, bool userAborted, bool interactive,
+        Func<bool> sessionCancelled)
+    {
         try { await sendTask.ConfigureAwait(false); }
-        catch (OperationCanceledException) when (agent.LastError is { } err)
+        catch (Exception ex) when (sessionCancelled())
+        {
+            // Ctrl+C ends the session as cancelled, even after an SDK error or a failed send.
+            if (ex is OperationCanceledException) throw;
+            throw new OperationCanceledException("Session cancelled by Ctrl+C.", ex);
+        }
+        catch (OperationCanceledException) when (lastError() is { } err)
         {
             // Allow another interactive turn; the final check still reads LastError.
             WriteColor(ConsoleColor.Red, $"  ✗ session.error [{err.ErrorType}] {err.Message}");
         }
-        catch (OperationCanceledException) when (redirect is not null)
+        catch (OperationCanceledException) when (redirected)
         {
             // Abort caused by user redirect — already announced; swallow.
         }
+        catch (OperationCanceledException) when (userAborted && interactive)
+        {
+            // Esc aborted only this turn — already announced; return to the prompt.
+            return true;
+        }
 
-        return redirect;
+        // Esc can land after the turn's last cancel check, so the send completes normally.
+        // The abort was still announced, so treat the turn as aborted.
+        if (!userAborted) return false;
+        if (sessionCancelled() || !interactive)
+            throw new OperationCanceledException("Turn aborted by user.");
+        return true;
     }
 
     // The CLI passes the failed command without the program name ("rest --method fetch
