@@ -17,7 +17,6 @@ public sealed class RecoveryConfigurationChangeHandler(IFailureHistoryStore stor
     {
         if (value is not null && !string.Equals(Convert.ToString(value), "off", StringComparison.OrdinalIgnoreCase))
             return;
-        RecoveryReset.Advance();
         try
         {
             await store.ClearAsync(cancellationToken).ConfigureAwait(false);

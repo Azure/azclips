@@ -27,8 +27,9 @@ Send-AzRecovery [-Id <string>] [-Style <string>] [-WhatIf] [-Confirm] [<CommonPa
 
 ## DESCRIPTION
 
-Sends the failed cmdlet's name, error category, recognized parameter names, and,
-for binding failures, a general description of the binding problem to the built-in
+Sends the failed cmdlet's name, error category, recognized parameter names, HTTP
+status when available, and, for binding failures, a general
+description of the binding problem and possible parameter names to the built-in
 Azure AI provider. The initial request omits raw error text, URLs, argument values,
 and script text. Use `Get-AzRecoveryId` to inspect the original error locally.
 By default, it selects the latest AzCLIPS cmdlet error in the current PowerShell session.
@@ -42,6 +43,9 @@ Interactive recovery previews the diagnostic and asks before sending it. Follow-
 are sent as typed, without redaction, and previous turns are included in each
 subsequent request. Do not include passwords, tokens, sensitive URLs, or other
 private data in follow-ups.
+
+Azure AI error messages displayed by this cmdlet are not redacted and may contain
+sensitive information.
 
 ## EXAMPLES
 

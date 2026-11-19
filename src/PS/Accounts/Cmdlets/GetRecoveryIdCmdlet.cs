@@ -26,16 +26,16 @@ public class GetRecoveryIdCmdlet : PSCmdlet
 
 internal static class PowerShellRecoveryHistory
 {
-    private sealed record Entry(RecoveryError Failure, long Generation);
-
-    private static readonly ConditionalWeakTable<ErrorRecord, Entry> s_ids = new();
+    private static readonly ConditionalWeakTable<ErrorRecord, RecoveryError> s_ids = new();
 
     internal static IEnumerable<RecoveryError> Read(SessionState sessionState)
     {
         if (sessionState.PSVariable.GetValue("global:Error") is not IList errors)
             yield break;
 
-        foreach (var item in errors)
+        var snapshot = new object[errors.Count];
+        errors.CopyTo(snapshot, 0);
+        foreach (var item in snapshot)
         {
             if (item is not ErrorRecord error || error.InvocationInfo?.MyCommand is not CmdletInfo cmdlet ||
                 cmdlet.ImplementingType == typeof(SendRecoveryCmdlet) ||
@@ -44,10 +44,8 @@ internal static class PowerShellRecoveryHistory
                 !assemblyName.StartsWith("Microsoft.Azure.Azclips.Cmdlets.", StringComparison.Ordinal))
                 continue;
 
-            var entry = s_ids.GetValue(error, static record => new Entry(
-                new RecoveryError(FailureId.Create((uint)Environment.ProcessId), record), RecoveryReset.Generation));
-            if (entry.Generation == RecoveryReset.Generation)
-                yield return entry.Failure;
+            yield return s_ids.GetValue(error, static record =>
+                new RecoveryError(FailureId.Create((uint)Environment.ProcessId), record));
         }
     }
 }

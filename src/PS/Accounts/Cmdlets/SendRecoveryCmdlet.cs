@@ -89,6 +89,8 @@ public class SendRecoveryCmdlet : PSCmdlet
         var cmdlet = (CmdletInfo)invocation.MyCommand;
         var parameterNames = invocation.BoundParameters.Keys.ToList();
         var bindingError = error.Exception as ParameterBindingException;
+        if (!string.IsNullOrEmpty(bindingError?.ParameterName))
+            parameterNames.Add(bindingError.ParameterName);
         var kind = bindingError?.ErrorId switch
         {
             "AmbiguousParameterSet" => "Conflicting or incomplete parameter set",
@@ -116,9 +118,46 @@ public class SendRecoveryCmdlet : PSCmdlet
             .Distinct(StringComparer.Ordinal)
             .Select(name => $"-{name}")
             .Order(StringComparer.Ordinal);
+        var candidates = bindingError?.ErrorId == "NamedParameterNotFound"
+            ? parameterNames.Where(name => FindParameterName(metadata, name) is null)
+                .SelectMany(name => FindCandidates(metadata, name)).Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal).ToArray()
+            : [];
+        var status = error.Exception is HttpRequestException { StatusCode: { } statusCode }
+            ? $"\nHTTP status: {(int)statusCode}" : "";
         return $"Command: {cmdlet.Name}\nError category: {error.CategoryInfo.Category}" +
             (kind is null ? "" : $"\nBinding error: {kind}") +
-            $"\nRecognized parameters: {string.Join(", ", parameters)}";
+            $"\nRecognized parameters: {string.Join(", ", parameters)}" +
+            (candidates.Length == 0 ? "" : $"\nPossible parameter names: {string.Join(", ", candidates.Select(name => $"-{name}"))}") +
+            status;
+    }
+
+    private static IEnumerable<string> FindCandidates(Dictionary<string, ParameterMetadata> metadata, string name)
+    {
+        if (name.Length is < 2 or > 64)
+            return [];
+        return metadata.Values
+            .Select(parameter => (parameter.Name, Distance: EditDistance(name, parameter.Name)))
+            .Where(item => item.Distance <= 2)
+            .OrderBy(item => item.Distance).ThenBy(item => item.Name, StringComparer.Ordinal)
+            .Take(5).Select(item => item.Name);
+    }
+
+    private static int EditDistance(string left, string right)
+    {
+        var distances = new int[left.Length + 1, right.Length + 1];
+        for (var i = 0; i <= left.Length; i++) distances[i, 0] = i;
+        for (var j = 0; j <= right.Length; j++) distances[0, j] = j;
+        for (var i = 1; i <= left.Length; i++)
+        for (var j = 1; j <= right.Length; j++)
+        {
+            var cost = char.ToUpperInvariant(left[i - 1]) == char.ToUpperInvariant(right[j - 1]) ? 0 : 1;
+            distances[i, j] = Math.Min(Math.Min(distances[i - 1, j] + 1, distances[i, j - 1] + 1), distances[i - 1, j - 1] + cost);
+            if (i > 1 && j > 1 && char.ToUpperInvariant(left[i - 1]) == char.ToUpperInvariant(right[j - 2]) &&
+                char.ToUpperInvariant(left[i - 2]) == char.ToUpperInvariant(right[j - 1]))
+                distances[i, j] = Math.Min(distances[i, j], distances[i - 2, j - 2] + 1);
+        }
+        return distances[left.Length, right.Length];
     }
 
     private static string? FindParameterName(Dictionary<string, ParameterMetadata> metadata, string name)
@@ -209,7 +248,8 @@ public class SendRecoveryCmdlet : PSCmdlet
             store = false,
         });
         using var response = await http.SendAsync(request, token).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+            throw await CreateServiceExceptionAsync(response, token).ConfigureAwait(false);
         using var content = await response.Content.ReadFromJsonAsync<JsonDocument>(cancellationToken: token).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Azure AI returned an empty recovery response.");
 
@@ -222,6 +262,42 @@ public class SendRecoveryCmdlet : PSCmdlet
         return !string.IsNullOrWhiteSpace(answer) ? answer
             : throw new InvalidOperationException("Azure AI returned no recovery advice.");
     }
+
+    private static async Task<HttpRequestException> CreateServiceExceptionAsync(HttpResponseMessage response, CancellationToken token)
+    {
+        var prefix = $"Azure AI request failed with HTTP {(int)response.StatusCode}";
+        try
+        {
+            using var json = await response.Content.ReadFromJsonAsync<JsonDocument>(cancellationToken: token).ConfigureAwait(false);
+            if (json?.RootElement.ValueKind != JsonValueKind.Object ||
+                !json.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object)
+                return new HttpRequestException(prefix, null, response.StatusCode);
+
+            var code = error.TryGetProperty("code", out var codeValue) && codeValue.ValueKind == JsonValueKind.String
+                ? codeValue.GetString() : null;
+            var message = error.TryGetProperty("message", out var messageValue) && messageValue.ValueKind == JsonValueKind.String
+                ? messageValue.GetString() : null;
+            if (IsSafeServiceCode(code))
+                prefix += $" ({code})";
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                if (message.Length > 2048)
+                    message = message[..2048];
+                message = new string(message.Where(c => !char.IsControl(c)).Take(512).ToArray());
+                if (!string.IsNullOrWhiteSpace(message))
+                    prefix += $": {message}";
+            }
+        }
+        catch (JsonException)
+        {
+            // A malformed service body must not hide the HTTP status.
+        }
+        return new HttpRequestException(prefix, null, response.StatusCode);
+    }
+
+    private static bool IsSafeServiceCode(string? code) =>
+        code is { Length: > 0 and <= 64 } && char.IsAsciiLetter(code[0]) &&
+        code.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
 
     protected override void EndProcessing() => _cts.Dispose();
 
