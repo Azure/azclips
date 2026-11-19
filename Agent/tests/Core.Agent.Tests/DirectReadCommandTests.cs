@@ -186,6 +186,29 @@ public sealed class DirectReadCommandTests
     }
 
     [Fact]
+    public async Task DocsShow_RendersIndentedUnescapedJson_AndAppliesQueryAndOutput()
+    {
+        using var fixture = new HelpCatalogFixture();
+        var home = await CreateChildHomeAsync(fixture);
+        var cli = BuiltCliPath();
+        string[] show = ["agent", "tool", "docs", "show", "--name", "agent tool docs show"];
+
+        var output = await RunCliAsync(cli, home, show, fixture.Root);
+        Assert.Contains("\n  \"cliName\": \"agent tool docs show\"", output.ReplaceLineEndings("\n"), StringComparison.Ordinal);
+        Assert.Contains("e.g. 'vm create'", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u00", output, StringComparison.Ordinal);
+
+        Assert.Equal("agent tool docs show", (await RunCliAsync(cli, home, [.. show, "--query", "cliName"], fixture.Root)).Trim());
+        Assert.Contains("cliName: agent tool docs show", await RunCliAsync(cli, home, [.. show, "-o", "yaml"], fixture.Root), StringComparison.Ordinal);
+
+        var provider = new HelpCatalogProvider(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName),
+            _ => throw new InvalidOperationException("A warm read must not invoke az."));
+        var toolJson = await provider.GetJsonAsync("agent tool docs show");
+        Assert.DoesNotContain('\n', toolJson);
+        Assert.Contains("e.g. 'vm create'", toolJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AgentProcessorCancellation_IsAvailableToReadAndGeneratePaths()
     {
         foreach (var processor in new AgentProcessorBase[] { new DocsGenerateProcessor(), new DocsListProcessor(), new DocsShowProcessor(), new EnvProcessor() })
