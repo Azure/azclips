@@ -261,11 +261,11 @@ Add config cmdlets:
 - Get-AzConfig
 - Set-AzConfig
 - Remove-AzConfig
-- Get-AzConfigList
 - Get-AzConfigInfo
 
 Cmdlet behavior:
 
+- `Get-AzConfig` lists all effective settings without `-Key`, or reads a key or section with `-Key`; `-ConfiguredOnly` filters enumeration to file and environment values
 - same validation and force semantics as CLI
 - output typed PS objects
 - register key completer on module import
@@ -274,7 +274,7 @@ Cmdlet behavior:
 
 **What was built:**
 
-- `src/PS/Config/` — Config PowerShell module (5 cmdlets)
+- `src/PS/Config/` — Config PowerShell module (4 cmdlets)
 - `src/Extensions/Config/ExtensionIndex.cs` — Extended with PS metadata (s_psTable)
 
 **Key Implementation Details:**
@@ -283,7 +283,7 @@ Cmdlet behavior:
 2. **Module Manifests:**
     - GUID must be valid hex only (0-9, a-f); invalid chars cause import failure
     - RequiredAssemblies path: `../../../artifacts/Debug/Core/` for Core DLLs and Microsoft.Extensions.\* dlls
-3. **Parameter Mapping:** PS uses PascalCase (-AsJson, -IncludeDefaults), cmdlet function maps to CLI command names before calling engine
+3. **Parameter Mapping:** PS uses PascalCase (-Key, -ConfiguredOnly), cmdlet function maps to CLI command names before calling engine
 4. **ShouldProcess:** Set-AzConfig and Remove-AzConfig use standard PowerShell ShouldProcess/Confirm semantics
 5. **Module Initialization:** Config.psm1 initializes DI container and loads all exported functions from exports/ folder
 
