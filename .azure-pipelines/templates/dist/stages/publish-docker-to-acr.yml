@@ -98,6 +98,29 @@ stages:
         artifact: Release_Docker_PowerShell_AzureLinux3_Arm64
         path: $(Pipeline.Workspace)/docker-publish/Release_Docker_PowerShell_AzureLinux3_Arm64
 
+    - bash: |
+        set -euo pipefail
+        for architecture in Amd64 Arm64; do
+          version_file="$DOCKER_ARTIFACT_ROOT/Release_Docker_PowerShell_AzureLinux3_$architecture/artifact-version.txt"
+          if [[ ! -f "$version_file" ]]; then
+            echo "ERROR: Missing signed Docker image version metadata: $version_file"
+            exit 1
+          fi
+          image_version="$(<"$version_file")"
+          if [[ ! "$image_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "ERROR: Invalid signed Docker image version metadata for $architecture."
+            exit 1
+          fi
+          if [[ "$image_version" != "$ARTIFACT_VERSION" ]]; then
+            echo "ERROR: Signed Docker image version for $architecture does not match the release ArtifactVersion."
+            exit 1
+          fi
+        done
+      displayName: Verify Signed Docker Versions Before Publication
+      env:
+        ARTIFACT_VERSION: $(ArtifactVersion)
+        DOCKER_ARTIFACT_ROOT: $(Pipeline.Workspace)/docker-publish
+
     - task: AzureCLI@2
       displayName: Push Images And Create Version Manifests
       inputs:
