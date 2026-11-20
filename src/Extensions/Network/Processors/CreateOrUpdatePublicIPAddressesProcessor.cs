@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Creates or updates a static or dynamic public IP address.</summary>
-public partial class CreateOrUpdatePublicIPAddressesProcessor : ProcessorBase<PublicIPAddress, PublicIPAddress>
+public partial class CreateOrUpdatePublicIPAddressesProcessor : NetworkProcessorBase<PublicIPAddress, PublicIPAddress>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
@@ -19,8 +19,6 @@ public partial class CreateOrUpdatePublicIPAddressesProcessor : ProcessorBase<Pu
     /// <summary>The name of the public IP address.</summary>
     public string PublicIpAddressName { get; set; } = string.Empty;
     /// <summary>Body parameter's content type. Known values are application/json</summary>
-    internal string ContentType { get; set; } = string.Empty;
-    internal string Accept { get; set; } = string.Empty;
     /// <summary>Parameters supplied to the create or update public IP address operation.</summary>
     internal PublicIPAddress? Body { get; set; }
     /// <summary>Resource ID.</summary>
@@ -44,14 +42,12 @@ public partial class CreateOrUpdatePublicIPAddressesProcessor : ProcessorBase<Pu
     /// <summary>The idle timeout of the public IP address.</summary>
     public int? IdleTimeoutInMinutes { get => Body?.IdleTimeoutInMinutes; set => (Body ??= new PublicIPAddress()).IdleTimeoutInMinutes = value; }
     /// <summary>The service public IP address of the public IP address resource.</summary>
-    // Circular reference: hidden; no command sets it.
-    internal PublicIPAddress? ServicePublicIPAddress { get => Body?.ServicePublicIPAddress; set => (Body ??= new PublicIPAddress()).ServicePublicIPAddress = value; }
+    public PublicIPAddress? ServicePublicIPAddress { get => Body?.ServicePublicIPAddress; set => (Body ??= new PublicIPAddress()).ServicePublicIPAddress = value; }
     /// <summary>Migration phase of Public IP Address.</summary>
     /// <remarks>Known values (extensible enum PublicIPAddressMigrationPhase): "None", "Prepare", "Commit", "Abort", "Committed".</remarks>
     public string? MigrationPhase { get => Body?.MigrationPhase; set => (Body ??= new PublicIPAddress()).MigrationPhase = value; }
     /// <summary>The linked public IP address of the public IP address resource.</summary>
-    // Circular reference: hidden; no command sets it.
-    internal PublicIPAddress? LinkedPublicIPAddress { get => Body?.LinkedPublicIPAddress; set => (Body ??= new PublicIPAddress()).LinkedPublicIPAddress = value; }
+    public PublicIPAddress? LinkedPublicIPAddress { get => Body?.LinkedPublicIPAddress; set => (Body ??= new PublicIPAddress()).LinkedPublicIPAddress = value; }
     /// <summary>Specify what happens to the public IP address when the VM using it is deleted</summary>
     /// <remarks>Known values (extensible enum DeleteOptions): "Delete", "Detach".</remarks>
     public string? DeleteOption { get => Body?.DeleteOption; set => (Body ??= new PublicIPAddress()).DeleteOption = value; }
@@ -121,7 +117,7 @@ public partial class CreateOrUpdatePublicIPAddressesProcessor : ProcessorBase<Pu
     public string? SkuTier { get => Body?.SkuTier; set => (Body ??= new PublicIPAddress()).SkuTier = value; }
     protected override HttpMethod Method => HttpMethod.Put;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/publicIPAddresses/{Uri.EscapeDataString(PublicIpAddressName)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/publicIPAddresses/{Uri.EscapeDataString(PublicIpAddressName)}?api-version=2026-03-01";
     protected override PublicIPAddress? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");

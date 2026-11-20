@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/08/2026
+ms.date: 11/17/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzVirtualNetwork
 ---
@@ -20,15 +20,15 @@ Get one or more virtual networks.
 ### List (Default)
 
 ```
-Get-AzVirtualNetwork [-SubscriptionId <string>] [-ResourceGroupName <string>] [-Profile <string>]
+Get-AzVirtualNetwork [-ResourceGroupName <string>] [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzVirtualNetwork -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-ExpandResource <string>] [-Profile <string>] [<CommonParameters>]
+Get-AzVirtualNetwork -ResourceGroupName <string> -Name <string> [-ExpandResource <string>]
+ [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -117,7 +117,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-The resource group name. Required when retrieving a single virtual network by name; omit it to list every virtual network in the subscription.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -152,13 +152,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -187,3 +181,8 @@ The matching virtual network, or each virtual network in scope when listing.
 ## NOTES
 
 ## RELATED LINKS
+
+- [New-AzVirtualNetwork](./New-AzVirtualNetwork.md)
+- [Remove-AzVirtualNetwork](./Remove-AzVirtualNetwork.md)
+- [Get-AzVirtualNetworkSubnet](./Get-AzVirtualNetworkSubnet.md)
+

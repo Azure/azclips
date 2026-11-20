@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/08/2026
+ms.date: 11/17/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzVirtualNetwork
 ---
@@ -20,25 +20,32 @@ Delete a virtual network.
 ### __AllParameterSets
 
 ```
-Remove-AzVirtualNetwork -Name <string> -ResourceGroupName <string> [-SubscriptionId <string>]
- [-Force] [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzVirtualNetwork -Name <string> -ResourceGroupName <string> [-Force] [-PassThru]
+ [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
 ## DESCRIPTION
 
-Deletes the named virtual network from the specified resource group and subscription.
-The delete fails while the virtual network is still in use, so detach or delete dependent resources such as network interfaces, private endpoints, and gateways first.
+Deletes the named virtual network from the specified resource group.
+The delete fails while resources such as network interfaces still use a subnet of the virtual network.
+The cmdlet asks for confirmation before the delete. Use `-Force` to skip the prompt.
 
 ## EXAMPLES
 
 ### Remove a virtual network
 
-Delete the virtual network `myvnet` from resource group `myrg`.
+Delete the virtual network `myvnet` from resource group `myrg`. The cmdlet asks for confirmation first.
 
 ```powershell
 Remove-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet
+```
+
+### Remove a virtual network without a prompt and return the result
+
+```powershell
+Remove-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -Force -PassThru
 ```
 
 ## PARAMETERS
@@ -67,7 +74,7 @@ HelpMessage: ''
 
 ### -Force
 
-Delete the virtual network without prompting for confirmation.
+Deletes the virtual network without asking for confirmation.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -110,7 +117,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Return $true when the delete succeeds. By default this cmdlet returns no output.
+Returns `$true` when the delete succeeds. By default this cmdlet does not return an object.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -225,10 +232,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Void
-
-This cmdlet does not emit an object on the pipeline; it only writes progress and status messages via the Information and Verbose streams.
-
 ### System.Boolean
 
 Returned only when `-PassThru` is specified: `$true` once the virtual network has been deleted.
@@ -236,3 +239,8 @@ Returned only when `-PassThru` is specified: `$true` once the virtual network ha
 ## NOTES
 
 ## RELATED LINKS
+
+- [New-AzVirtualNetwork](./New-AzVirtualNetwork.md)
+- [Get-AzVirtualNetwork](./Get-AzVirtualNetwork.md)
+- [Get-AzVirtualNetworkSubnet](./Get-AzVirtualNetworkSubnet.md)
+

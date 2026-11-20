@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "VirtualNetworkScenarioTests/ResourceGroupLocationLookupFailureStopsCreate"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-vnet-missing-rg?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "6eb06dbe-5435-4da1-b2c5-f2e134a342a8"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "b276b039-e1f5-4cf3-95a1-498ec7a8625b"
+          ],
+          "x-ms-correlation-request-id": [
+            "b276b039-e1f5-4cf3-95a1-498ec7a8625b"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T075946Z:b276b039-e1f5-4cf3-95a1-498ec7a8625b"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: D0E6BC149AF645ECA08B019A50BAEEF1 Ref B: KUL201100111052 Ref C: 2026-11-17T07:59:45Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 07:59:45 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022ResourceGroupNotFound\u0022,\u0022message\u0022:\u0022Resource group \u0027scenario-vnet-missing-rg\u0027 could not be found.\u0022}}"
+      }
+    }
+  ]
+}

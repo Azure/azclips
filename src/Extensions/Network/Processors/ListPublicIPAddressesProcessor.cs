@@ -10,16 +10,15 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Gets all public IP addresses in a resource group.</summary>
-public partial class ListPublicIPAddressesProcessor : ProcessorBase<object, PublicIPAddressListResult>
+public partial class ListPublicIPAddressesProcessor : NetworkProcessorBase<object, PublicIPAddressListResult>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
     /// <summary>The name of the resource group. The name is case insensitive.</summary>
     public string ResourceGroupName { get; set; } = string.Empty;
-    internal string Accept { get; set; } = string.Empty;
     protected override HttpMethod Method => HttpMethod.Get;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/publicIPAddresses?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/publicIPAddresses?api-version=2026-03-01";
     private IEnumerable<PublicIPAddress>? pageItems(PublicIPAddressListResult body) => body.Value;
     private string? nextLink(PublicIPAddressListResult body) => body.NextLink;
     protected override async Task<bool> BeforeWriteOutputAsyncAndReturn(PublicIPAddressListResult? body)

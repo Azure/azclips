@@ -14,7 +14,7 @@ public partial class DdosCustomPolicy
 
     /// <summary>The name of the DDoS custom policy.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; } = null !;
+    public string Name { get; set; } = null!;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]
@@ -55,6 +55,18 @@ public partial class DdosCustomPolicy
         {
             Properties ??= new DdosCustomPolicyPropertiesFormat();
             Properties.DetectionRules = value;
+        }
+    }
+
+    /// <summary>The list of DDoS mitigation rules associated with the custom policy.</summary>
+    [JsonIgnore]
+    public IList<DdosMitigationRule>? MitigationRules
+    {
+        get => Properties?.MitigationRules;
+        set
+        {
+            Properties ??= new DdosCustomPolicyPropertiesFormat();
+            Properties.MitigationRules = value;
         }
     }
 

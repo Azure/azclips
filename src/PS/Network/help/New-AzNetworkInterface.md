@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 10/05/2026
+ms.date: 11/17/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzNetworkInterface
 ---
@@ -20,12 +20,13 @@ Create a network interface.
 ### __AllParameterSets
 
 ```
-New-AzNetworkInterface -Name <string> -Location <string> -ResourceGroupName <string>
- -SubnetId <string> [-SubscriptionId <string>] [-PublicIpAddressId <string>]
- [-NetworkSecurityGroupId <string>] [-PrivateIpAddress <string>] [-IpConfigurationName <string>]
- [-DnsServer <string[]>] [-InternalDnsNameLabel <string>] [-EnableAcceleratedNetworking]
- [-EnableIPForwarding] [-EdgeZone <string>] [-Tag <hashtable>] [-Profile <string>] [-WhatIf]
- [-Confirm] [<CommonParameters>]
+New-AzNetworkInterface -Name <string> -ResourceGroupName <string> -Subnet <string>
+ [-Location <string>] [-Tag <hashtable>] [-VirtualNetworkName <string>]
+ [-IpConfigurationName <string>] [-PrivateIpAddress <string>] [-PrivateIpAddressVersion <string>]
+ [-PublicIpAddress <string>] [-NetworkSecurityGroup <string>] [-DnsServers <string[]>]
+ [-InternalDnsNameLabel <string>] [-EnableIPForwarding] [-EnableAcceleratedNetworking]
+ [-EdgeZone <string>] [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -33,7 +34,8 @@ New-AzNetworkInterface -Name <string> -Location <string> -ResourceGroupName <str
 ## DESCRIPTION
 
 Creates a network interface with a single IP configuration in an existing subnet.
-`-PublicIpAddressId` and `-NetworkSecurityGroupId` associate an existing public IP address and network security group; each takes a resource id, or the name of a resource in `-ResourceGroupName`.
+`-Subnet` takes a subnet resource ID, or a subnet name together with `-VirtualNetworkName`.
+`-PublicIpAddress` and `-NetworkSecurityGroup` associate an existing public IP address and network security group; each takes a resource ID, or the name of a resource in `-ResourceGroupName`.
 
 The IP configuration is named `ipconfig1` unless `-IpConfigurationName` is supplied. Its private IP address is allocated dynamically unless `-PrivateIpAddress` is supplied, in which case the allocation is `Static`.
 
@@ -41,31 +43,26 @@ The IP configuration is named `ipconfig1` unless `-IpConfigurationName` is suppl
 
 ### Create a network interface in a subnet
 
-Create the network interface `mynic` in the first subnet of the virtual network `myvnet`.
+Create the network interface `mynic` in the subnet `default` of the virtual network `myvnet`.
 
 ```powershell
-$vnet = Get-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet
-New-AzNetworkInterface -ResourceGroupName myrg -Name mynic -Location eastus -SubnetId $vnet.Subnets[0].Id
+New-AzNetworkInterface -ResourceGroupName myrg -Name mynic -VirtualNetworkName myvnet -Subnet default
 ```
 
 ### Create a network interface with a public IP address and a network security group
 
-`-NetworkSecurityGroupId` takes the name of a network security group in `-ResourceGroupName` as well as a resource id.
-
 ```powershell
-$vnet = Get-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet
-$pip = Get-AzPublicIpAddress -ResourceGroupName myrg -Name mypip
-New-AzNetworkInterface -ResourceGroupName myrg -Name mynic -Location eastus -SubnetId $vnet.Subnets[0].Id `
-    -PublicIpAddressId $pip.Id -NetworkSecurityGroupId mynsg
+New-AzNetworkInterface -ResourceGroupName myrg -Name mynic -VirtualNetworkName myvnet -Subnet default `
+    -PublicIpAddress mypip -NetworkSecurityGroup mynsg
 ```
 
 ### Create a network interface with a static private IP address and accelerated networking
 
 ```powershell
 $subnetId = '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg/providers/Microsoft.Network/virtualNetworks/myvnet/subnets/default'
-New-AzNetworkInterface -ResourceGroupName myrg -Name mynic -Location eastus -SubnetId $subnetId `
+New-AzNetworkInterface -ResourceGroupName myrg -Name mynic -Location eastus -Subnet $subnetId `
     -PrivateIpAddress 10.0.0.10 -EnableAcceleratedNetworking `
-    -DnsServer 10.0.0.4, 10.0.0.5 -Tag @{ owner = 'team-a' }
+    -DnsServers 10.0.0.4, 10.0.0.5 -Tag @{ owner = 'team-a' }
 ```
 
 ## PARAMETERS
@@ -92,7 +89,7 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -DnsServer
+### -DnsServers
 
 DNS server IP addresses for the network interface. When omitted, the network interface uses the DNS servers of the virtual network.
 
@@ -101,7 +98,7 @@ Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases:
-- DnsServers
+- DnsServer
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -221,7 +218,7 @@ HelpMessage: ''
 
 ### -Location
 
-Location of the network interface, e.g. `eastus`. It must match the location of the virtual network that contains the subnet.
+Location of the network interface, e.g. `eastus`. It must match the location of the virtual network that contains the subnet. Defaults to the location of the resource group.
 
 ```yaml
 Type: System.String
@@ -231,7 +228,7 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -262,15 +259,16 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -NetworkSecurityGroupId
+### -NetworkSecurityGroup
 
-Resource id of an existing network security group to associate with the network interface. A bare name resolves to a network security group in `-ResourceGroupName`.
+Name or resource ID of an existing network security group to associate with the network interface. A name resolves to a network security group in `-ResourceGroupName`.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- NetworkSecurityGroupId
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -304,9 +302,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Profile
+### -PrivateIpAddressVersion
 
-Azure profile to target, e.g. `latest`.
+IP version of the private IP address. Defaults to `IPv4`.
 
 ```yaml
 Type: System.String
@@ -325,15 +323,37 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -PublicIpAddressId
+### -Profile
 
-Resource id of an existing public IP address to associate with the IP configuration. A bare name resolves to a public IP address in `-ResourceGroupName`.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -PublicIpAddress
+
+Name or resource ID of an existing public IP address to associate with the IP configuration. A name resolves to a public IP address in `-ResourceGroupName`.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- PublicIpAddressId
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -348,7 +368,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-Name of the resource group to create the network interface in.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -367,15 +387,16 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -SubnetId
+### -Subnet
 
-Resource id of the existing subnet that the IP configuration is attached to.
+Name or resource ID of the subnet for the IP configuration. A name needs `-VirtualNetworkName`, and the virtual network must be in `-ResourceGroupName`.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- SubnetId
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -390,7 +411,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-ID of the subscription to create the network interface in. Defaults to the subscription of the current context.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -419,6 +440,27 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - Tags
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -VirtualNetworkName
+
+Name of the virtual network that contains the subnet. Required when `-Subnet` is a name. Not used when `-Subnet` is a resource ID.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -471,3 +513,9 @@ The network interface that was created, including its IP configuration, the allo
 ## NOTES
 
 ## RELATED LINKS
+
+- [Get-AzNetworkInterface](./Get-AzNetworkInterface.md)
+- [Remove-AzNetworkInterface](./Remove-AzNetworkInterface.md)
+- [New-AzVirtualNetworkSubnet](./New-AzVirtualNetworkSubnet.md)
+- [New-AzPublicIpAddress](./New-AzPublicIpAddress.md)
+

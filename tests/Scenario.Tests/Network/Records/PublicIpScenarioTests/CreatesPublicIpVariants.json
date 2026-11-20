@@ -1,0 +1,2011 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "PublicIpScenarioTests/CreatesPublicIpVariants"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-pip-variants-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "87e775f8-3308-43b1-9fbf-d8f031a1acca"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-pip-variants-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "7fde268c-2833-4be8-b962-f94cfacd2f78"
+          ],
+          "x-ms-correlation-request-id": [
+            "7fde268c-2833-4be8-b962-f94cfacd2f78"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081606Z:7fde268c-2833-4be8-b962-f94cfacd2f78"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 424649E0B74F47ED8F3B9EBFE839450B Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:03Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:06 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg\u0022,\u0022name\u0022:\u0022scenario-pip-variants-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-a?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "5ec211a6-69a0-498f-a36f-72c9343bf3bd"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "0229026c-1b5f-4888-9e8a-ec42fe2462b3"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/0229026c-1b5f-4888-9e8a-ec42fe2462b3?api-version=2025-07-01\u0026t=639305001669813700\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "35730cec-f8c5-4968-9507-47548d81a2dd"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "37ba184e-6a9d-44d6-8c61-b17c3a86f946"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081606Z:35730cec-f8c5-4968-9507-47548d81a2dd"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 345B2F08F04343B49EBE10DAFD64CC8D Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:06Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:07 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-a\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-a\u0022,\u0022etag\u0022:\u0022W/\\\u0022cc3e34cc-73f4-4c93-9462-f70ec077cbd3\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022062da202-8f7c-474e-853f-b5e6cdeafda2\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/0229026c-1b5f-4888-9e8a-ec42fe2462b3?api-version=2025-07-01\u0026t=639305001669813700\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "7f5990ac-c638-45b2-807c-4edfcf41c1cd"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "fefa10a2-a0ca-4e5d-9ec2-57b5cea3aedf"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.3, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "0beae5f3-9225-4793-8c7e-f4961f48c128"
+          ],
+          "x-ms-arm-service-request-id": [
+            "40744812-caa2-4854-ad46-5fde183f7959"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081608Z:0beae5f3-9225-4793-8c7e-f4961f48c128"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 5059FD4225EE4AC38425E6232AF7F246 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:08Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:08 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-a?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "aa4b719d-48c7-4615-a5ca-e7038c2ebb86"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022e8dbf7bc-d80b-4563-ae85-917ca317ca97\u0022"
+          ],
+          "x-ms-request-id": [
+            "cb834c0f-32e1-4cb9-8667-5944126fa047"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.3, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "f64c8435-82a8-4594-9621-8ffc0c567998"
+          ],
+          "x-ms-arm-service-request-id": [
+            "63ec7e12-f141-4b7d-9a53-651f532fd547"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081609Z:f64c8435-82a8-4594-9621-8ffc0c567998"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 880ADC8AEDBC42D6B69FA6F643AE7C1F Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:08Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:09 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-a\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-a\u0022,\u0022etag\u0022:\u0022W/\\\u0022e8dbf7bc-d80b-4563-ae85-917ca317ca97\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022062da202-8f7c-474e-853f-b5e6cdeafda2\u0022,\u0022ipAddress\u0022:\u0022172.177.38.229\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-b?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "2e0c9c89-7cb8-4f8e-aa5e-d773bdd64dd0"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022tags\u0022:{\u0022foo\u0022:\u0022doo\u0022},\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "1517ef5c-5e53-4833-949b-874d9e389c33"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/1517ef5c-5e53-4833-949b-874d9e389c33?api-version=2025-07-01\u0026t=639305001700236280\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "dc3859c4-a5ad-4416-b7d9-b6a56e1eb8ec"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "e3ea9fdf-6780-43c1-9578-1fa34ef271e7"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081610Z:dc3859c4-a5ad-4416-b7d9-b6a56e1eb8ec"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6C21EEB7CB2B40CFA527201EBCFD2980 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:09Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:10 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-b\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-b\u0022,\u0022etag\u0022:\u0022W/\\\u0022ed17a027-1b6b-48d3-ba5e-0e8c34a0c6e1\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022tags\u0022:{\u0022foo\u0022:\u0022doo\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022b5d28ff4-b684-4702-afdc-5ee5459b47ee\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/1517ef5c-5e53-4833-949b-874d9e389c33?api-version=2025-07-01\u0026t=639305001700236280\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "c2f9fb1b-97c7-410a-8161-e4148ff1d686"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "beb0859c-c776-46c3-b32d-fed447b94006"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.4, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "104c6148-d0b0-4615-8fda-e4801a91677d"
+          ],
+          "x-ms-arm-service-request-id": [
+            "941af36c-5d76-4b0c-97d3-30511a0f6217"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081611Z:104c6148-d0b0-4615-8fda-e4801a91677d"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B48CBBEE78984184B83B3B4867CBE52E Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:11Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-b?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "94f1a2e7-c49b-4163-9bce-e8a402bec9a3"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022a5de6c3c-7553-489f-a5e7-5c11f8d256d5\u0022"
+          ],
+          "x-ms-request-id": [
+            "a23b21d7-bc82-452a-b7ba-c95e6c855879"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.3, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.4, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "db7e58f2-33e4-4479-b6af-16e1d2ad2179"
+          ],
+          "x-ms-arm-service-request-id": [
+            "dd5ff94e-7811-4be7-bdf7-822db124969a"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081611Z:db7e58f2-33e4-4479-b6af-16e1d2ad2179"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: FEAB028DBCBB4E2B8D67714FF8A9EAC5 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:11Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:11 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-b\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-b\u0022,\u0022etag\u0022:\u0022W/\\\u0022a5de6c3c-7553-489f-a5e7-5c11f8d256d5\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022tags\u0022:{\u0022foo\u0022:\u0022doo\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022b5d28ff4-b684-4702-afdc-5ee5459b47ee\u0022,\u0022ipAddress\u0022:\u002220.186.91.61\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-c?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "8c89d4fa-6231-4798-b9d8-59cd67a5fb88"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Global\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "72c7267e-2ce4-4202-a87a-1f88d9cb2c63"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/72c7267e-2ce4-4202-a87a-1f88d9cb2c63?api-version=2025-07-01\u0026t=639305001722938331\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.3, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.7, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "cce0a06a-ba08-42cf-a5b1-7216463b1afb"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "4f2499a5-a9ee-4f02-83d3-92e929430369"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "198"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2998"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081612Z:cce0a06a-ba08-42cf-a5b1-7216463b1afb"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: DEE284FB61F84F87B9779C574A21173E Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:12Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:12 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-c\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-c\u0022,\u0022etag\u0022:\u0022W/\\\u0022e13f7fc6-0b7a-499f-bf57-19dc25781e75\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00223bbcff9a-5123-483e-b8d7-97cfefb0a713\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Global\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/72c7267e-2ce4-4202-a87a-1f88d9cb2c63?api-version=2025-07-01\u0026t=639305001722938331\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "3f79a551-5460-4e02-b07e-e492ea92b702"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "bf202c72-c6f7-4bf2-9ec3-179f16ddacfc"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "5c0b147e-2d71-4c7d-b643-60b208c562c8"
+          ],
+          "x-ms-arm-service-request-id": [
+            "ea495863-b74e-4e8a-ba42-837b05f3711c"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081614Z:5c0b147e-2d71-4c7d-b643-60b208c562c8"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B8734129547B4ACDAC5B44A48ED8C56F Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:13Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:14 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-c?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "75d3a8d6-3569-498f-8743-5ccb37335c52"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u00227b73e4c5-60a5-4420-b764-5aee8f0876a3\u0022"
+          ],
+          "x-ms-request-id": [
+            "805c4e31-ecb4-46ee-b2b4-4991e5c6cc39"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.5, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "988d157c-7470-43ec-924b-aef6fc6a946d"
+          ],
+          "x-ms-arm-service-request-id": [
+            "d4868836-f678-415f-a592-686ec11deae7"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081614Z:988d157c-7470-43ec-924b-aef6fc6a946d"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 1DAED45ACCC143398F918D8F5B76F139 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:14Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:14 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-c\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-c\u0022,\u0022etag\u0022:\u0022W/\\\u00227b73e4c5-60a5-4420-b764-5aee8f0876a3\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00223bbcff9a-5123-483e-b8d7-97cfefb0a713\u0022,\u0022ipAddress\u0022:\u002220.15.2.123\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Global\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-pip-variants-rg?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "a8e10cec-0599-4535-bb55-d521cd355bb8"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "0a2b7611-4166-4f38-bf9c-b3fab18bfdd1"
+          ],
+          "x-ms-correlation-request-id": [
+            "0a2b7611-4166-4f38-bf9c-b3fab18bfdd1"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081615Z:0a2b7611-4166-4f38-bf9c-b3fab18bfdd1"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: DE454F15A4504AA89B22FE5A3A00E43D Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:14Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:15 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg\u0022,\u0022name\u0022:\u0022scenario-pip-variants-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-d?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "6b19a768-c9b4-4993-8e4f-3e86ca268ad4"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022standardv2\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "944846fa-81f0-427b-9b09-78b958ab66b1"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/944846fa-81f0-427b-9b09-78b958ab66b1?api-version=2025-07-01\u0026t=639305001754776648\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.4, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.8, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "47d9cfc1-56e2-481e-b525-a520233c744d"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "23af531e-ee56-4e8c-aee4-46f01353f8b8"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081615Z:47d9cfc1-56e2-481e-b525-a520233c744d"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B3276366498149A99E3BCF9AA97236B0 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:15Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:15 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-d\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-d\u0022,\u0022etag\u0022:\u0022W/\\\u002203db10ba-11ff-4188-9637-28dfd99fdefc\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022185e276f-af09-42a7-901b-2ef4214d9c82\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022StandardV2\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/944846fa-81f0-427b-9b09-78b958ab66b1?api-version=2025-07-01\u0026t=639305001754776648\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "84bb459a-7cf2-44a2-9c66-4b9184aa1149"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "2"
+          ],
+          "x-ms-request-id": [
+            "3c584dd3-4424-4ee4-85c8-a8cc62b2354a"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "2e0a5244-9c1d-4104-b00a-81e89c9b1489"
+          ],
+          "x-ms-arm-service-request-id": [
+            "98c5d2bc-3f5c-445c-9bb6-08b5cb48cdbf"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081616Z:2e0a5244-9c1d-4104-b00a-81e89c9b1489"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 64F5B98E97BD4963A323FCC29A4C89AF Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:16Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:16 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022InProgress\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/944846fa-81f0-427b-9b09-78b958ab66b1?api-version=2025-07-01\u0026t=639305001754776648\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "9e5d637e-808d-4771-96bc-5ccf1db0dcc9"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "74471f6c-ee3d-4654-8160-997dfe2e914b"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "7bc1c0c3-debe-42e8-a8c7-6118393a2f32"
+          ],
+          "x-ms-arm-service-request-id": [
+            "7b5bba41-b635-4d91-8c20-1378ecd232e1"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081619Z:7bc1c0c3-debe-42e8-a8c7-6118393a2f32"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6EFF0CC87AFE45A78C341D477AD39F71 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:18Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:19 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-d?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "1d8c706f-1dcb-4917-99ae-ca25618d0989"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022498660ac-a90e-4707-a7a5-c82accf45814\u0022"
+          ],
+          "x-ms-request-id": [
+            "5d717c03-6fdc-44a7-9ae6-29f86a504fd7"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.7, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "8d100f66-7715-4326-8870-49e485db4b32"
+          ],
+          "x-ms-arm-service-request-id": [
+            "e3046fe7-37f3-4e4b-87ba-fcb7ed1e7906"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081620Z:8d100f66-7715-4326-8870-49e485db4b32"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 06BD2020682747449CAE524BDD690ECB Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:19Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:20 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-d\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-d\u0022,\u0022etag\u0022:\u0022W/\\\u0022498660ac-a90e-4707-a7a5-c82accf45814\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022185e276f-af09-42a7-901b-2ef4214d9c82\u0022,\u0022ipAddress\u0022:\u0022172.175.154.102\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022StandardV2\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-e?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "3b2fd637-841f-4777-bb79-071e83218199"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022ipv4\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022standard\u0022},\u0022zones\u0022:[\u00221\u0022,\u00222\u0022,\u00223\u0022]}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "14f0f2cc-be3b-45a5-8da7-a61a0b9c68cd"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/14f0f2cc-be3b-45a5-8da7-a61a0b9c68cd?api-version=2025-07-01\u0026t=639305001805906488\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.5, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.9, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "9544c433-3247-4d49-81f8-6d565ba9528f"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "13aee489-2c07-4cb0-b9da-b29884374c61"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "197"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2997"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081620Z:9544c433-3247-4d49-81f8-6d565ba9528f"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 318790EE72484A01871CDE4300506802 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:20Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:20 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-e\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-e\u0022,\u0022etag\u0022:\u0022W/\\\u00226949e6e4-72d0-4174-be16-3df2d2cb01dc\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022zones\u0022:[\u00221\u0022,\u00222\u0022,\u00223\u0022],\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00224bf20451-59ea-49d8-9bdc-dffdc56bd528\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/14f0f2cc-be3b-45a5-8da7-a61a0b9c68cd?api-version=2025-07-01\u0026t=639305001805906488\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "51c72c5c-2e5c-420b-9b8e-fc4f82c75485"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "55d46c1e-ac9a-4ebf-98b8-3be64c0a8685"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "c2dde136-f1a3-4553-a5cc-1fc3dd1d7495"
+          ],
+          "x-ms-arm-service-request-id": [
+            "b8d5175e-a0c1-4154-ba7e-00a89a8e6e3e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081622Z:c2dde136-f1a3-4553-a5cc-1fc3dd1d7495"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: F532DCD508E041DAA34EA7952DE62492 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:21Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:22 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-e?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "dc0c3f57-9189-42fa-9846-bd8a87fbe86f"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u00221731c35d-82b3-47d9-b4be-8aa0265f4b71\u0022"
+          ],
+          "x-ms-request-id": [
+            "f13c762d-3821-49fb-9597-0efc35bae2c1"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.9, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.6, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "474a2567-e935-40e0-b33a-58003868d56e"
+          ],
+          "x-ms-arm-service-request-id": [
+            "9ab92142-23af-4d86-a597-ae05291dea39"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081622Z:474a2567-e935-40e0-b33a-58003868d56e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 2C2508ACC7064CDA8E45512779EA5D05 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:22Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:22 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-e\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-e\u0022,\u0022etag\u0022:\u0022W/\\\u00221731c35d-82b3-47d9-b4be-8aa0265f4b71\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022zones\u0022:[\u00221\u0022,\u00222\u0022,\u00223\u0022],\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00224bf20451-59ea-49d8-9bdc-dffdc56bd528\u0022,\u0022ipAddress\u0022:\u002220.7.213.70\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-f?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "8e9d5a54-ee41-4776-a9b6-2c4440e555c7"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv6\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "fa0cc948-a019-438f-a047-8ae375fe7b1e"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/fa0cc948-a019-438f-a047-8ae375fe7b1e?api-version=2025-07-01\u0026t=639305001833682681\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.6, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.0, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "93681ab6-c584-42a8-a226-43cee3b36005"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "0fc3baba-cc96-40a9-a3f1-7f13fe43edd6"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "198"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2998"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081623Z:93681ab6-c584-42a8-a226-43cee3b36005"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 9EEA6EF37E034A6E9A11487ABC81CFE1 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:23Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:23 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-f\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-f\u0022,\u0022etag\u0022:\u0022W/\\\u002263488e85-c3cb-4231-849d-43df38dc0d9a\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022ccd10f35-3799-4b70-9e33-7826183228b6\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv6\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/fa0cc948-a019-438f-a047-8ae375fe7b1e?api-version=2025-07-01\u0026t=639305001833682681\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "74e3dfc8-9aa7-4d40-a52f-e9c4cabe82d4"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "26eddddc-66e0-4f63-af41-fa74f2bd0dee"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.7, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "6d872b7d-e732-4d50-83b0-ac9a80d2f1c5"
+          ],
+          "x-ms-arm-service-request-id": [
+            "8b6bac9c-1f49-4cc9-b514-5dfed0fafc50"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081625Z:6d872b7d-e732-4d50-83b0-ac9a80d2f1c5"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 63420263E1074338AC5F2BABEE625143 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:24Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-f?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "3bcce195-e3ab-44ac-8ee3-bd484fe1984a"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u002231c72467-8923-4b56-89bd-5c7caa7cbf08\u0022"
+          ],
+          "x-ms-request-id": [
+            "033baa29-0875-4262-a565-da7d4e83b1da"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=1.0, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.7, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "11aaef24-59be-4cd0-b701-0db4285225bc"
+          ],
+          "x-ms-arm-service-request-id": [
+            "7c5bf6c5-f98f-4079-a652-5e87ad438828"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081625Z:11aaef24-59be-4cd0-b701-0db4285225bc"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0FB1C80759274BA4868A91F63B13ADE0 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:25Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-f\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-f\u0022,\u0022etag\u0022:\u0022W/\\\u002231c72467-8923-4b56-89bd-5c7caa7cbf08\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022ccd10f35-3799-4b70-9e33-7826183228b6\u0022,\u0022ipAddress\u0022:\u00222603:1030:408::ff\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv6\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-g?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "50a80317-51db-4caa-aa32-abe9c7790e86"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022Enabled\u0022}},\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "f87d2922-0ba5-4980-9ba8-8bded033f312"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/f87d2922-0ba5-4980-9ba8-8bded033f312?api-version=2025-07-01\u0026t=639305001858838820\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.7, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "0b3b75fe-b9d4-471e-8910-184f1fd2feae"
+          ],
+          "azure-asyncnotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "9ac9918a-8ce0-4d27-8920-560fa2fc8185"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "197"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2997"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081625Z:0b3b75fe-b9d4-471e-8910-184f1fd2feae"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: E1A6B8C5C0A64A69A2CD7BB0514E66A4 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:25Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-g\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-g\u0022,\u0022etag\u0022:\u0022W/\\\u00224b368349-019b-4ef8-88d9-7295519e64d7\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u0022df25609a-0698-40f6-9a59-b690bce03bcf\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022Enabled\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/f87d2922-0ba5-4980-9ba8-8bded033f312?api-version=2025-07-01\u0026t=639305001858838820\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "54db562d-4154-4f4c-a5c9-c0a372ae26cc"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "a9594238-8624-472b-96c3-056bdc157f5c"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.7, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "b0416c14-7c32-41e8-abaa-b805b5655466"
+          ],
+          "x-ms-arm-service-request-id": [
+            "8b16e302-b694-4122-a734-561a56a7cab3"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081627Z:b0416c14-7c32-41e8-abaa-b805b5655466"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B7008AE7910642BDAA094C9F463CE004 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:27Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-g?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "7cb8d3c6-55c1-4a00-b07e-09ed2ab3e82c"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u002292e9dfe5-4f7d-4f0a-8d3e-0fccacf5a4f1\u0022"
+          ],
+          "x-ms-request-id": [
+            "c064b4b4-d311-4815-9653-81d11dd4fee2"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=1.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.8, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "1ec7f24c-6042-4ba9-a9b3-822cdf2a707a"
+          ],
+          "x-ms-arm-service-request-id": [
+            "5dc140f8-42ff-4a04-ab35-2cc995117124"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081627Z:1ec7f24c-6042-4ba9-a9b3-822cdf2a707a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 0E67DC015E054379A075B4CC3B20F6E2 Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:27Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-g\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-g\u0022,\u0022etag\u0022:\u0022W/\\\u002292e9dfe5-4f7d-4f0a-8d3e-0fccacf5a4f1\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022df25609a-0698-40f6-9a59-b690bce03bcf\u0022,\u0022ipAddress\u0022:\u002220.110.101.20\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:4,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022Enabled\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-h?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "a8494724-3e46-47d1-a78c-1a6e3f18198f"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022idleTimeoutInMinutes\u0022:15},\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Retry-After": [
+            "1"
+          ],
+          "x-ms-request-id": [
+            "71f88069-b3b6-421c-b0f2-541b0bc533b6"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/71f88069-b3b6-421c-b0f2-541b0bc533b6?api-version=2025-07-01\u0026t=639305001879307505\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.8, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "1adac831-9059-4afe-9c65-4aedfaa7ace2"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "3a9d2eff-5e1d-4dc4-8ed0-73956bad6b76"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "196"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2996"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081627Z:1adac831-9059-4afe-9c65-4aedfaa7ace2"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 1DEF7EB1D9714BE6AC30784528424E8B Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:27Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:27 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-h\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-h\u0022,\u0022etag\u0022:\u0022W/\\\u002277e1ebe7-289d-4034-9370-a3ac8276103c\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Updating\u0022,\u0022resourceGuid\u0022:\u00227a097655-7e67-44f2-a47e-3bd28afdaffd\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:15,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/eastus2/operations/71f88069-b3b6-421c-b0f2-541b0bc533b6?api-version=2025-07-01\u0026t=639305001879307505\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "dd2c2c62-8604-4c82-b83d-b3e06f021294"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "8e0b1cdd-c602-42f5-b582-5edc67b7ec8d"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.8, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "af9f1553-e5fe-48e1-9473-0f0b2a956f9b"
+          ],
+          "x-ms-arm-service-request-id": [
+            "375f8214-6406-4ad9-aab0-dd49c57e1f8e"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T081629Z:af9f1553-e5fe-48e1-9473-0f0b2a956f9b"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: C858DEC56F71484488A3C5296229B59A Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:29Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:29 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-h?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "2f1c0157-7fb2-43d2-825c-d87c7204fc63"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022452f5d8f-a2cd-4d54-9ef5-12577d0fefd8\u0022"
+          ],
+          "x-ms-request-id": [
+            "8b43c639-ed45-4363-a8af-0bd20ab5d6a6"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=1.3, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.8, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "de5301a9-a710-4f06-84a1-173761d03850"
+          ],
+          "x-ms-arm-service-request-id": [
+            "5ee5caae-7f2c-47bd-a125-d2aafadc5b18"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "248"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3748"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081630Z:de5301a9-a710-4f06-84a1-173761d03850"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B25C2B91D2A94D50ACE9809BBE7F6B4A Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:29Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:30 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-pip-h\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-h\u0022,\u0022etag\u0022:\u0022W/\\\u0022452f5d8f-a2cd-4d54-9ef5-12577d0fefd8\\\u0022\u0022,\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u00227a097655-7e67-44f2-a47e-3bd28afdaffd\u0022,\u0022ipAddress\u0022:\u002220.97.167.170\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:15,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-pip-variants-rg/providers/Microsoft.Network/publicIPAddresses/scenario-pip-i?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "e0533a4d-c55f-4b69-b74a-61f2357ba4cf"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022eastus2\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022Dynamic\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022},\u0022sku\u0022:{\u0022name\u0022:\u0022Basic\u0022}}"
+      },
+      "response": {
+        "statusCode": 400,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "5a44b7b0-abe4-41c2-b4e5-d9c3b2cda3a5"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.9, operationConcurrencyPct=0.3, subscriptionWriteRatePct=1.3, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "a44df4f1-f7d2-4413-b1d0-c955bf0d10f2"
+          ],
+          "x-ms-arm-service-request-id": [
+            "fcd9d8e7-19c8-432f-8c3b-5f230b6ac991"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "197"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2997"
+          ],
+          "x-ms-routing-request-id": [
+            "EASTUS2:20261117T081630Z:a44df4f1-f7d2-4413-b1d0-c955bf0d10f2"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: E31E781575B84209B9B89E4D40992A8A Ref B: KUL201100111031 Ref C: 2026-11-17T08:16:30Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:16:30 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022IPv4BasicSkuPublicIpCountLimitReached\u0022,\u0022message\u0022:\u0022Cannot create more than 0 IPv4 Basic SKU public IP addresses for this subscription in this region.\u0022,\u0022details\u0022:[]}}"
+      }
+    }
+  ]
+}

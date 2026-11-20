@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Creates or updates a network security group in the specified resource group.</summary>
-public partial class CreateOrUpdateNetworkSecurityGroupsProcessor : ProcessorBase<NetworkSecurityGroup, NetworkSecurityGroup>
+public partial class CreateOrUpdateNetworkSecurityGroupsProcessor : NetworkProcessorBase<NetworkSecurityGroup, NetworkSecurityGroup>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
@@ -19,8 +19,6 @@ public partial class CreateOrUpdateNetworkSecurityGroupsProcessor : ProcessorBas
     /// <summary>The name of the network security group.</summary>
     public string NetworkSecurityGroupName { get; set; } = string.Empty;
     /// <summary>Body parameter's content type. Known values are application/json</summary>
-    internal string ContentType { get; set; } = string.Empty;
-    internal string Accept { get; set; } = string.Empty;
     /// <summary>Parameters supplied to the create or update network security group operation.</summary>
     internal NetworkSecurityGroup? Body { get; set; }
     /// <summary>Resource ID.</summary>
@@ -35,7 +33,7 @@ public partial class CreateOrUpdateNetworkSecurityGroupsProcessor : ProcessorBas
     public IList<SecurityRule>? SecurityRules { get => Body?.SecurityRules; set => (Body ??= new NetworkSecurityGroup()).SecurityRules = value; }
     protected override HttpMethod Method => HttpMethod.Put;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/networkSecurityGroups/{Uri.EscapeDataString(NetworkSecurityGroupName)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/networkSecurityGroups/{Uri.EscapeDataString(NetworkSecurityGroupName)}?api-version=2026-03-01";
     protected override NetworkSecurityGroup? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");

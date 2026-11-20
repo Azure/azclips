@@ -30,6 +30,11 @@ public partial class PrivateLinkServiceConnectionProperties
     [JsonInclude]
     internal PrivateLinkServiceConnectionState? PrivateLinkServiceConnectionState { get; set; }
 
+    /// <summary>A reference to an existing approved private endpoint whose connection approval state should be inherited by this connection at creation time.</summary>
+    [JsonPropertyName("approvalReference")]
+    [JsonInclude]
+    internal ApprovalReference? ApprovalReference { get; set; }
+
     /// <summary>Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.</summary>
     [JsonIgnore]
     public string? PrivateLinkServiceConnectionStateStatus
@@ -63,6 +68,18 @@ public partial class PrivateLinkServiceConnectionProperties
         {
             PrivateLinkServiceConnectionState ??= new PrivateLinkServiceConnectionState();
             PrivateLinkServiceConnectionState.ActionsRequired = value;
+        }
+    }
+
+    /// <summary>The ARM resource id of an existing approved private endpoint whose approval state is inherited by this connection.</summary>
+    [JsonIgnore]
+    public string? ApprovalReferencePrivateEndpointId
+    {
+        get => ApprovalReference?.PrivateEndpointId;
+        set
+        {
+            ApprovalReference ??= new ApprovalReference();
+            ApprovalReference.PrivateEndpointId = value;
         }
     }
 }

@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "VirtualNetworkScenarioTests/ExplicitLocationIsSentWithoutResourceGroupLookup"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vnet-missing-rg/providers/Microsoft.Network/virtualNetworks/vnet1?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "ccb3ec08-d1c4-454c-a0a2-92a6aea0bab9"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus2\u0022,\u0022properties\u0022:{\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]}}}"
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-request-id": [
+            "abaace99-9946-4f86-b372-dd5d5f30570e"
+          ],
+          "x-ms-correlation-request-id": [
+            "abaace99-9946-4f86-b372-dd5d5f30570e"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T075954Z:abaace99-9946-4f86-b372-dd5d5f30570e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 7A96FAE0C922459BB8EF1F6AD311F01F Ref B: KUL201100111023 Ref C: 2026-11-17T07:59:53Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 07:59:53 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022ResourceGroupNotFound\u0022,\u0022message\u0022:\u0022Resource group \u0027scenario-vnet-missing-rg\u0027 could not be found.\u0022}}"
+      }
+    }
+  ]
+}

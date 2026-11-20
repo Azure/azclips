@@ -14,7 +14,7 @@ public partial class PublicIPPrefix
 
     /// <summary>The name of the public IP prefix.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; } = null !;
+    public string Name { get; set; } = null!;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]
@@ -104,6 +104,10 @@ public partial class PublicIPPrefix
     /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
     [JsonIgnore]
     public string? ProvisioningState { get => Properties?.ProvisioningState; }
+
+    /// <summary>Whether the public IP prefix SKU has been upgraded from Standard to StandardV2.</summary>
+    [JsonIgnore]
+    public bool? UpgradedToV2 { get => Properties?.UpgradedToV2; }
 
     /// <summary>Resource ID.</summary>
     [JsonIgnore]

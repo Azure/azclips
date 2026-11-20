@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/08/2026
+ms.date: 11/17/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVirtualNetwork
 ---
@@ -20,68 +20,52 @@ Create a virtual network.
 ### __AllParameterSets
 
 ```
-New-AzVirtualNetwork -Name <string> -Location <string> -ResourceGroupName <string>
- [-SubscriptionId <string>] [-AddressPrefix <string[]>] [-Subnet <Object[]>]
- [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-DnsServer <string[]>]
- [-Tag <hashtable>] [-EnableDdosProtection] [-DdosProtectionPlanId <string>] [-EnableVmProtection]
- [-FlowTimeout <int>] [-BgpCommunity <string>] [-EnableEncryption]
- [-EncryptionEnforcementPolicy <string>] [-EdgeZone <string>]
- [-PrivateEndpointVNetPoliciesValue <string>] [-IpAllocation <string[]>]
- [-IpamPoolPrefixAllocation <string[]>] [-SummarizedGatewayPrefix <string[]>] [-Profile <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+New-AzVirtualNetwork -Name <string> -ResourceGroupName <string> [-Location <string>]
+ [-Tag <hashtable>] [-AddressPrefixes <string[]>] [-DnsServers <string[]>] [-SubnetName <string>]
+ [-SubnetPrefixes <string[]>] [-EnableDdosProtection] [-DdosProtectionPlan <string>]
+ [-FlowTimeoutInMinutes <int>] [-BgpCommunity <string>] [-EnableEncryption]
+ [-EncryptionEnforcement <string>] [-EdgeZone <string>] [-SubscriptionId <string>]
+ [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
 ## DESCRIPTION
 
-Creates an Azure virtual network in the specified resource group and location.
-Supply the VNet address space with `-AddressPrefix`, and optionally create subnets in the same call with `-Subnet`, passing subnet configuration objects or hashtables.
-For the simple name-and-prefix case you can instead pair `-SubnetNames` with `-SubnetAddressPrefixes`, which are matched positionally: the first prefix list belongs to the first subnet name, and so on.
+Creates an Azure virtual network in the specified resource group.
+The address space is `-AddressPrefixes`, or 10.0.0.0/16 when omitted.
+To create one subnet in the same request, give `-SubnetName` and, optionally, `-SubnetPrefixes`.
+Use `New-AzVirtualNetworkSubnet` to add more subnets later.
 
 ## EXAMPLES
 
 ### Create a virtual network with one subnet
 
-Create the virtual network `myvnet` with address space 10.0.0.0/16 and a single subnet `default`.
+Create the virtual network `myvnet` with address space 10.0.0.0/16 and the subnet `default`.
 
 ```powershell
-New-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -Location eastus -AddressPrefix 10.0.0.0/16 -Subnet @{ Name = 'default'; AddressPrefix = '10.0.0.0/24' }
+New-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -Location eastus -AddressPrefixes 10.0.0.0/16 `
+    -SubnetName default -SubnetPrefixes 10.0.0.0/24
+```
+
+### Create a virtual network with custom DNS servers and tags
+
+```powershell
+New-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -DnsServers 10.0.0.4, 10.0.0.5 -Tag @{ owner = 'team-a' }
 ```
 
 ## PARAMETERS
 
-### -AddressPrefix
+### -AddressPrefixes
 
-Address prefixes for the virtual network, e.g. 10.0.0.0/16. Defaults to 10.0.0.0/16 unless IPAM pool allocations are supplied.
+Address prefixes for the virtual network, e.g. 10.0.0.0/16. Defaults to 10.0.0.0/16.
 
 ```yaml
 Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases:
-- AddressPrefixes
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -AddressPrefixes
-
-Address prefixes for the virtual network, e.g. 10.0.0.0/16. Defaults to 10.0.0.0/16 unless IPAM pool allocations are supplied.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
+- AddressPrefix
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -137,15 +121,16 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -DdosProtectionPlanId
+### -DdosProtectionPlan
 
-Resource id of the DDoS protection plan to associate.
+Name or resource ID of the DDoS protection plan to associate. A name resolves to a plan in `-ResourceGroupName`.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- DdosProtectionPlanId
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -158,7 +143,7 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -DnsServer
+### -DnsServers
 
 DNS server IP addresses for the virtual network.
 
@@ -167,7 +152,7 @@ Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases:
-- DnsServers
+- DnsServer
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -243,36 +228,16 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -EnableVmProtection
+### -EncryptionEnforcement
 
-Enable VM protection for every subnet in the virtual network.
-
-```yaml
-Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -EncryptionEnforcementPolicy
-
-Behaviour when a VM without encryption joins an encrypted virtual network.
+What happens when a VM that does not support encryption joins the encrypted virtual network. Used only together with `-EnableEncryption`.
 
 ```yaml
 Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- EncryptionEnforcementPolicy
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -285,57 +250,16 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -FlowTimeout
+### -FlowTimeoutInMinutes
 
-Flow timeout in minutes for the virtual network, between 4 and 30.
+Flow timeout in minutes for the virtual network, from 4 to 30.
 
 ```yaml
 Type: System.Int32
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -IpAllocation
-
-Resource ids of the IP allocations to reference.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -IpamPoolPrefixAllocation
-
-Resource ids of the IPAM pools to allocate address prefixes from.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
+Aliases:
+- FlowTimeout
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -350,7 +274,7 @@ HelpMessage: ''
 
 ### -Location
 
-Location for the virtual network.
+Location for the virtual network, e.g. `eastus`. Defaults to the location of the resource group.
 
 ```yaml
 Type: System.String
@@ -360,7 +284,7 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -383,27 +307,6 @@ ParameterSets:
 - Name: (All)
   Position: Named
   IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -PrivateEndpointVNetPoliciesValue
-
-Private endpoint VNet policies. Accepts Disabled or Basic.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
   ValueFromPipeline: false
   ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
@@ -454,34 +357,12 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Subnet
+### -SubnetName
 
-Subnet objects, or hashtables describing subnets to create. Recognised hashtable keys: Name, AddressPrefix, AddressPrefixes, Nsg, RouteTable, NatGateway, DefaultOutboundAccess, ServiceEndpoint, ServiceEndpointPolicy, Delegation, IpamPoolPrefixAllocation, DisablePrivateEndpointNetworkPolicies, DisablePrivateLinkServiceNetworkPolicies. Multi-valued hashtable keys take an array or a comma-separated value.
-
-```yaml
-Type: System.Object[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- Subnets
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -SubnetAddressPrefixes
-
-Address prefixes for each subnet, positionally matched to `-SubnetNames`.
+Name of a subnet to create in the same request.
 
 ```yaml
-Type: System.String[][]
+Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -497,9 +378,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -SubnetNames
+### -SubnetPrefixes
 
-Names of the subnets to create.
+Address prefixes for the subnet named by `-SubnetName`. When omitted, the subnet uses the address of the first virtual network prefix with a /24 mask, or with the virtual network mask when that mask is longer than /24.
 
 ```yaml
 Type: System.String[]
@@ -524,27 +405,6 @@ Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -SummarizedGatewayPrefix
-
-Summarized gateway prefixes advertised for the virtual network.
-
-```yaml
-Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
@@ -622,3 +482,8 @@ The virtual network that was created, including its address space, subnets, and 
 ## NOTES
 
 ## RELATED LINKS
+
+- [Get-AzVirtualNetwork](./Get-AzVirtualNetwork.md)
+- [Remove-AzVirtualNetwork](./Remove-AzVirtualNetwork.md)
+- [Get-AzVirtualNetworkSubnet](./Get-AzVirtualNetworkSubnet.md)
+

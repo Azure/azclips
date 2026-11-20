@@ -1,0 +1,263 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "VirtualNetworkScenarioTests/EdgeZoneIsSentAsExtendedLocation"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-vnet-edgezone-rg?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "0280f087-1009-4fdc-8a4b-78a4f2f3b4b7"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022\u0022,\u0022name\u0022:\u0022scenario-vnet-edgezone-rg\u0022,\u0022type\u0022:\u0022\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022tags\u0022:null}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "52153a30-13b4-452c-8a0a-fcf4d36ad880"
+          ],
+          "x-ms-correlation-request-id": [
+            "52153a30-13b4-452c-8a0a-fcf4d36ad880"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T082825Z:52153a30-13b4-452c-8a0a-fcf4d36ad880"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 30E9D80CCD3D44B1BB6963B0BD506B41 Ref B: KUL201100110034 Ref C: 2026-11-17T08:28:22Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:28:24 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vnet-edgezone-rg\u0022,\u0022name\u0022:\u0022scenario-vnet-edgezone-rg\u0022,\u0022type\u0022:\u0022Microsoft.Resources/resourceGroups\u0022,\u0022location\u0022:\u0022westus\u0022,\u0022managedBy\u0022:\u0022\u0022,\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vnet-edgezone-rg/providers/Microsoft.Network/virtualNetworks/vnet1?api-version=2026-03-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "6c65ab49-9b5b-4ceb-8f87-61d6ca79374c"
+          ]
+        },
+        "body": "{\u0022location\u0022:\u0022westus\u0022,\u0022properties\u0022:{\u0022addressSpace\u0022:{\u0022addressPrefixes\u0022:[\u002210.0.0.0/16\u0022]},\u0022subnets\u0022:[{\u0022name\u0022:\u0022subnet1\u0022,\u0022properties\u0022:{\u0022addressPrefix\u0022:\u002210.0.0.0/24\u0022}}]},\u0022extendedLocation\u0022:{\u0022name\u0022:\u0022microsoftlosangeles1\u0022,\u0022type\u0022:\u0022EdgeZone\u0022}}"
+      },
+      "response": {
+        "statusCode": 400,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-request-id": [
+            "c4415cb7-d709-4673-a388-ac6b7aadf10c"
+          ],
+          "x-ms-correlation-request-id": [
+            "c4415cb7-d709-4673-a388-ac6b7aadf10c"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS:20261117T082825Z:c4415cb7-d709-4673-a388-ac6b7aadf10c"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 01233EC2D3184BD4AB3FC8468EE33379 Ref B: KUL201100110034 Ref C: 2026-11-17T08:28:25Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:28:25 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022UnsupportedEdgeZone\u0022,\u0022message\u0022:\u0022Edge zone \u0027microsoftlosangeles1\u0027 not found. The available edge zones in location \u0027westus\u0027 are \u0027\u0027.\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-vnet-edgezone-rg?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "f3c58f1d-e0ff-4fdc-953b-7f0b4778ad3b"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639305009064667157\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "d8629a41-a4b9-4c2f-b016-5463f4385ede"
+          ],
+          "x-ms-correlation-request-id": [
+            "d8629a41-a4b9-4c2f-b016-5463f4385ede"
+          ],
+          "x-ms-routing-request-id": [
+            "WESTUS:20261117T082826Z:d8629a41-a4b9-4c2f-b016-5463f4385ede"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: E000CD9A4D7E49AA950C9C38D848843B Ref B: KUL201100110034 Ref C: 2026-11-17T08:28:26Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:28:26 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ],
+          "Content-Length": [
+            "0"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639305009064667157\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "6eb16e2d-9068-4443-bbd9-62b6d5217adf"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "8cc856ab-1aac-4ca8-ac39-d98b77c6e306"
+          ],
+          "x-ms-correlation-request-id": [
+            "8cc856ab-1aac-4ca8-ac39-d98b77c6e306"
+          ],
+          "x-ms-routing-request-id": [
+            "SOUTHEASTASIA:20261117T082842Z:8cc856ab-1aac-4ca8-ac39-d98b77c6e306"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 41D5B6577E384E42BE2030EB61E659DA Ref B: KUL201100110034 Ref C: 2026-11-17T08:28:41Z"
+          ],
+          "Date": [
+            "Tue, 17 Nov 2026 08:28:42 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ],
+          "Content-Length": [
+            "0"
+          ]
+        },
+        "body": ""
+      }
+    }
+  ]
+}

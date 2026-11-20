@@ -101,8 +101,9 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
         "network",
         [
             "vnet create", "vnet show", "vnet list", "vnet delete",
-            "vnet subnet create", "vnet subnet show", "vnet subnet list", "vnet subnet delete",
+            "vnet subnet create", "vnet subnet show", "vnet subnet list", "vnet subnet update", "vnet subnet delete",
             "nsg create", "nsg show", "nsg list", "nsg delete",
+            "nsg rule create", "nsg rule show", "nsg rule list", "nsg rule update", "nsg rule delete",
             "public-ip create", "public-ip show", "public-ip list", "public-ip delete",
             "nic create", "nic show", "nic list", "nic delete"
         ]);

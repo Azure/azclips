@@ -20,7 +20,8 @@ public partial class PublicIPAddressPropertiesFormat
 
     /// <summary>The IP configuration associated with the public IP address.</summary>
     [JsonPropertyName("ipConfiguration")]
-    public IPConfiguration? IpConfiguration { get; set; }
+    [JsonInclude]
+    internal IPConfiguration? IpConfiguration { get; set; }
 
     /// <summary>The FQDN of the DNS record associated with the public IP address.</summary>
     [JsonPropertyName("dnsSettings")]
@@ -80,6 +81,257 @@ public partial class PublicIPAddressPropertiesFormat
     /// <remarks>Known values (extensible enum DeleteOptions): "Delete", "Detach".</remarks>
     [JsonPropertyName("deleteOption")]
     public string? DeleteOption { get; set; }
+
+    /// <summary>Whether the public IP address SKU has been upgraded from Standard to StandardV2.</summary>
+    [JsonPropertyName("upgradedToV2")]
+    public bool? UpgradedToV2 { get; set; }
+
+    /// <summary>Resource ID.</summary>
+    [JsonIgnore]
+    public string? IpConfigurationId { get => IpConfiguration?.Id; }
+
+    /// <summary>The name of the resource that is unique within a resource group. This name can be used to access the resource.</summary>
+    [JsonIgnore]
+    public string? IpConfigurationName { get => IpConfiguration?.Name; }
+
+    /// <summary>A unique read-only string that changes whenever the resource is updated.</summary>
+    [JsonIgnore]
+    public string? IpConfigurationEtag { get => IpConfiguration?.Etag; }
+
+    /// <summary>The private IP address of the IP configuration.</summary>
+    [JsonIgnore]
+    public string? PrivateIPAddress { get => IpConfiguration?.Properties?.PrivateIPAddress; }
+
+    /// <summary>The private IP address allocation method.</summary>
+    /// <remarks>Known values (extensible enum IPAllocationMethod): "Static", "Dynamic".</remarks>
+    [JsonIgnore]
+    public string? PrivateIPAllocationMethod { get => IpConfiguration?.Properties?.PrivateIPAllocationMethod; }
+
+    /// <summary>The reference to the public IP resource.</summary>
+    [JsonIgnore]
+    public PublicIPAddress? PublicIPAddress { get => IpConfiguration?.Properties?.PublicIPAddress; }
+
+    /// <summary>The provisioning state of the IP configuration resource.</summary>
+    /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
+    [JsonIgnore]
+    public string? PropertiesProvisioningState { get => IpConfiguration?.Properties?.ProvisioningState; }
+
+    /// <summary>Resource ID.</summary>
+    [JsonIgnore]
+    public string? SubnetId { get => IpConfiguration?.Properties?.Subnet?.Id; }
+
+    /// <summary>The name of the subnet.</summary>
+    [JsonIgnore]
+    public string? SubnetName { get => IpConfiguration?.Properties?.Subnet?.Name; }
+
+    /// <summary>Resource type.</summary>
+    [JsonIgnore]
+    public string? SubnetType { get => IpConfiguration?.Properties?.Subnet?.Type; }
+
+    /// <summary>A unique read-only string that changes whenever the resource is updated.</summary>
+    [JsonIgnore]
+    public string? SubnetEtag { get => IpConfiguration?.Properties?.Subnet?.Etag; }
+
+    /// <summary>The address prefix for the subnet.</summary>
+    [JsonIgnore]
+    public string? AddressPrefix { get => IpConfiguration?.Properties?.Subnet?.Properties?.AddressPrefix; }
+
+    /// <summary>List of address prefixes for the subnet.</summary>
+    [JsonIgnore]
+    public IList<string>? AddressPrefixes { get => IpConfiguration?.Properties?.Subnet?.Properties?.AddressPrefixes; }
+
+    /// <summary>An array of service endpoints.</summary>
+    [JsonIgnore]
+    public IList<ServiceEndpointPropertiesFormat>? ServiceEndpoints { get => IpConfiguration?.Properties?.Subnet?.Properties?.ServiceEndpoints; }
+
+    /// <summary>An array of service endpoint policies.</summary>
+    [JsonIgnore]
+    public IList<ServiceEndpointPolicy>? ServiceEndpointPolicies { get => IpConfiguration?.Properties?.Subnet?.Properties?.ServiceEndpointPolicies; }
+
+    /// <summary>An array of references to private endpoints.</summary>
+    [JsonIgnore]
+    public IList<PrivateEndpoint>? PrivateEndpoints { get => IpConfiguration?.Properties?.Subnet?.Properties?.PrivateEndpoints; }
+
+    /// <summary>An array of references to the network interface IP configurations using subnet.</summary>
+    [JsonIgnore]
+    public IList<IPConfiguration>? IpConfigurations { get => IpConfiguration?.Properties?.Subnet?.Properties?.IpConfigurations; }
+
+    /// <summary>Array of IP configuration profiles which reference this subnet.</summary>
+    [JsonIgnore]
+    public IList<IPConfigurationProfile>? IpConfigurationProfiles { get => IpConfiguration?.Properties?.Subnet?.Properties?.IpConfigurationProfiles; }
+
+    /// <summary>Array of IpAllocation which reference this subnet.</summary>
+    [JsonIgnore]
+    public IList<SubResource>? IpAllocations { get => IpConfiguration?.Properties?.Subnet?.Properties?.IpAllocations; }
+
+    /// <summary>An array of references to the external resources using subnet.</summary>
+    [JsonIgnore]
+    public IList<ResourceNavigationLink>? ResourceNavigationLinks { get => IpConfiguration?.Properties?.Subnet?.Properties?.ResourceNavigationLinks; }
+
+    /// <summary>An array of references to services injecting into this subnet.</summary>
+    [JsonIgnore]
+    public IList<ServiceAssociationLink>? ServiceAssociationLinks { get => IpConfiguration?.Properties?.Subnet?.Properties?.ServiceAssociationLinks; }
+
+    /// <summary>An array of references to the delegations on the subnet.</summary>
+    [JsonIgnore]
+    public IList<Delegation>? Delegations { get => IpConfiguration?.Properties?.Subnet?.Properties?.Delegations; }
+
+    /// <summary>A read-only string identifying the intention of use for this subnet based on delegations and other user-defined properties.</summary>
+    [JsonIgnore]
+    public string? Purpose { get => IpConfiguration?.Properties?.Subnet?.Properties?.Purpose; }
+
+    /// <summary>The provisioning state of the subnet resource.</summary>
+    /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
+    [JsonIgnore]
+    public string? SubnetPropertiesProvisioningState { get => IpConfiguration?.Properties?.Subnet?.Properties?.ProvisioningState; }
+
+    /// <summary>Enable or Disable apply network policies on private end point in the subnet.</summary>
+    /// <remarks>Known values (extensible enum VirtualNetworkPrivateEndpointNetworkPolicies): "Enabled", "Disabled", "NetworkSecurityGroupEnabled", "RouteTableEnabled".</remarks>
+    [JsonIgnore]
+    public string? PrivateEndpointNetworkPolicies { get => IpConfiguration?.Properties?.Subnet?.Properties?.PrivateEndpointNetworkPolicies; }
+
+    /// <summary>Enable or Disable apply network policies on private link service in the subnet.</summary>
+    /// <remarks>Known values (extensible enum VirtualNetworkPrivateLinkServiceNetworkPolicies): "Enabled", "Disabled".</remarks>
+    [JsonIgnore]
+    public string? PrivateLinkServiceNetworkPolicies { get => IpConfiguration?.Properties?.Subnet?.Properties?.PrivateLinkServiceNetworkPolicies; }
+
+    /// <summary>Application gateway IP configurations of virtual network resource.</summary>
+    [JsonIgnore]
+    public IList<ApplicationGatewayIPConfiguration>? ApplicationGatewayIPConfigurations { get => IpConfiguration?.Properties?.Subnet?.Properties?.ApplicationGatewayIPConfigurations; }
+
+    /// <summary>Set this property to Tenant to allow sharing subnet with other subscriptions in your AAD tenant. This property can only be set if defaultOutboundAccess is set to false, both properties can only be set if subnet is empty.</summary>
+    /// <remarks>Known values (extensible enum SharingScope): "Tenant", "DelegatedServices".</remarks>
+    [JsonIgnore]
+    public string? SharingScope { get => IpConfiguration?.Properties?.Subnet?.Properties?.SharingScope; }
+
+    /// <summary>Set this property to false to disable default outbound connectivity for all VMs in the subnet.</summary>
+    [JsonIgnore]
+    public bool? DefaultOutboundAccess { get => IpConfiguration?.Properties?.Subnet?.Properties?.DefaultOutboundAccess; }
+
+    /// <summary>A list of IPAM Pools for allocating IP address prefixes.</summary>
+    [JsonIgnore]
+    public IList<IpamPoolPrefixAllocation>? IpamPoolPrefixAllocations { get => IpConfiguration?.Properties?.Subnet?.Properties?.IpamPoolPrefixAllocations; }
+
+    /// <summary>Resource ID.</summary>
+    [JsonIgnore]
+    public string? NetworkSecurityGroupId { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Id; }
+
+    /// <summary>The name of the network security group.</summary>
+    [JsonIgnore]
+    public string? NetworkSecurityGroupName { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Name; }
+
+    /// <summary>Resource type.</summary>
+    [JsonIgnore]
+    public string? NetworkSecurityGroupType { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Type; }
+
+    /// <summary>Resource location.</summary>
+    [JsonIgnore]
+    public string? NetworkSecurityGroupLocation { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Location; }
+
+    /// <summary>Resource tags.</summary>
+    [JsonIgnore]
+    public IDictionary<string, string>? NetworkSecurityGroupTags { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Tags; }
+
+    /// <summary>A unique read-only string that changes whenever the resource is updated.</summary>
+    [JsonIgnore]
+    public string? NetworkSecurityGroupEtag { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Etag; }
+
+    /// <summary>When enabled, flows created from Network Security Group connections will be re-evaluated when rules are updates. Initial enablement will trigger re-evaluation.</summary>
+    [JsonIgnore]
+    public bool? FlushConnection { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlushConnection; }
+
+    /// <summary>A collection of security rules of the network security group.</summary>
+    [JsonIgnore]
+    public IList<SecurityRule>? SecurityRules { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.SecurityRules; }
+
+    /// <summary>The default security rules of network security group.</summary>
+    [JsonIgnore]
+    public IList<SecurityRule>? DefaultSecurityRules { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.DefaultSecurityRules; }
+
+    /// <summary>A collection of references to network interfaces.</summary>
+    [JsonIgnore]
+    public IList<NetworkInterface>? NetworkInterfaces { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.NetworkInterfaces; }
+
+    /// <summary>A collection of references to subnets.</summary>
+    [JsonIgnore]
+    public IList<Subnet>? PropertiesSubnets { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.Subnets; }
+
+    /// <summary>A collection of references to flow log resources.</summary>
+    [JsonIgnore]
+    public IList<FlowLog>? FlowLogs { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlowLogs; }
+
+    /// <summary>The resource GUID property of the network security group resource.</summary>
+    [JsonIgnore]
+    public string? NetworkSecurityGroupPropertiesResourceGuid { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.ResourceGuid; }
+
+    /// <summary>The provisioning state of the network security group resource.</summary>
+    /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
+    [JsonIgnore]
+    public string? NetworkSecurityGroupPropertiesProvisioningState { get => IpConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.ProvisioningState; }
+
+    /// <summary>Resource ID.</summary>
+    [JsonIgnore]
+    public string? RouteTableId { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Id; }
+
+    /// <summary>The name of the route table.</summary>
+    [JsonIgnore]
+    public string? RouteTableName { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Name; }
+
+    /// <summary>Resource type.</summary>
+    [JsonIgnore]
+    public string? RouteTableType { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Type; }
+
+    /// <summary>Resource location.</summary>
+    [JsonIgnore]
+    public string? RouteTableLocation { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Location; }
+
+    /// <summary>Resource tags.</summary>
+    [JsonIgnore]
+    public IDictionary<string, string>? RouteTableTags { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Tags; }
+
+    /// <summary>A unique read-only string that changes whenever the resource is updated.</summary>
+    [JsonIgnore]
+    public string? RouteTableEtag { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Etag; }
+
+    /// <summary>Collection of routes contained within a route table.</summary>
+    [JsonIgnore]
+    public IList<Route>? Routes { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.Routes; }
+
+    /// <summary>A collection of references to subnets.</summary>
+    [JsonIgnore]
+    public IList<Subnet>? RouteTablePropertiesSubnets { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.Subnets; }
+
+    /// <summary>Whether to disable the routes learned by BGP on that route table. True means disable.</summary>
+    [JsonIgnore]
+    public bool? DisableBgpRoutePropagation { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.DisableBgpRoutePropagation; }
+
+    /// <summary>Whether to disable the routes learned by peering on the route table. 'None' means peering routes are enabled, 'All' means all peering routes are disabled.</summary>
+    /// <remarks>
+    /// Known values (extensible enum DisablePeeringRoute):
+    /// <list type="bullet">
+    /// <item><description>"None": Peering routes are enabled.</description></item>
+    /// <item><description>"All": All peering routes are disabled.</description></item>
+    /// </list>
+    /// </remarks>
+    [JsonIgnore]
+    public string? DisablePeeringRoute { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.DisablePeeringRoute; }
+
+    /// <summary>The provisioning state of the route table resource.</summary>
+    /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
+    [JsonIgnore]
+    public string? RouteTablePropertiesProvisioningState { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.ProvisioningState; }
+
+    /// <summary>The resource GUID property of the route table.</summary>
+    [JsonIgnore]
+    public string? RouteTablePropertiesResourceGuid { get => IpConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.ResourceGuid; }
+
+    /// <summary>Resource ID.</summary>
+    [JsonIgnore]
+    public string? Id { get => IpConfiguration?.Properties?.Subnet?.Properties?.NatGateway?.Id; }
+
+    /// <summary>Resource ID.</summary>
+    [JsonIgnore]
+    public string? PropertiesServiceGatewayId { get => IpConfiguration?.Properties?.Subnet?.Properties?.ServiceGateway?.Id; }
 
     /// <summary>The domain name label. The concatenation of the domain name label and the regionalized DNS zone make up the fully qualified domain name associated with the public IP address. If a domain name label is specified, an A DNS record is created for the public IP in the Microsoft Azure DNS system.</summary>
     [JsonIgnore]
@@ -338,7 +590,7 @@ public partial class PublicIPAddressPropertiesFormat
     /// <summary>The provisioning state of the NAT gateway resource.</summary>
     /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>
     [JsonIgnore]
-    public string? PropertiesProvisioningState { get => NatGateway?.Properties?.ProvisioningState; }
+    public string? NatGatewayPropertiesProvisioningState { get => NatGateway?.Properties?.ProvisioningState; }
 
     /// <summary>Resource ID.</summary>
     [JsonIgnore]

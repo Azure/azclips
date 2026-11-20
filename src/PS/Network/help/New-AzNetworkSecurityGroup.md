@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/30/2026
+ms.date: 11/17/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzNetworkSecurityGroup
 ---
@@ -20,14 +20,15 @@ Create a network security group.
 ### __AllParameterSets
 
 ```
-New-AzNetworkSecurityGroup -Name <string> -ResourceGroupName <string> -Location <string>
- [-SubscriptionId <string>] [-Tag <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
+New-AzNetworkSecurityGroup -Name <string> -ResourceGroupName <string> [-Location <string>]
+ [-Tag <hashtable>] [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
 ## ALIASES
 
 None.
+
 
 ## DESCRIPTION
 
@@ -69,7 +70,7 @@ HelpMessage: ''
 
 ### -Location
 
-The Azure region in which to create the network security group.
+The Azure region in which to create the network security group. Defaults to the location of the resource group.
 
 ```yaml
 Type: System.String
@@ -79,9 +80,9 @@ Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
-  IsRequired: true
+  IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -103,7 +104,7 @@ ParameterSets:
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -112,7 +113,7 @@ HelpMessage: ''
 
 ### -Profile
 
-The named AzClips connection profile to use instead of the active profile.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -133,7 +134,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-The name of the resource group.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -145,7 +146,7 @@ ParameterSets:
   Position: Named
   IsRequired: true
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -154,7 +155,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-The Azure subscription ID. Defaults to the active profile's subscription.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -181,13 +182,14 @@ Resource tags as a hashtable.
 Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
-Aliases: []
+Aliases:
+- Tags
 ParameterSets:
 - Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: true
+  ValueFromPipelineByPropertyName: false
   ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
@@ -244,4 +246,8 @@ Returns the created network security group.
 This preview migrates NSG lifecycle creation only; security-rule authoring remains outside this cmdlet.
 
 ## RELATED LINKS
+
+- [Get-AzNetworkSecurityGroup](./Get-AzNetworkSecurityGroup.md)
+- [Remove-AzNetworkSecurityGroup](./Remove-AzNetworkSecurityGroup.md)
+- [New-AzNetworkSecurityRule](./New-AzNetworkSecurityRule.md)
 

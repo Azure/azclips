@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Network.Models;
 
 namespace Microsoft.Azure.Azclips.Extensions.Network.Processors;
 /// <summary>Creates or updates a network interface.</summary>
-public partial class CreateOrUpdateNetworkInterfacesProcessor : ProcessorBase<NetworkInterface, NetworkInterface>
+public partial class CreateOrUpdateNetworkInterfacesProcessor : NetworkProcessorBase<NetworkInterface, NetworkInterface>
 {
     /// <summary>The ID of the target subscription. The value must be an UUID.</summary>
     public string SubscriptionId { get; set; } = string.Empty;
@@ -19,8 +19,6 @@ public partial class CreateOrUpdateNetworkInterfacesProcessor : ProcessorBase<Ne
     /// <summary>The name of the network interface.</summary>
     public string NetworkInterfaceName { get; set; } = string.Empty;
     /// <summary>Body parameter's content type. Known values are application/json</summary>
-    internal string ContentType { get; set; } = string.Empty;
-    internal string Accept { get; set; } = string.Empty;
     /// <summary>Parameters supplied to the create or update network interface operation.</summary>
     internal NetworkInterface? Body { get; set; }
     /// <summary>Resource ID.</summary>
@@ -106,7 +104,7 @@ public partial class CreateOrUpdateNetworkInterfacesProcessor : ProcessorBase<Ne
     public string? ExtendedLocationType { get => Body?.ExtendedLocationType; set => (Body ??= new NetworkInterface()).ExtendedLocationType = value; }
     protected override HttpMethod Method => HttpMethod.Put;
 
-    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/networkInterfaces/{Uri.EscapeDataString(NetworkInterfaceName)}?api-version=2025-07-01";
+    protected override string CreateRequestUri() => $"{Endpoint}/subscriptions/{Uri.EscapeDataString(SubscriptionId)}/resourceGroups/{Uri.EscapeDataString(ResourceGroupName)}/providers/Microsoft.Network/networkInterfaces/{Uri.EscapeDataString(NetworkInterfaceName)}?api-version=2026-03-01";
     protected override NetworkInterface? CreateRequestBody() => Body;
     protected override Func<HttpResponseMessage, string?> GetFinalUri => _ => null;
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
