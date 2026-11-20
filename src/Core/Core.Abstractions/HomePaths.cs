@@ -24,6 +24,8 @@ public static class HomePaths
     public const string RegistryFileName = "registry.json";
     public const string ConfigFileName = "config.json";
     public const string TraceDirectoryName = "traces";
+    // Unfiltered telemetry from a Debug process whose only target is the local collector.
+    public const string LocalTraceDirectoryName = "traces-local";
     public const string AgentDirectoryName = "agent";
     public const string AgentArmDirectoryName = "arm";
     public const string AgentCopilotDirectoryName = "copilot";

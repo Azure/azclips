@@ -104,4 +104,23 @@ public class TelemetryTargetResolverTests
         Assert.Equal(RemoteOnly, TelemetryTargetResolver.Resolve());
 #endif
     }
+
+    [Fact]
+    public void ShouldBypassRules_IsTrueOnlyForLocalOnlyTargets_AndNeverInRelease()
+    {
+#if DEBUG
+        Assert.True(TelemetryTargetResolver.ShouldBypassRules(LocalOnly));
+#else
+        Assert.False(TelemetryTargetResolver.ShouldBypassRules(LocalOnly));
+#endif
+        Assert.False(TelemetryTargetResolver.ShouldBypassRules(Both));
+        Assert.False(TelemetryTargetResolver.ShouldBypassRules(RemoteOnly));
+    }
+
+    [Fact]
+    public void Resolve_ReturnsOneSet_ForTheWholeProcess()
+    {
+        // The rule bypass, the trace folder and the exporters must all see the same decision.
+        Assert.Same(TelemetryTargetResolver.Resolve(), TelemetryTargetResolver.Resolve());
+    }
 }

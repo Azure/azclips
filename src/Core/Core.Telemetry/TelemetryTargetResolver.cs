@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using Core.Abstractions;
 
 namespace Core.Telemetry;
 
@@ -14,14 +15,36 @@ namespace Core.Telemetry;
 /// configuration pipeline, so it never appears in <c>config get/list/set</c> or tab-completion.
 ///
 /// The resolved set is never empty. Telemetry is disabled with <c>telemetry.enabled=false</c>.
+///
+/// The set is resolved once per process. The privacy-rule bypass and the trace folder derive
+/// from that one value, so exporters, filters and the upload queue always agree.
 /// </summary>
 internal static class TelemetryTargetResolver
 {
     internal const string TargetEnvironmentVariable = "AZCLIPS_TELEMETRY_TARGET";
 
-    /// <summary>Resolves the target set for this build.</summary>
-    internal static IReadOnlyList<TelemetryTarget> Resolve() =>
-        Resolve(CompileTimeDefault, EnvironmentReader);
+    private static readonly Lazy<IReadOnlyList<TelemetryTarget>> s_targets =
+        new(() => Resolve(CompileTimeDefault, EnvironmentReader));
+
+    /// <summary>Resolves the target set for this process. The environment is read once.</summary>
+    internal static IReadOnlyList<TelemetryTarget> Resolve() => s_targets.Value;
+
+    /// <summary>
+    /// True when this process skips the telemetry privacy rules: a Debug build whose only target
+    /// is the local collector. Always false in Release.
+    /// </summary>
+    internal static bool BypassesRules => ShouldBypassRules(Resolve());
+
+    internal static bool ShouldBypassRules(IReadOnlyList<TelemetryTarget> targets) =>
+#if DEBUG
+        targets is [TelemetryTarget.Local];
+#else
+        false;
+#endif
+
+    // Every uploader of every build drains the shared folder, so unfiltered traces live apart from it.
+    internal static string TraceDirectoryNameFor(bool bypassRules) =>
+        bypassRules ? HomePaths.LocalTraceDirectoryName : HomePaths.TraceDirectoryName;
 
     internal static IReadOnlyList<TelemetryTarget> Resolve(
         IReadOnlyList<TelemetryTarget> compileDefault,

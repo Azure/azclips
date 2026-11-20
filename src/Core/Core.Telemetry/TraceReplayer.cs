@@ -278,9 +278,9 @@ internal static class TraceReplayer
             }
         }
 
-        // Restore status without free-form descriptions, which can contain sensitive error text.
+        // Only files in the local-only folder carry status text; see FileExporter.
         if (Enum.TryParse<ActivityStatusCode>(entry.Status, out var status))
-            activity.SetStatus(status);
+            activity.SetStatus(status, entry.StatusDescription);
 
         // Restore end time (start + duration)
         activity.SetEndTime(activity.StartTimeUtc + TimeSpan.FromMilliseconds(entry.Duration));

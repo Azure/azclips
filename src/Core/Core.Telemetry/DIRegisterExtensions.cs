@@ -16,7 +16,10 @@ public static class DIRegisterExtensions
     /// <summary>
     /// Extension method to register telemetry-related services.
     /// </summary>
-    public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
+    public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services) =>
+        services.RegisterTelemetryServices(TelemetryTargetResolver.BypassesRules);
+
+    internal static IServiceCollection RegisterTelemetryServices(this IServiceCollection services, bool bypassRules)
     {
         services.AddSingleton<ITelemetryProvider, DefaultTelemetryProvider>();
         services.AddSingleton<ITelemetryService, TelemetryService>();
@@ -26,8 +29,12 @@ public static class DIRegisterExtensions
         services.AddSingleton<DataBoundaryResolver>();
         services.AddSingleton<ITelemetryPropertyFilter, DefaultTelemetryPropertyFilter>();
         services.AddSingleton<ITelemetryActivityNameFilter, DefaultTelemetryActivityNameFilter>();
-        services.AddSingleton<BaseProcessor<Activity>, DefaultActivityNameFilterProcessor>();
-        services.AddSingleton<BaseProcessor<Activity>, DefaultTelemetryPropertyFilterProcessor>();
+        // With the rules bypassed, the local collector is this process's only destination.
+        if (!bypassRules)
+        {
+            services.AddSingleton<BaseProcessor<Activity>, DefaultActivityNameFilterProcessor>();
+            services.AddSingleton<BaseProcessor<Activity>, DefaultTelemetryPropertyFilterProcessor>();
+        }
         return services;
     }
 }

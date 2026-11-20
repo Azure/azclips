@@ -86,6 +86,17 @@ public class HttpActivityEnricherTests
     }
 
     [Fact]
+    public void ShouldSanitizeException_KeepsAzclipsRequestText_OnlyWhenRulesAreBypassed()
+    {
+        using var invocation = new Activity("CLI.Activity.Root").Start();
+        invocation.SetTag(TelemetryTags.ProductName, "CLI");
+        using var request = new Activity("System.Net.Http.HttpRequestOut").Start();
+
+        Assert.True(HttpActivityEnricher.ShouldSanitizeException(request, bypassRules: false));
+        Assert.False(HttpActivityEnricher.ShouldSanitizeException(request, bypassRules: true));
+    }
+
+    [Fact]
     public void ExceptionSanitizer_DoesNotModifyUnrelatedHttpActivities()
     {
         using var listener = new ActivityListener

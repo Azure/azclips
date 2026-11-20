@@ -9,14 +9,33 @@ namespace Core.Telemetry;
 /// <remarks>
 /// Overrides trace writes only. Reservations and uploads use the persistence root,
 /// so a test or benchmark writer override cannot redirect the upload queue.
+/// An override must never point at the shared upload queue: a process that bypasses the
+/// telemetry rules writes unfiltered values that only the local-only folder may hold.
 /// </remarks>
 public interface ITraceDirectoryProvider
 {
     string GetTraceDirectory();
 }
 
-/// <summary>The shared per-user trace directory.</summary>
-public sealed class DefaultTraceDirectoryProvider(IPersistenceStore persistence) : ITraceDirectoryProvider
+/// <summary>
+/// The per-user trace directory: the shared queue, or the local-only folder when telemetry rules
+/// are bypassed.
+/// </summary>
+public sealed class DefaultTraceDirectoryProvider : ITraceDirectoryProvider
 {
-    public string GetTraceDirectory() => persistence.GetFilePath(HomePaths.TraceDirectoryName);
+    private readonly IPersistenceStore _persistence;
+    private readonly string _directoryName;
+
+    public DefaultTraceDirectoryProvider(IPersistenceStore persistence)
+        : this(persistence, TelemetryTargetResolver.BypassesRules)
+    {
+    }
+
+    internal DefaultTraceDirectoryProvider(IPersistenceStore persistence, bool bypassRules)
+    {
+        _persistence = persistence;
+        _directoryName = TelemetryTargetResolver.TraceDirectoryNameFor(bypassRules);
+    }
+
+    public string GetTraceDirectory() => _persistence.GetFilePath(_directoryName);
 }

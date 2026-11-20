@@ -24,4 +24,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(MSBuildProjectName.EndsWith(`.Tests`))' == 'true'">
+    <!-- Keeps a developer's AZCLIPS_TELEMETRY_TARGET from switching test runs to the unfiltered local pipeline. -->
+    <Compile Include="$(MSBuildThisFileDirectory)Shared\TelemetryTargetIsolation.cs" Link="Shared\TelemetryTargetIsolation.cs" />
+  </ItemGroup>
+
 </Project>

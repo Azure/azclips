@@ -32,6 +32,27 @@ whether telemetry is emitted at all.
 > traces appear within the per-command replay cadence (near-real-time).
 > PowerShell/Agent export inline (immediate).
 
+## Local mode is unfiltered
+
+With `AZCLIPS_TELEMETRY_TARGET=local`, Jaeger is the only destination, so a Debug build switches
+the telemetry privacy rules off. Jaeger then shows every span, every tag (including `url.full`),
+status descriptions, exception messages and stack traces, and real parameter values in
+`commandParameters`. Telemetry recorded through `TelemetryLayers.Agent` keeps its own allowlists,
+but the CLI's own spans for `az agent` commands and AI recovery don't. Secret values such as
+`--password` appear in Jaeger and sit in plain text in `traces-local` until they're uploaded, and
+TUI files stay there until the next local-mode `az` run. Take care when screen sharing or
+recording.
+
+- The default `both` mode and `remote` mode stay filtered. Release builds never bypass the rules.
+- The CLI and TUI buffer local-mode traces in `~/.azclips/traces-local` (or
+  `$AZCLIPS_HOME/traces-local`) instead of `~/.azclips/traces`. Only local-mode `az` processes
+  read that folder, and they only send to Jaeger. TUI never uploads its own files, so they go out
+  with the next local-mode `az` command. The folder is safe to delete.
+- The mode is read once per process. In PowerShell, set the variable before `Import-Module`, and
+  start a new session to change it.
+- .NET still replaces query-string values in `url.full` with `*`. To see them too, set
+  `DOTNET_SYSTEM_NET_HTTP_DISABLEURIREDACTION=1` before starting `az` or PowerShell.
+
 ## Overriding ports
 
 Two host ports can be overridden if they're already in use:
@@ -78,3 +99,13 @@ wordmark or styling, edit the `sub_filter` rule in `nginx.conf`.
 3. Run a Debug-build command, e.g. `az group list`.
 4. Open http://localhost:16686, pick the service, and confirm the trace/spans appear.
 5. Set `AZCLIPS_TELEMETRY_TARGET=remote`, re-run, and confirm the trace does **not** appear locally.
+6. Set `AZCLIPS_TELEMETRY_TARGET=local`, re-run `az group list`, and confirm the HTTP span shows
+   `url.full`.
+7. Run a command that fails, for example `az group show --name azclips-does-not-exist`, and confirm
+   the root span shows the error as its status description and the real value
+   `azclips-does-not-exist` in `commandParameters`. Failures that record an exception event also
+   show `exception.message` and `exception.stacktrace`.
+8. Confirm the new files went to `~/.azclips/traces-local` and nothing new appeared in
+   `~/.azclips/traces`.
+9. In a new PowerShell session, set `$env:AZCLIPS_TELEMETRY_TARGET = 'local'` before
+   `Import-Module`, run a cmdlet, and confirm its trace is unfiltered too.

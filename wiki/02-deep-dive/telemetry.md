@@ -145,9 +145,32 @@ with a build-configuration tag is deferred: the value is available from
 `AssemblyConfigurationAttribute`, and the key would also need adding to
 `DefaultTelemetryPropertyFilter`'s allow-list, which is deny-by-default.
 
+### Local mode
+
+`local` also switches the privacy rules off, because the local collector is then the process's
+only destination. `TelemetryTargetResolver` resolves the targets once per process and derives two
+values from them: `BypassesRules`, which is true only for exactly `[Local]` and always false in
+Release, and the trace folder. PowerShell keeps the module's assemblies loaded after
+`Remove-Module`, so there the mode stays fixed until the session ends. When the rules are bypassed:
+
+- `RegisterTelemetryServices` doesn't register the name and property filter processors, so the
+  CLI, TUI and PowerShell pipelines keep every span, tag and status description.
+- `HttpActivityEnricher` leaves HTTP exception messages and stack traces in place.
+- `commandParameters` holds real values (`-name value`) instead of `-name ***`.
+- `FileExporter` writes every tag a span sets, every event attribute, and the status description.
+- The CLI/TUI trace files, upload holds and uploader use `traces-local` instead of `traces`.
+
+Agent-layer telemetry (`TelemetryLayers.Agent`) keeps its own name and property allowlists, so its
+files in `traces-local` stay filtered.
+
+The separate folder is what keeps this data local. Every uploader drains `traces` and sends it to
+its own targets, and `commandParameters` is on Aria's allow-list. A Release `az`, an older build,
+or a Debug build in `both` mode never reads `traces-local`. .NET's own query-string redaction in
+`url.full` still applies; set `DOTNET_SYSTEM_NET_HTTP_DISABLEURIREDACTION=1` to see query values.
+
 ## Privacy model — the allow-list processors
 
-Two `BaseProcessor<Activity>` implementations run on `OnEnd` of every activity and are registered for all clients via `RegisterTelemetryServices` (`src/Core/Core.Telemetry/DIRegisterExtensions.cs:19-28`). They implement a **deny-by-default** model: anything not explicitly allowed is dropped.
+Two `BaseProcessor<Activity>` implementations run on `OnEnd` of every activity and are registered for all clients via `RegisterTelemetryServices` (`src/Core/Core.Telemetry/DIRegisterExtensions.cs:19-39`). They implement a **deny-by-default** model: anything not explicitly allowed is dropped. Neither processor is registered in [local mode](#local-mode).
 
 | Processor | Filter | Effect |
 | --- | --- | --- |
@@ -169,11 +192,11 @@ These are activity-tag filters, not a blanket guarantee about arbitrary event pa
 Authentication cleanup deliberately avoids unbounded exception text in logged activity events
 (`src/Core/Core.Authentication/MsalAuthService.cs:152`).
 
-Even parameter **values** are masked at the source: `TelemetryService.FormatParameters` renders every parameter as `-name ***`, so a command's shape is captured without any argument content (`src/Core/Core.Telemetry/TelemetryService.cs:81-94`). Dropped counts are tracked internally but never logged — surfacing a dropped key could itself leak the existence of a sensitive tag (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilterProcessor.cs:23-28`).
+Even parameter **values** are masked at the source: `TelemetryService.FormatParameters` renders every parameter as `-name ***` outside [local mode](#local-mode), so a command's shape is captured without any argument content (`src/Core/Core.Telemetry/TelemetryService.cs:219-235`). Dropped counts are tracked internally but never logged — surfacing a dropped key could itself leak the existence of a sensitive tag (`src/Core/Core.Telemetry/DefaultTelemetryPropertyFilterProcessor.cs:23-28`).
 
 ## Async export path
 
-For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs`). The sender receives an `ITraceDirectoryProvider`, so a host can redirect buffering without replacing the exporter. The default provider resolves `traces` through the injected `IPersistenceStore.GetFilePath`; CLI benchmarks override it to isolate their traces (`src/Core/Core.Telemetry/ITraceDirectoryProvider.cs`). `FileExporter` writes timestamped JSON batches to `traces-{traceId}.log`, using `TraceFileStore.FileNameFor`, under the store's `traces` directory (`~/.azclips/traces` by default).
+For the CLI/TUI, `FileTelemetrySender.ConfigureExporter` attaches a `SimpleActivityExportProcessor` wrapping a custom `FileExporter` — export happens **synchronously inline** on activity end (which is why `TelemetryService.Dispose` skips `ForceFlush`) (`src/Core/Core.Telemetry/FileTelemetrySender.cs`; `src/Core/Core.Telemetry/TelemetryService.cs`). The sender receives an `ITraceDirectoryProvider`, so a host can redirect buffering without replacing the exporter. The default provider resolves `traces` through the injected `IPersistenceStore.GetFilePath`; CLI benchmarks override it to isolate their traces (`src/Core/Core.Telemetry/ITraceDirectoryProvider.cs`). `FileExporter` writes timestamped JSON batches to `traces-{traceId}.log`, using `TraceFileStore.FileNameFor`, under the store's `traces` directory (`~/.azclips/traces` by default). In [local mode](#local-mode) the same files, holds and uploads use `traces-local` instead.
 
 The confirmed tenant-boundary cache uses `IPersistenceStore.ReadAsync` and `WriteAsync` with
 the relative name `data-boundary-cache.json`. Its memory cache is scoped to the injected
