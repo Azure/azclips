@@ -37,8 +37,8 @@ public sealed class ElasticSanProcessorTests
         TransformedIR ir = LoadIr();
         (_, ArtifactWriter writer) = await EmitAsync("ElasticSan_Processors");
 
-        // One processor per command, plus the shared ProcessorBase.
-        Assert.Equal(ir.Commands.Count + 1, writer.Files.ProcessorSources().Count());
+        // One processor per command, plus the extension-local base and pagination helper.
+        Assert.Equal(ir.Commands.Count + 2, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]
@@ -127,14 +127,15 @@ public sealed class ElasticSanProcessorTests
 
         string list = writer.Files.Source(result, "ListByResourceGroupElasticSansProcessor");
 
-        // Pageable -> a plain GET (no LRO) that wires the runtime pagination helper.
+        // Pageable -> a plain GET (no LRO) that configures the shared page reader.
         Assert.Contains("public partial class ListByResourceGroupElasticSansProcessor : ProcessorBase<object, ElasticSanList>", list);
         Assert.Contains("Method => HttpMethod.Get;", list);
         Assert.DoesNotContain("SendAsyncLRO", list);
-        // Selectors from IR response-body bindings (PascalCased) + the runtime helper override.
+        // Selectors from IR response-body bindings and explicit paged execution.
         Assert.Contains("IEnumerable<ElasticSan>? pageItems(ElasticSanList body) => body.Value;", list);
         Assert.Contains("string? nextLink(ElasticSanList body) => body.NextLink;", list);
-        Assert.Contains("BeforeWriteOutputAsyncAndReturn(ElasticSanList? body)", list);
-        Assert.Contains("body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions)", list);
+        Assert.DoesNotContain("override IAsyncEnumerable", list);
+        Assert.Contains("ExecuteAsync() => ExecutePagesAsync<ElasticSan>(ReadPagesAsync(nextLink), pageItems)", list);
+        Assert.DoesNotContain("BeforeWriteOutputAsyncAndReturn", list);
     }
 }

@@ -317,6 +317,57 @@ rebuilt). The token is resolved only when there is no next link, and only for a 
 response token and a string query or header parameter; otherwise `create-command` warns
 `paging-continuation-unresolved` and keeps items-only pagination (first page).
 
+Codegen emits one internal `Processors/Pagination.cs` helper per extension, alongside
+the processor base. If its type name collides with a service model, codegen chooses the
+first unused name `Pagination2`, `Pagination3`, etc., using that name for the class,
+file, and generated-class map entry. Generated paging and collection calls use fully
+qualified `global::` references, so command parameters cannot shadow the local helper.
+A service model named `Pagination` receives a model alias in generated processors to
+disambiguate it from the legacy runtime type.
+Its namespace is the extension's processor namespace; transport, authentication, and
+events still use ExtensionRuntime.
+The authoritative source is `packages/generator/src/Templates/Pagination.cs`, embedded
+in the generator assembly. ExtensionRuntime links that same source to preserve existing
+callers without maintaining a second copy. Helper changes ship to generated extensions
+through regeneration and rebuilding.
+
+`ReadResponseAsync()` reads one response without following continuation. `ReadPagesAsync`
+always uses a pagination strategy supplied through required arguments: a next-link
+selector, or a token selector plus request-token setter. There is no parameterless
+single-page fallback. The shared processor base delegates these reads to the extension-local
+helper's lazy iterators; individual processors supply only selectors and token setters.
+Items-only pagination supplies a next-link selector returning `null`, preserving its
+first-page-only behavior.
+
+Generated pageable processors override `ExecuteAsync` to consume the explicitly configured
+pages through `ExecutePagesAsync(pages, pageItems)`, without overriding `ReadPagesAsync`.
+If a command or endpoint parameter is named `ExecuteAsync`, codegen chooses an unused
+execution-hook name (`ExecuteAsync2`, etc.) across the extension, using it in the base,
+pageable overrides, and lifecycle call. Parameter names, wire bindings, and continuation
+token assignments remain unchanged.
+`ProcessAsync` still owns lifecycle events for both CLI and PowerShell. The default
+execution collects all items and writes once, preserving existing output; custom
+execution can collect and transform before output.
+Page enumeration uses the execution publisher's cancellation token. Each response is
+disposed after deserialization, and stopping enumeration releases any request template
+without fetching another page. Next-link continuation pages retain JSON deserialization
+with the processor's serializer options; token pages retain the processor's custom
+deserializer. Initial responses retain their processor-specific diagnostics.
+Pagination is no longer generated into `BeforeWriteOutputAsyncAndReturn`; that hook
+remains available for single-response output customizations. Existing collection and
+write helpers remain compatible and now consume the same lazy iterators.
+
+For example, the VM list orchestrator overrides `ExecuteAsync` to collect `ReadPagesAsync(nextLink)`,
+then filter by name, enrich only the matching VMs, and write once. It shares the atomic
+VM list processor's next-link strategy without fetching any pages in its output hook.
+Collection finishes before enrichment, so a failed later page produces no partial output
+or per-VM detail calls.
+
+This is an internal refactor only: commands still follow all pages, preserve item order,
+and collect before a single write. It adds no CLI/PowerShell paging flags, result limits,
+streaming defaults, or resumable cursors. The next-link request template is still built
+once, including for a single-page result, preserving request-creation hooks.
+
 ## Dialects
 
 Per-client presentation — how one command is *spoken* by one client.

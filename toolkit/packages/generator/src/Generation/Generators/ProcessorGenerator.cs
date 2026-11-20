@@ -28,7 +28,7 @@ namespace Ace.Generator.Generators;
 /// <para>
 /// Long-running commands additionally emit the final-state/polling hook overrides and
 /// <c>SendAsync() =&gt; SendAsyncLRO()</c>; paginated ones emit the selector wiring the runtime
-/// helper drives. Spec-vs-reality deviations are handled by customization on top of the
+/// extension-local helper drives. Spec-vs-reality deviations are handled by customization on top of the
 /// generated (<c>partial</c>) processor, never by the generator.
 /// </para>
 /// </remarks>
@@ -213,9 +213,17 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
                 UsingDirective(ParseName("System.Threading.Tasks")),
                 UsingDirective(ParseName("Microsoft.Azure.Azclips.ExtensionRuntime")),
                 UsingDirective(ParseName(modelsNamespace)))
-            .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls))
-            .NormalizeWhitespace()
-            .FixNormalizerSpacing();
+            .AddMembers(FileScopedNamespaceDeclaration(ParseName(@namespace)).AddMembers(cls));
+
+        // The compatibility runtime still exports Pagination, so resolve the service model explicitly.
+        if (context.Ir.Models.Any(model => !string.IsNullOrWhiteSpace(model.Name)
+            && model.Name.Identifier() == "Pagination" && IrTypeMapper.RecordValue(model) is null))
+        {
+            unit = unit.AddUsings(UsingDirective(NameEquals(IdentifierName("Pagination")),
+                ParseName($"global::{modelsNamespace}.Pagination")));
+        }
+
+        unit = unit.NormalizeWhitespace().FixNormalizerSpacing();
 
         var sb = new StringBuilder();
         sb.AppendLine(Banner);
@@ -564,12 +572,9 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
     // ── Pagination ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// The pageable members: <c>pageItems</c> plus either a <c>nextLink</c> or a
-    /// <c>continuationToken</c> selector, and a <c>BeforeWriteOutputAsyncAndReturn</c> override that
-    /// hands them to the runtime's <c>WriteOutputWithPaginationAsync</c>, whose overload follows a
-    /// next link as a URL or sets a continuation token on its command parameter and rebuilds the
-    /// request. Thin per-command wiring —
-    /// the pagination logic lives in the runtime library — parallel to the LRO hooks.
+    /// Supplies page selectors and an ExecuteAsync override that configures the base's lazy page reader.
+    /// The generated helper owns continuation requests; the base's default paged execution collects
+    /// all items before output without performing network operations in an output hook.
     /// </summary>
     private static IEnumerable<MemberDeclarationSyntax> PageableMembers(
         GenerationContext context,
@@ -605,19 +610,19 @@ internal sealed class ProcessorGenerator : IArtifactGenerator
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
         yield return MethodDeclaration(ParseTypeName("string?"), Identifier(nextMember))
-            .AddModifiers(Token(SyntaxKind.PrivateKeyword))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword))
             .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType)))
             .WithExpressionBody(ArrowExpressionClause(ParseExpression(nextExpression)))
             .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 
-        string write = continuation is not null
-            ? $"await body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => {continuation.Parameter} = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline); return true;"
-            : "await body.WriteOutputWithPaginationAsync(pageItems, nextLink, CreateRequestMessage, WriteOutput, Publisher, HttpPipeline, JsonOptions); return true;";
+        string read = continuation is not null
+            ? $"ReadPagesAsync(continuationToken, token => {continuation.Parameter} = token)"
+            : "ReadPagesAsync(nextLink)";
 
-        yield return MethodDeclaration(ParseTypeName("Task<bool>"), Identifier("BeforeWriteOutputAsyncAndReturn"))
-            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword), Token(SyntaxKind.AsyncKeyword))
-            .AddParameterListParameters(Parameter(Identifier("body")).WithType(ParseTypeName(listResultType + "?")))
-            .WithRawBody(write);
+        yield return MethodDeclaration(ParseTypeName("Task"), Identifier(context.Placement.ExecuteMethodName))
+            .AddModifiers(Token(SyntaxKind.ProtectedKeyword), Token(SyntaxKind.OverrideKeyword))
+            .WithExpressionBody(ArrowExpressionClause(ParseExpression($"ExecutePagesAsync<{itemType}>({read}, pageItems)")))
+            .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
     }
 
     /// <summary>
