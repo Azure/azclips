@@ -1492,7 +1492,7 @@
     {
       "request": {
         "method": "GET",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-s-rg/providers/Microsoft.Network/virtualNetworks/vmnet-s-vnet?api-version=2025-07-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-vmnet-s-rg/providers/Microsoft.Network/virtualNetworks/vmnet-s-vnet?api-version=2026-03-01",
         "headers": {
           "x-ms-client-request-id": [
             "339d18ef-8fc9-4afc-999c-9b2064195546"
