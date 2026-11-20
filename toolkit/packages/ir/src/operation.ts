@@ -201,6 +201,18 @@ export type IRRequestBody = {
   type?: IRTypeRef | undefined;
   contentType: string;
   multipart?: IRMultipartBody | undefined;
+  /**
+   * Client-facing name of the body parameter -- `pet` for `@body pet: Pet`. TCGC always
+   * supplies one, synthesizing a name when the spec gives it nothing to take one from, so
+   * `isGeneratedName` rather than absence is what says whether an author wrote it. Optional
+   * because IR need not come from TCGC.
+   */
+  name?: string | undefined;
+  /**
+   * True when `name` was synthesized rather than written by the spec author. A consumer
+   * needing an author-intended name should treat a generated one as unusable.
+   */
+  isGeneratedName?: boolean | undefined;
   docs?: string | undefined;
   /** Short-form summary from `@summary`, distinct from the long-form `docs` (`@doc`). */
   summary?: string | undefined;
@@ -212,6 +224,8 @@ export const IRRequestBodySchema: z.ZodType<IRRequestBody> = z
     type: IRTypeRefSchema.optional(),
     contentType: z.string().min(1),
     multipart: IRMultipartBodySchema.optional(),
+    name: z.string().min(1).optional(),
+    isGeneratedName: z.boolean().optional(),
     docs: z.string().optional(),
     summary: z.string().optional(),
     rendering: RequestBodyHintsSchema.optional(),
@@ -223,6 +237,13 @@ export const IRRequestBodySchema: z.ZodType<IRRequestBody> = z
         code: z.ZodIssueCode.custom,
         path: ["type"],
         message: "A request body requires a type unless it is a multipart tuple",
+      });
+    }
+    if (body.isGeneratedName !== undefined && body.name === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["isGeneratedName"],
+        message: "`isGeneratedName` describes `name`, so it cannot be set without one.",
       });
     }
   });

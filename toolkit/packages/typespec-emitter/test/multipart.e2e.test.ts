@@ -231,7 +231,12 @@ describe("emitter e2e: resolved multipart bodies", () => {
 
   it("leaves ordinary JSON requests, responses, and empty responses unchanged", () => {
     const json = operation("json");
-    expect(json.requestBody).toEqual({ type: json.responses[0]!.type, contentType: "application/json" });
+    expect(json.requestBody).toEqual({
+      type: json.responses[0]!.type,
+      contentType: "application/json",
+      name: "body",
+      isGeneratedName: false,
+    });
     expect(json.responses[0]).not.toHaveProperty("multipart");
     expect(operation("upload").responses.every((r) => r.multipart === undefined)).toBe(true);
   });
