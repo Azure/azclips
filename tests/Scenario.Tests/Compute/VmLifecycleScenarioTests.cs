@@ -320,7 +320,7 @@ public class VmLifecycleScenarioTests
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
         Assert.Equal(expectedName, vm.Name);
         Assert.Equal(Location, vm.Location);
-        Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
+        Assert.Equal("Succeeded", vm.ProvisioningState);
         AssertTagged(vm.Tags);
         if (expectedSubscriptionId is not null)
         {
@@ -373,7 +373,7 @@ public class VmLifecycleScenarioTests
         Assert.False(string.IsNullOrEmpty(vm.MacAddresses));
         Assert.False(string.IsNullOrEmpty(vm.PublicIps));
         Assert.Equal("", vm.Fqdns);
-        Assert.Null(vm.Properties.InstanceView);
+        Assert.Null(vm.InstanceViewStatuses);
 
         // Regression guard: can't fail with today's wiring. The CLI has no -Status, so vm list -d passes
         // includeStatusFields: false and must never surface the -Status-only fields.
@@ -393,7 +393,7 @@ public class VmLifecycleScenarioTests
         var vm = AssertListed(outputs, expectedSubscriptionId);
         Assert.Equal("VM running", vm.PowerState);
         Assert.False(string.IsNullOrEmpty(vm.HyperVGeneration));
-        Assert.Null(vm.Properties.InstanceView);
+        Assert.Null(vm.InstanceViewStatuses);
 
         // Regression guard: can't fail with today's wiring. PowerShell has no -ShowDetails, so -Status
         // must never run the NIC lookup that fills the network fields.
@@ -422,11 +422,11 @@ public class VmLifecycleScenarioTests
             Assert.Equal(VmId(expectedSubscriptionId, VmName), vm.Id);
         }
 
-        var view = Assert.IsType<VirtualMachineInstanceView>(vm.Properties.InstanceView);
-        Assert.Equal(2, view.Statuses.Count);
-        Assert.Equal("ProvisioningState/succeeded", view.Statuses[0].Code);
-        Assert.Equal("Info", view.Statuses[0].Level);
-        Assert.Equal(expectedPowerState, view.Statuses[1].Code);
+        var statuses = Assert.IsAssignableFrom<IList<InstanceViewStatus>>(vm.InstanceViewStatuses);
+        Assert.Equal(2, statuses.Count);
+        Assert.Equal("ProvisioningState/succeeded", statuses[0].Code);
+        Assert.Equal("Info", statuses[0].Level);
+        Assert.Equal(expectedPowerState, statuses[1].Code);
 
         Assert.Null(vm.PowerState);
         Assert.Null(vm.PublicIps);
@@ -440,10 +440,9 @@ public class VmLifecycleScenarioTests
 
         if (detailed)
         {
-            Assert.False(string.IsNullOrEmpty(view.HyperVGeneration));
-            Assert.NotNull(view.VmAgent);
-            Assert.NotNull(view.Disks);
-            var osDisk = Assert.Single(view.Disks);
+            Assert.False(string.IsNullOrEmpty(vm.InstanceViewHyperVGeneration));
+            Assert.NotNull(vm.VmAgentVmAgentVersion);
+            var osDisk = Assert.Single(vm.InstanceViewDisks!);
             Assert.NotNull(osDisk.Statuses);
             Assert.Contains(osDisk.Statuses, status => status.Code == "ProvisioningState/succeeded");
         }

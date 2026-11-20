@@ -135,7 +135,7 @@ Get-AzVM -Id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/
 
 ### Get the instance view of a VM
 
-Return the virtual machine with its instance view in `Properties.InstanceView`: provisioning and power statuses, VM agent, disks, extensions, boot diagnostics, and patch status.
+Return the virtual machine with its instance view in the `InstanceView*` properties: provisioning and power statuses, VM agent, disks, extensions, boot diagnostics, and patch status.
 
 ```powershell
 Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm -Status
@@ -146,7 +146,7 @@ Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName
 Read the power state from the instance view's statuses; legacy Az.Compute exposed them as a top-level `Statuses` property.
 
 ```powershell
-(Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm -Status).Properties.InstanceView.Statuses.Where({ $_.Code -like 'PowerState/*' })
+(Get-AzVM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm -Status).InstanceViewStatuses.Where({ $_.Code -like 'PowerState/*' })
 ```
 
 ## PARAMETERS
@@ -288,7 +288,7 @@ HelpMessage: ''
 
 ### -Status
 
-With `-ResourceGroupName` and `-Name`, or with `-Id`, return the virtual machine with its full instance view in `Properties.InstanceView`: provisioning and power statuses, VM agent, disks, extensions, boot diagnostics, and patch status. With the list forms, retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. The list forms run one extra request per virtual machine, so they are slow, and retrieve details for at most 100 virtual machines.
+With `-ResourceGroupName` and `-Name`, or with `-Id`, return the virtual machine with its full instance view in the `InstanceView*` properties: provisioning and power statuses, VM agent, disks, extensions, boot diagnostics, and patch status. With the list forms, retrieve the power state, OS name, OS version, hypervisor generation and maintenance status of each virtual machine. The list forms run one extra request per virtual machine, so they are slow, and retrieve details for at most 100 virtual machines.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -462,7 +462,7 @@ You can pipe a virtual machine resource ID to this cmdlet by property name.
 
 ### Microsoft.Azure.Azclips.Extensions.Compute.Models.VirtualMachine
 
-One `VirtualMachine` object per matching VM. `-ResourceGroupName` with `-Name`, or `-Id`, returns a single VM. The list forms return every match, and `-Name` on its own can match VMs in several resource groups. Each object includes the ARM resource ID, provisioning state, VM size, and network configuration. With the list forms, `-Status` adds the power state, OS name, OS version, hypervisor generation and maintenance status. With `-ResourceGroupName` and `-Name`, or `-Id`, `-Status` returns the full instance view in `Properties.InstanceView`.
+One `VirtualMachine` object per matching VM. `-ResourceGroupName` with `-Name`, or `-Id`, returns a single VM. The list forms return every match, and `-Name` on its own can match VMs in several resource groups. Each object includes the ARM resource ID, provisioning state, VM size, and network configuration. With the list forms, `-Status` adds the power state, OS name, OS version, hypervisor generation and maintenance status. With `-ResourceGroupName` and `-Name`, or `-Id`, `-Status` returns the full instance view in the `InstanceView*` properties.
 
 ## NOTES
 

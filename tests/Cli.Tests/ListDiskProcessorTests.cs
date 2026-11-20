@@ -12,18 +12,17 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Offline tests for <see cref="ListDiskProcessor"/>. Same regression class as
+/// Offline tests for <see cref="ListByResourceGroupDisksProcessor"/>. Same regression class as
 /// <see cref="ListVMProcessorTests"/>: the ARM <c>disks</c> list endpoint returns an envelope
-/// <c>{ "value": [...] }</c> that must be unwrapped into a flat array. Pagination is
-/// intentionally not followed yet.
+/// <c>{ "value": [...] }</c> that must be unwrapped into a flat array.
 /// </summary>
-public class ListDiskProcessorTests
+public class ListByResourceGroupDisksProcessorTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
 
-    private static ListDiskProcessor CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
+    private static ListByResourceGroupDisksProcessor CreateProcessor(FakeHttpPipeline pipeline, FakeOutputHandler output)
     {
-        var processor = new ListDiskProcessor();
+        var processor = new ListByResourceGroupDisksProcessor();
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
         var context = new ProcessorContext(
             pipeline,
@@ -32,6 +31,7 @@ public class ListDiskProcessorTests
             output,
             Profile: profile);
         processor.Init(context);
+        processor.SubscriptionId = TestSubscriptionId;
         processor.ResourceGroupName = "my-rg";
         return processor;
     }
