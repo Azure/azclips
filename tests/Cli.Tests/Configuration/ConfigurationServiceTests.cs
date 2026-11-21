@@ -14,6 +14,21 @@ namespace Cli.Tests;
 public class ConfigurationServiceTests
 {
     [Fact]
+    public async Task SurveyEnabled_ShouldDefaultToTrueAndReflectChangesWithoutRestart()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        Assert.True(service.GetConfiguration<SurveyOptions>().Enabled);
+
+        await service.SetConfigurationAsync("survey.enabled", false);
+        Assert.False(service.GetConfiguration<SurveyOptions>().Enabled);
+
+        await service.SetConfigurationAsync("survey.enabled", true);
+        Assert.True(service.GetConfiguration<SurveyOptions>().Enabled);
+    }
+
+    [Fact]
     public async Task SetConfigurationAsync_ShouldRoundTripTypedOptions()
     {
         using var fixture = new TempConfigurationFixture();
