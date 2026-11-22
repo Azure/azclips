@@ -326,40 +326,37 @@ public class AgentModeEntryInputTests
     [Fact]
     public async Task Oneshot_ReadsNoKeys()
     {
-        Assert.False(AgentModeEntry.ResolveInteractive(requested: false, inputRedirected: false, Console.In));
         var turns = new ScriptedTurns();
         var (end, _) = await RunLoopAsync(turns, source: null, interactive: false);
         Assert.Equal(AgentModeEntry.ChatLoopEnd.Finished, end);
         Assert.Equal(0, turns.Aborts);
     }
 
-    [Fact]
-    public void RedirectedStdinOrSetIn_RunsOneshot()
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void Interactive_WithRedirectedInputOrOutput_Throws(bool inputRedirected, bool outputRedirected)
     {
-        var original = Console.In;
-        Assert.False(AgentModeEntry.ResolveInteractive(true, inputRedirected: true, original));
-        Assert.True(AgentModeEntry.ResolveInteractive(true, inputRedirected: false, original));
-        Console.SetIn(new StringReader("y"));
-        try
-        {
-            // The reader captured before SetIn decides; the replaced reader means oneshot.
-            Assert.False(AgentModeEntry.ResolveInteractive(true, inputRedirected: false, original));
-        }
-        finally
-        {
-            Console.SetIn(original);
-        }
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => AgentModeEntry.RequireTerminal(true, inputRedirected, outputRedirected));
+        Assert.Equal("Interactive recovery requires a terminal. Use --style oneshot when input or output is redirected.", ex.Message);
     }
 
     [Fact]
-    public async Task OneshotInput_IsReadToTheEnd()
+    public void KeyReader_StartsOnlyForInteractiveOriginalConsoleInput()
     {
-        var prompt = await AgentModeEntry.AppendStandardInputAsync(
-            "first", new StringReader("line one\nline two\n"), CancellationToken.None)
-            .WaitAsync(AgentTestTimeouts.HangGuard);
-        Assert.StartsWith("first", prompt);
-        Assert.Contains("line one\nline two", prompt);
+        var original = new StringReader("");
+        Assert.True(AgentModeEntry.StartsKeyReader(true, false, original, original));
+        Assert.False(AgentModeEntry.StartsKeyReader(false, false, original, original));
+        Assert.False(AgentModeEntry.StartsKeyReader(true, false, new StringReader("y"), original));
     }
+
+    [Theory]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    public void OneshotOrTerminal_DoesNotThrow(bool interactive, bool inputRedirected, bool outputRedirected) =>
+        AgentModeEntry.RequireTerminal(interactive, inputRedirected, outputRedirected);
 
     [Theory]
     [InlineData(true)]

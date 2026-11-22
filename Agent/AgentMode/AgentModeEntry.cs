@@ -108,16 +108,11 @@ public static class AgentModeEntry
                 throw new InvalidOperationException("AI recovery is disabled. Set agent.recovery.trigger to manual or auto before troubleshooting.");
             var recoverySettings = RecoverySessionSettings.Resolve(
                 agentOpts, request?.Trigger ?? RecoveryTrigger.Automatic, request?.SessionStyle);
-            // Redirected or replaced stdin runs oneshot. Interactive keys come only from a real console.
-            var interactive = ResolveInteractive(recoverySettings.IsInteractive, Console.IsInputRedirected, originalInput);
-            if (recoverySettings.IsInteractive && !interactive)
-                recoverySettings = RecoverySessionSettings.Resolve(
-                    agentOpts, recoverySettings.Trigger, "oneshot");
-            if (interactive && Console.IsOutputRedirected)
-                throw new InvalidOperationException("Interactive recovery requires a terminal. Use --style oneshot when output is redirected.");
+            RequireTerminal(recoverySettings.IsInteractive, Console.IsInputRedirected, Console.IsOutputRedirected);
+            var interactive = recoverySettings.IsInteractive;
             // The key reader is the only stdin reader of an interactive session. It starts
             // before authentication so Ctrl+C and Esc reach the startup steps below.
-            if (interactive)
+            if (StartsKeyReader(interactive, Console.IsInputRedirected, Console.In, originalInput))
             {
                 keyReader = new ConsoleKeyReader(new SystemConsoleKeySource());
                 keyReader.Start();
@@ -237,8 +232,6 @@ public static class AgentModeEntry
             });
 
             var firstPrompt = BuildFirstPrompt(failedCommand, errorText, flavor);
-            if (!interactive && (Console.IsInputRedirected || !ReferenceEquals(Console.In, originalInput)))
-                firstPrompt = await AppendStandardInputAsync(firstPrompt, Console.In, cts.Token);
 
             try
             {
@@ -271,20 +264,19 @@ public static class AgentModeEntry
     }
 
     /// <summary>
-    /// True when the session runs interactively: interactive was requested, stdin is
-    /// not redirected and <see cref="Console.In"/> is still <paramref name="originalInput"/>.
+    /// True when an interactive session reads keys: stdin is a terminal and
+    /// <see cref="Console.In"/> is still <paramref name="originalInput"/>.
     /// </summary>
-    internal static bool ResolveInteractive(bool requested, bool inputRedirected, TextReader originalInput) =>
-        requested && ConsoleKeyReader.UsesKeyInput(inputRedirected, Console.In, originalInput);
+    internal static bool StartsKeyReader(bool interactive, bool inputRedirected, TextReader currentInput, TextReader originalInput) =>
+        interactive && ConsoleKeyReader.UsesKeyInput(inputRedirected, currentInput, originalInput);
 
     /// <summary>
-    /// Reads <paramref name="input"/> to its end, with no timeout, and appends the text
-    /// to the first prompt of a oneshot session.
+    /// Throws when an interactive session has redirected input or output.
     /// </summary>
-    internal static async Task<string> AppendStandardInputAsync(string firstPrompt, TextReader input, CancellationToken ct)
+    internal static void RequireTerminal(bool interactive, bool inputRedirected, bool outputRedirected)
     {
-        var text = (await input.ReadToEndAsync(ct).ConfigureAwait(false)).Trim();
-        return text.Length == 0 ? firstPrompt : $"{firstPrompt}\nAdditional input:\n{text}";
+        if (interactive && (inputRedirected || outputRedirected))
+            throw new InvalidOperationException("Interactive recovery requires a terminal. Use --style oneshot when input or output is redirected.");
     }
 
     /// <summary>
