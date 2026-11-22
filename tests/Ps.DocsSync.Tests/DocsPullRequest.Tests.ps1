@@ -108,12 +108,12 @@ Describe 'Docs pull request workflow' -Skip:$IsLinux {
             moniker = 'azure-cli-preview'; versionFolder = 'preview-version'; targetRepoPath = '../unused'
             sourceRepoUrl = 'https://github.com/Azure/azclips'; sourceBranch = 'main'
             exportProject = 'tools/export.csproj'; docsReferenceConfig = 'src/CLI/Help/config.json'
-            extensionIndex = 'src/CLI/Help/index.json'; serviceMapping = 'src/CLI/Help/service_name.json'
+            extensionIndex = 'src/CLI/Help/index.json'
             cli2yamlPackage = 'CLI2Yaml'; cli2yamlFeed = 'https://example.invalid'
         } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $build 'cli-docs-sync.config.json')
         Set-Content -LiteralPath (Join-Path $script:CliSource 'tools/export.csproj') -Value 'fixture'
         Set-Content -LiteralPath (Join-Path $docs 'fixture.md') -Value 'fixture'
-        foreach ($file in 'config.json', 'index.json', 'service_name.json') {
+        foreach ($file in 'config.json', 'index.json') {
             Set-Content -LiteralPath (Join-Path (Split-Path $docs -Parent) $file) -Value '[]'
         }
         Set-Content -LiteralPath (Join-Path $cache 'cli2yaml/1.0/tools/CLI2Yaml.dll') -Value 'fixture'
