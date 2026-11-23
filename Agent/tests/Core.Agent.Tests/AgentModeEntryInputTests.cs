@@ -796,4 +796,86 @@ public class AgentModeEntryInputTests
             Console.SetOut(originalOutput);
         }
     }
+
+    /// <summary>Renderer that signals when the spinner stops after it is armed.</summary>
+    private sealed class SpinnerStopSignal : IAgentRenderer
+    {
+        public volatile bool Armed;
+        public readonly TaskCompletionSource Stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void OnText(string chunk) { }
+        public void OnEvent(AgentEvent ev) { }
+        public void OnSpinnerFrame(string frame, string verb) { }
+        public void OnSpinnerStop()
+        {
+            if (Armed) Stopped.TrySetResult();
+        }
+        public void RunExclusive(Action action) => action();
+    }
+
+    [Fact]
+    public async Task SessionCancelled_WhileSendIsPending_StopsWaitingForApprovals_AndDeniesThemWhenTheSendEnds()
+    {
+        var approval = new ConsoleApprovalPrompt();
+        var renderer = new SpinnerStopSignal();
+        var spinner = new SpinnerService(renderer);
+        var sendStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sendEnd = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var turns = new ScriptedTurns();
+        turns.Then(_ =>
+        {
+            sendStarted.TrySetResult();
+            return sendEnd.Task;
+        });
+
+        using var cts = new CancellationTokenSource();
+        var writer = new PromptSignalWriter();
+        var prevOut = Console.Out;
+        Console.SetOut(writer);
+        try
+        {
+            var loop = AgentModeEntry.RunChatLoopAsync(turns, approval, null, spinner, "first", false, cts.Token);
+            await sendStarted.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            renderer.Armed = true;
+            _ = Task.Run(cts.Cancel);
+
+            // The approval wait ends while the send is still pending.
+            await renderer.Stopped.Task.WaitAsync(AgentTestTimeouts.HangGuard);
+            var tool = approval.RequestRewriteAsync("powershell", "az group delete", CancellationToken.None);
+            sendEnd.TrySetResult();
+
+            Assert.Equal(AgentModeEntry.ChatLoopEnd.Finished, await loop.WaitAsync(AgentTestTimeouts.HangGuard));
+            Assert.False(await tool.WaitAsync(AgentTestTimeouts.HangGuard));
+            Assert.DoesNotContain("[y]es", writer.ToString());
+        }
+        finally
+        {
+            sendEnd.TrySetResult();
+            Console.SetOut(prevOut);
+        }
+    }
+
+    [Fact]
+    public async Task Oneshot_SendIOException_Propagates()
+    {
+        var turns = new ScriptedTurns();
+        turns.Then(_ => Task.FromException(new IOException("pipe closed")));
+
+        await Assert.ThrowsAsync<IOException>(() => RunLoopAsync(turns, source: null, interactive: false));
+    }
+
+    [Fact]
+    public async Task Interactive_SendIOException_ReturnsToThePrompt()
+    {
+        var source = new FakeKeySource();
+        source.Type("exit");
+        source.Type(Keys.Enter);
+        var turns = new ScriptedTurns();
+        turns.Then(_ => Task.FromException(new IOException("pipe closed")));
+
+        var (end, output) = await RunLoopAsync(turns, source);
+
+        Assert.Equal(AgentModeEntry.ChatLoopEnd.Finished, end);
+        Assert.Equal(["first"], turns.Prompts);
+        Assert.Contains("session.error pipe closed", output);
+    }
 }

@@ -521,7 +521,7 @@ public static class AgentModeEntry
         int userMessages = 1;
         // The very first turn is the error-recovery opener — show a spinner verb
         // that says so. Later turns (and any redirect) fall back to "thinking".
-        var first = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, firstPrompt, ct,
+        var first = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, firstPrompt, interactive, ct,
             initialVerb: "Analyzing error root cause using AI");
         if (first.Quit) return ChatLoopEnd.CtrlCQuit;
         var nextPrompt = first.Redirect;
@@ -533,7 +533,7 @@ public static class AgentModeEntry
         {
             while (!agent.SessionClosed && nextPrompt is not null && !ct.IsCancellationRequested)
             {
-                var redirected = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, nextPrompt, ct);
+                var redirected = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, nextPrompt, interactive, ct);
                 if (redirected.Quit) return ChatLoopEnd.CtrlCQuit;
                 nextPrompt = redirected.Redirect;
             }
@@ -610,7 +610,7 @@ public static class AgentModeEntry
                 break;
             }
 
-            var turn = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, line, ct);
+            var turn = await SendWithToolEnforcementAsync(agent, approval, keys, spinner, line, interactive, ct);
             if (turn.Quit) return ChatLoopEnd.CtrlCQuit;
             nextPrompt = turn.Redirect;
         }
@@ -652,11 +652,12 @@ public static class AgentModeEntry
         ConsoleKeyReader? keys,
         SpinnerService? spinner,
         string prompt,
+        bool interactive,
         CancellationToken ct,
         string initialVerb = "thinking")
     {
         using var turn = agent.StartActivity("Agent.Turn");
-        var result = await SendAndPumpAsync(agent, approval, keys, spinner, prompt, ct, initialVerb);
+        var result = await SendAndPumpAsync(agent, approval, keys, spinner, prompt, interactive, ct, initialVerb);
 
         for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
         {
@@ -680,7 +681,7 @@ public static class AgentModeEntry
                 "You replied with prose instead of calling a tool. That is not allowed. " +
                 "Call propose_plan to suggest a fix (the user must approve before any command runs), " +
                 "or submit_response to end the session. Do it now.";
-            result = await SendAndPumpAsync(agent, approval, keys, spinner, correction, ct);
+            result = await SendAndPumpAsync(agent, approval, keys, spinner, correction, interactive, ct);
         }
 
         return result;
@@ -698,6 +699,7 @@ public static class AgentModeEntry
         ConsoleKeyReader? keys,
         SpinnerService? spinner,
         string prompt,
+        bool interactive,
         CancellationToken ct,
         string initialVerb = "thinking")
     {
@@ -722,6 +724,7 @@ public static class AgentModeEntry
                     : new Task[] { sendTask, keyWait, requestWait };
                 await Task.WhenAny(waits).ConfigureAwait(false);
                 if (sendTask.IsCompleted) break;
+                if (ct.IsCancellationRequested) break;
 
                 if (keyWait is { IsCompleted: true })
                 {
@@ -792,9 +795,9 @@ public static class AgentModeEntry
         {
             // Abort requested by the user — already announced; swallow.
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException && interactive)
         {
-            // RPC and IO failures end only this turn; the session returns to the prompt.
+            // In an interactive session, RPC and IO failures end only this turn; the session returns to the prompt.
             errored = true;
             WriteColor(ConsoleColor.Red, $"  ✗ session.error {ex.Message}");
         }
