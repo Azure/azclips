@@ -46,23 +46,27 @@ rather than a workflow token, so its normal validation runs. A run with nothing 
 nothing. Code 3 or 4 fails the run either way, and the summary appears on the run's Extensions
 tab. Rewritten recordings are never published as build artifacts.
 
-Sign-in uses an Azure Resource Manager service connection with workload identity federation
-(`live_test_service_connection` in the pipeline). The `AzureCLI@2` task exposes the connection's
-federated token, and the built CLI signs in with
-`az login --service-principal --federated-token <token> --client-id <id> --tenant-id <id>
---subscription-id <id>`, using the connection's subscription. azclips keeps the federated token
-and presents it again whenever its access token needs renewing, so a run must finish its record
-work while that federated token is still accepted.
+Sign-in works the way Azure PowerShell's live tests do. Each run reads the live test service
+principal's secret from Key Vault through the `LiveTestServiceConnectionName` connection, and the
+built CLI signs in with `az login --service-principal --client-id <id> --client-secret <secret>
+--tenant-id <id> --subscription-id <id>`. The secret reaches the sign-in only through an
+environment variable. `AZCLIPS_HOME` points the azclips profile, and the secret azclips stores
+with it, at the job's temp directory, and a final step that always runs deletes it.
 
 ## Azure DevOps setup
 
 None of this is enforced by the YAML; the in-pipeline checks (release project, `main` only,
 input validation) are defense in depth.
 
-- Service connection `azclips-live-recording`: Azure Resource Manager, workload identity
-  federation, scoped to the test subscription, Contributor on that subscription only. Grant
-  access to this pipeline alone (not all pipelines), and add a Branch control check that allows
-  only `refs/heads/main`. Add an Exclusive lock check so two runs never record at once.
+- Live test variable group: holds `LiveTestServiceConnectionName`,
+  `LiveTestServicePrincipalKeyVaultName`, `LiveTestServicePrincipalSecretName`,
+  `LiveTestServicePrincipalId`, `LiveTestTenantId` and `LiveTestSubscriptionId`, the same names
+  Azure PowerShell's live tests use. The secret stays in Key Vault. Authorize the group and the
+  Key Vault connection for this pipeline alone (not all pipelines), and add a Branch control check
+  that allows only `refs/heads/main` and an Exclusive lock check so two runs never record at once.
+- Service principal: Contributor on the shared test subscription, which the Azure CLI and Azure
+  PowerShell live tests also use. Azure CLI's cleanup deletes every unlocked resource group there,
+  so a class whose resources it removes mid-run fails and keeps its committed recordings.
 - Pipeline permissions: only the owning team may queue or edit `azclips-refresh-recordings`.
 - Pool: the shared `ubuntu_pool`. The pipeline needs no identity on the pool; the subscription
   credential comes only from the service connection, inside the sign-in task. Never give a

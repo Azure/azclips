@@ -25,14 +25,17 @@ parameters:
 variables:
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'get-github-pat-token'
+  # The live test service principal that Azure PowerShell's live tests use. The group holds
+  # LiveTestServiceConnectionName, LiveTestServicePrincipalKeyVaultName,
+  # LiveTestServicePrincipalSecretName, LiveTestServicePrincipalId, LiveTestTenantId and
+  # LiveTestSubscriptionId; the secret itself stays in Key Vault and is read each run.
+  # TEMP: test only. The test pipeline defines these as pipeline variables in Azure DevOps;
+  # link the live test variable group here before PR.
+  # - group: 'REPLACE-WITH-LIVE-TEST-VARIABLE-GROUP'
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
 - name: GitHubTargetRepo
   value: ${{ variables.github_target_repo }}
-# Workload identity federation connection scoped to the live test subscription. Referenced
-# with a template expression so Azure DevOps can authorize it when the run is queued.
-- name: live_test_service_connection
-  value: 'azclips-live-recording'
 # Set by Validate Refresh Inputs; declared so the refresh step never sees an unexpanded macro.
 - name: ScenarioFilter
   value: ''
@@ -94,30 +97,65 @@ jobs:
       dotnet build azclips.slnx -p:CopilotSkipCliDownload=true
     displayName: Build
 
-  # The service connection uses workload identity federation scoped to the live test
-  # subscription; its federated token signs the built azclips CLI in. Azure CLI on the agent
-  # is only the task's carrier: azclips keeps its own profile under ~/.azclips.
-  - task: AzureCLI@2
-    displayName: Sign In To The Live Test Subscription
+  # Same sign-in as Azure PowerShell's live tests: read the service principal's secret from
+  # Key Vault each run, then sign the built azclips CLI in with it.
+  - task: AzurePowerShell@5
+    displayName: Get Live Test Secret From Key Vault
     inputs:
-      azureSubscription: ${{ variables.live_test_service_connection }}
-      scriptType: bash
-      scriptLocation: inlineScript
-      addSpnToEnvironment: true
-      workingDirectory: $(Build.SourcesDirectory)
-      inlineScript: |
-        set -euo pipefail
-        subscription_id="$(az account show --query id --output tsv)"
-        ./artifacts/Debug/Core.Cli/az login --service-principal \
-          --client-id "$servicePrincipalId" \
-          --tenant-id "$tenantId" \
-          --federated-token "$idToken" \
-          --subscription-id "$subscription_id"
+      azureSubscription: $(LiveTestServiceConnectionName)
+      azurePowerShellVersion: LatestVersion
+      pwsh: true
+      ScriptType: InlineScript
+      Inline: |
+        $secret = Get-AzKeyVaultSecret -VaultName $env:KEY_VAULT_NAME -Name $env:SECRET_NAME -AsPlainText
+        if ([string]::IsNullOrWhiteSpace($secret)) {
+          throw "Secret '$env:SECRET_NAME' in vault '$env:KEY_VAULT_NAME' was empty or not found."
+        }
+        Write-Host "##vso[task.setvariable variable=LiveTestServicePrincipalSecret;issecret=true;isreadonly=true]$secret"
+    env:
+      KEY_VAULT_NAME: $(LiveTestServicePrincipalKeyVaultName)
+      SECRET_NAME: $(LiveTestServicePrincipalSecretName)
+
+  # AZCLIPS_HOME keeps the profile, and the secret azclips stores with it, in the job's temp
+  # directory rather than the agent user's home, so nothing outlives the job. Without a session
+  # bus azclips cannot reach a keyring, so the secret is stored there and not in the agent
+  # user's keyring, which the cleanup step could not remove.
+  - bash: |
+      set -euo pipefail
+      unset DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR
+      for name in LIVE_TEST_CLIENT_ID LIVE_TEST_CLIENT_SECRET LIVE_TEST_TENANT_ID LIVE_TEST_SUBSCRIPTION_ID; do
+        # An undefined variable reaches the script as its literal macro, such as $(LiveTestTenantId).
+        if [[ -z "${!name:-}" || "${!name}" =~ ^\$\([A-Za-z0-9_.]+\)$ ]]; then
+          echo "ERROR: $name is not set. Link the live test variable group to this pipeline."
+          exit 1
+        fi
+      done
+      # azclips reads any argument that starts with '-' as an option name, so such a secret
+      # would be misparsed and could be echoed back in the error.
+      if [[ "$LIVE_TEST_CLIENT_SECRET" == -* ]]; then
+        echo "ERROR: The live test secret starts with '-', which azclips cannot take as a value."
+        exit 1
+      fi
+      ./artifacts/Debug/Core.Cli/az login --service-principal \
+        --client-id "$LIVE_TEST_CLIENT_ID" \
+        --client-secret "$LIVE_TEST_CLIENT_SECRET" \
+        --tenant-id "$LIVE_TEST_TENANT_ID" \
+        --subscription-id "$LIVE_TEST_SUBSCRIPTION_ID"
+    displayName: Sign In To The Live Test Subscription
+    retryCountOnTaskFailure: 3
+    env:
+      AZCLIPS_HOME: $(Agent.TempDirectory)/azclips-home
+      LIVE_TEST_CLIENT_ID: $(LiveTestServicePrincipalId)
+      LIVE_TEST_CLIENT_SECRET: $(LiveTestServicePrincipalSecret)
+      LIVE_TEST_TENANT_ID: $(LiveTestTenantId)
+      LIVE_TEST_SUBSCRIPTION_ID: $(LiveTestSubscriptionId)
 
   # The script's exit code separates refresh failures (3) from secret scan findings (4);
   # see refresh_recordings.py. Only 0 and 3 leave recordings that may be published.
   - bash: |
       set -uo pipefail
+      # Same store as the sign-in step: the profile under AZCLIPS_HOME, not a keyring.
+      unset DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR
       if [[ "$SCENARIO_FILTER" == \$\(* ]]; then
         echo "ERROR: The validated scenario filter was not set."
         exit 1
@@ -131,6 +169,7 @@ jobs:
       exit "$status"
     displayName: Refresh Stale Recordings
     env:
+      AZCLIPS_HOME: $(Agent.TempDirectory)/azclips-home
       SCENARIO_FILTER: $(ScenarioFilter)
       # Ties run-scoped resource names (-t<8hex>) to this build, so a resource group left
       # behind by an interrupted run maps back to the run that created it.
@@ -188,3 +227,11 @@ jobs:
     env:
       GH_TOKEN: $(GH_TOKEN)
       GITHUB_TARGET_REPO: $(GitHubTargetRepo)
+
+  # Removes the azclips profile and the service principal secret stored with it, whatever
+  # happened above; a logout alone keeps the stored secret.
+  - bash: rm -rf "$AZCLIPS_HOME"
+    displayName: Remove The Live Test Sign-In
+    condition: always()
+    env:
+      AZCLIPS_HOME: $(Agent.TempDirectory)/azclips-home

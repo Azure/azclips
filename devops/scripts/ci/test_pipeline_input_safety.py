@@ -44,7 +44,7 @@ class PipelineInputSafetyTests(unittest.TestCase):
         script_end = pipeline.rfind("\n", start, end)
         script = textwrap.dedent(pipeline[start:script_end])
         env_match = re.match(
-            r"(?: *condition: [^\n]+\n)? *env:\n(?P<entries>(?: +[A-Z][A-Z0-9_]*: [^\n]+\n)+)",
+            r"(?: *(?:condition|retryCountOnTaskFailure): [^\n]+\n)* *env:\n(?P<entries>(?: +[A-Z][A-Z0-9_]*: [^\n]+\n)+)",
             pipeline[end + len(f"displayName: {display_name}\n"):],
         )
         self.assertIsNotNone(env_match, f"Missing task environment for {display_name}")
@@ -386,6 +386,72 @@ class PipelineInputSafetyTests(unittest.TestCase):
         self.assertIn("  always: true\n", pipeline)
         self.assertIn("validate-release-project.yml", pipeline)
         self.assertEqual(pipeline.count("in(variables['RefreshExitCode'], '0', '3')"), 2)
+
+    def sign_in_live(self, **overrides):
+        values = {
+            "$(LiveTestServicePrincipalId)": "11111111-1111-1111-1111-111111111111",
+            "$(LiveTestServicePrincipalSecret)": "not-a-real-secret",
+            "$(LiveTestTenantId)": "22222222-2222-2222-2222-222222222222",
+            "$(LiveTestSubscriptionId)": "33333333-3333-3333-3333-333333333333",
+            **overrides,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            values["$(Agent.TempDirectory)/azclips-home"] = str(root / "azclips-home")
+            script, environment = self.load_step(
+                "azclips-refresh-recordings.yml", "Sign In To The Live Test Subscription", values)
+            cli = root / "artifacts/Debug/Core.Cli/az"
+            cli.parent.mkdir(parents=True)
+            cli.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@" > "$AZCLIPS_HOME.args"\n', encoding="utf-8")
+            cli.chmod(0o755)
+            result = self.run_step(script, environment, root)
+            arguments_file = root / "azclips-home.args"
+            arguments = arguments_file.read_text(encoding="utf-8").splitlines() if arguments_file.exists() else None
+            return script, result, arguments
+
+    def test_live_sign_in_passes_values_as_data(self):
+        for payload in self.payloads:
+            if "\n" in payload:
+                continue
+            with self.subTest(payload=payload):
+                script, result, arguments = self.sign_in_live(**{"$(LiveTestServicePrincipalSecret)": payload})
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(arguments, [
+                    "login", "--service-principal",
+                    "--client-id", "11111111-1111-1111-1111-111111111111",
+                    "--client-secret", payload,
+                    "--tenant-id", "22222222-2222-2222-2222-222222222222",
+                    "--subscription-id", "33333333-3333-3333-3333-333333333333",
+                ])
+                self.assertNotIn(payload, script)
+                self.assertNotIn(payload, result.stdout + result.stderr)
+
+    def test_live_sign_in_rejects_a_secret_azclips_would_misparse(self):
+        _, result, arguments = self.sign_in_live(**{"$(LiveTestServicePrincipalSecret)": "-starts-with-dash"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("starts with '-'", result.stdout)
+        self.assertNotIn("-starts-with-dash", result.stdout + result.stderr)
+        self.assertIsNone(arguments)
+
+    def test_live_sign_in_requires_the_variable_group(self):
+        for macro in ("$(LiveTestServicePrincipalId)", "$(LiveTestServicePrincipalSecret)",
+                      "$(LiveTestTenantId)", "$(LiveTestSubscriptionId)"):
+            for value in (macro, ""):
+                with self.subTest(macro=macro, value=value):
+                    _, result, arguments = self.sign_in_live(**{macro: value})
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("Link the live test variable group", result.stdout)
+                    self.assertIsNone(arguments)
+
+    def test_live_sign_in_is_removed_after_every_run(self):
+        pipeline = (self.pipeline_root / "azclips-refresh-recordings.yml").read_text(encoding="utf-8")
+        # Every step that touches the azclips profile uses the job's temp directory.
+        self.assertEqual(pipeline.count("AZCLIPS_HOME: $(Agent.TempDirectory)/azclips-home"), 3)
+        cleanup = pipeline[pipeline.index("displayName: Remove The Live Test Sign-In"):]
+        self.assertIn("condition: always()", cleanup)
+        # The secret reaches a script only through an environment mapping.
+        self.assertEqual(pipeline.count("$(LiveTestServicePrincipalSecret)"), 1)
+        self.assertIn("issecret=true;isreadonly=true", pipeline)
 
 
 class ShellPipelineSafetyTests(unittest.TestCase):
