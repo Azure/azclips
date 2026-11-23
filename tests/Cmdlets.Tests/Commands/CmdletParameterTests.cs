@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 extern alias CmdletsKeyVault;
+extern alias CmdletsMsGraph;
 
 using System.Collections;
 using System.Management.Automation;
@@ -13,41 +14,41 @@ using Core.DependencyInjection;
 using Core.Engine;
 using Moq;
 using static Cmdlets.Tests.Commands.CommandTestHelpers;
+using AccountsCmdlets = Microsoft.Azure.Azclips.Cmdlets.Accounts;
+using AccountsIndex = Microsoft.Azure.Azclips.Extensions.Accounts.ExtensionIndex;
 using KeyVaultCmdlets = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault;
 using KeyVaultIndex = Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex;
+using MsGraphCmdlets = CmdletsMsGraph::Microsoft.Azure.Azclips.Cmdlets.MsGraph;
+using ManagedServiceIdentityCmdlets = Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity;
+using ManagedServiceIdentityIndex = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex;
+using MsGraphIndex = Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex;
+using ResourcesCmdlets = Microsoft.Azure.Azclips.Cmdlets.Resources;
+using ResourcesIndex = Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex;
 
 namespace Cmdlets.Tests.Commands;
 
 /// <summary>
 /// Runs each listed module's cmdlets in PowerShell through the real engine and checks the error PowerShell's binder or
 /// the engine gives for each rejected input, with cases generated from the cmdlet types. The wire mock is strict with no
-/// responses, so each test also proves no request was sent.
+/// responses, so each test also proves no request was sent. Because the cases are read from the cmdlets' attributes, a
+/// parameter that stops being mandatory or a changed limit removes or changes its case instead of failing; pin limits that
+/// matter in the module's own tests.
 /// </summary>
 [Collection("Azclips Service Provider Tests")]
 public sealed class CmdletParameterTests : IDisposable
 {
     private const string Value = "value";
 
-    // Add a module here to give its cmdlets every check in this file: the extension its cmdlets run and its cmdlet types.
+    // Add a module here to give every cmdlet in its assembly every check in this file. Accounts is included even though
+    // its CLI commands are not in the CLI version of this file: these errors come from PowerShell's binder, so they never
+    // reach the Accounts processors that need services from AzclipsServiceProvider.
     private static readonly (string Module, Assembly Extension, Type[] Cmdlets)[] s_modules =
     [
-        (
-            "KeyVault",
-            typeof(KeyVaultIndex).Assembly,
-            [
-                typeof(KeyVaultCmdlets.SetAzKeyVaultSecretCmdlet),
-                typeof(KeyVaultCmdlets.GetAzKeyVaultSecretCmdlet),
-                typeof(KeyVaultCmdlets.UpdateAzKeyVaultSecretCmdlet),
-                typeof(KeyVaultCmdlets.RemoveAzKeyVaultSecretCmdlet),
-                typeof(KeyVaultCmdlets.UndoAzKeyVaultSecretRemovalCmdlet),
-                typeof(KeyVaultCmdlets.AddAzKeyVaultCertificateCmdlet),
-                typeof(KeyVaultCmdlets.ImportAzKeyVaultCertificateCmdlet),
-                typeof(KeyVaultCmdlets.GetAzKeyVaultCertificateCmdlet),
-                typeof(KeyVaultCmdlets.UpdateAzKeyVaultCertificateCmdlet),
-                typeof(KeyVaultCmdlets.ExportAzKeyVaultCertificateCmdlet),
-                typeof(KeyVaultCmdlets.RemoveAzKeyVaultCertificateCmdlet),
-                typeof(KeyVaultCmdlets.UndoAzKeyVaultCertificateRemovalCmdlet),
-            ]),
+        ("KeyVault", typeof(KeyVaultIndex).Assembly, CmdletsIn(typeof(KeyVaultCmdlets.GetAzKeyVaultSecretCmdlet).Assembly)),
+        ("MsGraph", typeof(MsGraphIndex).Assembly, CmdletsIn(typeof(MsGraphCmdlets.GetAzMsGraphUserCmdlet).Assembly)),
+        ("ManagedServiceIdentity", typeof(ManagedServiceIdentityIndex).Assembly, CmdletsIn(typeof(ManagedServiceIdentityCmdlets.GetAzUserAssignedIdentityCmdlet).Assembly)),
+        ("Resources", typeof(ResourcesIndex).Assembly, CmdletsIn(typeof(ResourcesCmdlets.NewResourceGroupCmdlet).Assembly)),
+        ("Accounts", typeof(AccountsIndex).Assembly, CmdletsIn(typeof(AccountsCmdlets.ConnectAccountCmdlet).Assembly)),
     ];
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
@@ -114,7 +115,9 @@ public sealed class CmdletParameterTests : IDisposable
     public static TheoryData<string, Type, string[], string> GetBlankValueForNotNullOrEmptyCases() =>
         CasesFor(p => p.PropertyType == typeof(string) && p.IsDefined(typeof(ValidateNotNullOrEmptyAttribute)));
 
-    public static TheoryData<string, Type, string[], string> GetNonIntegerValueCases() => CasesFor(p => p.PropertyType == typeof(int));
+    // int? too: PowerShell converts to the underlying System.Int32 and gives the same message.
+    public static TheoryData<string, Type, string[], string> GetNonIntegerValueCases() =>
+        CasesFor(p => (Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType) == typeof(int));
 
     public static TheoryData<string, Type, string[], string> GetNonBooleanValueCases() => CasesFor(p => p.PropertyType == typeof(bool));
 
@@ -324,14 +327,18 @@ public sealed class CmdletParameterTests : IDisposable
     {
         foreach (string parameter in parameters)
         {
-            shell.AddParameter(parameter, ValidValue(cmdlet.GetProperty(parameter)!.PropertyType));
+            shell.AddParameter(parameter, ValidValue(cmdlet.GetProperty(parameter)!));
         }
     }
 
-    // A value PowerShell binds to a parameter of the given type without complaint.
+    // A value PowerShell binds to the parameter without complaint: a [ValidateSet]'s first value, else one for its type.
+    private object ValidValue(PropertyInfo parameter) =>
+        parameter.GetCustomAttribute<ValidateSetAttribute>() is { } validateSet ? validateSet.ValidValues[0] : ValidValue(parameter.PropertyType);
+
     private object ValidValue(Type type) => (Nullable.GetUnderlyingType(type) ?? type) switch
     {
         Type t when t == typeof(string) || t == typeof(object) => Value,
+        Type t when t == typeof(string[]) => new[] { Value },
         Type t when t == typeof(int) => 1,
         Type t when t == typeof(bool) || t == typeof(SwitchParameter) => true,
         Type t when t == typeof(DateTimeOffset) => DateTimeOffset.UnixEpoch.AddYears(10),
@@ -368,10 +375,15 @@ public sealed class CmdletParameterTests : IDisposable
     // The parameters to give a valid value so PowerShell binds the cmdlet to the set: every mandatory parameter of the
     // set except the missing one, then optional parameters of the set, in order, while another set still fits them. The
     // tested parameter is given by the test itself, so it narrows the sets but is not returned. Only a missing parameter
-    // needs PowerShell to pick the set alone (the other checks fail while binding, and the default set is listed first),
-    // so with one this is null when no combination picks the set alone.
+    // needs PowerShell to pick the set (the other checks fail while binding, and the default set is listed first). When
+    // more than one set still fits, PowerShell picks the default set, so with a missing parameter this is null when no
+    // combination picks the set alone and the set is not the default.
+    // Example: for Get-AzKeyVaultSecret's Get set with Name missing, this returns [Version]. -Version exists only in the
+    // Get set, so PowerShell picks Get and reports that -Name is missing; with nothing supplied it would pick the default
+    // List set, which has no mandatory parameters.
     private static string[]? SuppliedParameters(Type cmdlet, string set, PropertyInfo? missing = null, PropertyInfo? tested = null)
     {
+        bool isDefault = set == cmdlet.GetCustomAttribute<CmdletAttribute>()!.DefaultParameterSetName;
         List<PropertyInfo> given = Parameters(cmdlet).Where(p => p != missing && (p == tested || IsMandatory(p, set))).ToList();
         List<string> otherSets = ParameterSets(cmdlet).Where(s => s != set && given.All(p => IsInSet(p, s))).ToList();
         foreach (PropertyInfo optional in Parameters(cmdlet).Where(p => p != missing && IsInSet(p, set) && !given.Contains(p)))
@@ -388,7 +400,7 @@ public sealed class CmdletParameterTests : IDisposable
             }
         }
 
-        return otherSets.Count == 0 || missing is null ? given.Where(p => p != tested).Select(p => p.Name).ToArray() : null;
+        return otherSets.Count == 0 || isDefault || missing is null ? given.Where(p => p != tested).Select(p => p.Name).ToArray() : null;
     }
 
     // For each module, the first cmdlet in list order with a parameter matching isMatch, that parameter and the first
@@ -418,4 +430,11 @@ public sealed class CmdletParameterTests : IDisposable
 
         return data;
     }
+
+    // Every cmdlet in the assembly, in name order so the generated cases are stable.
+    private static Type[] CmdletsIn(Assembly cmdletAssembly) =>
+        cmdletAssembly.GetTypes()
+            .Where(t => !t.IsAbstract && typeof(PSCmdlet).IsAssignableFrom(t) && t.IsDefined(typeof(CmdletAttribute)))
+            .OrderBy(t => t.FullName, StringComparer.Ordinal)
+            .ToArray();
 }

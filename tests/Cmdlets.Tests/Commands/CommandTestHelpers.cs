@@ -29,6 +29,7 @@ internal static class CommandTestHelpers
 {
     internal const string TenantId = "11111111-1111-1111-1111-111111111111";
     internal const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
+    internal const string ProfileName = "test";
 
     /// <summary>
     /// Creates an engine that loads <paramref name="extension"/>, signs in as a fixed profile, and sends every
@@ -37,7 +38,7 @@ internal static class CommandTestHelpers
     /// </summary>
     internal static Engine CreateEngine(Assembly extension, Mock<ISendAsync> mockWire)
     {
-        var profile = new Profile { Name = "test", TenantId = TenantId, SubscriptionId = SubscriptionId };
+        var profile = new Profile { Name = ProfileName, TenantId = TenantId, SubscriptionId = SubscriptionId };
         var mockProfiles = new Mock<IProfileService>();
         mockProfiles.Setup(p => p.GetActiveProfileNameAsync(It.IsAny<CancellationToken>())).ReturnsAsync(profile.Name);
         mockProfiles.Setup(p => p.GetProfileAsync(profile.Name, It.IsAny<CancellationToken>())).ReturnsAsync(profile);
@@ -91,15 +92,17 @@ internal static class CommandTestHelpers
     /// <summary>
     /// Makes <paramref name="engine"/> the <see cref="IEngine"/> the cmdlets resolve from <see cref="AzclipsServiceProvider"/>
     /// in BeginProcessing, replacing whatever an earlier test registered. Call <see cref="AzclipsServiceProvider.Dispose"/>
-    /// before disposing the engine.
+    /// before disposing the engine. <paramref name="registerServices"/> adds services that processors resolve from
+    /// <see cref="AzclipsServiceProvider"/> themselves rather than from the engine (Accounts does this).
     /// </summary>
-    internal static void RegisterEngine(Engine engine)
+    internal static void RegisterEngine(Engine engine, Action<IServiceCollection>? registerServices = null)
     {
         AzclipsServiceProvider.Dispose();
         AzclipsServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IEngine>(engine);
             services.AddSingleton(Mock.Of<ITelemetryService>());
+            registerServices?.Invoke(services);
         });
         AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"));
     }
