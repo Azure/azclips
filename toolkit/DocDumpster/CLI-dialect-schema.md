@@ -31,7 +31,7 @@ TypeSpec ──emitter──▶ IR operation ──create-command──▶ IRCom
 | `aliases` | `string[]` | Alternate complete names. Kept for parity; expected to be empty | `CommandMetadata.Aliases` |
 | `hidden` | `boolean` | Generated but not public | Not offered to users |
 | `description` | `string` | Overrides the shared docs | Help |
-| `defaultParameterSet` | `string` | Set chosen when selection cannot decide; one sibling's `id.variant` | Set selection |
+| `defaultParameterSet` | `string` | Set chosen when selection cannot decide; one sibling's `id.variant` | `ParameterSetMetadata.IsDefault` (not yet used to break ties, see Open questions) |
 | `examples` | `CliExample[]` | Command-line examples. Code generation leaves them empty; a build-time step fills them | `ProcessorInfo.Examples` (`"title \| command"`) |
 | `preview` | `CliPreview` | Preview command | `HelpTag.Preview`, `PreviewMessage` |
 | `deprecated` | `CliDeprecated` | Deprecated command | `HelpTag.Deprecated`, `DeprecatedMessage` |
@@ -41,11 +41,11 @@ TypeSpec ──emitter──▶ IR operation ──create-command──▶ IRCom
 
 | Field | Type | Meaning | Runtime consumer |
 |---|---|---|---|
-| `name` | `string` | Long option, bare: `resource-group` for `--resource-group`. Required unless `hidden` | `ParameterMetadata` name |
+| `name` | `string` | Long option, bare: `resource-group` for `--resource-group`. Required unless `hidden` | `ParameterMetadata.InvocationName` |
 | `aliases` | `string[]` | Extra spellings, bare; one character is a short option (`g` for `-g`) | `ParameterMetadata.Aliases` |
 | `hidden` | `boolean` | Not in the CLI syntax; the shared binding stays | Not exposed |
 | `description` | `string` | Overrides the shared docs | Help |
-| `parameterSets` | `CliParameterSetMembership[]`, at most one | Membership in the command's own set; `mandatory` replaces shared `required` | `ArgumentInfo.ParameterSetName`, `ParameterMetadata.IsRequired` |
+| `parameterSets` | `CliParameterSetMembership[]`, at most one | Membership in the command's own set; `mandatory` replaces shared `required` | `ParameterMetadata.ParameterSets` and `CommandMetadata.ParameterSets` (`IsRequired`), see Parameter sets |
 | `group` | `string` | Help section only, stored bare (`Properties`) | `[ParameterGroup("Properties Arguments")]` |
 | `validateSet` | `string[]` | Closed enum: only these values are accepted | `ParameterMetadata.AllowedValues` (enforced, completed, listed in help) |
 | `completer` | `IRLiteralValue[]` | Open enum: suggestions only, any value accepted | None yet |
@@ -100,6 +100,20 @@ Configured or profile-supplied values, such as the subscription, never take part
 **Checked at validation time:**
 - A set that can never be selected is an error, unless it is the default.
 - An invocation that fits two sets with no default to resolve it is an error.
+
+**At runtime.** The CLI resolves sets from `ExtensionIndex` metadata, and generated code never validates them (`ArgumentParsingService`, #1197). The resolver already does steps 1 and 2. Step 3 is not supported yet: when several sets remain it reports the input as ambiguous, whatever `IsDefault` says (see Open questions).
+
+**What the generator emits.** For each public CLI command, both halves of the runtime metadata:
+
+| Runtime metadata | From the dialect |
+|---|---|
+| `CommandMetadata.ParameterSets`: one `ParameterSetMetadata` per set | One set per same-name sibling, named by its `id.variant`. A command with no variant has a single set |
+| `ParameterSetMetadata.IsDefault` | `true` for the set named by `defaultParameterSet` |
+| `ParameterSetMetadata.Parameters`: one `ParameterReference` per member | The sibling's exposed parameters; `IsRequired` is `cliMandatory` (membership `mandatory`, else shared `required`) |
+| `ParameterMetadata.ParameterSets`: one `ParameterSetReference` per set the parameter is in | The same memberships, seen from the parameter. A flag shared by several siblings lists each of their sets |
+| `Position` on both references | Always `-1`: generated commands take no positionals |
+
+Arguments the index adds to every command, such as `--profile`, must be members of every set, because the resolver rejects an argument that is outside the remaining sets (#1379).
 
 **Customizations and orchestrators.** Hand-written customizations may add sets through C# attributes. These are merged at build time and are not part of this schema.
 
@@ -167,7 +181,9 @@ Across commands (`checkCliCommands`, run from `TransformedIRSchema`):
 - **Shared validators:** which TypeSpec constraints (`@minValue`, `@pattern`, `@secret`, …) should the shared IR carry before dialects present them?
 - **Group-level help:** CLI command groups carry help text and lifecycle (for example a preview group). Should those live on the target, as PowerShell's module dialect does?
 - **Runtime support** is still needed for:
-  - several processors under one CLI name, with set selection;
+  - **the default set breaking ties:** `ArgumentParsingService.ValidateParameterSets` reports an ambiguity when several sets remain and does not read `ParameterSetMetadata.IsDefault`;
+  - **one processor per set:** `CommandMetadata` has a single `ProcessorType`, which `ExecutionSession.GetProcessor` creates before binding, and the resolved set name is not used afterwards. Same-name siblings are separate processors, so they cannot share a CLI command until the runtime can route the resolved set to its processor, or a generated processor dispatches on it;
+  - help that shows several parameter sets;
   - completion-only values;
   - parameter-level preview, deprecation and deprecated aliases.
 
