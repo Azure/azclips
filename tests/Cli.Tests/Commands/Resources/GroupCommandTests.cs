@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using ResourcesIndex = Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex;
 
 namespace Cli.Tests.Commands.Resources;
@@ -21,7 +22,7 @@ public sealed class GroupCommandTests : IDisposable
     private readonly List<object> _output = [];
     private readonly Engine _engine;
 
-    public GroupCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(ResourcesIndex).Assembly, _mockWire);
+    public GroupCommandTests() => _engine = CreateEngine(typeof(ResourcesIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
@@ -31,7 +32,9 @@ public sealed class GroupCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupDeleteBlankName_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "group delete", ["--name", ""], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "delete", "--name", ""]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -45,7 +48,9 @@ public sealed class GroupCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupUpdateTagWithoutKey_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "group update", ["--name", "rg", "--tags", "=value"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", "rg", "--tags", "=value"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -55,7 +60,9 @@ public sealed class GroupCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupUpdateSetWithoutValue_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "group update", ["--name", "rg", "--set", "managedBy"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", "rg", "--set", "managedBy"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -65,7 +72,9 @@ public sealed class GroupCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupUpdateSetUnsupportedPath_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "group update", ["--name", "rg", "--set", "location=westus"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", "rg", "--set", "location=westus"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 

@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using KeyVaultIndex = Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex;
 
 namespace Cli.Tests.Commands.KeyVault;
@@ -22,21 +23,23 @@ public sealed class SecretCommandTests : IDisposable
     private readonly string _missingDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
     private readonly Engine _engine;
 
-    public SecretCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(KeyVaultIndex).Assembly, _mockWire);
+    public SecretCommandTests() => _engine = CreateEngine(typeof(KeyVaultIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
     // ── secret name, version and page size (shared by the secret commands) ─────────────────────
 
     [Theory]
-    [InlineData("keyvault secret set")]
-    [InlineData("keyvault secret show")]
-    [InlineData("keyvault secret list-versions")]
-    [InlineData("keyvault secret set-attributes")]
-    [InlineData("keyvault secret delete")]
-    public async Task RunAsync_InvalidSecretName_ThrowsArgumentException(string command)
+    [InlineData("keyvault", "secret", "set")]
+    [InlineData("keyvault", "secret", "show")]
+    [InlineData("keyvault", "secret", "list-versions")]
+    [InlineData("keyvault", "secret", "set-attributes")]
+    [InlineData("keyvault", "secret", "delete")]
+    public async Task RunAsync_InvalidSecretName_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", "--name", "my_secret"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--name", "my_secret"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -44,12 +47,15 @@ public sealed class SecretCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("keyvault secret show")]
-    [InlineData("keyvault secret set-attributes")]
-    public async Task RunAsync_InvalidSecretVersion_ThrowsArgumentException(string command)
+    [InlineData("keyvault", "secret", "show")]
+    [InlineData("keyvault", "secret", "set-attributes")]
+    public async Task RunAsync_InvalidSecretVersion_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, command, ["--vault-name", "myvault", "--name", "secret", "--version", "not-a-version"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            [.. commandLine, "--vault-name", "myvault", "--name", "secret", "--version", "not-a-version"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -57,11 +63,13 @@ public sealed class SecretCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("keyvault secret list", new[] { "--maxresults", "0" })]
-    [InlineData("keyvault secret list-versions", new[] { "--name", "secret", "--maxresults", "26" })]
-    public async Task RunAsync_PageSizeOutOfRange_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "secret", "list", "--maxresults", "0")]
+    [InlineData("keyvault", "secret", "list-versions", "--name", "secret", "--maxresults", "26")]
+    public async Task RunAsync_PageSizeOutOfRange_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", .. args], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -71,11 +79,13 @@ public sealed class SecretCommandTests : IDisposable
     // ── attributes and tags (shared by the secret commands that write them) ────────────────────
 
     [Theory]
-    [InlineData("keyvault secret set", new[] { "--name", "secret", "--value", "secret-value" })]
-    [InlineData("keyvault secret set-attributes", new[] { "--name", "secret" })]
-    public async Task RunAsync_InvalidEnabled_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "secret", "set", "--name", "secret", "--value", "secret-value")]
+    [InlineData("keyvault", "secret", "set-attributes", "--name", "secret")]
+    public async Task RunAsync_InvalidEnabled_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", .. args, "--enabled", "yes"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--enabled", "yes"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -83,11 +93,13 @@ public sealed class SecretCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("keyvault secret set", new[] { "--name", "secret", "--value", "secret-value", "--expires", "tomorrow" })]
-    [InlineData("keyvault secret set-attributes", new[] { "--name", "secret", "--not-before", "2040-01-01" })]
-    public async Task RunAsync_InvalidDate_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "secret", "set", "--name", "secret", "--value", "secret-value", "--expires", "tomorrow")]
+    [InlineData("keyvault", "secret", "set-attributes", "--name", "secret", "--not-before", "2040-01-01")]
+    public async Task RunAsync_InvalidDate_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", .. args], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -97,11 +109,13 @@ public sealed class SecretCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("keyvault secret set", new[] { "--name", "secret", "--value", "secret-value" })]
-    [InlineData("keyvault secret set-attributes", new[] { "--name", "secret" })]
-    public async Task RunAsync_TagWithoutName_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "secret", "set", "--name", "secret", "--value", "secret-value")]
+    [InlineData("keyvault", "secret", "set-attributes", "--name", "secret")]
+    public async Task RunAsync_TagWithoutName_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", .. args, "--tags", "=value"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--tags", "=value"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -114,7 +128,9 @@ public sealed class SecretCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSetWithoutValueOrFile_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "keyvault secret set", ["--vault-name", "myvault", "--name", "secret"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -126,8 +142,11 @@ public sealed class SecretCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSetValueAndFile_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault secret set", ["--vault-name", "myvault", "--name", "secret", "--value", "secret-value", "--file", "secret.txt"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--value", "secret-value", "--file", "secret.txt"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -139,8 +158,11 @@ public sealed class SecretCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSetValueOver25KiB_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault secret set", ["--vault-name", "myvault", "--name", "secret", "--value", new string('a', (25 * 1024) + 1)], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--value", new string('a', (25 * 1024) + 1)]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -151,8 +173,11 @@ public sealed class SecretCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSetMissingFile_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault secret set", ["--vault-name", "myvault", "--name", "secret", "--file", Path.Combine(_missingDirectory, "missing.txt")], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--file", Path.Combine(_missingDirectory, "missing.txt")]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -164,8 +189,11 @@ public sealed class SecretCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSetAttributesWithoutUpdate_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault secret set-attributes", ["--vault-name", "myvault", "--name", "secret"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "set-attributes", "--vault-name", "myvault", "--name", "secret"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -178,7 +206,11 @@ public sealed class SecretCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretDeleteWithoutYes_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "keyvault secret delete", ["--vault-name", "myvault", "--name", "secret"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "delete", "--vault-name", "myvault", "--name", "secret"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 

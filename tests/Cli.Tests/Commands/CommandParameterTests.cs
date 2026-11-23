@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using KeyVaultIndex = Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex;
 using ManagedServiceIdentityIndex = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex;
 using MsGraphIndex = Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex;
@@ -37,16 +38,19 @@ public sealed class CommandParameterTests
 
     // One case per required CLI parameter in each extension index: that parameter is left out and every
     // other required parameter is given a value, so the binder reports exactly the one that is missing.
-    public static TheoryData<string, string, string[], string> GetRequiredParameters()
+    public static TheoryData<string, string[], string> GetRequiredParameters()
     {
-        var data = new TheoryData<string, string, string[], string>();
+        var data = new TheoryData<string, string[], string>();
         foreach ((string extension, IExtensionIndex index) in s_extensions)
         {
             foreach (CommandMetadata command in index.GetAllCommands(ClientType.CLI))
             {
                 foreach (ParameterMetadata missing in command.Parameters.Values.Where(p => p.IsRequired))
                 {
-                    data.Add(extension, command.InvocationName, RequiredArgs(command, except: missing), $"--{missing.InvocationName}");
+                    data.Add(
+                        extension,
+                        [.. command.InvocationName.Split(' '), .. RequiredArgs(command, except: missing)],
+                        $"--{missing.InvocationName}");
                 }
             }
         }
@@ -58,49 +62,48 @@ public sealed class CommandParameterTests
     // parameter. Every required parameter except the one under test is given a value, so the binder or the engine
     // rejects the arguments before the extension sees them. An extension with no suitable parameter is skipped.
 
-    public static TheoryData<string, string, string[]> GetUnknownParameterCases()
+    public static TheoryData<string, string[]> GetUnknownParameterCases()
     {
-        var data = new TheoryData<string, string, string[]>();
+        var data = new TheoryData<string, string[]>();
         foreach ((string extension, CommandMetadata command, _) in FirstPerExtension(IsRequiredString))
         {
-            data.Add(extension, command.InvocationName, [.. RequiredArgs(command), "--not-a-parameter", Value]);
+            data.Add(extension, [.. command.InvocationName.Split(' '), .. RequiredArgs(command), "--not-a-parameter", Value]);
         }
 
         return data;
     }
 
-    public static TheoryData<string, string, string[]> GetMissingProfileCases()
+    public static TheoryData<string, string[]> GetMissingProfileCases()
     {
-        var data = new TheoryData<string, string, string[]>();
+        var data = new TheoryData<string, string[]>();
         foreach ((string extension, CommandMetadata command, _) in FirstPerExtension(IsRequiredString))
         {
-            data.Add(extension, command.InvocationName, [.. RequiredArgs(command), "--profile", "missing"]);
+            data.Add(extension, [.. command.InvocationName.Split(' '), .. RequiredArgs(command), "--profile", "missing"]);
         }
 
         return data;
     }
 
-    public static TheoryData<string, string, string[], string> GetRequiredParameterWithoutValueCases() =>
+    public static TheoryData<string, string[], string> GetRequiredParameterWithoutValueCases() =>
         CasesFor(IsRequiredString, flag => [$"--{flag}"]);
 
-    public static TheoryData<string, string, string[], string> GetSingleValueParameterWithTwoValuesCases() =>
+    public static TheoryData<string, string[], string> GetSingleValueParameterWithTwoValuesCases() =>
         CasesFor(IsRequiredString, flag => [$"--{flag}", "first", "second"]);
 
-    public static TheoryData<string, string, string[], string> GetNonBooleanValueForSwitchCases() =>
+    public static TheoryData<string, string[], string> GetNonBooleanValueForSwitchCases() =>
         CasesFor(p => p.ParameterType == typeof(bool), flag => [$"--{flag}", "maybe"]);
 
-    public static TheoryData<string, string, string[], string> GetNonIntegerValueCases() =>
+    public static TheoryData<string, string[], string> GetNonIntegerValueCases() =>
         CasesFor(p => p.ParameterType == typeof(int) || p.ParameterType == typeof(int?), flag => [$"--{flag}", "ten"]);
 
-    public static TheoryData<string, string, string[], string, string> GetValueNotAllowedCases()
+    public static TheoryData<string, string[], string, string> GetValueNotAllowedCases()
     {
-        var data = new TheoryData<string, string, string[], string, string>();
+        var data = new TheoryData<string, string[], string, string>();
         foreach ((string extension, CommandMetadata command, ParameterMetadata parameter) in FirstPerExtension(p => p.AllowedValues.Length > 0))
         {
             data.Add(
                 extension,
-                command.InvocationName,
-                [.. RequiredArgs(command, except: parameter), $"--{parameter.InvocationName}", "Bogus"],
+                [.. command.InvocationName.Split(' '), .. RequiredArgs(command, except: parameter), $"--{parameter.InvocationName}", "Bogus"],
                 parameter.InvocationName,
                 string.Join(", ", parameter.AllowedValues));
         }
@@ -112,10 +115,12 @@ public sealed class CommandParameterTests
 
     [Theory]
     [MemberData(nameof(GetRequiredParameters))]
-    public async Task RunAsync_MissingRequiredParameter_ThrowsMissingRequiredArgument(string extension, string command, string[] args, string missingFlag)
+    public async Task RunAsync_MissingRequiredParameter_ThrowsMissingRequiredArgument(string extension, string[] commandLine, string missingFlag)
     {
         using Engine engine = CreateEngine(extension);
-        using ISession session = engine.OpenCliSession(extension, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(extension, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -128,10 +133,12 @@ public sealed class CommandParameterTests
 
     [Theory]
     [MemberData(nameof(GetUnknownParameterCases))]
-    public async Task RunAsync_UnknownParameter_ThrowsUsageError(string extension, string command, string[] args)
+    public async Task RunAsync_UnknownParameter_ThrowsUsageError(string extension, string[] commandLine)
     {
         using Engine engine = CreateEngine(extension);
-        using ISession session = engine.OpenCliSession(extension, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(extension, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -142,10 +149,12 @@ public sealed class CommandParameterTests
     // the engine resolves it before binding (but an existing profile is rejected as an unknown parameter).
     [Theory]
     [MemberData(nameof(GetMissingProfileCases))]
-    public async Task RunAsync_MissingProfile_ThrowsProfileNotFound(string extension, string command, string[] args)
+    public async Task RunAsync_MissingProfile_ThrowsProfileNotFound(string extension, string[] commandLine)
     {
         using Engine engine = CreateEngine(extension);
-        using ISession session = engine.OpenCliSession(extension, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(extension, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -154,10 +163,12 @@ public sealed class CommandParameterTests
 
     [Theory]
     [MemberData(nameof(GetRequiredParameterWithoutValueCases))]
-    public async Task RunAsync_RequiredParameterWithoutValue_ThrowsUsageError(string extension, string command, string[] args, string flag)
+    public async Task RunAsync_RequiredParameterWithoutValue_ThrowsUsageError(string extension, string[] commandLine, string flag)
     {
         using Engine engine = CreateEngine(extension);
-        using ISession session = engine.OpenCliSession(extension, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(extension, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -168,10 +179,12 @@ public sealed class CommandParameterTests
 
     [Theory]
     [MemberData(nameof(GetSingleValueParameterWithTwoValuesCases))]
-    public async Task RunAsync_SingleValueParameterWithTwoValues_ThrowsUsageError(string extension, string command, string[] args, string flag)
+    public async Task RunAsync_SingleValueParameterWithTwoValues_ThrowsUsageError(string extension, string[] commandLine, string flag)
     {
         using Engine engine = CreateEngine(extension);
-        using ISession session = engine.OpenCliSession(extension, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(extension, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -182,10 +195,12 @@ public sealed class CommandParameterTests
 
     [Theory]
     [MemberData(nameof(GetNonBooleanValueForSwitchCases))]
-    public async Task RunAsync_NonBooleanValueForSwitch_ThrowsUsageError(string extension, string command, string[] args, string flag)
+    public async Task RunAsync_NonBooleanValueForSwitch_ThrowsUsageError(string extension, string[] commandLine, string flag)
     {
         using Engine engine = CreateEngine(extension);
-        using ISession session = engine.OpenCliSession(extension, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(extension, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -196,10 +211,12 @@ public sealed class CommandParameterTests
 
     [Theory]
     [MemberData(nameof(GetNonIntegerValueCases))]
-    public async Task RunAsync_NonIntegerValue_ThrowsUsageError(string extension, string command, string[] args, string flag)
+    public async Task RunAsync_NonIntegerValue_ThrowsUsageError(string extension, string[] commandLine, string flag)
     {
         using Engine engine = CreateEngine(extension);
-        using ISession session = engine.OpenCliSession(extension, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(extension, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -210,10 +227,12 @@ public sealed class CommandParameterTests
 
     [Theory]
     [MemberData(nameof(GetValueNotAllowedCases))]
-    public async Task RunAsync_ValueNotAllowed_ThrowsUsageError(string extension, string command, string[] args, string flag, string allowedValues)
+    public async Task RunAsync_ValueNotAllowed_ThrowsUsageError(string extension, string[] commandLine, string flag, string allowedValues)
     {
         using Engine engine = CreateEngine(extension);
-        using ISession session = engine.OpenCliSession(extension, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(extension, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -247,12 +266,15 @@ public sealed class CommandParameterTests
 
     // One case per extension: every required parameter except the one under test is given a value, followed by the
     // arguments for the parameter under test.
-    private static TheoryData<string, string, string[], string> CasesFor(Func<ParameterMetadata, bool> isMatch, Func<string, string[]> argsFor)
+    private static TheoryData<string, string[], string> CasesFor(Func<ParameterMetadata, bool> isMatch, Func<string, string[]> argsFor)
     {
-        var data = new TheoryData<string, string, string[], string>();
+        var data = new TheoryData<string, string[], string>();
         foreach ((string extension, CommandMetadata command, ParameterMetadata parameter) in FirstPerExtension(isMatch))
         {
-            data.Add(extension, command.InvocationName, [.. RequiredArgs(command, except: parameter), .. argsFor(parameter.InvocationName)], parameter.InvocationName);
+            data.Add(
+                extension,
+                [.. command.InvocationName.Split(' '), .. RequiredArgs(command, except: parameter), .. argsFor(parameter.InvocationName)],
+                parameter.InvocationName);
         }
 
         return data;

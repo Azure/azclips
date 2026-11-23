@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using KeyVaultIndex = Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex;
 
 namespace Cli.Tests.Commands.KeyVault;
@@ -21,7 +22,7 @@ public sealed class VaultSelectionCommandTests : IDisposable
     private readonly List<object> _output = [];
     private readonly Engine _engine;
 
-    public VaultSelectionCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(KeyVaultIndex).Assembly, _mockWire);
+    public VaultSelectionCommandTests() => _engine = CreateEngine(typeof(KeyVaultIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
@@ -31,7 +32,9 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_WithoutVault_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "keyvault secret show", ["--name", "secret"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "show", "--name", "secret"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -41,7 +44,9 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_ExistingProfileWithoutVault_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "keyvault secret show", ["--name", "secret", "--profile", "test"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "show", "--name", "secret", "--profile", "test"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -51,11 +56,11 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_VaultNameAndVaultUrl_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault secret show",
-            ["--name", "secret", "--vault-name", "myvault", "--vault-url", "https://myvault.vault.azure.net/"],
-            _output);
+            ["keyvault", "secret", "show", "--name", "secret", "--vault-name", "myvault", "--vault-url", "https://myvault.vault.azure.net/"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -65,7 +70,9 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_InvalidVaultName_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "keyvault secret show", ["--name", "secret", "--vault-name", "1vault"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "show", "--name", "secret", "--vault-name", "1vault"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -77,7 +84,9 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RelativeVaultUrl_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "keyvault secret show", ["--name", "secret", "--vault-url", "myvault"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "show", "--name", "secret", "--vault-url", "myvault"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -87,8 +96,11 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_NonPublicCloudVaultUrl_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault secret show", ["--name", "secret", "--vault-url", "https://myvault.vault.azure.cn/"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "show", "--name", "secret", "--vault-url", "https://myvault.vault.azure.cn/"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 

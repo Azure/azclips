@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using MsGraphIndex = Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex;
 
 namespace Cli.Tests.Commands.MsGraph;
@@ -23,7 +24,7 @@ public sealed class MsGraphCommandTests : IDisposable
     private readonly List<object> _output = [];
     private readonly Engine _engine;
 
-    public MsGraphCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(MsGraphIndex).Assembly, _mockWire);
+    public MsGraphCommandTests() => _engine = CreateEngine(typeof(MsGraphIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
@@ -32,7 +33,9 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupShowBlankGroup_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "msgraph group show", ["--group", ""], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "show", "--group", ""]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -44,7 +47,9 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberCheckWithoutGroupOrMemberId_ThrowsMissingRequiredArgumentForBoth()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "msgraph group member check", [], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "member", "check"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -56,8 +61,11 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberCheckBlankGroup_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "msgraph group member check", ["--group", "", "--member-id", MemberId], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["msgraph", "group", "member", "check", "--group", "", "--member-id", MemberId]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -67,8 +75,11 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberCheckBlankMemberId_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "msgraph group member check", ["--group", GroupId, "--member-id", ""], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["msgraph", "group", "member", "check", "--group", GroupId, "--member-id", ""]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -81,8 +92,11 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberListGroupAndDisplayName_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "msgraph group member list", ["--group", GroupId, "--display-name", "Sales"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["msgraph", "group", "member", "list", "--group", GroupId, "--display-name", "Sales"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -94,7 +108,9 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberListWithoutGroup_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "msgraph group member list", [], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "member", "list"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -106,7 +122,9 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberListBlankGroup_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "msgraph group member list", ["--group", ""], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "member", "list", "--group", ""]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -118,7 +136,9 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberListBlankDisplayName_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "msgraph group member list", ["--display-name", ""], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "member", "list", "--display-name", ""]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 

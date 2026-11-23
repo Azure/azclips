@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using ManagedServiceIdentityIndex = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex;
 
 namespace Cli.Tests.Commands.ManagedIdentity;
@@ -22,19 +23,21 @@ public sealed class IdentityCommandTests : IDisposable
     private readonly List<object> _output = [];
     private readonly Engine _engine;
 
-    public IdentityCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(ManagedServiceIdentityIndex).Assembly, _mockWire);
+    public IdentityCommandTests() => _engine = CreateEngine(typeof(ManagedServiceIdentityIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
     // ── identity show / update / delete ────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public async Task RunAsync_NameWithoutResourceGroup_ThrowsInvalidInput(string command)
+    [InlineData("identity", "show")]
+    [InlineData("identity", "update")]
+    [InlineData("identity", "delete")]
+    public async Task RunAsync_NameWithoutResourceGroup_ThrowsInvalidInput(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--name", "id"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--name", "id"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -44,7 +47,9 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_ShowBlankName_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "identity show", ["--name", " ", "--resource-group", "rg"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "--name", " ", "--resource-group", "rg"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -52,12 +57,14 @@ public sealed class IdentityCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public async Task RunAsync_InvalidResourceId_ThrowsInvalidInput(string command)
+    [InlineData("identity", "show")]
+    [InlineData("identity", "update")]
+    [InlineData("identity", "delete")]
+    public async Task RunAsync_InvalidResourceId_ThrowsInvalidInput(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--ids", "/subscriptions/x/resourceGroups/rg"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--ids", "/subscriptions/x/resourceGroups/rg"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -69,7 +76,9 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_ShowBlankId_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "identity show", ["--ids", " "], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "--ids", " "]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -79,11 +88,13 @@ public sealed class IdentityCommandTests : IDisposable
     // ── identity create / update tags and resource restriction ─────────────────────────────────
 
     [Theory]
-    [InlineData("identity create", new[] { "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "env" })]
-    [InlineData("identity update", new[] { "--name", "id", "--resource-group", "rg", "--tags", "env" })]
-    public async Task RunAsync_TagWithoutValue_ThrowsInvalidInput(string command, string[] args)
+    [InlineData("identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "env")]
+    [InlineData("identity", "update", "--name", "id", "--resource-group", "rg", "--tags", "env")]
+    public async Task RunAsync_TagWithoutValue_ThrowsInvalidInput(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -93,8 +104,11 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CreateTagWithBlankKey_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "identity create", ["--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", " =test"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", " =test"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -104,8 +118,11 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CreateJsonTagWithBlankKey_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "identity create", ["--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "{\"\":\"test\"}"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "{\"\":\"test\"}"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -116,8 +133,11 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CreateMalformedJsonTags_ThrowsJsonException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "identity create", ["--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "{bad"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "{bad"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -129,11 +149,13 @@ public sealed class IdentityCommandTests : IDisposable
     // Current behaviour: a malformed JSON resource restriction surfaces the raw System.Text.Json reader error
     // (an internal JsonException subtype, hence IsAssignableFrom) instead of a usage error.
     [Theory]
-    [InlineData("identity create", new[] { "--name", "id", "--resource-group", "rg", "--location", "westus", "--resource-restriction", "{bad" })]
-    [InlineData("identity update", new[] { "--name", "id", "--resource-group", "rg", "--resource-restriction", "{bad" })]
-    public async Task RunAsync_MalformedJsonResourceRestriction_ThrowsJsonException(string command, string[] args)
+    [InlineData("identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--resource-restriction", "{bad")]
+    [InlineData("identity", "update", "--name", "id", "--resource-group", "rg", "--resource-restriction", "{bad")]
+    public async Task RunAsync_MalformedJsonResourceRestriction_ThrowsJsonException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 

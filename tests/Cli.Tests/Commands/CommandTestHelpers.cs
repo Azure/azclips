@@ -85,14 +85,20 @@ internal static class CommandTestHelpers
     }
 
     /// <summary>
-    /// Parses <paramref name="args"/> with the real CLI parser and opens a session for <paramref name="command"/>,
-    /// adding everything the command writes to <paramref name="output"/>.
+    /// Parses <paramref name="commandLine"/> with the real CLI parser into the command to run in
+    /// <paramref name="extensionName"/> and its parameters. Every word before the first flag is part of the command name.
     /// </summary>
-    internal static ISession OpenCliSession(this Engine engine, string extensionName, string command, string[] args, List<object> output)
+    internal static CommandInvocation CreateInvocation(string extensionName, string[] commandLine)
     {
-        IDictionary<string, object> parameters = new ExtensionParser().Parse(["command", .. args]).Item2;
+        (string command, IDictionary<string, object> parameters) = new ExtensionParser().Parse(commandLine);
+        return new CommandInvocation(extensionName, command, parameters);
+    }
+
+    /// <summary>Output streams that add everything the command writes to <paramref name="output"/> and ignore its messages.</summary>
+    internal static OutputStreams CreateOutput(List<object> output)
+    {
         OutputStreamDelegate ignore = (_, _) => Task.CompletedTask;
-        var streams = new OutputStreams(
+        return new OutputStreams(
             WriteOutput: (value, _) =>
             {
                 output.Add(value);
@@ -103,6 +109,5 @@ internal static class CommandTestHelpers
             WriteWarning: ignore,
             WriteError: ignore,
             WriteInformation: ignore);
-        return engine.OpenExecutionSession(new CommandInvocation(extensionName, command, parameters), streams);
     }
 }

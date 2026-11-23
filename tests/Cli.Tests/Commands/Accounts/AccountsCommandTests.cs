@@ -7,6 +7,7 @@ using Core.DependencyInjection;
 using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using AccountsIndex = Microsoft.Azure.Azclips.Extensions.Accounts.ExtensionIndex;
 
 namespace Cli.Tests.Commands.Accounts;
@@ -43,7 +44,7 @@ public sealed class AccountsCommandTests : IDisposable
             services.AddSingleton(_mockLogging.Object);
         });
         AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
-        _engine = CommandTestHelpers.CreateEngine(typeof(AccountsIndex).Assembly, _mockWire);
+        _engine = CreateEngine(typeof(AccountsIndex).Assembly, _mockWire);
     }
 
     public void Dispose()
@@ -54,16 +55,16 @@ public sealed class AccountsCommandTests : IDisposable
 
     // One case per required CLI parameter in the extension index: that parameter is left out and every
     // other required parameter is given a value, so the binder reports exactly the one that is missing.
-    public static TheoryData<string, string[], string> GetRequiredParameters()
+    public static TheoryData<string[], string> GetRequiredParameters()
     {
-        var data = new TheoryData<string, string[], string>();
+        var data = new TheoryData<string[], string>();
         foreach (CommandMetadata command in new AccountsIndex().GetAllCommands(ClientType.CLI))
         {
             string[] requiredFlags = command.Parameters.Values.Where(p => p.IsRequired).Select(p => p.InvocationName).ToArray();
             foreach (string missing in requiredFlags)
             {
                 string[] args = requiredFlags.Where(flag => flag != missing).SelectMany(flag => new[] { $"--{flag}", "value" }).ToArray();
-                data.Add(command.InvocationName, args, $"--{missing}");
+                data.Add([.. command.InvocationName.Split(' '), .. args], $"--{missing}");
             }
         }
 
@@ -72,9 +73,11 @@ public sealed class AccountsCommandTests : IDisposable
 
     [Theory]
     [MemberData(nameof(GetRequiredParameters))]
-    public async Task RunAsync_MissingRequiredParameter_ThrowsMissingRequiredArgument(string command, string[] args, string missingFlag)
+    public async Task RunAsync_MissingRequiredParameter_ThrowsMissingRequiredArgument(string[] commandLine, string missingFlag)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -89,7 +92,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_UnknownParameter_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "profile set", ["--name", "test", "--not-a-parameter", "value"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["profile", "set", "--name", "test", "--not-a-parameter", "value"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -99,7 +104,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_MissingProfile_ThrowsProfileNotFound()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "login", ["--profile", "missing"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", "--profile", "missing"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -109,7 +116,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RequiredParameterWithoutValue_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "profile set", ["--name"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["profile", "set", "--name"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -119,7 +128,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_SingleValueParameterWithTwoValues_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "profile set", ["--name", "first", "second"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["profile", "set", "--name", "first", "second"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -131,7 +142,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_NonBooleanValueForSwitch_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "profile show", ["--active", "maybe"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["profile", "show", "--active", "maybe"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -143,7 +156,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_ValueNotAllowed_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "account get-access-token", ["--resource-type", "Bogus"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["account", "get-access-token", "--resource-type", "Bogus"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -168,7 +183,9 @@ public sealed class AccountsCommandTests : IDisposable
     [InlineData("--client-secret")]
     public async Task RunAsync_LoginWhitespaceValue_ThrowsInvalidInput(string flag)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "login", [flag, " "], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", flag, " "]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -178,7 +195,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_LoginInvalidOutProfileName_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "login", ["--subscription-id", SubscriptionId, "--out-profile", "bad name!"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", "--subscription-id", SubscriptionId, "--out-profile", "bad name!"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -190,7 +209,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_LoginReservedOutProfileName_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "login", ["--subscription-id", SubscriptionId, "--out-profile", "default"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", "--subscription-id", SubscriptionId, "--out-profile", "default"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -202,7 +223,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_LoginSubscriptionIdNotGuid_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "login", ["--subscription-id", "not-a-guid"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", "--subscription-id", "not-a-guid"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -216,7 +239,9 @@ public sealed class AccountsCommandTests : IDisposable
     [InlineData("--object-id")]
     public async Task RunAsync_LoginIdentityIdNotGuid_ThrowsInvalidInput(string flag)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "login", ["--subscription-id", SubscriptionId, flag, "abc"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", "--subscription-id", SubscriptionId, flag, "abc"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -226,7 +251,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_LoginWithoutArguments_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "login", [], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -247,7 +274,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_LoginProfileAndOutProfile_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "login", ["--profile", "test", "--out-profile", "other"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", "--profile", "test", "--out-profile", "other"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -268,11 +297,17 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_LoginIdentityWithTwoIdentitySelectors_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "login",
-            ["--identity", "--subscription-id", SubscriptionId, "--client-id", ClientId, "--resource-id", "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"],
-            _output);
+            [
+                "login",
+                "--identity",
+                "--subscription-id", SubscriptionId,
+                "--client-id", ClientId,
+                "--resource-id", "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -286,7 +321,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_ProfileShowNameAndActive_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "profile show", ["--name", "other", "--active"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["profile", "show", "--name", "other", "--active"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -298,8 +335,11 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GetAccessTokenResourceAndScope_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "account get-access-token", ["--resource", "https://vault.azure.net", "--scope", "https://graph.microsoft.com/.default"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["account", "get-access-token", "--resource", "https://vault.azure.net", "--scope", "https://graph.microsoft.com/.default"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -311,8 +351,11 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GetAccessTokenBlankScope_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "account get-access-token", ["--scope", "https://graph.microsoft.com/.default", " "], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["account", "get-access-token", "--scope", "https://graph.microsoft.com/.default", " "]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -322,7 +365,9 @@ public sealed class AccountsCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GetAccessTokenBlankResource_ThrowsUsageError()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "account get-access-token", ["--resource", " "], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["account", "get-access-token", "--resource", " "]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 

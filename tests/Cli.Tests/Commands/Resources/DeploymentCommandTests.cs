@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using ResourcesIndex = Microsoft.Azure.Azclips.Extensions.Resources.ExtensionIndex;
 
 namespace Cli.Tests.Commands.Resources;
@@ -23,7 +24,7 @@ public sealed class DeploymentCommandTests : IDisposable
     private readonly string _missingDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
     private readonly Engine _engine;
 
-    public DeploymentCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(ResourcesIndex).Assembly, _mockWire);
+    public DeploymentCommandTests() => _engine = CreateEngine(typeof(ResourcesIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
@@ -33,21 +34,23 @@ public sealed class DeploymentCommandTests : IDisposable
     // InvalidInputException.
 
     [Theory]
-    [InlineData("deployment group create", new[] { "--resource-group", "rg" })]
-    [InlineData("deployment group what-if", new[] { "--resource-group", "rg" })]
-    [InlineData("deployment group validate", new[] { "--resource-group", "rg" })]
-    [InlineData("deployment sub create", new[] { "--location", "westus" })]
-    [InlineData("deployment sub what-if", new[] { "--location", "westus" })]
-    [InlineData("deployment sub validate", new[] { "--location", "westus" })]
-    [InlineData("deployment mg create", new[] { "--management-group-id", "mg", "--location", "westus" })]
-    [InlineData("deployment mg what-if", new[] { "--management-group-id", "mg", "--location", "westus" })]
-    [InlineData("deployment mg validate", new[] { "--management-group-id", "mg", "--location", "westus" })]
-    [InlineData("deployment tenant create", new[] { "--location", "westus" })]
-    [InlineData("deployment tenant what-if", new[] { "--location", "westus" })]
-    [InlineData("deployment tenant validate", new[] { "--location", "westus" })]
-    public async Task RunAsync_DeploymentWithoutTemplate_ThrowsArgumentException(string command, string[] args)
+    [InlineData("deployment", "group", "create", "--resource-group", "rg")]
+    [InlineData("deployment", "group", "what-if", "--resource-group", "rg")]
+    [InlineData("deployment", "group", "validate", "--resource-group", "rg")]
+    [InlineData("deployment", "sub", "create", "--location", "westus")]
+    [InlineData("deployment", "sub", "what-if", "--location", "westus")]
+    [InlineData("deployment", "sub", "validate", "--location", "westus")]
+    [InlineData("deployment", "mg", "create", "--management-group-id", "mg", "--location", "westus")]
+    [InlineData("deployment", "mg", "what-if", "--management-group-id", "mg", "--location", "westus")]
+    [InlineData("deployment", "mg", "validate", "--management-group-id", "mg", "--location", "westus")]
+    [InlineData("deployment", "tenant", "create", "--location", "westus")]
+    [InlineData("deployment", "tenant", "what-if", "--location", "westus")]
+    [InlineData("deployment", "tenant", "validate", "--location", "westus")]
+    public async Task RunAsync_DeploymentWithoutTemplate_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, args, _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -59,11 +62,16 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentTwoTemplateSources_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "deployment group create",
-            ["--resource-group", "rg", "--template-uri", TemplateUri, "--template-spec-id", "/subscriptions/sub/templateSpecs/spec/versions/1"],
-            _output);
+            [
+                "deployment", "group", "create",
+                "--resource-group", "rg",
+                "--template-uri", TemplateUri,
+                "--template-spec-id", "/subscriptions/sub/templateSpecs/spec/versions/1",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -75,11 +83,17 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentParametersUriAndParametersFile_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "deployment group create",
-            ["--resource-group", "rg", "--template-uri", TemplateUri, "--parameters-uri", "https://example.com/parameters.json", "--parameters-file", "parameters.json"],
-            _output);
+            [
+                "deployment", "group", "create",
+                "--resource-group", "rg",
+                "--template-uri", TemplateUri,
+                "--parameters-uri", "https://example.com/parameters.json",
+                "--parameters-file", "parameters.json",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -89,11 +103,17 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentInlineParameterWithParametersUri_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "deployment group create",
-            ["--resource-group", "rg", "--template-uri", TemplateUri, "--parameters-uri", "https://example.com/parameters.json", "--parameter", "size=1"],
-            _output);
+            [
+                "deployment", "group", "create",
+                "--resource-group", "rg",
+                "--template-uri", TemplateUri,
+                "--parameters-uri", "https://example.com/parameters.json",
+                "--parameter", "size=1",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -106,8 +126,11 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentBlankInlineParameter_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "deployment group create", ["--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", ""], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", ""]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -117,8 +140,11 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentInlineParameterWithoutKey_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "deployment group create", ["--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", "=1"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", "=1"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -128,8 +154,11 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentInlineParameterWithWhitespaceKey_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "deployment group create", ["--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", " =1"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", " =1"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -139,11 +168,16 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentQueryStringWithoutTemplateUri_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "deployment group create",
-            ["--resource-group", "rg", "--template-spec-id", "/subscriptions/sub/templateSpecs/spec/versions/1", "--query-string", "sv=1"],
-            _output);
+            [
+                "deployment", "group", "create",
+                "--resource-group", "rg",
+                "--template-spec-id", "/subscriptions/sub/templateSpecs/spec/versions/1",
+                "--query-string", "sv=1",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -155,8 +189,11 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentInvalidName_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "deployment group create", ["--resource-group", "rg", "--template-uri", TemplateUri, "--name", "bad name!"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--name", "bad name!"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -169,8 +206,11 @@ public sealed class DeploymentCommandTests : IDisposable
     public async Task RunAsync_DeploymentMissingTemplateFile_ThrowsFileNotFound()
     {
         string templateFile = Path.Combine(_missingDirectory, "missing.json");
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "deployment group create", ["--resource-group", "rg", "--template-file", templateFile], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-file", templateFile]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -181,8 +221,11 @@ public sealed class DeploymentCommandTests : IDisposable
     public async Task RunAsync_DeploymentMissingParametersFile_ThrowsFileNotFound()
     {
         string parametersFile = Path.Combine(_missingDirectory, "missing.parameters.json");
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "deployment group create", ["--resource-group", "rg", "--template-uri", TemplateUri, "--parameters-file", parametersFile], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameters-file", parametersFile]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -194,12 +237,14 @@ public sealed class DeploymentCommandTests : IDisposable
     // the rollback rule where create throws InvalidInputException.
 
     [Theory]
-    [InlineData("deployment group create")]
-    [InlineData("deployment group what-if")]
-    [InlineData("deployment group validate")]
-    public async Task RunAsync_DeploymentGroupBlankResourceGroup_ThrowsInvalidInput(string command)
+    [InlineData("deployment", "group", "create")]
+    [InlineData("deployment", "group", "what-if")]
+    [InlineData("deployment", "group", "validate")]
+    public async Task RunAsync_DeploymentGroupBlankResourceGroup_ThrowsInvalidInput(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--resource-group", "", "--template-uri", TemplateUri], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--resource-group", "", "--template-uri", TemplateUri]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -209,11 +254,17 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentGroupCreateBothRollbackOptions_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "deployment group create",
-            ["--resource-group", "rg", "--template-uri", TemplateUri, "--rollback-on-error", "--rollback-to-deployment-name", "previous"],
-            _output);
+            [
+                "deployment", "group", "create",
+                "--resource-group", "rg",
+                "--template-uri", TemplateUri,
+                "--rollback-on-error",
+                "--rollback-to-deployment-name", "previous",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -225,11 +276,17 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentGroupValidateBothRollbackOptions_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "deployment group validate",
-            ["--resource-group", "rg", "--template-uri", TemplateUri, "--rollback-on-error", "--rollback-to-deployment-name", "previous"],
-            _output);
+            [
+                "deployment", "group", "validate",
+                "--resource-group", "rg",
+                "--template-uri", TemplateUri,
+                "--rollback-on-error",
+                "--rollback-to-deployment-name", "previous",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -242,13 +299,16 @@ public sealed class DeploymentCommandTests : IDisposable
     // Current behaviour: these messages name the PowerShell parameters.
 
     [Theory]
-    [InlineData("deployment mg create")]
-    [InlineData("deployment mg what-if")]
-    [InlineData("deployment mg validate")]
-    public async Task RunAsync_DeploymentMgBlankManagementGroupId_ThrowsInvalidInput(string command)
+    [InlineData("deployment", "mg", "create")]
+    [InlineData("deployment", "mg", "what-if")]
+    [InlineData("deployment", "mg", "validate")]
+    public async Task RunAsync_DeploymentMgBlankManagementGroupId_ThrowsInvalidInput(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, command, ["--management-group-id", "", "--location", "westus", "--template-uri", TemplateUri], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            [.. commandLine, "--management-group-id", "", "--location", "westus", "--template-uri", TemplateUri]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -256,13 +316,16 @@ public sealed class DeploymentCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("deployment mg create")]
-    [InlineData("deployment mg what-if")]
-    [InlineData("deployment mg validate")]
-    public async Task RunAsync_DeploymentMgBlankLocation_ThrowsInvalidInput(string command)
+    [InlineData("deployment", "mg", "create")]
+    [InlineData("deployment", "mg", "what-if")]
+    [InlineData("deployment", "mg", "validate")]
+    public async Task RunAsync_DeploymentMgBlankLocation_ThrowsInvalidInput(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, command, ["--management-group-id", "mg", "--location", "", "--template-uri", TemplateUri], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            [.. commandLine, "--management-group-id", "mg", "--location", "", "--template-uri", TemplateUri]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -274,7 +337,9 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentTenantWaitWithoutCondition_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "deployment tenant wait", ["--name", "deployment"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "tenant", "wait", "--name", "deployment"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -286,7 +351,9 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentTenantWaitInvalidCustomExpression_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, "deployment tenant wait", ["--name", "deployment", "--custom", "[["], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "tenant", "wait", "--name", "deployment", "--custom", "[["]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -299,8 +366,11 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentTenantWaitZeroTimeout_ThrowsInvalidOperationException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "deployment tenant wait", ["--name", "deployment", "--created", "--timeout", "0"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["deployment", "tenant", "wait", "--name", "deployment", "--created", "--timeout", "0"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 

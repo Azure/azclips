@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using ManagedServiceIdentityIndex = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex;
 
 namespace Cli.Tests.Commands.ManagedIdentity;
@@ -21,7 +22,7 @@ public sealed class FederatedCredentialCommandTests : IDisposable
     private readonly List<object> _output = [];
     private readonly Engine _engine;
 
-    public FederatedCredentialCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(ManagedServiceIdentityIndex).Assembly, _mockWire);
+    public FederatedCredentialCommandTests() => _engine = CreateEngine(typeof(ManagedServiceIdentityIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
@@ -30,12 +31,15 @@ public sealed class FederatedCredentialCommandTests : IDisposable
     // --claims-matching-expression-version and --claims-matching-expression-value.
 
     [Theory]
-    [InlineData("identity federated-credential create")]
-    [InlineData("identity federated-credential update")]
-    public async Task RunAsync_ClaimsMatchingExpressionVersionWithoutValue_ThrowsInvalidInput(string command)
+    [InlineData("identity", "federated-credential", "create")]
+    [InlineData("identity", "federated-credential", "update")]
+    public async Task RunAsync_ClaimsMatchingExpressionVersionWithoutValue_ThrowsInvalidInput(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, command, ["--resource-group", "rg", "--identity-name", "id", "--name", "fc", "--claims-matching-expression-version", "1"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            [.. commandLine, "--resource-group", "rg", "--identity-name", "id", "--name", "fc", "--claims-matching-expression-version", "1"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -47,11 +51,17 @@ public sealed class FederatedCredentialCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CreateClaimsMatchingExpressionValueWithoutVersion_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "identity federated-credential create",
-            ["--resource-group", "rg", "--identity-name", "id", "--name", "fc", "--claims-matching-expression-value", "claims['sub'] eq 'repo'"],
-            _output);
+            [
+                "identity", "federated-credential", "create",
+                "--resource-group", "rg",
+                "--identity-name", "id",
+                "--name", "fc",
+                "--claims-matching-expression-value", "claims['sub'] eq 'repo'",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -63,11 +73,18 @@ public sealed class FederatedCredentialCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CreateBlankClaimsMatchingExpressionValue_ThrowsInvalidInput()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "identity federated-credential create",
-            ["--resource-group", "rg", "--identity-name", "id", "--name", "fc", "--cme-version", "1", "--cme-value", " "],
-            _output);
+            [
+                "identity", "federated-credential", "create",
+                "--resource-group", "rg",
+                "--identity-name", "id",
+                "--name", "fc",
+                "--cme-version", "1",
+                "--cme-value", " ",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 

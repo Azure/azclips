@@ -5,6 +5,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Engine;
 using Moq;
+using static Cli.Tests.Commands.CommandTestHelpers;
 using KeyVaultIndex = Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex;
 
 namespace Cli.Tests.Commands.KeyVault;
@@ -22,22 +23,24 @@ public sealed class CertificateCommandTests : IDisposable
     private readonly string _missingDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
     private readonly Engine _engine;
 
-    public CertificateCommandTests() => _engine = CommandTestHelpers.CreateEngine(typeof(KeyVaultIndex).Assembly, _mockWire);
+    public CertificateCommandTests() => _engine = CreateEngine(typeof(KeyVaultIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
     // ── certificate name, version and page size (shared by the certificate commands) ───────────
 
     [Theory]
-    [InlineData("keyvault certificate create", new string[0])]
-    [InlineData("keyvault certificate import", new[] { "--file", "certificate.pfx" })]
-    [InlineData("keyvault certificate show", new string[0])]
-    [InlineData("keyvault certificate list-versions", new string[0])]
-    [InlineData("keyvault certificate set-attributes", new string[0])]
-    [InlineData("keyvault certificate delete", new string[0])]
-    public async Task RunAsync_InvalidCertificateName_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "certificate", "create")]
+    [InlineData("keyvault", "certificate", "import", "--file", "certificate.pfx")]
+    [InlineData("keyvault", "certificate", "show")]
+    [InlineData("keyvault", "certificate", "list-versions")]
+    [InlineData("keyvault", "certificate", "set-attributes")]
+    [InlineData("keyvault", "certificate", "delete")]
+    public async Task RunAsync_InvalidCertificateName_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", "--name", "my_certificate", .. args], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--name", "my_certificate"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -45,12 +48,15 @@ public sealed class CertificateCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("keyvault certificate show", new string[0])]
-    [InlineData("keyvault certificate set-attributes", new string[0])]
-    public async Task RunAsync_InvalidCertificateVersion_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "certificate", "show")]
+    [InlineData("keyvault", "certificate", "set-attributes")]
+    public async Task RunAsync_InvalidCertificateVersion_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, command, ["--vault-name", "myvault", "--name", "certificate", "--version", "not-a-version", .. args], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            [.. commandLine, "--vault-name", "myvault", "--name", "certificate", "--version", "not-a-version"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -61,11 +67,16 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDownloadInvalidName_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault certificate download",
-            ["--vault-name", "myvault", "--name", "my_certificate", "--file", Path.Combine(_missingDirectory, "certificate.pem")],
-            _output);
+            [
+                "keyvault", "certificate", "download",
+                "--vault-name", "myvault",
+                "--name", "my_certificate",
+                "--file", Path.Combine(_missingDirectory, "certificate.pem"),
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -75,11 +86,17 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDownloadInvalidVersion_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault certificate download",
-            ["--vault-name", "myvault", "--name", "certificate", "--version", "not-a-version", "--file", Path.Combine(_missingDirectory, "certificate.pem")],
-            _output);
+            [
+                "keyvault", "certificate", "download",
+                "--vault-name", "myvault",
+                "--name", "certificate",
+                "--version", "not-a-version",
+                "--file", Path.Combine(_missingDirectory, "certificate.pem"),
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -87,11 +104,13 @@ public sealed class CertificateCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("keyvault certificate list", new[] { "--maxresults", "26" })]
-    [InlineData("keyvault certificate list-versions", new[] { "--name", "certificate", "--maxresults", "0" })]
-    public async Task RunAsync_PageSizeOutOfRange_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "certificate", "list", "--maxresults", "26")]
+    [InlineData("keyvault", "certificate", "list-versions", "--name", "certificate", "--maxresults", "0")]
+    public async Task RunAsync_PageSizeOutOfRange_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", .. args], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -101,12 +120,14 @@ public sealed class CertificateCommandTests : IDisposable
     // ── attributes and tags (shared by the certificate commands that write them) ───────────────
 
     [Theory]
-    [InlineData("keyvault certificate create", new[] { "--name", "certificate" })]
-    [InlineData("keyvault certificate import", new[] { "--name", "certificate", "--file", "certificate.pfx" })]
-    [InlineData("keyvault certificate set-attributes", new[] { "--name", "certificate" })]
-    public async Task RunAsync_InvalidEnabled_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "certificate", "create", "--name", "certificate")]
+    [InlineData("keyvault", "certificate", "import", "--name", "certificate", "--file", "certificate.pfx")]
+    [InlineData("keyvault", "certificate", "set-attributes", "--name", "certificate")]
+    public async Task RunAsync_InvalidEnabled_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", .. args, "--enabled", "yes"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--enabled", "yes"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -114,12 +135,14 @@ public sealed class CertificateCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("keyvault certificate create", new[] { "--name", "certificate", "--expires", "2040-01-01" })]
-    [InlineData("keyvault certificate import", new[] { "--name", "certificate", "--file", "certificate.pfx", "--not-before", "tomorrow" })]
-    [InlineData("keyvault certificate set-attributes", new[] { "--name", "certificate", "--expires", "tomorrow" })]
-    public async Task RunAsync_InvalidDate_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "certificate", "create", "--name", "certificate", "--expires", "2040-01-01")]
+    [InlineData("keyvault", "certificate", "import", "--name", "certificate", "--file", "certificate.pfx", "--not-before", "tomorrow")]
+    [InlineData("keyvault", "certificate", "set-attributes", "--name", "certificate", "--expires", "tomorrow")]
+    public async Task RunAsync_InvalidDate_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", .. args], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -129,12 +152,14 @@ public sealed class CertificateCommandTests : IDisposable
     }
 
     [Theory]
-    [InlineData("keyvault certificate create", new[] { "--name", "certificate" })]
-    [InlineData("keyvault certificate import", new[] { "--name", "certificate", "--file", "certificate.pfx" })]
-    [InlineData("keyvault certificate set-attributes", new[] { "--name", "certificate" })]
-    public async Task RunAsync_TagWithoutName_ThrowsArgumentException(string command, string[] args)
+    [InlineData("keyvault", "certificate", "create", "--name", "certificate")]
+    [InlineData("keyvault", "certificate", "import", "--name", "certificate", "--file", "certificate.pfx")]
+    [InlineData("keyvault", "certificate", "set-attributes", "--name", "certificate")]
+    public async Task RunAsync_TagWithoutName_ThrowsArgumentException(params string[] commandLine)
     {
-        using ISession session = _engine.OpenCliSession(ExtensionName, command, ["--vault-name", "myvault", .. args, "--tags", "=value"], _output);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--tags", "=value"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -146,8 +171,11 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateTimeoutOutOfRange_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault certificate create", ["--vault-name", "myvault", "--name", "certificate", "--timeout", "3601"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate", "--timeout", "3601"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -157,8 +185,11 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateWithoutPolicy_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault certificate create", ["--vault-name", "myvault", "--name", "certificate"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -168,11 +199,17 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreatePolicyAndPolicyFile_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault certificate create",
-            ["--vault-name", "myvault", "--name", "certificate", "--policy", "{}", "--policy-file", "policy.json"],
-            _output);
+            [
+                "keyvault", "certificate", "create",
+                "--vault-name", "myvault",
+                "--name", "certificate",
+                "--policy", "{}",
+                "--policy-file", "policy.json",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -182,8 +219,11 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateInvalidPolicyJson_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault certificate create", ["--vault-name", "myvault", "--name", "certificate", "--policy", "not json"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate", "--policy", "not json"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -195,11 +235,16 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreatePolicyOver1MiB_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault certificate create",
-            ["--vault-name", "myvault", "--name", "certificate", "--policy", new string('a', (1024 * 1024) + 1)],
-            _output);
+            [
+                "keyvault", "certificate", "create",
+                "--vault-name", "myvault",
+                "--name", "certificate",
+                "--policy", new string('a', (1024 * 1024) + 1),
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -209,11 +254,16 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateMissingPolicyFile_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault certificate create",
-            ["--vault-name", "myvault", "--name", "certificate", "--policy-file", Path.Combine(_missingDirectory, "missing.json")],
-            _output);
+            [
+                "keyvault", "certificate", "create",
+                "--vault-name", "myvault",
+                "--name", "certificate",
+                "--policy-file", Path.Combine(_missingDirectory, "missing.json"),
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -225,11 +275,18 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateImportPasswordAndPasswordFile_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault certificate import",
-            ["--vault-name", "myvault", "--name", "certificate", "--file", "certificate.pfx", "--password", "secret", "--password-file", "password.txt"],
-            _output);
+            [
+                "keyvault", "certificate", "import",
+                "--vault-name", "myvault",
+                "--name", "certificate",
+                "--file", "certificate.pfx",
+                "--password", "secret",
+                "--password-file", "password.txt",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -239,11 +296,16 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateImportMissingFile_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault certificate import",
-            ["--vault-name", "myvault", "--name", "certificate", "--file", Path.Combine(_missingDirectory, "missing.pfx")],
-            _output);
+            [
+                "keyvault", "certificate", "import",
+                "--vault-name", "myvault",
+                "--name", "certificate",
+                "--file", Path.Combine(_missingDirectory, "missing.pfx"),
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -255,8 +317,11 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateSetAttributesWithoutUpdate_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault certificate set-attributes", ["--vault-name", "myvault", "--name", "certificate"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "certificate", "set-attributes", "--vault-name", "myvault", "--name", "certificate"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -268,8 +333,11 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDownloadBlankFile_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault certificate download", ["--vault-name", "myvault", "--name", "certificate", "--file", ""], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "certificate", "download", "--vault-name", "myvault", "--name", "certificate", "--file", ""]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -279,11 +347,17 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDownloadInvalidEncoding_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
+        CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            "keyvault certificate download",
-            ["--vault-name", "myvault", "--name", "certificate", "--file", "certificate.pfx", "--encoding", "PFX"],
-            _output);
+            [
+                "keyvault", "certificate", "download",
+                "--vault-name", "myvault",
+                "--name", "certificate",
+                "--file", "certificate.pfx",
+                "--encoding", "PFX",
+            ]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
@@ -296,8 +370,11 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDeleteWithoutYes_ThrowsArgumentException()
     {
-        using ISession session = _engine.OpenCliSession(
-            ExtensionName, "keyvault certificate delete", ["--vault-name", "myvault", "--name", "certificate"], _output);
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "certificate", "delete", "--vault-name", "myvault", "--name", "certificate"]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
