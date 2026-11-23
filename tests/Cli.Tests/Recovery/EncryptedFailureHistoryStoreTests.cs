@@ -10,6 +10,7 @@ using Core.Abstractions;
 using Core.Abstractions.Recovery;
 using Core.Runtime.Recovery;
 using Moq;
+using Tests.Common.Utilities;
 using static Cli.Tests.Recovery.FailureHistoryTestScope;
 
 namespace Cli.Tests.Recovery;
@@ -603,15 +604,25 @@ public sealed class EncryptedFailureHistoryStoreTests
     [Fact]
     public async Task WriterLock_HasABoundedAndCancellableWait()
     {
-        using var scope = new FailureHistoryTestScope(lockTimeout: TimeSpan.FromMilliseconds(80));
+        using var scope = new FailureHistoryTestScope();
         Directory.CreateDirectory(scope.DirectoryPath);
         using var held = new FileStream(Path.Combine(scope.DirectoryPath, EncryptedFailureHistoryStore.LockFileName),
             FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        var store = scope.CreateStore(NoKeyAccess());
-        var watch = Stopwatch.StartNew();
+        var clock = new SignalingFakeTimeProvider();
+        var lockTimeout = TimeSpan.FromSeconds(2);
+        var store = new EncryptedFailureHistoryStore(NoKeyAccess(), new FailureHistoryFiles(scope.DirectoryPath, lockTimeout, timeProvider: clock));
+        var save = store.SaveAsync(CreateRecord(), 10);
+        var retryDelay = TimeSpan.FromMilliseconds(50);
+        for (var elapsed = TimeSpan.Zero; elapsed < lockTimeout; elapsed += retryDelay)
+        {
+            await clock.WaitForTimerAsync(retryDelay, AgentTestTimeouts.HangGuard);
+            Assert.False(save.IsCompleted);
+            clock.Advance(retryDelay);
+        }
+        var nextRetry = clock.WaitForTimerAsync(retryDelay, AgentTestTimeouts.HangGuard);
+        Assert.Same(save, await Task.WhenAny(save, nextRetry));
         Assert.Equal("failure_history_locked",
-            (await Assert.ThrowsAsync<FailureHistoryException>(() => store.SaveAsync(CreateRecord(), 10))).Code);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3));
+            (await Assert.ThrowsAsync<FailureHistoryException>(() => save)).Code);
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(20));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.SaveAsync(CreateRecord(), 10, cancellation.Token));
         Assert.False(File.Exists(scope.Files.HistoryPath));

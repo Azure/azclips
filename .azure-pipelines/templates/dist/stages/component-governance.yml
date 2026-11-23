@@ -66,10 +66,9 @@ stages:
         GdnBreakGdnToolPoliCheck: true
         GdnBreakGdnToolPoliCheckSeverity: Error
 
-    - task: PublishPipelineArtifact@1
-      displayName: Publish Compliance Results
-      condition: succeededOrFailed()
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/security
-        artifact: Compliance_Results_${{ parameters.stage_name }}
-        publishLocation: pipeline
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish Compliance Results
+        condition: succeededOrFailed()
+        target_path: $(Build.ArtifactStagingDirectory)/security
+        artifact_name: Compliance_Results_${{ parameters.stage_name }}

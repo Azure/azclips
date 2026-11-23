@@ -784,5 +784,49 @@ namespace Azclips.Help.Tool.Tests
 
             Assert.False(report.HasErrors);
         }
+
+        [Theory]
+        [InlineData("10-09-2026")]
+        [InlineData("2026/10/09")]
+        [InlineData("02/30/2026")]
+        [InlineData("")]
+        public void Validate_ShouldRejectInvalidFrontmatterDate(string date)
+        {
+            var content = $"---\nModule Name: Fake\nms.date: {date}\n---\n" +
+                Fence("Set-FakeWidget -Key k -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            var error = Assert.Single(report.Errors, e => e.ProblemId == ProblemIds.PSL17_InvalidDate);
+            Assert.Equal("Set-FakeWidget.md:3", error.FilePath);
+            Assert.Contains("M/D/YYYY", error.Message);
+        }
+
+        [Theory]
+        [InlineData("10/09/2026")]
+        [InlineData("1/2/2024")]
+        [InlineData("'02/29/2024'")]
+        [InlineData("\"11/12/2026\" # reviewed")]
+        [InlineData("11/12/2026\t# reviewed")]
+        public void Validate_ShouldAcceptValidFrontmatterDate(string date)
+        {
+            var content = $"---\r\nms.date: {date}\r\n---\r\n" +
+                Fence("Set-FakeWidget -Key k -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL17_InvalidDate);
+        }
+
+        [Fact]
+        public void Validate_ShouldIgnoreDatesOutsideFrontmatterAndAllowMissingDate()
+        {
+            var content = "---\nModule Name: Fake\n---\nms.date: 10-09-2026\n" +
+                Fence("Set-FakeWidget -Key k -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL17_InvalidDate);
+        }
     }
 }

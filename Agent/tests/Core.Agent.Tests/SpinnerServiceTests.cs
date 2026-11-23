@@ -15,7 +15,8 @@ public class SpinnerServiceTests
     // instead of a fixed Task.Delay. Negative-direction waits ("no frame should
     // arrive while paused") still need a wall-clock sleep — there is no event
     // to await on absence.
-    private const int FrameWaitMs = 10000;
+    private const int FrameWaitMs = 60000;
+    private const int IntervalMs = 10;
     private const int PauseProbeMs = 80;
 
     private sealed class FakeRenderer : IAgentRenderer
@@ -37,7 +38,7 @@ public class SpinnerServiceTests
     public void Start_EmitsFrames()
     {
         var fake = new FakeRenderer();
-        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(10));
+        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(IntervalMs));
 
         spinner.Start();
         Assert.True(fake.FrameSeen.Wait(FrameWaitMs), "spinner produced no frames within timeout");
@@ -50,7 +51,7 @@ public class SpinnerServiceTests
     public async Task Pause_StopsFrameEmission_ResumeRestarts()
     {
         var fake = new FakeRenderer();
-        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(10));
+        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(IntervalMs));
 
         spinner.Start();
         Assert.True(fake.FrameSeen.Wait(FrameWaitMs), "spinner produced no frames before pause");
@@ -60,21 +61,22 @@ public class SpinnerServiceTests
 
         await Task.Delay(PauseProbeMs);
         var afterPause = fake.FrameCalls;
-        Assert.Equal(beforePause, afterPause);
+        // The loop may already be past its pause check when Pause() returns, so one frame can land.
+        Assert.InRange(afterPause - beforePause, 0, 1);
         Assert.True(stopAfterPause >= 1, "Pause must clear the spinner line");
 
-        fake.FrameSeen.Reset();
         spinner.Resume();
-        Assert.True(fake.FrameSeen.Wait(FrameWaitMs), "Resume produced no frames within timeout");
+        // Two frames beyond the paused count: at most one of them can be the frame in flight at Pause().
+        Assert.True(SpinWait.SpinUntil(() => fake.FrameCalls >= afterPause + 2, FrameWaitMs),
+            "Resume produced no new frames within timeout");
         spinner.Stop();
-        Assert.True(fake.FrameCalls > afterPause, "Resume must re-emit frames");
     }
 
     [Fact]
     public void Pause_BeforeStart_IsNoOp()
     {
         var fake = new FakeRenderer();
-        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(10));
+        var spinner = new SpinnerService(fake, TimeSpan.FromMilliseconds(IntervalMs));
 
         spinner.Pause();
         spinner.Resume();

@@ -108,6 +108,76 @@ public sealed class SelectedExtensionIntegrationTests
         fixture.Logger.Verify(log => log.Debug(It.Is<string>(text => text.Contains("Loaded '"))), Times.Never);
     }
 
+    [Theory]
+    [InlineData("", false)]
+    [InlineData("sharedverb", false)]
+    [InlineData("SHAREDVERB alpha", false)]
+    [InlineData("sharedverb", true)]
+    public void HelpLoadsOnlyTheSelectedVerbContributorsUnlessRootHelpIsRequested(string path, bool conflict)
+    {
+        using var fixture = new Fixture();
+        var alphaDll = fixture.Stage("SharedAlpha", "1.0.0", bundled: true);
+        var betaPackage = $"{fixture.PackageId}_Beta";
+        var betaDll = fixture.Stage(conflict ? "SharedAlpha" : "SharedBeta", "1.0.0", bundled: false, packageId: betaPackage);
+        var unrelatedPackage = $"{fixture.PackageId}_Unrelated";
+        var unrelatedDll = fixture.Stage("ExtraVerb", "1.0.0", bundled: false, packageId: unrelatedPackage);
+        fixture.Initialize();
+
+        Assert.Equal(0, path.Length == 0
+            ? fixture.Help.RenderRoot()
+            : fixture.Help.RenderExtensionHelp(path.Split(' ')));
+
+        var expectedPackages = path.Length == 0
+            ? new[] { fixture.PackageId, betaPackage, unrelatedPackage }
+            : new[] { fixture.PackageId, betaPackage };
+        Assert.Equal(expectedPackages.Order(), Assert.Single(fixture.Engine.DiscoveryRequests).Order());
+        foreach (var dll in new[] { alphaDll, betaDll })
+        {
+            fixture.Logger.Verify(log => log.Debug(It.Is<string>(text =>
+                text.Contains("Loaded '") && text.Contains($"from '{dll}'"))), Times.Once);
+        }
+        fixture.Logger.Verify(log => log.Debug(It.Is<string>(text =>
+            text.Contains("Loaded '") && text.Contains($"from '{unrelatedDll}'"))),
+            path.Length == 0 ? Times.Once() : Times.Never());
+        if (path.Length == 0)
+        {
+            Assert.Contains("primary", fixture.HelpOutput.ToString());
+        }
+        else
+        {
+            Assert.DoesNotContain("primary", fixture.HelpOutput.ToString());
+            Assert.Contains("alpha", fixture.HelpOutput.ToString());
+            if (path == "sharedverb" && !conflict)
+            {
+                Assert.Contains("beta", fixture.HelpOutput.ToString());
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("version")]
+    [InlineData("vm")]
+    [InlineData("unknown-help-verb")]
+    public void HelpWithoutAMatchingPackageNeverLoadsUnrelatedExtensions(string verb)
+    {
+        using var fixture = new Fixture();
+        fixture.Stage("SharedAlpha", "1.0.0", bundled: true);
+        fixture.Initialize();
+
+        if (verb == "version")
+        {
+            Assert.Equal(0, fixture.Help.RenderExtensionHelp([verb]));
+            Assert.Contains("version", fixture.HelpOutput.ToString());
+        }
+        else
+        {
+            var error = Assert.ThrowsAny<AzclipsErrorException>(() => fixture.Help.RenderExtensionHelp([verb]));
+            Assert.Equal(verb == "vm" ? "ExtensionNotFound" : "VerbNotFound", error.Code);
+        }
+        Assert.Empty(fixture.Engine.DiscoveryRequests);
+        fixture.Logger.Verify(log => log.Debug(It.Is<string>(text => text.Contains("Loaded '"))), Times.Never);
+    }
+
     private static async Task<string> CaptureConsoleAsync(Func<Task<int?>> action)
     {
         var original = Console.Out;
@@ -129,10 +199,12 @@ public sealed class SelectedExtensionIntegrationTests
         private readonly string _root = Path.Combine(Path.GetTempPath(), $"selected-integration-{Guid.NewGuid():N}");
         private readonly string _bundledDirectory;
         private readonly FileExtensionRegistryStore _registry;
+        private readonly HashSet<string> _packageIds = new(StringComparer.OrdinalIgnoreCase);
 
         public Fixture()
         {
             PackageId = $"Microsoft.Azure.Azclips.Extensions.Selection_{Guid.NewGuid():N}";
+            _packageIds.Add(PackageId);
             _bundledDirectory = Path.Combine(BundledExtensionLoader.GetDefaultRoot(), PackageId);
             Directory.CreateDirectory(_root);
             _registry = new FileExtensionRegistryStore(Path.Combine(_root, "registry.json"));
@@ -153,9 +225,11 @@ public sealed class SelectedExtensionIntegrationTests
         public RuntimeHelpDispatcher Help { get; private set; } = null!;
         public RecordingEngine Engine => AzclipsServiceProvider.GetRequiredService<RecordingEngine>();
 
-        public string Stage(string fixtureName, string version, bool bundled)
+        public string Stage(string fixtureName, string version, bool bundled, string? packageId = null)
         {
-            var directory = bundled ? _bundledDirectory : Path.Combine(_root, "installed", PackageId, version);
+            packageId ??= PackageId;
+            _packageIds.Add(packageId);
+            var directory = bundled ? _bundledDirectory : Path.Combine(_root, "installed", packageId, version);
             Directory.CreateDirectory(directory);
             var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
             var repo = new DirectoryInfo(AppContext.BaseDirectory);
@@ -166,17 +240,23 @@ public sealed class SelectedExtensionIntegrationTests
             Assert.NotNull(repo);
             var source = Path.Combine(repo.FullName, "tests", "Fixtures", fixtureName, "bin",
                 configuration, "net10.0", $"Azclips.Tests.Fixtures.{fixtureName}.dll");
-            var dll = Path.Combine(directory, $"{PackageId}.dll");
+            var dll = Path.Combine(directory, $"{packageId}.dll");
             File.Copy(source, dll);
             if (bundled)
             {
-                File.WriteAllText(Path.Combine(directory, $"{PackageId}.{version}.nupkg"), string.Empty);
+                File.WriteAllText(Path.Combine(directory, $"{packageId}.{version}.nupkg"), string.Empty);
             }
-            var command = fixtureName == "SharedAlpha" ? "alpha" : "beta";
+            var (verb, command) = fixtureName switch
+            {
+                "SharedAlpha" => ("sharedverb", "alpha"),
+                "SharedBeta" => ("sharedverb", "beta"),
+                "ExtraVerb" => ("primary", "run"),
+                _ => throw new ArgumentException($"Unsupported fixture: {fixtureName}", nameof(fixtureName)),
+            };
             File.WriteAllText(Path.ChangeExtension(dll, ".commands.json"), JsonSerializer.Serialize(new
             {
-                schemaVersion = 1, packageId = PackageId, version,
-                verbs = new[] { "sharedverb" }, leaves = new[] { $"sharedverb {command}" },
+                schemaVersion = 1, packageId, version,
+                verbs = new[] { verb }, leaves = new[] { $"{verb} {command}" },
             }));
             return dll;
         }
@@ -205,9 +285,9 @@ public sealed class SelectedExtensionIntegrationTests
                 // Filter only enumeration, to keep unrelated build/user extensions out of this fixture.
                 // Disk enumeration, path loading, and tier ordering still use the real loaders.
                 services.AddSingleton<IExtensionLoader>(sp => new IsolatedLoader(
-                    new InstalledExtensionLoader(Logger.Object, sp.GetRequiredService<IConfigurationService>()), PackageId));
+                    new InstalledExtensionLoader(Logger.Object, sp.GetRequiredService<IConfigurationService>()), _packageIds));
                 services.AddSingleton<IExtensionLoader>(sp => new IsolatedLoader(
-                    new BundledExtensionLoader(Logger.Object, sp.GetRequiredService<IConfigurationService>()), PackageId));
+                    new BundledExtensionLoader(Logger.Object, sp.GetRequiredService<IConfigurationService>()), _packageIds));
                 services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
                 services.AddSingleton<IAssemblyLoadingService, AssemblyLoadingService>();
                 services.AddSingleton(sp => new RecordingEngine(ActivatorUtilities.CreateInstance<Core.Engine.Engine>(sp)));
@@ -216,9 +296,9 @@ public sealed class SelectedExtensionIntegrationTests
             AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"));
             Help = new RuntimeHelpDispatcher(Engine, Streams, HelpOutput)
             {
-                SelectedPackageIds = () => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+                SelectedPackageIds = verb => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
                     AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>(),
-                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>()),
+                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>(), verb),
             };
         }
 
@@ -234,12 +314,12 @@ public sealed class SelectedExtensionIntegrationTests
         }
     }
 
-    private sealed class IsolatedLoader(IExtensionLoader inner, string packageId) : IExtensionLoader
+    private sealed class IsolatedLoader(IExtensionLoader inner, IReadOnlySet<string> packageIds) : IExtensionLoader
     {
         public ExtensionTier Tier => inner.Tier;
         public IEnumerable<(string Name, string Version, string? Location)> GetInstalledExtensions() =>
             inner.GetInstalledExtensions().Where(item => item.Location is not null &&
-                Path.GetFileName(item.Location) == $"{packageId}.dll");
+                packageIds.Contains(Path.GetFileNameWithoutExtension(item.Location)));
         public Assembly? LoadExtension(string extensionName, string? version = null) =>
             throw new InvalidOperationException("Selected-copy consumers must not search by name/version.");
         public Assembly? LoadExtensionFromPath(string extensionName, string? version, string assemblyPath) =>

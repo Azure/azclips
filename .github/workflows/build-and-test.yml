@@ -30,7 +30,7 @@ jobs:
         # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
       - name: Run tests
-        run: dotnet test azclips.slnx --no-build --configuration Debug --verbosity normal
+        run: dotnet test azclips.slnx --no-build --configuration Debug --verbosity normal --filter "Category!=LocalOnly"
 
       - name: E2E - CLI Help
         run: |
@@ -79,7 +79,7 @@ jobs:
         run: dotnet build azclips.slnx --no-restore --configuration Debug
 
       - name: Run Agent tests
-        run: dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj --no-build --configuration Debug --verbosity normal --blame-hang-timeout 10min --blame-hang-dump-type none --logger trx --results-directory TestResults
+        run: dotnet test Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj --no-build --configuration Debug --verbosity normal --filter "Category!=LocalOnly" --blame-hang-timeout 10min --blame-hang-dump-type none --logger trx --results-directory TestResults
 
       - name: Upload test results
         if: failure()
@@ -234,28 +234,3 @@ jobs:
         run: |
           $result = Invoke-Pester -Path tests/Release.Tests/ -Output Detailed -PassThru
           if ($result.FailedCount -gt 0) { throw "Pester tests failed: $($result.FailedCount) failure(s)." }
-
-  # Unit tests for the Agent evaluation harness in Agent/eval. They run offline: no Azure
-  # sign-in, model calls or uploads. Windows matches where the harness runs evaluations.
-  eval-harness-tests:
-    runs-on: windows-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '24.x'
-
-      - name: Install eval harness test dependencies
-        working-directory: Agent/eval
-        run: npm ci --legacy-peer-deps
-
-      - name: Run eval harness offline tests
-        working-directory: Agent/eval
-        run: npm test

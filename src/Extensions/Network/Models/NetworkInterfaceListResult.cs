@@ -10,7 +10,7 @@ public partial class NetworkInterfaceListResult
 {
     /// <summary>The NetworkInterface items on this page</summary>
     [JsonPropertyName("value")]
-    public IList<NetworkInterface> Value { get; set; }
+    public IList<NetworkInterface> Value { get; set; } = null !;
 
     /// <summary>The link to the next page of items</summary>
     [JsonPropertyName("nextLink")]

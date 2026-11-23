@@ -19,7 +19,6 @@ and examples.
 
 - [Get-AzConfig][04]
 - [Get-AzConfigInfo][05]
-- [Get-AzConfigList][06]
 - [Remove-AzConfig][07]
 - [Set-AzConfig][08]
 
@@ -52,7 +51,6 @@ and examples.
 [03]: ../../../src/PS/Compute/help/Remove-AzVM.md
 [04]: ../../../src/PS/Config/help/Get-AzConfig.md
 [05]: ../../../src/PS/Config/help/Get-AzConfigInfo.md
-[06]: ../../../src/PS/Config/help/Get-AzConfigList.md
 [07]: ../../../src/PS/Config/help/Remove-AzConfig.md
 [08]: ../../../src/PS/Config/help/Set-AzConfig.md
 [09]: ../../../src/PS/Accounts/help/Connect-AzAccount.md

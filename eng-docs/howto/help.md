@@ -85,6 +85,9 @@ scaffolding or refreshing help:
     cmdlets; it doesn't infer descriptions for new parameters or write new examples.
     Fill in any new `{{ Fill ... }}` placeholders and review the diff for unrelated
     date, formatting, or PlatyPS-generated changes before committing.
+    Scaffold and refresh use invariant date formatting for PlatyPS regardless of the
+    contributor's culture. `ms.date`, when present, must be a valid `M/D/YYYY`
+    date; it represents the last substantial edit or freshness review.
 
     For generic `-WhatIf` help, retain PowerShell's generated wording:
     "Runs the command in a mode that only reports what would happen without performing the actions."
@@ -298,6 +301,7 @@ Validation rules (full list, see Troubleshooting below for fixes):
 - **PSL11** — a `help/<File>.md` exists but no cmdlet of that name is exported from the manifest (warning, not error — may be in-progress work).
 - **PSL12** — a PlatyPS `{{ Fill ... }}` placeholder remains in the markdown (e.g. `{{ Fill in the Description }}`, `{{ Fill -Param Description }}`). The PlatyPS-evergreen `{{Insert list of aliases}}` boilerplate is exempt.
 - **PSL16** — a Markdown link has an empty destination. Supply a URL, relative path or fragment, or remove the entry. Optional sections can remain empty; inline code and fenced code are excluded.
+- **PSL17** — an `ms.date` in PowerShell help frontmatter is not a valid slash-separated `M/D/YYYY` date. The date is optional; no freshness-age limit is enforced locally.
 - **`PS_ExamplePlaceholder`** — an `<angle-bracket>` placeholder appears inside an example fence. PlatyPS-required `<string>`, `<CommonParameters>`, etc. inside `## SYNTAX` are not scanned. See [Placeholder rules](#placeholder-rules) below.
 
 Only fences inside `## EXAMPLES` are scanned, and only when the language tag is `powershell`, `pwsh`, `ps`, or empty. Fences in `## SYNTAX` / `## PARAMETERS` (PlatyPS pseudocode) are deliberately ignored. PSL9–PSL11 walk the manifest ↔ filesystem contract directly and don't depend on fence content.
@@ -379,7 +383,7 @@ This:
     - `MarkdownStructureValidator` — frontmatter shape.
     - `HelpCompletenessValidator` — every CLI command in `IExtensionIndex` has a markdown file.
     - `ExampleSyntaxValidator` — CLI fences resolve.
-    - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries; prose checks catch placeholders and empty links (PSL1–PSL8, PSL12, PSL16, `PS_TodoPlaceholder`, `PS_ExamplePlaceholder`).
+    - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries; checks catch placeholders, empty links and invalid dates (PSL1–PSL8, PSL12, PSL16–PSL17, `PS_TodoPlaceholder`, `PS_ExamplePlaceholder`).
     - `PsCompletenessValidator` — every cmdlet in `<Module>.psd1`'s `CmdletsToExport` has a `help/<Verb-Noun>.md` file (PSL9–PSL11).
     - Emits `artifacts/help/<extension>/HelpManifest.json` and `artifacts/help/HelpIndex.json`.
 4. Runs `Import-MarkdownCommandHelp | Export-MamlCommandHelp` per module → `src/PS/<Module>/en-US/<dll>-Help.xml` (renamed from PlatyPS's default `<Module>-Help.xml` to match the `external help file:` frontmatter), then copies into the staged `artifacts/Debug/PS/<Module>/en-US/`.

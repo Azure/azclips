@@ -14,7 +14,7 @@ public partial class DscpConfiguration
 
     /// <summary>The name of the resource.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]

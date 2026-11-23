@@ -14,7 +14,7 @@ public partial class NetworkSecurityGroup
 
     /// <summary>The name of the network security group.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]

@@ -1,6 +1,6 @@
 # Support
 
-Azclips is currently in preview. Support is provided on a best-effort basis by the maintainers while the project is under active development.
+Next gen Azure CLI and Azure PowerShell are currently in preview. Support is provided on a best-effort basis by the maintainers while the project is under active development.
 
 ## Getting Help
 
@@ -12,7 +12,7 @@ When opening an issue, include:
 - The command or workflow you ran
 - The expected behavior
 - The actual behavior
-- Relevant environment details, such as OS, shell, .NET SDK version, and Azclips version or commit
+- Relevant environment details, such as OS, shell, .NET SDK version, and Azure CLI or Azure PowerShell preview version or commit
 - Sanitized logs or error messages when useful
 
 Do not include secrets, access tokens, customer data, tenant identifiers, subscription identifiers, or internal-only information in public issues.

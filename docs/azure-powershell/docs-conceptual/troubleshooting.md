@@ -14,7 +14,7 @@ incomplete functionality, or other issues.
 
 ## Report an issue
 
-If you encounter a problem that you can't resolve, report it in [the AzCLIPS GitHub repository][01].
+If you encounter a problem that you can't resolve, report it in [the GitHub repository][01].
 
 When creating an issue, include as much information as possible, such as:
 
@@ -34,7 +34,7 @@ Known issues and workarounds will be added to this article as they become availa
 
 ## Next steps
 
-If you continue to experience problems, submit an issue in [the AzCLIPS GitHub
+If you continue to experience problems, submit an issue in [the GitHub
 repository][01] so the development team can investigate.
 
 <!-- link references -->

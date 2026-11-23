@@ -43,6 +43,10 @@ namespace Microsoft.Azure.Azclips.Extensions.MsGraph.Processors
 
         private async Task<string> ResolveGroupAsync()
         {
+            if (!string.IsNullOrWhiteSpace(GroupDisplayName) && !string.IsNullOrWhiteSpace(Group))
+            {
+                throw AzclipsErrorException.InvalidInput("Provide either Group or GroupDisplayName, but not both.");
+            }
             if (!string.IsNullOrWhiteSpace(GroupDisplayName))
             {
                 return await ResolveByExactDisplayNameAsync(GroupDisplayName);

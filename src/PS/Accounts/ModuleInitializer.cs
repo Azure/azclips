@@ -17,7 +17,8 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 
     public void OnImport()
     {
-        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        var clock = TimeProvider.System;
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName, clock);
         var importKind = ImportTelemetry.NextImportKind();
 
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
@@ -36,7 +37,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 new ClientMetadata(ClientType.PowerShell, FirstPartyApplicationId));
         }
 
-        ImportTelemetry.EmitInBackground(timeline, importKind, DateTime.UtcNow);
+        ImportTelemetry.EmitInBackground(timeline, importKind, clock.GetUtcNow().UtcDateTime);
     }
 
     public void OnRemove(PSModuleInfo module)

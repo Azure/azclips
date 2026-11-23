@@ -318,6 +318,14 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
             }
         }
 
+        foreach (var parameter in parameters.Values)
+        {
+            if (parameter.IsRequired && !args.ContainsKey(parameter.Name))
+            {
+                errorList.Add($"Required parameter '--{parameter.InvocationName}' is missing.");
+            }
+        }
+
         errors = errorList;
         return errorList.Count == 0;
     }
@@ -325,6 +333,13 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
     public string? ResolveParameterSet(IDictionary<string, (string, object)> parsedArgs, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, ParameterSetMetadata>? parameterSets, Func<IDictionary<string, (string, object)>, IDictionary<string, ParameterMetadata>, IDictionary<string, ParameterSetMetadata>?, (string?, IList<string>?)> defaultResolve, out IList<string>? errors)
     {
         var (resolved, errorList) = defaultResolve(parsedArgs, parameters, parameterSets);
+        // Classify missing CLI input before the shared binder turns set/validation errors into generic usage errors.
+        if (parameters.Values.Any(parameter => parameter.IsRequired && !parsedArgs.ContainsKey(parameter.Name))
+            && !ValidateArguments(parsedArgs, parameters, out var validationErrors)
+            && validationErrors is { Count: > 0 })
+        {
+            throw AzclipsErrorException.MissingRequiredParameters($"Invalid arguments: {string.Join(Environment.NewLine, validationErrors)}");
+        }
         errors = errorList;
         return resolved;
     }

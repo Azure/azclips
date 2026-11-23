@@ -1,11 +1,11 @@
 name: "✨ Feature Request or Idea"
-description: Suggest a new capability or enhancement for AzCLIPS.
+description: Suggest a new capability or enhancement for next gen Azure CLI and Azure PowerShell.
 labels: ["feature-request"]
 body:
   - type: markdown
     attributes:
       value: >
-        Have an idea to make **AzCLIPS** better? We'd love to hear it.
+        Have an idea to make **next gen Azure CLI and Azure PowerShell** better? We'd love to hear it.
 
 
         Please search the [existing issues](https://github.com/Azure/azclips/issues) first to see if someone already suggested it.
@@ -33,7 +33,7 @@ body:
     id: proposal
     attributes:
       label: Proposed solution
-      description: Describe what you'd like AzCLIPS to do. Include an example command if you can.
+      description: Describe what you'd like next gen Azure CLI and Azure PowerShell to do. Include an example command if you can.
       placeholder: |
         e.g., `az group create` should support ...
       render: shell

@@ -14,7 +14,7 @@ public partial class InboundNatRule
 
     /// <summary>The name of the inbound NAT rule.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]

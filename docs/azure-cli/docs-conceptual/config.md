@@ -211,16 +211,19 @@ Run `az config info` to discover configuration keys and their constraints.
 ### List all configuration
 
 ```bash
-# List user config only
+# List all effective values, including defaults for unset keys
 az config list
 
-# List with defaults (shows all keys with their current values)
-az config list --all
+# List only values configured in the file or environment
+az config list --configured-only
 
 # Select a standard output format
-az config list --all --output json
-az config list --all --output table
+az config list --output json
+az config list --output table
 ```
+
+Environment overrides win over file settings, which win over built-in defaults.
+`--configured-only` removes default-sourced entries, not values equal to defaults.
 
 ### Delete a configuration value
 
@@ -291,14 +294,16 @@ az config get --key core.logging.level
 ### Workflow: Check all settings with defaults
 
 ```bash
-az config list --all
+az config list
 ```
 
 ### Workflow: Reset to defaults
 
 ```bash
-# Delete all user-set config
-az config list --query "[].key" --output tsv | while IFS= read -r key; do
+# Delete file settings that are not shadowed by environment overrides
+az config list --configured-only --query "[?source == 'global config'].key" --output tsv | while IFS= read -r key; do
   az config delete --key "$key" --force
 done
 ```
+
+Unset mapped environment variables first to also reset file settings they shadow.

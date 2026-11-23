@@ -10,7 +10,9 @@ using Core.Cli;
 using Core.Cli.Parser;
 using Core.Cli.Recovery;
 using Core.Runtime.Recovery;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Cli.Tests.Recovery;
@@ -18,6 +20,7 @@ namespace Cli.Tests.Recovery;
 [Collection("Azclips Service Provider Tests")]
 public class FailureCaptureBehaviorTests
 {
+
     // Mirrors Program.Main: parsed positionals, or the raw arguments when global parsing fails.
     private static string[] Positional(string[] args)
     {
@@ -123,17 +126,20 @@ public class FailureCaptureBehaviorTests
     public async Task Save_TimeoutDoesNotClaimACommit()
     {
         var store = CreateStore();
-        var elapsed = Stopwatch.StartNew();
-        var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original"), 1,
+        var clock = new SignalingFakeTimeProvider();
+        var save = FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original"), 1,
             "vm show", null, () => Manual(), () => store.Object, false,
             persist: async (_, _, ct) =>
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct);
                 throw new Xunit.Sdk.XunitException("The timed-out writer must not return an entry.");
-            }, getParentProcessId: () => 321);
+            }, getParentProcessId: () => 321, timeProvider: clock);
+        await clock.WaitForTimerAsync(FailureCapture.CaptureBudget, AgentTestTimeouts.HangGuard);
+        Assert.False(save.IsCompleted);
+        clock.Advance(FailureCapture.CaptureBudget);
+        var result = await save.WaitAsync(AgentTestTimeouts.HangGuard);
 
         Assert.Equal(TimeSpan.FromSeconds(2), FailureCapture.CaptureBudget);
-        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5), $"Two-second capture budget took {elapsed.Elapsed}.");
         Assert.Null(result.Entry);
         Assert.Null(result.Recovery);
         Assert.False(result.ShowHint);
@@ -270,7 +276,8 @@ public class FailureCaptureBehaviorTests
         using var scope = new FailureHistoryTestScope(replace: (_, _) =>
             throw new IOException("The process cannot access the file.", unchecked((int)0x80070020)));
         var result = await FailureCapture.SaveAsync(["vm", "show"], Positional(["vm", "show"]), "vm show", new IOException("original"), 1,
-            "vm show", null, () => Manual(), () => scope.CreateStore(), false, getParentProcessId: () => 321);
+            "vm show", null, () => Manual(), () => scope.CreateStore(), false, getParentProcessId: () => 321,
+            timeProvider: new FakeTimeProvider());
 
         var cause = Assert.IsType<FailureHistoryException>(result.Cause);
         Assert.Equal("failure_history_io", cause.Code);
@@ -462,7 +469,7 @@ public class FailureCaptureBehaviorTests
     public async Task Worker_LargeStderrIsDrainedButKeptBounded()
     {
         var debug = new List<string>();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var deadline = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
 
         var error = await Assert.ThrowsAsync<FailureHistoryException>(() => FailureHistoryWorker.SaveAsync(
             FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-flood")));
@@ -471,26 +478,52 @@ public class FailureCaptureBehaviorTests
         Assert.Equal("history worker stderr: ".Length + 64 * 1024, Assert.Single(debug).Length);
     }
 
+    // LocalOnly: cancellation can race the parent's stderr read, so the exact text depends on thread scheduling.
+    [Trait("Category", "LocalOnly")]
     [Fact]
     public async Task Worker_ChildThatHangsKeepsItsPartialStderrAtTheDeadline()
     {
         var debug = new List<string>();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var written = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".written");
+        using var deadline = new CancellationTokenSource();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => FailureHistoryWorker.SaveAsync(
-            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-hang")));
+        var saving = FailureHistoryWorker.SaveAsync(
+            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-hang", written));
+        try
+        {
+            await WaitForFileAsync(written, saving).WithAgentHangGuard();
+        }
+        finally
+        {
+            deadline.Cancel();
+            File.Delete(written);
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => saving.WithAgentHangGuard());
 
         Assert.Equal("history worker stderr: partial-diagnostic-before-hang", Assert.Single(debug));
     }
 
+    // LocalOnly: cancellation can race the parent's stderr read, so the exact text depends on thread scheduling.
+    [Trait("Category", "LocalOnly")]
     [Fact]
     public async Task Worker_ChildThatHangsKeepsPartialMultiByteStderrAtTheDeadline()
     {
         var debug = new List<string>();
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var written = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".written");
+        using var deadline = new CancellationTokenSource();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => FailureHistoryWorker.SaveAsync(
-            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-utf8-hang")));
+        var saving = FailureHistoryWorker.SaveAsync(
+            FailureHistoryTestScope.CreateRecord(), 10, deadline.Token, DebugLogger(debug), TestWorker("stderr-utf8-hang", written));
+        try
+        {
+            await WaitForFileAsync(written, saving).WithAgentHangGuard();
+        }
+        finally
+        {
+            deadline.Cancel();
+            File.Delete(written);
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => saving.WithAgentHangGuard());
 
         Assert.Equal("history worker stderr: " + new string('é', 2048), Assert.Single(debug));
     }
@@ -529,7 +562,7 @@ public class FailureCaptureBehaviorTests
     }
 
     // Starts the offline test worker in one of its stderr modes in place of the CLI history worker.
-    private static Func<string, ProcessStartInfo> TestWorker(string mode) => handle =>
+    private static Func<string, ProcessStartInfo> TestWorker(string mode, string? writtenFile = null) => handle =>
     {
         var root = Path.GetDirectoryName(typeof(FailureCaptureBehaviorTests).Assembly.Location);
         while (root is not null && !File.Exists(Path.Combine(root, "azclips.slnx")))
@@ -545,8 +578,21 @@ public class FailureCaptureBehaviorTests
         start.ArgumentList.Add(Path.Combine(root, "tests", "Fixtures", "FailureHistoryWorker", "bin", configuration, "net10.0", "FailureHistory.TestWorker.dll"));
         start.ArgumentList.Add(mode);
         start.ArgumentList.Add(handle);
+        if (writtenFile is not null)
+            start.Environment["AZCLIPS_TEST_STDERR_WRITTEN_FILE"] = writtenFile;
         return start;
     };
+
+    // Waits until the worker reports that its partial stderr is written, or fails if the save ends first.
+    private static async Task WaitForFileAsync(string path, Task saving)
+    {
+        while (!File.Exists(path))
+        {
+            if (saving.IsCompleted)
+                await saving;
+            await Task.Delay(10);
+        }
+    }
 
     private static AgentOptions Manual() => new() { Recovery = new() { Trigger = "manual" } };
 

@@ -14,7 +14,7 @@ public partial class NetworkInterfaceIPConfiguration
 
     /// <summary>The name of the ip configuration name.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]
