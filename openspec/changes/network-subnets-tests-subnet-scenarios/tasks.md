@@ -4,13 +4,13 @@ All tasks follow `Applying A Scenario-Test Change` in `.github/skills/azclips-sc
 
 ## 1. Register the Network extension with the scenario host
 
-- [ ] 1.1 If no earlier change has added them, add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
+- [x] 1.1 If no earlier change has added them, add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
 
 ## 2. Write the scenario tests
 
 Write each case as one test method in `tests/Scenario.Tests/Network/SubnetScenarioTests.cs`. Every case is CLI-only: the PowerShell surface exposes no Subnets command. Each case creates its own resource group. Turn each `expect:` line into an assertion on that step's result, and drive the same commands with the same values in the record and playback branches. Verify each task by building the test project and confirming the method exists and compiles.
 
-- [ ] 2.1 T1: write the test method for scenario "T1 Subnet lifecycle with one and several address prefixes" (test spec requirement "Address prefix single or plural") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.1 T1: write the test method for scenario "T1 Subnet lifecycle with one and several address prefixes" (test spec requirement "Address prefix single or plural") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: cli-only
       CLI:
       1. group create --name scenario-subnet-lifecycle-rg --location westus
@@ -40,7 +40,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/SubnetScenar
       11. network vnet delete -g scenario-subnet-lifecycle-rg -n vnet1
       Reference: https://github.com/Azure/azure-cli/blob/dev/src/azure-cli/azure/cli/command_modules/network/tests/latest/test_network_commands.py (test_network_vnet); https://github.com/Azure/azure-powershell/blob/main/src/Network/Network.Test/ScenarioTests/VirtualNetworkTests.ps1 (Test-subnetCRUD, Test-multiPrefixSubnetCRUD)
 
-- [ ] 2.2 T2: write the test method for scenario "T2 Subnet with a network security group by name and by ID" (test spec requirement "Referenced resource name or ID") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.2 T2: write the test method for scenario "T2 Subnet with a network security group by name and by ID" (test spec requirement "Referenced resource name or ID") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: cli-only
       CLI:
       1. group create --name scenario-subnet-nsg-rg --location westus
@@ -59,7 +59,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/SubnetScenar
       9. network vnet subnet delete -g scenario-subnet-nsg-rg --vnet-name vnet1 -n subnet2
       Reference: test_network_commands.py (test_network_vnet_with_subnet_nsg); VirtualNetworkTests.ps1 (Test-subnetNetworkSecurityGroupCRUD)
 
-- [ ] 2.3 T3: write the test method for scenario "T3 Subnet with a service endpoint" (test spec requirement "Service endpoint names") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.3 T3: write the test method for scenario "T3 Subnet with a service endpoint" (test spec requirement "Service endpoint names") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: cli-only
       CLI:
       1. group create --name scenario-subnet-endpoint-rg --location eastus2
@@ -68,7 +68,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/SubnetScenar
          - expect: ServiceEndpoints has one item whose Service is `Microsoft.Storage`
       Reference: test_network_commands.py (test_network_subnet_endpoint_service); VirtualNetworkTests.ps1 (Test-VirtualNetworkSubnetServiceEndpoint)
 
-- [ ] 2.4 T4: write the test method for scenario "T4 Subnet delegation in dotted and slash form" (test spec requirement "Delegation values") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.4 T4: write the test method for scenario "T4 Subnet delegation in dotted and slash form" (test spec requirement "Delegation values") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: cli-only
       CLI:
       1. group create --name scenario-subnet-delegation-rg --location westcentralus
@@ -79,7 +79,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/SubnetScenar
          - expect: Delegations has one item whose ServiceName is `Microsoft.Sql/managedInstances`
       Reference: test_network_commands.py (test_network_subnet_delegation); VirtualNetworkTests.ps1 (Test-subnetDelegationCRUD)
 
-- [ ] 2.5 T5: write the test method for scenario "T5 Deprecated disable network policy flags" (test spec requirement "Deprecated disable network policy flags") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.5 T5: write the test method for scenario "T5 Deprecated disable network policy flags" (test spec requirement "Deprecated disable network policy flags") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: cli-only
       CLI:
       1. group create --name scenario-subnet-policies-rg --location westus
@@ -98,7 +98,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/SubnetScenar
          - expect: PrivateLinkServiceNetworkPolicies is `Disabled`
       Reference: test_network_commands.py (test_subnet_with_private_endpoint_and_private_link_options)
 
-- [ ] 2.6 T6: write the test method for scenario "T6 Subnet default outbound access true and false" (test spec requirement "Subnet create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.6 T6: write the test method for scenario "T6 Subnet default outbound access true and false" (test spec requirement "Subnet create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: cli-only
       CLI:
       1. group create --name scenario-subnet-outbound-rg --location westcentralus
@@ -111,7 +111,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/SubnetScenar
          - expect: DefaultOutboundAccess is true
       Reference: test_network_commands.py (test_network_subnet_default_outbound_access); VirtualNetworkTests.ps1 (Test-subnetWithDefaultOutboundAccessCRUD)
 
-- [ ] 2.7 T7: write the test method for scenario "T7 Subnet sharing scope Tenant" (test spec requirement "Subnet create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.7 T7: write the test method for scenario "T7 Subnet sharing scope Tenant" (test spec requirement "Subnet create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: cli-only
       CLI:
       1. group create --name scenario-subnet-sharing-rg --location westcentralus
@@ -123,7 +123,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/SubnetScenar
 
 ## 3. Replay, review, and record
 
-- [ ] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~SubnetScenarioTests`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
+- [x] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~SubnetScenarioTests`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
 - [ ] 3.2 Stop for user review of the scenario code with the Apply Report; apply the corrections the user asks for and show the result again, repeating until the user confirms. Verify by the user's explicit confirmation.
 - [ ] 3.3 After that confirmation, ask the user whether to record. Record only the scenarios the user approves, one `--filter` at a time, after confirming the user is signed in with the azclips CLI, following `Record vs. playback` in `tests/Scenario.Tests/README.md`; verify the approved scenarios pass in playback against the new recordings, and report the recordings for review and any resources still needing cleanup. T4 step 4 may be rejected by the service because the delegation name contains `/`; report it if so.
 

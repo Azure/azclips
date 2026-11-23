@@ -4,13 +4,13 @@ All tasks follow `Applying A Scenario-Test Change` in `.github/skills/azclips-sc
 
 ## 1. Register the Network extension with the scenario host
 
-- [ ] 1.1 Add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
+- [x] 1.1 Add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
 
 ## 2. Write the scenario tests
 
 Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetworkScenarioTests.cs`. `<rg>` is a test resource group name; `<location>` is `westus` unless the case says otherwise. Each case creates its own resource group and deletes it at the end. Turn each `expect:` line into an assertion on that step's result, and drive the same commands with the same values in the record and playback branches. Verify each task by building the test project and confirming the method exists and compiles.
 
-- [ ] 2.1 T1: write the test method for scenario "T1 Virtual network lifecycle with DNS server and subnet" (test spec requirement "List scope by resource group presence") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.1 T1: write the test method for scenario "T1 Virtual network lifecycle with DNS server and subnet" (test spec requirement "List scope by resource group presence") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location westus
@@ -65,7 +65,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetwo
       8. Remove-AzResourceGroup -Name <rg>
       Reference: https://github.com/Azure/azure-powershell/blob/main/src/Network/Network.Test/ScenarioTests/VirtualNetworkTests.ps1 (Test-VirtualNetworkCRUD); https://github.com/Azure/azure-cli/blob/dev/src/azure-cli/azure/cli/command_modules/network/tests/latest/test_network_commands.py (test_network_vnet)
 
-- [ ] 2.2 T2: write the test method for scenario "T2 Create defaults the address space to 10.0.0.0/16" (test spec requirement "Default virtual network address prefix") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.2 T2: write the test method for scenario "T2 Create defaults the address space to 10.0.0.0/16" (test spec requirement "Default virtual network address prefix") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location westus
@@ -89,7 +89,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetwo
       4. Remove-AzResourceGroup -Name <rg>
       Reference: https://github.com/Azure/azure-cli/blob/dev/src/azure-cli/azure/cli/command_modules/network/tests/latest/test_network_commands.py (test_network_vnet create step)
 
-- [ ] 2.3 T3: write the test method for scenario "T3 Create with flow timeout" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.3 T3: write the test method for scenario "T3 Create with flow timeout" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location westus
@@ -107,7 +107,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetwo
       4. Remove-AzResourceGroup -Name <rg>
       Reference: test_network_vnet_flowtimeout (azure-cli); Test-VirtualNetworkCRUD-FlowTimeout (azure-powershell)
 
-- [ ] 2.4 T4: write the test method for scenario "T4 Create with BGP community" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.4 T4: write the test method for scenario "T4 Create with BGP community" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location westus
@@ -125,7 +125,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetwo
       4. Remove-AzResourceGroup -Name <rg>
       Reference: test_network_vnet_with_bgp_community (azure-cli); Test-bgpCommunitiesCRUD (azure-powershell)
 
-- [ ] 2.5 T5: write the test method for scenario "T5 Create with encryption settings" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.5 T5: write the test method for scenario "T5 Create with encryption settings" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location westus
@@ -157,7 +157,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetwo
       8. Remove-AzResourceGroup -Name <rg>
       Reference: test_network_vnet_with_encryption (azure-cli); Test-VirtualNetworkEncryption (azure-powershell)
 
-- [ ] 2.6 T6: write the test method for scenario "T6 Create with private endpoint VNet policies" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.6 T6: write the test method for scenario "T6 Create with private endpoint VNet policies" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location westus
@@ -187,7 +187,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetwo
       8. Remove-AzResourceGroup -Name <rg>
       Reference: Test-VirtualNetworkPrivateEndpointVNetPolicies (azure-powershell)
 
-- [ ] 2.7 T7: write the test method for scenario "T7 Create with summarized gateway prefixes" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.7 T7: write the test method for scenario "T7 Create with summarized gateway prefixes" (test spec requirement "Virtual network create") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location centraluseuap
@@ -207,7 +207,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetwo
       4. Remove-AzResourceGroup -Name <rg>
       Reference: test_network_vnet_with_summarized_gateway_prefixes (azure-cli)
 
-- [ ] 2.8 T8: write the test method for scenario "T8 Create in an edge zone" (test spec requirement "Edge zone maps to extended location") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.8 T8: write the test method for scenario "T8 Create in an edge zone" (test spec requirement "Edge zone maps to extended location") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location eastus2euap
@@ -229,7 +229,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/VirtualNetwo
 
 ## 3. Replay, review, and record
 
-- [ ] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~VirtualNetworkScenarioTests`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
+- [x] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~VirtualNetworkScenarioTests`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
 - [ ] 3.2 Stop for user review of the scenario code with the Apply Report; apply the corrections the user asks for and show the result again, repeating until the user confirms. Verify by the user's explicit confirmation.
 - [ ] 3.3 After that confirmation, ask the user whether to record. Record only the scenarios the user approves, one `--filter` at a time, after confirming the user is signed in with the azclips CLI, following `Record vs. playback` in `tests/Scenario.Tests/README.md`; verify the approved scenarios pass in playback against the new recordings, and report the recordings for review and any resources still needing cleanup. T7 needs `centraluseuap` and T8 needs `eastus2euap` with edge zone `MicrosoftRRDCLab1`; report any that cannot be recorded.
 

@@ -83,6 +83,14 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
             "federated-credential create", "federated-credential list", "federated-credential show",
             "federated-credential update", "federated-credential delete"]);
 
+    // The root leaf alone routes every network command group (vnet, vnet subnet, nsg, public-ip, nic).
+    public static readonly ExtensionUnderTest Network = new(
+        "Network",
+        "Microsoft.Azure.Azclips.Extensions.Network",
+        typeof(Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex).Assembly,
+        "network",
+        [""]);
+
     public static readonly ExtensionUnderTest Storage = new(
         "Storage",
         "Microsoft.Azure.Azclips.Extensions.Storage",

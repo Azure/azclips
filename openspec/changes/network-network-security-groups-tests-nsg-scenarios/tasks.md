@@ -4,13 +4,13 @@ All tasks follow `Applying A Scenario-Test Change` in `.github/skills/azclips-sc
 
 ## 1. Register the Network extension with the scenario host
 
-- [ ] 1.1 If no earlier change has added them, add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
+- [x] 1.1 If no earlier change has added them, add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
 
 ## 2. Write the scenario tests
 
 Write each case as one test method in `tests/Scenario.Tests/Network/NetworkSecurityGroupScenarioTests.cs`. Each case creates its own resource group. Turn each `expect:` line into an assertion on that step's result, and drive the same commands with the same values in the record and playback branches. Verify each task by building the test project and confirming the method exists and compiles.
 
-- [ ] 2.1 T1: write the test method for scenario "T1 Network security group lifecycle: create, show, list, delete" (test spec requirement "List scope by resource group presence") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.1 T1: write the test method for scenario "T1 Network security group lifecycle: create, show, list, delete" (test spec requirement "List scope by resource group presence") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-nsg-rg --location westus
@@ -66,7 +66,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/NetworkSecur
       9. Remove-AzResourceGroup -Name scenario-nsg-rg
       Reference: https://github.com/Azure/azure-cli/blob/dev/src/azure-cli/azure/cli/command_modules/network/tests/latest/test_network_commands.py (NetworkSecurityGroupScenarioTest.test_network_nsg); https://github.com/Azure/azure-powershell/blob/main/src/Network/Network.Test/ScenarioTests/NetworkSecurityGroupTests.ps1 (Test-NetworkSecurityGroupCRUD)
 
-- [ ] 2.2 T2: write the test method for scenario "T2 Create without location takes the resource group location" (test spec requirement "Default location from the resource group") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.2 T2: write the test method for scenario "T2 Create without location takes the resource group location" (test spec requirement "Default location from the resource group") with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: cli-only
       CLI:
       1. group create --name scenario-nsg-default-location-rg --location westus
@@ -80,7 +80,7 @@ Write each case as one test method in `tests/Scenario.Tests/Network/NetworkSecur
 
 ## 3. Replay, review, and record
 
-- [ ] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~NetworkSecurityGroupScenarioTests`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
+- [x] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~NetworkSecurityGroupScenarioTests`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
 - [ ] 3.2 Stop for user review of the scenario code with the Apply Report; apply the corrections the user asks for and show the result again, repeating until the user confirms. Verify by the user's explicit confirmation.
 - [ ] 3.3 After that confirmation, ask the user whether to record. Record only the scenarios the user approves, one `--filter` at a time, after confirming the user is signed in with the azclips CLI, following `Record vs. playback` in `tests/Scenario.Tests/README.md`; verify the approved scenarios pass in playback against the new recordings, and report the recordings for review and any resources still needing cleanup. The subscription-wide list in T1 records every network security group in the subscription; report its size and whether a list sanitiser is needed.
 

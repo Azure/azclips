@@ -4,13 +4,13 @@ All tasks follow `Applying A Scenario-Test Change` in `.github/skills/azclips-sc
 
 ## 1. Register the Network extension with the scenario host
 
-- [ ] 1.1 If no earlier change has added them, add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
+- [x] 1.1 If no earlier change has added them, add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
 
 ## 2. Write the scenario tests
 
 Write each case as one test method under `tests/Scenario.Tests/Network/`, in the file the task names. T1 and T8 share one scenario and recording (T8 runs after T1 step 3, reusing T1's resource group and `pubip3`); T2 to T6 share the resource group `scenario-pip-sku-rg` and one recording; T7 has its own. Turn each `expect:` line into an assertion on that step's result, and drive the same commands with the same values on both surfaces so they send identical requests. Verify each task by building the test project and confirming the method exists and compiles.
 
-- [ ] 2.1 T1: write the test method for scenario "T1 Public IP lifecycle: DNS label scope, IP tags, zones, list, show, delete" (test spec requirement "List scope by resource group presence") in `tests/Scenario.Tests/Network/PublicIpAddressLifecycleScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.1 T1: write the test method for scenario "T1 Public IP lifecycle: DNS label scope, IP tags, zones, list, show, delete" (test spec requirement "List scope by resource group presence") in `tests/Scenario.Tests/Network/PublicIpAddressLifecycleScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-pip-lifecycle-rg --location eastus2
@@ -62,7 +62,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
          - expect: output contains pubip3 and no PublicIPAddress named pubipdns
       Reference: https://github.com/Azure/azure-cli/blob/dev/src/azure-cli/azure/cli/command_modules/network/tests/latest/test_network_commands.py (test_network_public_ip); https://github.com/Azure/azure-powershell/blob/main/src/Network/Network.Test/ScenarioTests/PublicIpAddressTests.ps1 (Test-PublicIpAddressCRUD)
 
-- [ ] 2.2 T2: write the test method for scenario "T2 SKU defaults, tags, Global tier, and StandardV2" (test spec requirement "SKU default on create") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.2 T2: write the test method for scenario "T2 SKU defaults, tags, Global tier, and StandardV2" (test spec requirement "SKU default on create") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-pip-sku-rg --location eastus2
@@ -106,7 +106,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
          - expect: output SkuName is StandardV2
       Reference: test_network_commands.py (test_network_public_ip_sku); PublicIpAddressTests.ps1 (Test-PublicIpAddressCRUD-StandardSkuDefault, -StandardSku, -StandardSkuGlobalTier, Test-PublicIpAddressStandardV2UpgradedToV2)
 
-- [ ] 2.3 T3: write the test method for scenario "T3 IPv6 public IP address" (test spec requirement "IP version default on create") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.3 T3: write the test method for scenario "T3 IPv6 public IP address" (test spec requirement "IP version default on create") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-pip-sku-rg --location eastus2
@@ -124,7 +124,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
          - expect: PublicIPAddressVersion is IPv6 and ProvisioningState is Succeeded
       Reference: PublicIpAddressTests.ps1 (Test-PublicIpAddressIpVersion)
 
-- [ ] 2.4 T4: write the test method for scenario "T4 Explicit idle timeout" (test spec requirement "Idle timeout default on create") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.4 T4: write the test method for scenario "T4 Explicit idle timeout" (test spec requirement "Idle timeout default on create") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-pip-sku-rg --location eastus2
@@ -142,7 +142,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
          - expect: PublicIPAllocationMethod is Static and DnsSettingsDomainNameLabel is azclipspipdns2
       Reference: PublicIpAddressTests.ps1 (Test-PublicIpAddressCRUD-IdleTimeout)
 
-- [ ] 2.5 T5: write the test method for scenario "T5 DDoS protection mode on create" (test spec requirement "DDoS protection mode and plan") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.5 T5: write the test method for scenario "T5 DDoS protection mode on create" (test spec requirement "DDoS protection mode and plan") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-pip-sku-rg --location eastus2
@@ -160,7 +160,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
          - expect: SkuName is Standard and PublicIPAllocationMethod is Static
       Reference: PublicIpAddressTests.ps1 (Test-PublicIpAddressCRUD-DdosProtection, protection-mode part only)
 
-- [ ] 2.6 T6: write the test method for scenario "T6 Basic SKU with Dynamic allocation" (test spec requirement "Allocation method default from the SKU") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.6 T6: write the test method for scenario "T6 Basic SKU with Dynamic allocation" (test spec requirement "Allocation method default from the SKU") in `tests/Scenario.Tests/Network/PublicIpAddressSkuScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-pip-sku-rg --location eastus2
@@ -178,7 +178,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
          - expect: SkuName is Basic, PublicIPAllocationMethod is Dynamic, DnsSettingsDomainNameLabel is azclipspipbasic
       Reference: PublicIpAddressTests.ps1 (Test-PublicIpAddressCRUD-BasicSku)
 
-- [ ] 2.7 T7: write the test method for scenario "T7 Public IP in an edge zone" (test spec requirement "Edge zone as extended location") in `tests/Scenario.Tests/Network/PublicIpAddressEdgeZoneScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.7 T7: write the test method for scenario "T7 Public IP in an edge zone" (test spec requirement "Edge zone as extended location") in `tests/Scenario.Tests/Network/PublicIpAddressEdgeZoneScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-pip-edgezone-rg --location westus
@@ -194,7 +194,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
          - expect: ExtendedLocationName is microsoftlosangeles1 and ExtendedLocationType is EdgeZone
       Reference: test_network_commands.py (test_network_public_ip_edge_zone); PublicIpAddressTests.ps1 (Test-PublicIpAddressInEdgeZone)
 
-- [ ] 2.8 T8: write the test method for scenario "T8 List public IP addresses in the subscription (synthesized)" (test spec requirement "List scope by resource group presence") in `tests/Scenario.Tests/Network/PublicIpAddressLifecycleScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.8 T8: write the test method for scenario "T8 List public IP addresses in the subscription (synthesized)" (test spec requirement "List scope by resource group presence") in `tests/Scenario.Tests/Network/PublicIpAddressLifecycleScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name scenario-pip-lifecycle-rg --location eastus2
@@ -212,7 +212,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
 
 ## 3. Replay, review, and record
 
-- [ ] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~PublicIpAddress`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
+- [x] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~PublicIpAddress`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
 - [ ] 3.2 Stop for user review of the scenario code with the Apply Report; apply the corrections the user asks for and show the result again, repeating until the user confirms. Verify by the user's explicit confirmation.
 - [ ] 3.3 After that confirmation, ask the user whether to record. Record only the scenarios the user approves, one `--filter` at a time, after confirming the user is signed in with the azclips CLI, following `Record vs. playback` in `tests/Scenario.Tests/README.md`; verify the approved scenarios pass in playback against the new recordings, and report the recordings for review and any resources still needing cleanup. Report whether T6 Basic SKU creation was rejected, whether the T7 edge zone is available to the subscription, and the size of the T8 subscription-wide list and whether a list sanitiser is needed; delete the T5 DDoS-protected public IP promptly.
 

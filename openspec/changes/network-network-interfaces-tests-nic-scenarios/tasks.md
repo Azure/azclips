@@ -4,13 +4,13 @@ All tasks follow `Applying A Scenario-Test Change` in `.github/skills/azclips-sc
 
 ## 1. Register the Network extension with the scenario host
 
-- [ ] 1.1 If no earlier change has added them, add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
+- [x] 1.1 If no earlier change has added them, add an `ExtensionUnderTest` entry for the `network` module, with the root leaf `""` among its leaves, to `tests/Scenario.Tests/Infrastructure/ScenarioHost.cs`, and the `ProjectReference` to `src/Extensions/Network` in `tests/Scenario.Tests/Scenario.Tests.csproj`; verify `dotnet build tests/Scenario.Tests --nologo -v q` reports no error in these two files.
 
 ## 2. Write the scenario tests
 
 Write each case as one test method under `tests/Scenario.Tests/Network/`, in the file the task names; each case has its own resource group and recording. The steps below are carried as given: replace each placeholder (`<rg>`, `<location>`, `<vnet>`, `<subnet>`, `<nic>`, `<nsg>`, `<pip>`, `<subscription>`) with one fixed literal per test method, using a distinct resource group per case (for example `scenario-nic-lifecycle-rg`, `scenario-nic-options-rg`, `scenario-nic-refs-rg`, `scenario-nic-edgezone-rg`), and `<edge-zone>` with `microsoftlosangeles1`. Turn each `expect:` line into an assertion on that step's result, and drive the same commands with the same values on both surfaces so they send identical requests. Verify each task by building the test project and confirming the method exists and compiles.
 
-- [ ] 2.1 T1: write the test method for scenario "T1 Create with defaults, read, list and delete a network interface" (test spec requirement "List scope by resource group presence") in `tests/Scenario.Tests/Network/NetworkInterfaceLifecycleScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.1 T1: write the test method for scenario "T1 Create with defaults, read, list and delete a network interface" (test spec requirement "List scope by resource group presence") in `tests/Scenario.Tests/Network/NetworkInterfaceLifecycleScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location <location>
@@ -74,7 +74,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
       10. Remove-AzResourceGroup -Name <rg>
       Reference: azure-cli test_network_commands.py::test_network_nic; azure-powershell NetworkInterfaceTests.ps1 Test-NetworkInterfaceCRUDUsingId, Test-NetworkInterfaceNoPublicIpAddress; NetworkInterfaceTestsGenerated.ps1 Test-NetworkInterfaceCRUDMinimalParameters
 
-- [ ] 2.2 T2: write the test method for scenario "T2 Create with static private IP, public IP by name, and optional settings; show with expand" (test spec requirement "Single IP configuration from flat create inputs") in `tests/Scenario.Tests/Network/NetworkInterfaceCreateOptionsScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.2 T2: write the test method for scenario "T2 Create with static private IP, public IP by name, and optional settings; show with expand" (test spec requirement "Single IP configuration from flat create inputs") in `tests/Scenario.Tests/Network/NetworkInterfaceCreateOptionsScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location <location>
@@ -127,7 +127,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
       7. Remove-AzResourceGroup -Name <rg>
       Reference: azure-cli test_network_commands.py::test_network_nic (optional-parameters create), ::test_network_nic_auxiliary; azure-powershell NetworkInterfaceTests.ps1 Test-NetworkInterfaceCRUD, Test-NetworkInterfaceCRUDStaticAllocation, Test-NetworkInterfaceIDns, Test-NetworkInterfaceWithAcceleratedNetworking, Test-NetworkInterfaceExpandResource; NetworkInterfaceTestsGenerated.ps1 Test-NetworkInterfaceCRUDAllParameters
 
-- [ ] 2.3 T3: write the test method for scenario "T3 Create with network security group and public IP references, then re-create without IP forwarding" (test spec requirement "CLI name-or-ID expansion for create references") in `tests/Scenario.Tests/Network/NetworkInterfaceReferencesScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.3 T3: write the test method for scenario "T3 Create with network security group and public IP references, then re-create without IP forwarding" (test spec requirement "CLI name-or-ID expansion for create references") in `tests/Scenario.Tests/Network/NetworkInterfaceReferencesScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location <location>
@@ -168,7 +168,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
       7. Remove-AzResourceGroup -Name <rg>
       Reference: azure-cli test_network_commands.py::test_network_nic (NSG by name, NSG and public IP by id); azure-powershell NetworkInterfaceTests.ps1 Test-NetworkInterfaceEnableIPForwarding, Test-NetworkInterfaceIpv6 (create part)
 
-- [ ] 2.4 T4: write the test method for scenario "T4 Create a network interface in an edge zone" (test spec requirement "Edge zone as extended location") in `tests/Scenario.Tests/Network/NetworkInterfaceEdgeZoneScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
+- [x] 2.4 T4: write the test method for scenario "T4 Create a network interface in an edge zone" (test spec requirement "Edge zone as extended location") in `tests/Scenario.Tests/Network/NetworkInterfaceEdgeZoneScenarioTests.cs` with these steps and expectations, naming the case ID and scenario in a comment; verify it compiles.
       Surface: both
       CLI:
       1. group create --name <rg> --location westus
@@ -197,7 +197,7 @@ Write each case as one test method under `tests/Scenario.Tests/Network/`, in the
 
 ## 3. Replay, review, and record
 
-- [ ] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~NetworkInterface`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
+- [x] 3.1 Build the test project and run the new scenarios in playback mode (`dotnet test tests/Scenario.Tests --filter FullyQualifiedName~NetworkInterface`); verify each scenario either passes or fails only as `recording-required`, and report any other failure.
 - [ ] 3.2 Stop for user review of the scenario code with the Apply Report; apply the corrections the user asks for and show the result again, repeating until the user confirms. Verify by the user's explicit confirmation.
 - [ ] 3.3 After that confirmation, ask the user whether to record. Record only the scenarios the user approves, one `--filter` at a time, after confirming the user is signed in with the azclips CLI, following `Record vs. playback` in `tests/Scenario.Tests/README.md`; verify the approved scenarios pass in playback against the new recordings, and report the recordings for review and any resources still needing cleanup. Report whether the T4 edge zone is available to the subscription (if creation fails with an edge-zone-not-supported error, report T4 as unrecordable rather than changing it) and whether the T2 region accepts accelerated networking on a NIC without a VM.
 
