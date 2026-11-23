@@ -176,9 +176,10 @@ public sealed class ManagedIdentityCredentialTests
     }
 
     [Theory]
-    [InlineData("not-a-jwt")]                                    // arbitrary token; contents are irrelevant
-    [InlineData("eyJhbGciOiJub25lIn0.eyJhdWQiOiJhcm0ifQ.")]      // valid JWT, no 'tid' claim
-    public async Task ManagedIdentityAuthenticator_DoesNotStoreTenantId(string token)
+    [InlineData("not-a-jwt", "")]                                    // unreadable token
+    [InlineData("eyJhbGciOiJub25lIn0.eyJhdWQiOiJhcm0ifQ.", "")]      // valid JWT, no 'tid' claim
+    [InlineData("eyJhbGciOiJub25lIn0.eyJ0aWQiOiI3MmY5ODhiZi04NmYxLTQxYWYtOTFhYi0yZDdjZDAxMWRiNDciLCJhdWQiOiJhcm0ifQ.", "72f988bf-86f1-41af-91ab-2d7cd011db47")]
+    public async Task ManagedIdentityAuthenticator_ReadsTenantIdFromToken(string token, string expectedTenantId)
     {
         var expected = new AccessToken(token, DateTimeOffset.UtcNow.AddHours(1));
 
@@ -196,6 +197,6 @@ public sealed class ManagedIdentityCredentialTests
         var result = await authenticator.AuthenticateAsync(request);
 
         Assert.Equal(token, result.AccessToken);
-        Assert.Equal(string.Empty, result.TenantId);
+        Assert.Equal(expectedTenantId, result.TenantId);
     }
 }

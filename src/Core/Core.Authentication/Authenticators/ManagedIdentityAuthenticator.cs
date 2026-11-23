@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.IdentityModel.Tokens.Jwt;
 using Core.Abstractions;
 
 namespace Core.Authentication;
@@ -32,7 +33,7 @@ public class ManagedIdentityAuthenticator(
             AccessToken = token.Token,
             ExpiresOn = token.ExpiresOn,
             Scopes = scopes,
-            TenantId = string.Empty,
+            TenantId = ReadTenantId(token.Token) ?? string.Empty,
             EntraObjectId = idType == ManagedIdentityIdType.ObjectId ? idValue : null,
             CorrelationId = null,
         };
@@ -58,6 +59,27 @@ public class ManagedIdentityAuthenticator(
             EntraObjectId = idType == ManagedIdentityIdType.ObjectId ? idValue : null,
             CorrelationId = null,
         };
+    }
+
+    /// <summary>
+    /// Reads the tenant from the token's <c>tid</c> claim, since the identity endpoint returns no account to read it from.
+    /// Returns null for tokens that are not readable JWTs so a login never fails on parsing.
+    /// </summary>
+    private string? ReadTenantId(string accessToken)
+    {
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            if (!handler.CanReadToken(accessToken))
+                return null;
+            var tid = handler.ReadJwtToken(accessToken).Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
+            return string.IsNullOrEmpty(tid) ? null : tid;
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug($"[{nameof(ManagedIdentityAuthenticator)}] Could not read the tenant from the token: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>Converts the request's managed identity fields into an (id type, id value) pair, defaulting to system-assigned.</summary>
