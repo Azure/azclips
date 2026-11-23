@@ -1,0 +1,37 @@
+description: "[read/group-typo] msgraph-user-group-typo"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: msgraph-user-group-typo
+  command_group: msgraph
+  goal: List users whose display name matches Alex.
+  command: msgraph usr list --display-name Alex
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az msgraph user list
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --display-name: Alex
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az msgraph user list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List users whose display name matches Alex."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

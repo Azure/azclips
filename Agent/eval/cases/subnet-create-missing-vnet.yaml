@@ -1,0 +1,43 @@
+description: "[mutate/missing-param] subnet-create-missing-vnet"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: subnet-create-missing-vnet
+  command_group: network
+  goal: Create subnet default; the VNet name was omitted.
+  command: network vnet subnet create --name default --resource-group azclips-test-rg --address-prefixes 10.0.1.0/24
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network vnet subnet create
+          match: all
+          requiredArguments:
+            - --vnet-name
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: default
+            --resource-group: azclips-test-rg
+            --address-prefixes: 10.0.1.0/24
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network vnet subnet create
+        - az network vnet list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create subnet default; the VNet name was omitted."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - A placeholder or a VNet found by listing is acceptable.

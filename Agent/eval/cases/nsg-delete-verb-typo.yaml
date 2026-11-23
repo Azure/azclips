@@ -1,0 +1,40 @@
+description: "[mutate/group-typo] nsg-delete-verb-typo"
+metadata:
+  mode: mutate
+  failureType: group-typo
+vars:
+  case_id: nsg-delete-verb-typo
+  command_group: network
+  goal: Delete the named NSG.
+  command: network nsg delte --name azclips-eval-nsg-404 --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network nsg delete
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-nsg-404
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network nsg delete
+        - az network nsg show
+        - az network nsg list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Delete the named NSG."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

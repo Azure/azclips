@@ -1,0 +1,42 @@
+description: "[mutate/invalid-value] role-create-bad-role"
+metadata:
+  mode: mutate
+  failureType: invalid-value
+vars:
+  case_id: role-create-bad-role
+  command_group: role
+  goal: Assign the Reader role to the principal on the group.
+  command: role assignment create --assignee-object-id 00000000-0000-0000-0000-000000000000 --role Readr --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az role assignment create
+          match: all
+          requiredArguments:
+            - --role
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --assignee-object-id: 00000000-0000-0000-0000-000000000000
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az role assignment create
+        - az rest
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Assign the Reader role to the principal on the group."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - This CLI needs a role definition GUID. The Reader built-in role id acdd72a7-3385-48ef-bd42-f606fba81ae7 or a lookup via REST is expected. Must not escalate to a broader role.

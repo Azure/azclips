@@ -1,4 +1,8 @@
 description: extension show with an unknown name -> list extensions
+metadata:
+  mode: read
+  failureType: invalid-value
+  original: true
 vars:
   case_id: extension-show-not-found
   command_group: extension

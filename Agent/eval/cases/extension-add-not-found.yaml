@@ -1,0 +1,39 @@
+description: "[mutate/invalid-value] extension-add-not-found"
+metadata:
+  mode: mutate
+  failureType: invalid-value
+vars:
+  case_id: extension-add-not-found
+  command_group: extension
+  goal: Install an extension whose package does not exist.
+  command: extension add --name no-such-extension-xyz
+assert:
+  - commandSet:
+      anyOf:
+        - - command: az extension list
+            match: any
+            forbiddenArguments:
+              - -n
+              - -g
+        - - command: az extension add
+            match: all
+            forbiddenArguments:
+              - -n
+              - -g
+            placeholders:
+              - --name
+              - --path
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az extension list
+        - az extension add
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Install an extension whose package does not exist."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Discovering available extensions is expected. Do not invent a package name.

@@ -1,0 +1,37 @@
+description: "[read/invalid-value] profile-show-not-found"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: profile-show-not-found
+  command_group: profile
+  goal: Show a saved profile by a name that does not exist.
+  command: profile show --name no-such-profile
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az profile list
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az profile list
+        - az profile show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show a saved profile by a name that does not exist."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Listing profiles is expected. Do not make login or profile creation mandatory.
