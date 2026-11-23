@@ -84,17 +84,20 @@ internal static class TableFormatter
         }
 
         var widths = new int[columnCount];
+        var minimumWidths = new int[columnCount];
         for (var c = 0; c < columnCount; c++)
         {
-            widths[c] = (headers is not null && c < headers.Length) ? GetDisplayWidth(headers[c]) : 0;
+            var headerWidth = (headers is not null && c < headers.Length) ? GetDisplayWidth(headers[c]) : 0;
+            widths[c] = headerWidth;
             foreach (var row in rows)
             {
                 widths[c] = Math.Max(widths[c], c < row.Length ? GetDisplayWidth(row[c]) : 0);
             }
+            minimumWidths[c] = Math.Min(widths[c], Math.Max(headerWidth, 4));
         }
 
-        var separatorWidth = GetSeparatorWidth(columnCount, terminalWidth);
-        widths = ConstrainWidths(widths, terminalWidth, separatorWidth);
+        const int separatorWidth = 2;
+        widths = ConstrainWidths(widths, minimumWidths, terminalWidth, separatorWidth);
 
         var lines = new List<string>();
         if (headers is not null)
@@ -109,38 +112,42 @@ internal static class TableFormatter
         return string.Join("\n", lines);
     }
 
-    private static int GetSeparatorWidth(int columnCount, int? terminalWidth)
-    {
-        if (terminalWidth is null or <= 0)
-            return 2;
-
-        var twoSpaceMinimum = columnCount + 2 * (columnCount - 1);
-        if (terminalWidth >= twoSpaceMinimum)
-            return 2;
-
-        return terminalWidth >= columnCount ? 1 : 0;
-    }
-
-    private static int[] ConstrainWidths(int[] widths, int? terminalWidth, int separatorWidth)
+    private static int[] ConstrainWidths(int[] widths, int[] minimumWidths, int? terminalWidth, int separatorWidth)
     {
         if (terminalWidth is not > 0)
             return widths;
 
         var availableWidth = Math.Max(0, terminalWidth.Value - separatorWidth * (widths.Length - 1));
-        var constrained = widths.ToArray();
-        var excess = constrained.Sum() - availableWidth;
+        if (widths.Sum() <= availableWidth)
+            return widths;
 
-        while (excess > 0)
+        // Prefer overflow to hiding headers or reducing values to only an ellipsis.
+        if (minimumWidths.Sum() >= availableWidth)
+            return minimumWidths;
+
+        // Find a shared width cap without iterating once per excess display cell.
+        var lower = 0;
+        var upper = widths.Max();
+        while (lower < upper)
         {
-            var widestColumn = Array.IndexOf(constrained, constrained.Max());
-            if (widestColumn < 0 || constrained[widestColumn] == 0)
-                break;
-
-            var reduction = Math.Min(constrained[widestColumn], excess);
-            constrained[widestColumn] -= reduction;
-            excess -= reduction;
+            var cap = lower + (upper - lower + 1) / 2;
+            var total = widths.Select((width, i) => Math.Max(minimumWidths[i], Math.Min(width, cap))).Sum();
+            if (total <= availableWidth)
+                lower = cap;
+            else
+                upper = cap - 1;
         }
 
+        var constrained = widths.Select((width, i) => Math.Max(minimumWidths[i], Math.Min(width, lower))).ToArray();
+        var remaining = availableWidth - constrained.Sum();
+        for (var i = 0; i < constrained.Length && remaining > 0; i++)
+        {
+            if (constrained[i] != lower || constrained[i] >= widths[i])
+                continue;
+
+            constrained[i]++;
+            remaining--;
+        }
         return constrained;
     }
 
