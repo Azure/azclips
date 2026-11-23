@@ -16,7 +16,7 @@ These tasks change product code only. Scenario tests come later in a separate ch
 
 ## 3. PowerShell remove (PowerShell-only)
 
-- [ ] 3.1 In the `Remove-AzVirtualNetwork` wrapper under `src/PS/Network/Cmdlets`, add F18: confirm with ShouldProcess before the delete unless `-Force` is given, send no delete when declined, and write `$true` with `-PassThru` after a successful delete, following `src/PS/Resources/Cmdlets/RemoveSubDeploymentCmdlet.cs`. The PowerShell module is created at migration step 14: if it does not exist when this change is applied, leave this task unchecked and carry it out at step 14; verify by review against "PowerShell remove confirmation and PassThru" and that the CLI delete path is unchanged
+- [x] 3.1 In the `Remove-AzVirtualNetwork` wrapper under `src/PS/Network/Cmdlets`, add F18: confirm with ShouldProcess before the delete unless `-Force` is given, send no delete when declined, and write `$true` with `-PassThru` after a successful delete, following `src/PS/Resources/Cmdlets/RemoveSubDeploymentCmdlet.cs`. The PowerShell module is created at migration step 14: if it does not exist when this change is applied, leave this task unchecked and carry it out at step 14; verify by review against "PowerShell remove confirmation and PassThru" and that the CLI delete path is unchanged (S14b: done in the shared NetworkRemoveCmdletBase under src/PS/Network/Cmdlets; -WhatIf still wins over -Force; $true only when no error was written.)
 
 ## Workflow follow-up
 
