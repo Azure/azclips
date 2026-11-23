@@ -17,6 +17,7 @@ namespace Cli.Tests.Commands.KeyVault;
 public sealed class CertificateCommandTests : IDisposable
 {
     private const string ExtensionName = "KeyVault";
+    private const string VaultName = "myvault";
     private const string InvalidCertificateNameMessage = "Certificate names must contain 1-127 letters, digits or hyphens.";
     private const string InvalidCertificateVersionMessage = "Certificate version must be an alphanumeric version identifier.";
     private const string UnreadableInputFileMessage = "The certificate input file could not be read.";
@@ -42,7 +43,7 @@ public sealed class CertificateCommandTests : IDisposable
     public async Task RunAsync_InvalidCertificateName_ThrowsArgumentException(params string[] commandLine)
     {
         string invalidCertificateName = "my_certificate";
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--name", invalidCertificateName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", VaultName, "--name", invalidCertificateName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -59,7 +60,7 @@ public sealed class CertificateCommandTests : IDisposable
         string nonAlphanumericVersion = "not-a-version";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [.. commandLine, "--vault-name", "myvault", "--name", "certificate", "--version", nonAlphanumericVersion]);
+            [.. commandLine, "--vault-name", VaultName, "--name", "certificate", "--version", nonAlphanumericVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -77,7 +78,7 @@ public sealed class CertificateCommandTests : IDisposable
             ExtensionName,
             [
                 "keyvault", "certificate", "download",
-                "--vault-name", "myvault",
+                "--vault-name", VaultName,
                 "--name", invalidCertificateName,
                 "--file", Path.Combine(_missingDirectory, "certificate.pem"),
             ]);
@@ -97,7 +98,7 @@ public sealed class CertificateCommandTests : IDisposable
             ExtensionName,
             [
                 "keyvault", "certificate", "download",
-                "--vault-name", "myvault",
+                "--vault-name", VaultName,
                 "--name", "certificate",
                 "--version", nonAlphanumericVersion,
                 "--file", Path.Combine(_missingDirectory, "certificate.pem"),
@@ -115,7 +116,7 @@ public sealed class CertificateCommandTests : IDisposable
     [InlineData("keyvault", "certificate", "list-versions", "--name", "certificate", "--maxresults", "0")]
     public async Task RunAsync_PageSizeOutOfRange_ThrowsArgumentException(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault"]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", VaultName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -133,7 +134,7 @@ public sealed class CertificateCommandTests : IDisposable
     public async Task RunAsync_InvalidEnabled_ThrowsArgumentException(params string[] commandLine)
     {
         string nonBooleanEnabled = "yes";
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--enabled", nonBooleanEnabled]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", VaultName, "--enabled", nonBooleanEnabled]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -148,7 +149,7 @@ public sealed class CertificateCommandTests : IDisposable
     [InlineData("keyvault", "certificate", "set-attributes", "--name", "certificate", "--expires", "tomorrow")]
     public async Task RunAsync_InvalidDate_ThrowsArgumentException(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault"]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", VaultName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -166,7 +167,7 @@ public sealed class CertificateCommandTests : IDisposable
     public async Task RunAsync_TagWithoutName_ThrowsArgumentException(params string[] commandLine)
     {
         string tagWithoutName = "=value";
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--tags", tagWithoutName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", VaultName, "--tags", tagWithoutName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -183,7 +184,7 @@ public sealed class CertificateCommandTests : IDisposable
         string timeoutAboveMaximum = "3601";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate", "--timeout", timeoutAboveMaximum]);
+            ["keyvault", "certificate", "create", "--vault-name", VaultName, "--name", "certificate", "--timeout", timeoutAboveMaximum]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -197,7 +198,7 @@ public sealed class CertificateCommandTests : IDisposable
     {
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate"]);
+            ["keyvault", "certificate", "create", "--vault-name", VaultName, "--name", "certificate"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -215,7 +216,7 @@ public sealed class CertificateCommandTests : IDisposable
             ExtensionName,
             [
                 "keyvault", "certificate", "create",
-                "--vault-name", "myvault",
+                "--vault-name", VaultName,
                 "--name", "certificate",
                 "--policy", policy,
                 "--policy-file", policyFile,
@@ -234,7 +235,7 @@ public sealed class CertificateCommandTests : IDisposable
         string invalidPolicyJson = "not json";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate", "--policy", invalidPolicyJson]);
+            ["keyvault", "certificate", "create", "--vault-name", VaultName, "--name", "certificate", "--policy", invalidPolicyJson]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -253,7 +254,7 @@ public sealed class CertificateCommandTests : IDisposable
             ExtensionName,
             [
                 "keyvault", "certificate", "create",
-                "--vault-name", "myvault",
+                "--vault-name", VaultName,
                 "--name", "certificate",
                 "--policy", policyOver1MiB,
             ]);
@@ -273,7 +274,7 @@ public sealed class CertificateCommandTests : IDisposable
             ExtensionName,
             [
                 "keyvault", "certificate", "create",
-                "--vault-name", "myvault",
+                "--vault-name", VaultName,
                 "--name", "certificate",
                 "--policy-file", missingPolicyFile,
             ]);
@@ -296,7 +297,7 @@ public sealed class CertificateCommandTests : IDisposable
             ExtensionName,
             [
                 "keyvault", "certificate", "import",
-                "--vault-name", "myvault",
+                "--vault-name", VaultName,
                 "--name", "certificate",
                 "--file", "certificate.pfx",
                 "--password", password,
@@ -318,7 +319,7 @@ public sealed class CertificateCommandTests : IDisposable
             ExtensionName,
             [
                 "keyvault", "certificate", "import",
-                "--vault-name", "myvault",
+                "--vault-name", VaultName,
                 "--name", "certificate",
                 "--file", missingFile,
             ]);
@@ -337,7 +338,7 @@ public sealed class CertificateCommandTests : IDisposable
     {
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "set-attributes", "--vault-name", "myvault", "--name", "certificate"]);
+            ["keyvault", "certificate", "set-attributes", "--vault-name", VaultName, "--name", "certificate"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -354,7 +355,7 @@ public sealed class CertificateCommandTests : IDisposable
         string blankFile = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "download", "--vault-name", "myvault", "--name", "certificate", "--file", blankFile]);
+            ["keyvault", "certificate", "download", "--vault-name", VaultName, "--name", "certificate", "--file", blankFile]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -371,7 +372,7 @@ public sealed class CertificateCommandTests : IDisposable
             ExtensionName,
             [
                 "keyvault", "certificate", "download",
-                "--vault-name", "myvault",
+                "--vault-name", VaultName,
                 "--name", "certificate",
                 "--file", "certificate.pfx",
                 "--encoding", invalidEncoding,
@@ -392,7 +393,7 @@ public sealed class CertificateCommandTests : IDisposable
     {
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "delete", "--vault-name", "myvault", "--name", "certificate"]);
+            ["keyvault", "certificate", "delete", "--vault-name", VaultName, "--name", "certificate"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 

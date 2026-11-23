@@ -17,6 +17,7 @@ namespace Cli.Tests.Commands.KeyVault;
 public sealed class VaultSelectionCommandTests : IDisposable
 {
     private const string ExtensionName = "KeyVault";
+    private const string VaultName = "myvault";
     private const string PublicCloudVaultUrlMessage = "Use the root HTTPS URL of an Azure public-cloud vault.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
@@ -63,7 +64,7 @@ public sealed class VaultSelectionCommandTests : IDisposable
         string vaultUrl = "https://myvault.vault.azure.net/";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "secret", "show", "--name", "secret", "--vault-name", "myvault", "--vault-url", vaultUrl]);
+            ["keyvault", "secret", "show", "--name", "secret", "--vault-name", VaultName, "--vault-url", vaultUrl]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
