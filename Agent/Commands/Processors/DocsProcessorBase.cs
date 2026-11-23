@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Agent.Tools.Help;
@@ -22,7 +23,9 @@ public abstract class DocsProcessorBase : AgentProcessorBase
         var provider = new HelpCatalogProvider(azPath, configuration, cache, ct => Task.FromResult(
             DocsGenerateProcessor.Generate(AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>(),
                 configuration, azPath, cache, ct)));
-        await WriteOutput(await ReadJsonAsync(provider));
+        // A JSON element, not a string, so the CLI formatter indents it and applies --output and --query.
+        using var document = JsonDocument.Parse(await ReadJsonAsync(provider));
+        await WriteOutput(document.RootElement.Clone());
         await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
     }
 }
