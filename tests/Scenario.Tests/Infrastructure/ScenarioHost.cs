@@ -94,18 +94,6 @@ internal sealed record ExtensionUnderTest(string Name, string PackageId, System.
             "share create", "share show", "share list", "share update", "share delete",
             "directory create", "directory show", "directory delete",
             "file list", "file show", "file create", "file upload", "file download", "file copy start", "file delete"]);
-    public static readonly ExtensionUnderTest Network = new(
-        "Network",
-        "Microsoft.Azure.Azclips.Extensions.Network",
-        typeof(Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex).Assembly,
-        "network",
-        [
-            "vnet create", "vnet show", "vnet list", "vnet delete",
-            "vnet subnet create", "vnet subnet show", "vnet subnet list", "vnet subnet delete",
-            "nsg create", "nsg show", "nsg list", "nsg delete",
-            "public-ip create", "public-ip show", "public-ip list", "public-ip delete",
-            "nic create", "nic show", "nic list", "nic delete"
-        ]);
 }
 
 /// <summary>
