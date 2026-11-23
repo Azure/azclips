@@ -4,13 +4,13 @@ These tasks change product code only. Scenario tests come later in a separate ch
 
 ## 1. Create request shaping (shared customization)
 
-- [ ] 1.1 Add a NetworkSecurityGroups create customization class under `<extension root>/Customization` that inherits `NewNetworkSecurityGroupProcessor`, with no `Method`, `CreateRequestUri()`, api-version, or URL; verify by review that the file exists, inherits the processor, and no file under `Processors/` or `Models/` changed
-- [ ] 1.2 Implement F1: when `Location` is empty, compose the Resources `GetResourceGroupProcessor` with `CreateExtendedProcessor<T>` for the same subscription and resource group, set `Location` from its result, then run the inherited PUT; when the GET fails, surface its error and send no PUT; when `Location` is given, send no GET. Engage the Resources processor as migration skill step 11 decides; if that engagement is not possible, stop and report instead of hand-building the request. Verify by review against the scenarios of "Default location from the resource group"
-- [ ] 1.3 Implement F12: add a CLI tags input of `key[=value]` strings and parse it into `Tags` (bare key -> empty string), leaving the PowerShell `-Tag` mapping to `Tags` unchanged; verify by review against "CLI tags parsing on create"
+- [x] 1.1 Add a NetworkSecurityGroups create customization class under `<extension root>/Customization` that inherits `NewNetworkSecurityGroupProcessor`, with no `Method`, `CreateRequestUri()`, api-version, or URL; verify by review that the file exists, inherits the processor, and no file under `Processors/` or `Models/` changed
+- [x] 1.2 Implement F1: when `Location` is empty, compose the Resources `GetResourceGroupProcessor` with `CreateExtendedProcessor<T>` for the same subscription and resource group, set `Location` from its result, then run the inherited PUT; when the GET fails, surface its error and send no PUT; when `Location` is given, send no GET. Engage the Resources processor as migration skill step 11 decides; if that engagement is not possible, stop and report instead of hand-building the request. Verify by review against the scenarios of "Default location from the resource group"
+- [x] 1.3 Implement F12: add a CLI tags input of `key[=value]` strings and parse it into `Tags` (bare key -> empty string), leaving the PowerShell `-Tag` mapping to `Tags` unchanged; verify by review against "CLI tags parsing on create"
 
 ## 2. List routing (shared customization)
 
-- [ ] 2.1 Add a NetworkSecurityGroups list customization class under `<extension root>/Customization` that inherits `ListNetworkSecurityGroupProcessor`, keeps its route when a resource group is given, and composes `ListAllNetworkSecurityGroupProcessor` with `CreateExtendedProcessor<T>` when it is not (F2), leaving paging to the processor base; verify by review against "List scope by resource group presence" and that no route, method, or api-version is declared in the class
+- [x] 2.1 Add a NetworkSecurityGroups list customization class under `<extension root>/Customization` that inherits `ListNetworkSecurityGroupProcessor`, keeps its route when a resource group is given, and composes `ListAllNetworkSecurityGroupProcessor` with `CreateExtendedProcessor<T>` when it is not (F2), leaving paging to the processor base; verify by review against "List scope by resource group presence" and that no route, method, or api-version is declared in the class
 
 ## 3. PowerShell remove (PowerShell-only)
 
