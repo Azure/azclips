@@ -30,6 +30,7 @@ internal static class CommandTestHelpers
     internal const string TenantId = "11111111-1111-1111-1111-111111111111";
     internal const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     internal const string ProfileName = "test";
+    private const string FirstPartyApplicationId = "22222222-2222-2222-2222-222222222222";
 
     /// <summary>
     /// Creates an engine that loads <paramref name="extension"/>, signs in as a fixed profile, and sends every
@@ -76,7 +77,7 @@ internal static class CommandTestHelpers
         var binder = new ArgumentParsingService(new PSArgumentParsingProvider(), mockProfiles.Object);
 
         return new Engine(
-            new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"),
+            new ClientMetadata(ClientType.PowerShell, FirstPartyApplicationId),
             mockWireFactory.Object,
             mockProfiles.Object,
             mockAuth.Object,
@@ -104,7 +105,7 @@ internal static class CommandTestHelpers
             services.AddSingleton(Mock.Of<ITelemetryService>());
             registerServices?.Invoke(services);
         });
-        AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.PowerShell, "00000000-0000-0000-0000-000000000000"));
+        AzclipsServiceProvider.Initialize(new ClientMetadata(ClientType.PowerShell, FirstPartyApplicationId));
     }
 
     /// <summary>
