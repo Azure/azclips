@@ -30,12 +30,16 @@ public class NewPublicIPAddressProcessor_Orchestrator : NewPublicIPAddressProces
     /// <summary>IP tags as <c>TYPE=VALUE</c> strings.</summary>
     public string[]? IpTagValues { get; set; }
 
+    /// <summary>CLI tags as <c>KEY=VALUE</c> strings (a value is required). When given, they replace <see cref="NewPublicIPAddressProcessor.Tags"/>.</summary>
+    public string[]? TagsInput { get; set; }
+
     /// <summary>
     /// Shaping runs here, not in BeforeProcessAsync, so it also applies when this processor runs
     /// as a child of another processor. Every step is idempotent because the body can be built more than once.
     /// </summary>
     protected override PublicIPAddress? CreateRequestBody()
     {
+        Tags = NetworkTagsParser.ParseTags(TagsInput, requireValue: true) ?? Tags;
         ApplyDefaults();
         ApplyEdgeZone();
         ApplyResourceIds();

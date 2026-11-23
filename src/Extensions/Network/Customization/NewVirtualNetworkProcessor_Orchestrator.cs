@@ -24,17 +24,79 @@ public class NewVirtualNetworkProcessor_Orchestrator : NewVirtualNetworkProcesso
     /// <summary>Resource IDs of IP allocations that reference this virtual network.</summary>
     public IList<string>? IpAllocationIds { get; set; }
 
+    /// <summary>Names of subnets to create with the virtual network.</summary>
+    public List<string>? SubnetNames { get; set; }
+
+    /// <summary>Address prefixes per subnet; item i belongs to <see cref="SubnetNames"/> item i.</summary>
+    public List<List<string>>? SubnetAddressPrefixes { get; set; }
+
+    /// <summary>IPAM pool resource IDs for the address space.</summary>
+    public IList<string>? IpamPoolIds { get; set; }
+
+    /// <summary>CLI tags as <c>key[=value]</c> strings. When given, they replace <see cref="NewVirtualNetworkProcessor.Tags"/>.</summary>
+    public string[]? TagsInput { get; set; }
+
     /// <summary>
     /// Shaping runs here, not in BeforeProcessAsync, so it also applies when this processor runs
     /// as a child of another processor. Every step is idempotent because the body can be built more than once.
     /// </summary>
     protected override VirtualNetwork? CreateRequestBody()
     {
+        Tags = NetworkTagsParser.ParseTags(TagsInput) ?? Tags;
+        ApplyIpamPoolIds();
         ApplyAddressSpace();
         ApplyEdgeZone();
         ApplySubnets();
+        ApplySubnetList();
         ApplyIpAllocations();
         return base.CreateRequestBody();
+    }
+
+    private void ApplyIpamPoolIds()
+    {
+        if (IpamPoolIds is { Count: > 0 })
+        {
+            AddressSpaceIpamPoolPrefixAllocations = IpamPoolIds
+                .Select(id => new IpamPoolPrefixAllocation { PoolId = id })
+                .ToList();
+        }
+    }
+
+    // Subnet i gets name i and prefix list i; the first prefix is also sent as addressPrefix.
+    private void ApplySubnetList()
+    {
+        if (SubnetNames is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var subnets = Subnets is null ? new List<Subnet>() : Subnets.ToList();
+        for (int i = 0; i < SubnetNames.Count; i++)
+        {
+            string name = SubnetNames[i];
+            if (string.IsNullOrWhiteSpace(name)
+                || subnets.Any(subnet => string.Equals(subnet.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            var subnet = new Subnet { Name = name };
+            List<string>? prefixes = SubnetAddressPrefixes is not null && i < SubnetAddressPrefixes.Count
+                ? SubnetAddressPrefixes[i]
+                : null;
+            if (prefixes is { Count: > 0 })
+            {
+                subnet.AddressPrefix = prefixes[0];
+                if (prefixes.Count > 1)
+                {
+                    subnet.AddressPrefixes = prefixes.ToList();
+                }
+            }
+
+            subnets.Add(subnet);
+        }
+
+        Subnets = subnets.Count > 0 ? subnets : null;
     }
 
     private void ApplyAddressSpace()

@@ -38,12 +38,16 @@ public class NewNetworkInterfaceProcessor_Orchestrator : NewNetworkInterfaceProc
     /// <summary>Edge zone to create the network interface in.</summary>
     public string? EdgeZone { get; set; }
 
+    /// <summary>CLI tags as <c>key[=value]</c> strings. When given, they replace <see cref="NewNetworkInterfaceProcessor.Tags"/>.</summary>
+    public string[]? TagsInput { get; set; }
+
     /// <summary>
     /// Shaping runs here, not in BeforeProcessAsync, so it also applies when this processor runs
     /// as a child of another processor. Every step is idempotent because the body can be built more than once.
     /// </summary>
     protected override NetworkInterface? CreateRequestBody()
     {
+        Tags = NetworkTagsParser.ParseTags(TagsInput) ?? Tags;
         NetworkSecurityGroupId = ToNetworkResourceId(NetworkSecurityGroupId, "networkSecurityGroups");
         IpConfigurations = [BuildIpConfiguration()];
         ApplyEdgeZone();
