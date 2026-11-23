@@ -16,7 +16,7 @@
 #   -CommitEmail <email>  inline user.email — same
 #   -OutputManifest <p>   write a machine-readable JSON summary of the run to <p>
 #   -SkipServicePages     drop service-page/**/*.yml from CLI2Yaml output before applying to the
-#                         target. Defaults to $true because our current service_name.json produces
+#                         target. Defaults to $true because the compatibility mapping produces
 #                         a single broken page with unresolvable xrefs (tracked as follow-up to
 #                         Azure/CLIPS#588). Pass `-SkipServicePages:$false` once upstream is fixed.
 #                         When on, TOC.yml is also regenerated as a command-group tree
@@ -295,7 +295,7 @@ function Invoke-CliExporter
 
 # ── CLI2Yaml orchestration ──────────────────────────────────────────────────────
 
-# Assembles the smoke workspace that CLI2Yaml expects (input/latest/, input-ext/, commit map)
+# Assembles the smoke workspace that CLI2Yaml expects (input/latest/, input-ext/, sidecars)
 # and returns the path to it. Doesn't run CLI2Yaml itself — separate function.
 function New-Cli2YamlWorkspace
 {
@@ -310,7 +310,19 @@ function New-Cli2YamlWorkspace
     Remove-Item -Recurse -Force $workspace -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Path (Join-Path $workspace 'input/latest'), (Join-Path $workspace 'input-ext') | Out-Null
 
-    Copy-Item (Join-Path $ExporterOutput '*.json') -Destination (Join-Path $workspace 'input/latest') -Force
+    $exportedFiles = @(Get-ChildItem -LiteralPath $ExporterOutput -Filter '*.json' -File)
+    $verbFiles = @($exportedFiles | Where-Object Name -ne '_root_.json' | Sort-Object Name)
+    if ($verbFiles.Count -eq 0) { throw "No command-group JSON files found in $ExporterOutput." }
+    $exportedFiles | Copy-Item -Destination (Join-Path $workspace 'input/latest') -Force
+
+    # CLI2Yaml requires service mappings even though AzClips does not publish service pages.
+    # Map every exported top-level command to a placeholder service until the converter can
+    # generate command-group navigation without service mappings.
+    $serviceMappingPath = Join-Path $workspace 'input/service_name.json'
+    $serviceMapping = @($verbFiles | ForEach-Object {
+        [ordered]@{ Command = $_.BaseName; AzureServiceName = 'azure-cli' }
+    })
+    ConvertTo-Json -InputObject $serviceMapping -Depth 3 | Set-Content -LiteralPath $serviceMappingPath -Encoding utf8
 
     $commitMapPath = Join-Path $workspace 'input/doc_commit_map.json'
     $commitMapScript = Join-Path $RepoRoot 'build/Get-DocCommitMap.ps1'
@@ -321,7 +333,7 @@ function New-Cli2YamlWorkspace
 
     Push-Location $RepoRoot
     try {
-        $output = & pwsh -File $commitMapScript -OutputPath $commitMapPath 2>&1
+        $output = & pwsh -File $commitMapScript -ServiceMappingPath $serviceMappingPath -OutputPath $commitMapPath 2>&1
         if ($LASTEXITCODE -ne 0)
         {
             throw "Get-DocCommitMap.ps1 failed with exit $LASTEXITCODE. Output:`n$($output -join "`n")"
@@ -895,7 +907,7 @@ $workspace = New-Cli2YamlWorkspace @workspaceArgs
 # Resolve absolute paths for side-cars — CLI2Yaml is picky about relative paths.
 $docsReferenceConfig = (Resolve-Path (Join-Path $repoRoot $config.docsReferenceConfig)).Path
 $extensionIndex      = (Resolve-Path (Join-Path $repoRoot $config.extensionIndex)).Path
-$serviceMapping      = (Resolve-Path (Join-Path $repoRoot $config.serviceMapping)).Path
+$serviceMapping      = (Resolve-Path (Join-Path $workspace 'input/service_name.json')).Path
 
 if ($Force)
 {

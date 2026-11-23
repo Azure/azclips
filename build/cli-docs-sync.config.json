@@ -7,7 +7,6 @@
   "exportProject": "tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj",
   "docsReferenceConfig": "src/CLI/Help/.docsreference.azclips.json",
   "extensionIndex": "src/CLI/Help/index.json",
-  "serviceMapping": "src/CLI/Help/service_name.json",
   "cli2yamlPackage": "CLI2Yaml",
   "cli2yamlFeed": "https://apidrop.pkgs.visualstudio.com/_packaging/ReferenceAutomation/nuget/v3/index.json"
 }
