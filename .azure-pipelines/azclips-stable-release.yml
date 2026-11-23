@@ -44,13 +44,13 @@ variables:
 - name: DockerCliRegistryServer
   value: azclips.azurecr.io
 - name: DockerCliRepository
-  value: unlisted/azclips/cli-dev
+  value: public/azclips/cli
 - name: DockerPowerShellRegistryName
   value: azclips
 - name: DockerPowerShellRegistryServer
   value: azclips.azurecr.io
 - name: DockerPowerShellRepository
-  value: unlisted/azclips/powershell-dev
+  value: public/azclips/powershell
 
 stages:
 - stage: Preflight
@@ -191,9 +191,17 @@ stages:
     signed_artifact_source: current
     signed_artifact_name: ${{ variables.SignedArtifactName }}
 
-- template: templates/dist/stages/publish-docker-to-acr.yml
+- template: templates/dist/stages/build-signed-docker.yml
   parameters:
     dependency_stage: VerifySignedDistribution
+    amd64_pool: ${{ variables.ubuntu_pool }}
+    arm64_pool: ${{ variables.ubuntu_arm64_pool }}
+    PackagingScriptsRoot: $(PackagingScriptsRoot)
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+
+- template: templates/dist/stages/publish-docker-to-acr.yml
+  parameters:
+    dependency_stage: ValidateSignedPowerShellDockerImages
     cli_dependency_stage: ValidateDockerAzureLinux3
     azure_service_connection: $(DockerAzureServiceConnection)
     cli_registry_name: $(DockerCliRegistryName)
@@ -203,4 +211,3 @@ stages:
     powershell_registry_server: $(DockerPowerShellRegistryServer)
     powershell_repository: $(DockerPowerShellRepository)
     PackagingScriptsRoot: $(PackagingScriptsRoot)
-    signed_artifact_name: ${{ variables.SignedArtifactName }}

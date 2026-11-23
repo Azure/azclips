@@ -1,3 +1,105 @@
+## v0.1.8 - 2026-11-15 20:17 UTC
+
+#### Agent
+- Send builtin model requests to the production gateway (#1329)
+- [BREAKING CHANGE] `az agent tool help`: Replace the list invocation with docs list and the name lookup with docs show (#1335)
+- [BREAKING CHANGE] `az agent tool help generate`: Move catalog generation to docs generate (#1335)
+- [BREAKING CHANGE] `az agent tool env`: Move environment snapshots to env show and make env a group only (#1335)
+- `az troubleshoot`: Replace a damaged failure history key instead of failing every later save (#1220)
+
+#### Auth
+- `az login`: Reject `--federated-token` for non-federated profile reauth (#1386)
+- Login requires a subscription ID supplied explicitly (#1340)
+
+#### CLI
+- Allow extensions with distinct command leaves to share a command group during install-hint generation (#1404)
+- Include all contributing extensions in shared command-group and command help (#1404)
+- Install release packages using cross-platform installation scripts (#1413)
+- Simplify extension bundle downloads with download-only Bash and PowerShell helpers (#1413)
+- Restore complete missing-required-argument diagnostics and automatic command help for interactive CLI usage errors (#1380)
+- `az msgraph user list`: Expand parity options for query and projection (#1377)
+- `az msgraph group list`: Expand parity options for query and projection (#1377)
+- `az msgraph group member list`: Add alternate group selector and enforce selector exclusivity (#1377)
+- `az msgraph app list`: Keep display-name semantics aligned with PowerShell (#1377)
+- Fix bold help headings and ANSI formatting in standalone Windows consoles (#1290)
+- Improve Windows persistence reliability during concurrent reads (#1290)
+- `az vm create`: Support `os=SKU` syntax for `--storage-sku` (#1337)
+- `az msgraph user/group/app list`: Improve missing consistency-level advanced-query errors with actionable guidance (#1370)
+- `az identity federated-credential`: Add `create`/`list`/`show`/`update`/`delete` for federated identity credentials on user-assigned managed identities (#1207)
+- Add a debug timing summary for startup, routing, extension loading, preparation, invocation, and shutdown across CLI commands (#1203)
+- `az vm create`: Add `--os-disk-delete-option` to control OS disk retention when deleting a VM (#1267)
+
+#### Compute
+- `az vm create`: Independent handling of `--address-prefixes` and `--subnet-address-prefixes` (#1442)
+- Add default subnet address prefixes when not specified (#1412)
+- `az vm create`: Remove `--network-interface-name` param (#1412)
+- Update error messages on missing / mutually exclusive parameters (#1421)
+- Add SSH keys support for PS `New-AzVM` (#1387)
+- `az vm get-instance-view` / `Get-AzVM -Status`: Add instance view support (#1313)
+
+#### MsGraph
+- Remove CLI parameter-set metadata from group member commands (#1417)
+
+#### Network
+- `az network vnet/nsg/vnet subnet/public-ip/nic`: Report missing required arguments instead of sending a request with empty path segments (#1399)
+
+#### Packaging
+- Label GitHub releases as Public Preview (#1419)
+
+#### PowerShell
+- Install modules using a cross-platform bootstrap with temporary repository cleanup (#1413)
+- `New-AzVM`: Support `os=SKU` syntax for `-StorageSku` (#1337)
+- `*-AzFederatedIdentityCredential`: Add `New-`/`Get-`/`Update-`/`Remove-` cmdlets for federated identity credentials on user-assigned managed identities (#1207)
+- `New-AzVM`: Add `-OSDiskDeleteOption` to control OS disk retention when deleting a VM (#1267)
+- Align module minimum version requirements to PowerShell 7.6 (#1280)
+
+#### Resources
+- Migrate Resources deployments tenant scope (#1276)
+- Add subscription-scope deployment commands for CLI and PowerShell (#1400)
+
+#### Storage
+- Dataplane file+blob support (#1423)
+- `az storage account create/show/list/delete`: Report missing required arguments instead of sending a request with an empty resource group (#1379)
+
+#### Telemetry
+- Remove App Insights exports while preserving Aria and loc… (#1438)
+
+#### Az.Accounts 0.1.5
+* Initial sign-in no longer inherits argument defaults from the active profile; supply subscription ID explicitly.
+* Managed identity sign-in now requires a subscription ID. Profile re-authentication no longer accepts a subscription ID.
+
+#### Az.ManagedServiceIdentity 0.1.4
+* Added federated identity credential lifecycle cmdlets
+    - `New-AzFederatedIdentityCredential`, `Get-AzFederatedIdentityCredential`, `Update-AzFederatedIdentityCredential`, `Remove-AzFederatedIdentityCredential`
+
+#### Az.Resources 0.1.6
+* Added tenant deployment cmdlets: `New-AzTenantDeployment`, `Test-AzTenantDeployment`, `Get-AzTenantDeploymentWhatIfResult`, `Get-AzTenantDeployment`, `Stop-AzTenantDeployment`, `Remove-AzTenantDeployment`, and `Save-AzTenantDeploymentTemplate`.
+    - `New-AzTenantDeployment`, `Test-AzTenantDeployment`, and `Get-AzTenantDeploymentWhatIfResult` take `-Location` plus the resource group deployment template and parameter inputs (`-TemplateFile`, `-TemplateUri`, `-TemplateSpecId`, `-QueryString`, `-ParametersFile`, `-ParametersUri`, `-Parameter`, `-ValidationLevel`). `-Name` is optional and defaults to a generated GUID. Tenant deployments always use `Incremental` mode, so there is no `-Mode`.
+    - `New-AzTenantDeployment` validates before deploying and waits for the deployment to finish. `-NoWait` returns the initial `DeploymentExtended` once the deployment is submitted; it does not create a PowerShell job.
+    - `Test-AzTenantDeployment` outputs `DeploymentValidateResult` and throws on validation errors. `Get-AzTenantDeploymentWhatIfResult` outputs the raw what-if result and accepts `-ResultFormat` (`FullResourcePayloads` or `ResourceIdOnly`).
+    - `Get-AzTenantDeployment` lists every tenant deployment, gets one by `-Name`, or lists with an OData `-Filter`.
+    - `Save-AzTenantDeploymentTemplate` writes the exported template to `-Path` (default: the current location) and requires `-Force` to overwrite an existing file.
+* Added subscription-scope deployment cmdlets `New-AzSubDeployment`, `Test-AzSubDeployment`, `Get-AzSubDeployment`, `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, and `Save-AzSubDeploymentTemplate`
+    - Legacy `*-AzSubscriptionDeployment` and `Save-AzSubscriptionDeploymentTemplate` names are accepted as aliases
+    - `Stop-AzSubDeployment`, `Remove-AzSubDeployment`, `Get-AzSubDeployment`, and `Save-AzSubDeploymentTemplate` accept a deployment piped from `Get-AzSubDeployment` (`-InputObject`) and use the subscription in its `Id`; `-PassThru` on Stop/Remove outputs `true` when the cancel or delete runs
+    - `New-AzSubDeployment` reports the deployment's ARM error, up to 3 failed operation errors, and the correlation id when the deployment fails
+    - `New-AzSubDeployment` validates the deployment before submitting it and throws `Deployment validation failed.` without creating a deployment when validation fails
+* Added `Get-AzSubDeploymentWhatIfResult` to preview subscription-scope deployment changes
+    - The legacy `Get-AzSubscriptionDeploymentWhatIfResult` name is accepted as an alias
+    - The preview always uses `Incremental` mode (no `-Mode`), `-Name` is optional, and `-ResultFormat` selects `FullResourcePayloads` or `ResourceIdOnly`
+* When `-Name` is omitted, `New-AzSubDeployment`, `Test-AzSubDeployment`, `Test-AzResourceGroupDeployment`, and `Test-AzManagementGroupDeployment` name the deployment after the template file or URI instead of a GUID
+    - A GUID is still used when no template file or URI is given, or the derived name is not a valid deployment name
+
+#### Az.Storage 0.1.2
+* Added Blob Storage data-plane cmdlets
+    - `New-AzStorageContainer`, `Remove-AzStorageContainer`
+    - `Get-AzStorageBlob`, `Remove-AzStorageBlob`, `Set-AzStorageBlobContent`, `Get-AzStorageBlobContent`, `Start-AzStorageBlobCopy`, `Copy-AzStorageBlob`
+* Added Azure Files data-plane cmdlets
+    - `New-AzStorageShare`, `Get-AzStorageShare`, `Update-AzStorageShare`, `Remove-AzStorageShare`
+    - `New-AzStorageDirectory`, `Get-AzStorageDirectory`, `Remove-AzStorageDirectory`
+    - `New-AzStorageFile`, `Get-AzStorageFile`, `Remove-AzStorageFile`, `Set-AzStorageFileContent`, `Get-AzStorageFileContent`, `Start-AzStorageFileCopy`
+* Data-plane cmdlets authenticate with `-StorageAccountName` and `-StorageAccountKey`, or with `-SasToken`
+
 ## v0.1.7 - 2026-11-04 19:14 UTC
 
 #### Agent

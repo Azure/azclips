@@ -268,5 +268,59 @@ public sealed class ExtensionRoutingDiscoveryTests : IDisposable
             provider.GetRequiredService<ExtensionDispatcher>().Parse(["vm", "create"]));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ScopedSelectionRetainsSharedOwnersEvenWhenTheRoutingIndexConflicts(bool conflict)
+    {
+        Add(Compute, "1.0.0", ["vm"], ["vm create"]);
+        Add("Contoso.Extra", "1.0.0", ["vm"], [conflict ? "vm create" : "vm inspect"]);
+        Add("Contoso.Unrelated", "1.0.0", ["network"], ["network show"]);
+        using var provider = CreateProvider();
+        var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
+        var selected = provider.GetRequiredService<SelectedExtensionLocations>();
+
+        Assert.Equal([Compute, "Contoso.Extra"],
+            CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(dispatcher, selected, "VM"));
+        Assert.Equal([Compute, "Contoso.Extra", "Contoso.Unrelated"],
+            CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(dispatcher, selected));
+        Assert.Empty(CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(dispatcher, selected, "missing"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ScopedSelectionUsesOnlyTheSelectedCopiesVerbs(bool pinned)
+    {
+        Add(Compute, "1.0.0", ["vm", "vm-alias"], ["vm create"]);
+        Add(Compute, "2.0.0", ["disk"], ["disk create"]);
+        var registry = new ExtensionRegistry();
+        registry.Extensions[Compute] = new ExtensionRegistryEntry { Version = "1.0.0", Pinned = pinned };
+        using var provider = CreateProvider(registry);
+        var dispatcher = provider.GetRequiredService<ExtensionDispatcher>();
+        var selected = provider.GetRequiredService<SelectedExtensionLocations>();
+
+        Assert.Equal(pinned ? [Compute] : Array.Empty<string>(),
+            CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(dispatcher, selected, "vm"));
+        Assert.Equal(pinned ? [Compute] : Array.Empty<string>(),
+            CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(dispatcher, selected, "VM-ALIAS"));
+        Assert.Equal(pinned ? Array.Empty<string>() : [Compute],
+            CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(dispatcher, selected, "disk"));
+        Assert.True(selected.TryGet("Compute", pinned ? "1.0.0" : "2.0.0", out var location));
+        Assert.Equal(_installations[pinned ? 0 : 1].Info.Location, location);
+    }
+
+    [Fact]
+    public void ScopedSelectionRetainsCommandlessDeclaredVerbs()
+    {
+        Add("Contoso.Empty", "1.0.0", ["empty"], []);
+        Add(Compute, "1.0.0", ["vm"], ["vm create"]);
+        using var provider = CreateProvider();
+
+        Assert.Equal(["Contoso.Empty"], CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+            provider.GetRequiredService<ExtensionDispatcher>(),
+            provider.GetRequiredService<SelectedExtensionLocations>(), "EMPTY"));
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 }

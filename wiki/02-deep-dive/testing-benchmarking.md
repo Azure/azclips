@@ -32,7 +32,7 @@ All test projects are members of the solution `azclips.slnx` and split across th
 | `Core.Agent.Tests`           | `azclips.slnx:31`    | Agent tools, approval prompt, plan validation, snapshot rendering                                                                                    |
 | `Azclips.Help.Tool.Tests`    | `azclips.slnx:41`    | Build-time help validators (frontmatter, completeness, example syntax)                                                                               |
 | `Core.Engine.Tests` | `tests/Core.Engine.Tests/Core.Engine.Tests.csproj:1` | Engine behavior |
-| `Extensions.Accounts.Tests`, `Extensions.Compute.Tests`, `Extensions.KeyVault.Tests`, `Extensions.MsGraph.Tests` | `azclips.slnx:49` | Extension-specific behavior |
+| `Extensions.Accounts.Tests`, `Extensions.Compute.Tests`, `Extensions.KeyVault.Tests`, `Extensions.MsGraph.Tests`, `Extensions.Resources.Tests` | `azclips.slnx:49` | Extension-specific behavior |
 | `Scenario.Tests` | `tests/Scenario.Tests/README.md:1` | Real dispatch/binding/engine workflows against recordings or controlled fake backends |
 | `Tests.Recording` | `tests/Tests.Recording/RequestMatcher.cs:1` | Shared HTTP capture, matching, and playback infrastructure |
 
@@ -114,7 +114,7 @@ The snapshot harness is a hand-rolled `SnapshotAssert.Matches(name, actual)`: it
 
 ## Benchmarking with BenchmarkDotNet
 
-`tests/Benchmark` is an executable (`OutputType=Exe`) BenchmarkDotNet 0.13.12 project that references the real CLI, Runtime, DI, and Resources projects plus `Tests.Common` (`tests/Benchmark/Benchmark.csproj:4-8,17-25`). It measures cold-start and command execution for both the CLI and PowerShell surfaces, selectable via a `--product` filter, with `--local` and `--ci` modes controlling output paths and App Insights upload (`tests/Benchmark/Program.cs:22-42`).
+`tests/Benchmark` is an executable (`OutputType=Exe`) BenchmarkDotNet 0.13.12 project that references the real CLI, Runtime, DI, and Resources projects plus `Tests.Common` (`tests/Benchmark/Benchmark.csproj:4-8,17-25`). It measures cold-start and command execution for both the CLI and PowerShell surfaces, selectable via a `--product` filter. Results are always local artifacts; `--ci` selects a stable output path, and `--local`/`-l` remain compatibility flags (`tests/Benchmark/Program.cs:22-42`).
 
 Authentication is the deliberate exception. `IAuthService` is **not** stubbed, because a real `az`
 invocation pays to read the MSAL token cache off disk and the benchmarks are meant to include that

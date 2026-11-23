@@ -51,10 +51,6 @@ public class GetStorageFileCmdlet : PSCmdlet
     [Parameter(ParameterSetName = ListParameterSet, Mandatory = false)]
     public int Maxresults { get; set; }
 
-    [Parameter(ParameterSetName = ListParameterSet, Mandatory = false)]
-    [ValidateSet("Timestamps", "Etag", "Attributes", "PermissionKey", "Permissions", "LinkCount", "NfsAttributes", "All", IgnoreCase = true)]
-    public string[]? Include { get; set; }
-
     [Parameter(Mandatory = false)]
     public int Timeout { get; set; }
 
@@ -89,7 +85,6 @@ public class GetStorageFileCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Prefix))) { parameters.Add("Prefix", Prefix!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Marker))) { parameters.Add("Marker", Marker!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Maxresults))) { parameters.Add("Maxresults", Maxresults); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Include))) { parameters.Add("Include", Include!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Timeout))) { parameters.Add("Timeout", Timeout); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ClientRequestId))) { parameters.Add("ClientRequestId", ClientRequestId!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(FilePath))) { parameters.Add("FilePath", FilePath!); }

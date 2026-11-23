@@ -13,6 +13,36 @@ namespace Cli.Tests;
 /// </summary>
 public class MarkdownCommandHelpProviderTests
 {
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void Parse_PreservesDescriptionParagraphsWithoutConsumingExamples(string newline)
+    {
+        var content = string.Join(newline,
+            "---",
+            "summary: Create a virtual network.",
+            "schema: 1.0.0",
+            "---",
+            "",
+            "Description: Provision a virtual network.",
+            "",
+            "Supported `--subnets` keys: `name`, `address-prefixes`.",
+            "",
+            "### Create a virtual network",
+            "",
+            "```bash",
+            "az network vnet create --name myvnet --resource-group myrg --location eastus",
+            "```");
+
+        var result = MarkdownCommandHelpProvider.Parse(content);
+
+        Assert.Equal("Create a virtual network.", result.Summary);
+        Assert.Equal("Provision a virtual network.\n\nSupported `--subnets` keys: `name`, `address-prefixes`.", result.Description);
+        var example = Assert.Single(result.Examples);
+        Assert.Equal("Create a virtual network", example.Title);
+        Assert.Equal("az network vnet create --name myvnet --resource-group myrg --location eastus", example.Command);
+    }
+
     [Fact]
     public void Parse_ShouldReturnEmpty_WhenContentIsNull()
     {

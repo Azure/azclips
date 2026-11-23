@@ -12,7 +12,7 @@
 RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Config.dll'
 
 # Version number of this module.
-ModuleVersion = '0.1.5'
+ModuleVersion = '0.1.6'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')
@@ -52,7 +52,7 @@ PowerShellVersion = '7.6'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.4' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.5' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -85,7 +85,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'Get-AzConfig', 'Set-AzConfig', 'Remove-AzConfig', 'Get-AzConfigList', 'Get-AzConfigInfo'
+CmdletsToExport = 'Get-AzConfig', 'Set-AzConfig', 'Remove-AzConfig', 'Get-AzConfigInfo'
 
 # Variables to export from this module
 VariablesToExport = @()

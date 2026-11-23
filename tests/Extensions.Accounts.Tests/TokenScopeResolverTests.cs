@@ -14,6 +14,9 @@ namespace Extensions.Accounts.Tests;
 /// </summary>
 public class TokenScopeResolverTests
 {
+    private const string MutuallyExclusiveMessage =
+        "Specify at most one of a resource, a resource type, or a scope list - these inputs are mutually exclusive.";
+
     [Fact]
     public void Resolve_NoInput_DefaultsToArmScope()
     {
@@ -57,7 +60,7 @@ public class TokenScopeResolverTests
         // is an invalid required target, not "no target" - it must not silently fall back to ARM.
         var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(null, null, Array.Empty<string>()));
-        Assert.Contains("At least one scope", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("At least one scope must be supplied with --scope/-Scope.", ex.Message);
     }
 
     [Fact]
@@ -72,8 +75,26 @@ public class TokenScopeResolverTests
     {
         var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve("https://vault.azure.net", null, ["https://graph.microsoft.com/.default"]));
-        Assert.Contains("mutually exclusive", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(MutuallyExclusiveMessage, ex.Message);
         Assert.Equal(2, ex.ExitCode);
+    }
+
+    public static TheoryData<string?, string?, string[]?> MutuallyExclusiveCombinations() => new()
+    {
+        { "https://vault.azure.net", "key-vault", null },
+        { null, "key-vault", ["https://graph.microsoft.com/.default"] },
+        // Exclusivity is checked on presence (non-null), before any value validation.
+        { "", "", [] },
+    };
+
+    [Theory]
+    [MemberData(nameof(MutuallyExclusiveCombinations))]
+    public void Resolve_MoreThanOneTarget_ThrowsUsageError(
+        string? resource, string? resourceType, string[]? scopes)
+    {
+        Exception? exception = Record.Exception(() => TokenScopeResolver.Resolve(resource, resourceType, scopes));
+
+        Assert.Equal(MutuallyExclusiveMessage, Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Fact]
@@ -81,14 +102,25 @@ public class TokenScopeResolverTests
     {
         var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(null, "not-a-real-type", null));
-        Assert.Contains("Unknown resource type", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            $"Unknown resource type 'not-a-real-type'. Known resource types: {string.Join(", ", WellKnownResourceTypes.Names)}.",
+            ex.Message);
     }
 
     [Fact]
     public void Resolve_EmptyScopeValue_Throws()
     {
-        Assert.Throws<UsageErrorException>(() =>
+        var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(null, null, ["  "]));
+        Assert.Equal("Scope values must not be empty.", ex.Message);
+    }
+
+    [Fact]
+    public void Resolve_EmptyStringScopeValue_ThrowsUsageError()
+    {
+        Exception? exception = Record.Exception(() => TokenScopeResolver.Resolve(null, null, [""]));
+
+        Assert.Equal("Scope values must not be empty.", Assert.IsType<UsageErrorException>(exception).Message);
     }
 
     [Theory]
@@ -98,7 +130,7 @@ public class TokenScopeResolverTests
     {
         var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(resource, null, null));
-        Assert.Contains("Resource must not be empty", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("Resource must not be empty.", ex.Message);
     }
 
     [Theory]
@@ -108,6 +140,18 @@ public class TokenScopeResolverTests
     {
         var ex = Assert.Throws<UsageErrorException>(() =>
             TokenScopeResolver.Resolve(null, resourceType, null));
-        Assert.Contains("Resource type must not be empty", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("Resource type must not be empty.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ToDefaultScope_EmptyResource_ThrowsInvalidInput(string? resource)
+    {
+        Exception? exception = Record.Exception(() => TokenScopeResolver.ToDefaultScope(resource!));
+
+        // Same message as Resolve's empty-resource check, but raised as InvalidInputException rather than UsageErrorException.
+        Assert.Equal("Resource must not be empty.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 }

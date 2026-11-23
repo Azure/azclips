@@ -3,8 +3,11 @@
 
 using System.Net;
 using System.Text.Json;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 using static Cli.Tests.DeploymentProcessorTestKit;
 
 namespace Cli.Tests;
@@ -16,6 +19,8 @@ namespace Cli.Tests;
 public sealed class ResourceGroupDeploymentValidateTests : IDisposable
 {
     private readonly List<string> _tempFiles = [];
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     public void Dispose() => _tempFiles.ForEach(File.Delete);
 
@@ -159,6 +164,69 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
         Assert.Equal(0, pipeline.SendCount);
     }
 
+    // Current behaviour: validate throws ArgumentException where create throws InvalidInputException, and the message names PowerShell parameters even for CLI users.
+    [Fact]
+    public async Task ProcessAsync_BothRollbackOptions_ThrowsArgumentException()
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new TestResourceGroupDeploymentProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = "test-rg",
+                RollbackOnError = true,
+                RollbackToDeploymentName = "previous",
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal(
+            "Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.",
+            Assert.IsType<ArgumentException>(exception).Message);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ProcessAsync_MissingResourceGroupName_ThrowsInvalidInput(string? resourceGroupName)
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new TestResourceGroupDeploymentProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = resourceGroupName!,
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("ResourceGroupName must be provided.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_InvalidMode_ThrowsInvalidInput()
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(
+            new TestResourceGroupDeploymentProcessor_Orchestrator
+            {
+                SubscriptionId = SubscriptionId,
+                ResourceGroupName = "test-rg",
+                Mode = "Partial",
+                Name = "dep",
+                TemplateUri = "https://example.com/t.json",
+            },
+            _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("Mode must be either 'Incremental' or 'Complete'.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
     private static readonly Func<HttpRequestMessage, HttpResponseMessage> s_ok =
         _ => Status(HttpStatusCode.OK, """{"properties":{"provisioningState":"Succeeded"}}""");
 
@@ -249,7 +317,9 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
             p.Parameter = null;
         }).ProcessAsync());
 
-        Assert.Contains("parameter(s): alpha, zeta.", error.Message);
+        Assert.Equal(
+            "Missing value for required template parameter(s): alpha, zeta. Supply them with a parameters file or with inline parameters.",
+            error.Message);
         Assert.DoesNotContain("withDefault", error.Message);
         Assert.DoesNotContain("optional", error.Message);
         Assert.DoesNotContain("secret", error.Message);

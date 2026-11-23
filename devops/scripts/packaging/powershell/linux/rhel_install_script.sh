@@ -1,20 +1,18 @@
 #!/bin/sh
 set -eu
 
-source_root="${1:?Source root is required.}"
-powershell_version="${2:?PowerShell version is required.}"
-dotnet_runtime_version="${3:?.NET runtime version is required.}"
-work_root="${4:-/opt}"
+powershell_version="${1:?PowerShell version is required.}"
+work_root="${2:-/opt}"
 
-dotnet_root="$work_root/dotnet"
+powershell_platform=linux
 pwsh_root="$work_root/pwsh"
-install_script="$work_root/dotnet-install.sh"
 mkdir -p "$work_root"
 
 dnf install -y --allowerasing \
   ca-certificates \
   curl \
   gzip \
+  jq \
   libgcc \
   libicu \
   libstdc++ \

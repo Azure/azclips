@@ -10,7 +10,7 @@
 RootModule = ''
 
 # Version number of this module.
-ModuleVersion = '0.1.1'
+ModuleVersion = '0.1.2'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -38,7 +38,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.4' }
+    @{ ModuleName = '../Accounts/Accounts.psd1'; ModuleVersion = '0.1.5' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -80,7 +80,16 @@ PrivateData = @{
         ProjectUri = 'https://github.com/Azure/azclips'
 
         # ReleaseNotes of this module
-        ReleaseNotes = '* First preview'
+        ReleaseNotes = @'
+* Added Blob Storage data-plane cmdlets
+    - 'New-AzStorageContainer', 'Remove-AzStorageContainer'
+    - 'Get-AzStorageBlob', 'Remove-AzStorageBlob', 'Set-AzStorageBlobContent', 'Get-AzStorageBlobContent', 'Start-AzStorageBlobCopy', 'Copy-AzStorageBlob'
+* Added Azure Files data-plane cmdlets
+    - 'New-AzStorageShare', 'Get-AzStorageShare', 'Update-AzStorageShare', 'Remove-AzStorageShare'
+    - 'New-AzStorageDirectory', 'Get-AzStorageDirectory', 'Remove-AzStorageDirectory'
+    - 'New-AzStorageFile', 'Get-AzStorageFile', 'Remove-AzStorageFile', 'Set-AzStorageFileContent', 'Get-AzStorageFileContent', 'Start-AzStorageFileCopy'
+* Data-plane cmdlets authenticate with '-StorageAccountName' and '-StorageAccountKey', or with '-SasToken'
+'@
 
     } # End of PSData hashtable
 

@@ -22,7 +22,7 @@ Lists the file shares in a storage account, or gets the properties of a share.
 ```
 Get-AzStorageShare [-Url <string>] [-StorageAccountName <string>] [-StorageAccountKey <string>]
  [-SasToken <string>] [-Timeout <int>] [-ClientRequestId <string>] [-Prefix <string>]
- [-Marker <string>] [-Maxresults <int>] [-Include <string[]>] [<CommonParameters>]
+ [-Marker <string>] [-Maxresults <int>] [<CommonParameters>]
 ```
 
 ### Get
@@ -72,27 +72,6 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Include
-
-Specify to include additional, optional information.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: List
   Position: Named
   IsRequired: false
   ValueFromPipeline: false

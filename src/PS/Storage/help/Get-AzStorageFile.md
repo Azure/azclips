@@ -23,7 +23,7 @@ Lists the files and directories in a file share, or gets the properties of a fil
 Get-AzStorageFile [-Url <string>] [-StorageAccountName <string>] [-ShareName <string>]
  [-DirectoryPath <string>] [-StorageAccountKey <string>] [-SasToken <string>]
  [-Sharesnapshot <string>] [-Prefix <string>] [-Marker <string>] [-Maxresults <int>]
- [-Include <string[]>] [-Timeout <int>] [-ClientRequestId <string>] [<CommonParameters>]
+ [-Timeout <int>] [-ClientRequestId <string>] [<CommonParameters>]
 ```
 
 ### Get
@@ -115,27 +115,6 @@ SupportsWildcards: false
 Aliases: []
 ParameterSets:
 - Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -Include
-
-Specify to include additional, optional information.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
-ParameterSets:
-- Name: List
   Position: Named
   IsRequired: false
   ValueFromPipeline: false

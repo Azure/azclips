@@ -56,10 +56,6 @@ public class GetStorageShareCmdlet : PSCmdlet
     [Parameter(ParameterSetName = ListParameterSet, Mandatory = false)]
     public int Maxresults { get; set; }
 
-    [Parameter(ParameterSetName = ListParameterSet, Mandatory = false)]
-    [ValidateSet("snapshots", "metadata", "deleted", IgnoreCase = true)]
-    public string[]? Include { get; set; }
-
     protected override void BeginProcessing()
     {
         streams = CmdletOutputStreamsFactory.Create(this, "StorageError", ErrorCategory.NotSpecified, enumerateOutput: true);
@@ -84,7 +80,6 @@ public class GetStorageShareCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Prefix))) { parameters.Add("Prefix", Prefix!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Marker))) { parameters.Add("Marker", Marker!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Maxresults))) { parameters.Add("Maxresults", Maxresults); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(Include))) { parameters.Add("Include", Include!); }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

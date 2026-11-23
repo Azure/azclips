@@ -8,8 +8,8 @@ Install requires a local gallery path in RepositoryRoot and checks that every
 module imports under its exact packaged version, exports its manifest cmdlets,
 and has external help examples.
 
-The distribution bootstrap must run separately first. For a PowerShell global-tool
-installation, put its dotnet directory on PATH and set DOTNET_ROOT in each process.
+The distribution bootstrap must run separately first. The standalone PowerShell
+executable includes its runtime and needs no separate dotnet directory or PATH setup.
 Successful Install leaves modules for Uninstall; failed Install performs its own
 partial-install cleanup. See README.md in this directory for local and CI usage.
 #>

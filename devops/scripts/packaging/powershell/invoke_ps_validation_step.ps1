@@ -41,7 +41,6 @@ param(
     [string]$ContainerImage,
     [string]$ContainerName,
     [string]$PwshPath,
-    [string]$DotnetRootPath,
     [string]$ReportRoot,
     [string]$ValidationKey,
     [string]$AzVersion,
@@ -93,7 +92,6 @@ function Invoke-ValidationPhase
                     'run', '--detach', '--name', $ContainerName, '--entrypoint', '/bin/sh',
                     '-e', 'DOTNET_CLI_TELEMETRY_OPTOUT=1',
                     '-e', 'POWERSHELL_TELEMETRY_OPTOUT=1',
-                    '-e', 'DOTNET_ROOT=/opt/dotnet',
                     '-v', "${SourceRoot}:/src:ro", '-v', "${ArtifactsRoot}:/artifacts:ro"
                 )
                 if ($ReportRoot) { $containerArguments += @('-v', "${ReportRoot}:/reports") }
@@ -105,11 +103,10 @@ function Invoke-ValidationPhase
                 # A successful exec also establishes that the detached container is running.
                 Invoke-ValidationCommand -FilePath 'docker' -Arguments @(
                     'exec', $ContainerName, 'sh', "/src/$DistributionScript",
-                    '/src', $PowerShellVersion, $DotnetRuntimeVersion, '/opt'
+                    $PowerShellVersion, '/opt'
                 )
             }
             $PwshPath = '/opt/pwsh/pwsh'
-            $DotnetRootPath = '/opt/dotnet'
         }
         else
         {
@@ -117,27 +114,25 @@ function Invoke-ValidationPhase
             if ($DistributionFamily -eq 'windows')
             {
                 Invoke-ValidationCommand -FilePath 'pwsh' -Arguments @(
-                    '-NoProfile', '-File', $installer, '-SourceRoot', $SourceRoot,
+                    '-NoProfile', '-File', $installer,
                     '-PowerShellVersion', $PowerShellVersion,
-                    '-DotnetRuntimeVersion', $DotnetRuntimeVersion, '-WorkRoot', $WorkRoot
+                    '-WorkRoot', $WorkRoot
                 )
                 $pwshName = 'pwsh.exe'
             }
             else
             {
                 Invoke-ValidationCommand -FilePath 'sh' -Arguments @(
-                    $installer, $SourceRoot, $PowerShellVersion, $DotnetRuntimeVersion, $WorkRoot
+                    $installer, $PowerShellVersion, $WorkRoot
                 )
                 $pwshName = 'pwsh'
             }
             $PwshPath = Join-Path (Join-Path $WorkRoot 'pwsh') $pwshName
-            $DotnetRootPath = Join-Path $WorkRoot 'dotnet'
         }
 
         if ($script:exitCode -eq 0)
         {
             Set-ValidationVariable -Name 'PwshPath' -Value $PwshPath
-            Set-ValidationVariable -Name 'DotnetRootPath' -Value $DotnetRootPath
             Set-ValidationVariable -Name 'PsValidationBootstrapped' -Value 'true'
         }
     }
@@ -147,11 +142,8 @@ function Invoke-ValidationPhase
         if ($ValidationMode -eq 'container')
         {
             $reportArguments = if ($ReportRoot) { @('-ReportRoot', '/reports') } else { @() }
-            # Each exec starts with the container's environment, not the bootstrap's PATH.
-            # The PowerShell global-tool shim needs to find dotnet by name.
             Invoke-ValidationCommand -FilePath 'docker' -Arguments (@(
-                'exec', $ContainerName, 'sh', '-c',
-                'export PATH="$DOTNET_ROOT:$PATH"; exec "$@"', '_',
+                'exec', $ContainerName,
                 $PwshPath, '-NoProfile', '-File', "/src/$phaseScript", '-Phase', $Phase,
                 '-RepositoryRoot', '/artifacts/artifacts/PSGallery/local-repo',
                 '-SourceRoot', '/src', '-PwshPath', $PwshPath
@@ -160,8 +152,6 @@ function Invoke-ValidationPhase
         else
         {
             $reportArguments = if ($ReportRoot) { @('-ReportRoot', $ReportRoot) } else { @() }
-            $env:DOTNET_ROOT = $DotnetRootPath
-            $env:PATH = $DotnetRootPath + [System.IO.Path]::PathSeparator + $env:PATH
             Invoke-ValidationCommand -FilePath $PwshPath -Arguments (@(
                 '-NoProfile', '-File', (Join-Path $SourceRoot $phaseScript),
                 '-Phase', $Phase,

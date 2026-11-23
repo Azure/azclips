@@ -12,7 +12,7 @@
 RootModule = '../../../artifacts/Debug/Microsoft.Azure.Azclips.Cmdlets.Accounts.dll'
 
 # Version number of this module.
-ModuleVersion = '0.1.4'
+ModuleVersion = '0.1.5'
 
 # Supported PSEditions
 CompatiblePSEditions = @('Core')
@@ -118,7 +118,8 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
-* Added service principal client-secret sign-in with '-ClientSecret <SecureString>' and backward-compatible '-ServicePrincipal -Credential <PSCredential>' syntax.
+* Initial sign-in no longer inherits argument defaults from the active profile; supply subscription ID explicitly.
+* Managed identity sign-in now requires a subscription ID. Profile re-authentication no longer accepts a subscription ID.
 '@
 
         # Prerelease string of this module

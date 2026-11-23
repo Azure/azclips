@@ -108,7 +108,7 @@ public class TelemetryRoutingResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_LogsDebugOnCatch_WhenLoggingServiceProvided()
+    public async Task ResolveAsync_LogsVerboseOnCatch_WhenLoggingServiceProvided()
     {
         var throwingProfileService = new ThrowingProfileService();
         var capturingLogger = new CapturingLoggingService();
@@ -125,7 +125,32 @@ public class TelemetryRoutingResolverTests
         Assert.Null(boundary);
         Assert.Null(subscriptionId);
         Assert.Null(authType);
-        Assert.Contains(capturingLogger.Messages, m => m.StartsWith("DEBUG: [TelemetryRoutingResolver] Failed to resolve telemetry routing for profile 'test-profile': Simulated failure", StringComparison.Ordinal));
+        Assert.Contains(capturingLogger.Messages, m => m.StartsWith("VERBOSE: [TelemetryRoutingResolver] Failed to resolve telemetry routing for profile 'test-profile': Simulated failure", StringComparison.Ordinal));
+        Assert.DoesNotContain(capturingLogger.Messages, m => m.StartsWith("DEBUG:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_NoLogger_DoesNotWriteConsoleOnCatch()
+    {
+        using var error = new StringWriter();
+        var originalError = Console.Error;
+        try
+        {
+            Console.SetError(error);
+            var result = await TelemetryRoutingResolver.ResolveAsync(
+                _boundaryResolver, new ThrowingProfileService(), new StubAuthService(),
+                "test-profile", CancellationToken.None);
+
+            Assert.Null(result.TenantId);
+            Assert.Null(result.Boundary);
+            Assert.Null(result.SubscriptionId);
+            Assert.Null(result.AuthType);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+        Assert.Empty(error.ToString());
     }
 
     [Fact]

@@ -1,0 +1,38 @@
+description: "[mutate/group-typo] group-create-verb-typo"
+metadata:
+  mode: mutate
+  failureType: group-typo
+vars:
+  case_id: group-create-verb-typo
+  command_group: group
+  goal: Create resource group azclips-eval-rg3 in eastus.
+  command: group crate --name azclips-eval-rg3 --location eastus
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az group create
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-rg3
+            --location: eastus
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az group create
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create resource group azclips-eval-rg3 in eastus."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

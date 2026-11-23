@@ -1,0 +1,38 @@
+description: "[read/missing-param] rest-missing-uri"
+metadata:
+  mode: read
+  failureType: missing-param
+vars:
+  case_id: rest-missing-uri
+  command_group: rest
+  goal: Send an ARM GET request; no endpoint was supplied.
+  command: rest --method GET
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az rest
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --method: GET
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az rest
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Send an ARM GET request; no endpoint was supplied."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - The endpoint is unknown; a --uri placeholder or the piece-wise parameters are acceptable. Keep GET.

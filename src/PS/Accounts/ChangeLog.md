@@ -16,6 +16,8 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+
+## Version 0.1.5
 * Initial sign-in no longer inherits argument defaults from the active profile; supply subscription ID explicitly.
 * Managed identity sign-in now requires a subscription ID. Profile re-authentication no longer accepts a subscription ID.
 

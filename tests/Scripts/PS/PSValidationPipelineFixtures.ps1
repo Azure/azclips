@@ -104,7 +104,6 @@ if ($Scenario)
         ContainerImage = 'fixture:latest'
         ContainerName = 'azclips-psval-fixture'
         PwshPath = '/opt/pwsh/pwsh'
-        DotnetRootPath = Join-Path $ScratchRoot 'dotnet with spaces'
         ContinueOnError = 'false'
         ReportRoot = Join-Path $ScratchRoot 'reports with spaces'
         ValidationKey = 'alpine_3_23_ps7_6'
@@ -185,6 +184,12 @@ function Read-Condition
         $Position.Value++
     }
     $remaining = $Text.Substring($Position.Value)
+    $match = [regex]::Match($remaining, '^(?i:true|false)\b')
+    if ($match.Success)
+    {
+        $Position.Value += $match.Length
+        return $match.Value -eq 'true'
+    }
     $match = [regex]::Match($remaining, "^'([^']*)'")
     if ($match.Success)
     {
@@ -214,7 +219,7 @@ function Read-Condition
         if (-not $Variables.ContainsKey($match.Value)) { throw "Unknown dependency output: $($match.Value)" }
         return $Variables[$match.Value]
     }
-    $match = [regex]::Match($remaining, '^dependencies\.([A-Za-z]+)\.result')
+    $match = [regex]::Match($remaining, '^dependencies\.([A-Za-z][A-Za-z0-9_]*)\.result')
     if ($match.Success)
     {
         $Position.Value += $match.Length
@@ -293,11 +298,7 @@ $count = 0
 $installedByScenario = @{}
 try
 {
-    $sharedBootstrap = Get-Content -LiteralPath (Join-Path $repoRoot 'devops/scripts/packaging/powershell/shared/bootstrap_powershell.sh') -Raw
-    Assert-Contains $sharedBootstrap '--configfile "$source_root/NuGet.config"' 'Non-Windows PowerShell bootstrap explicitly selects the repository feed configuration'
-    $windowsBootstrap = Get-Content -LiteralPath (Join-Path $repoRoot 'devops/scripts/packaging/powershell/windows/windows_install_script.ps1') -Raw
-    Assert-Contains $windowsBootstrap "'--configfile', (Join-Path `$SourceRoot 'NuGet.config')" 'Windows PowerShell bootstrap explicitly selects the repository feed configuration'
-    Write-Host 'PASS: PowerShell bootstrap feed selection does not depend on the working directory'
+    & (Join-Path $PSScriptRoot 'PSBootstrapFixtures.ps1')
     $count++
 
     $scenarios = @(
@@ -467,11 +468,12 @@ try
         if ($name -in @('bootstrap-success', 'bootstrap-hard-fails', 'bootstrap-soft-fails'))
         {
             Assert-Equal 'pull,run,exec' (($calls | ForEach-Object { $_.Arguments[0] }) -join ',') 'Container lifecycle order'
-            Assert-Contains ($calls[1].Arguments -join '|') 'DOTNET_ROOT=/opt/dotnet' 'Container runtime persists'
+            Assert-Equal $false (($calls[1].Arguments -join '|').Contains('DOTNET_ROOT=')) 'Standalone container needs no external runtime'
             Assert-Contains ($calls[1].Arguments -join '|') 'artifacts with spaces:/artifacts:ro' 'Mount path remains one argument'
             Assert-Contains ($calls[1].Arguments -join '|') 'reports with spaces:/reports' 'Reports use a separate persistent writable mount'
             Assert-Equal $false (($calls[1].Arguments -join '|').Contains('reports with spaces:/reports:ro')) 'Report mount is writable'
-            Assert-Equal 8 $calls[2].Arguments.Count 'Bootstrap argument count'
+            Assert-Equal 6 $calls[2].Arguments.Count 'Bootstrap argument count'
+            Assert-Equal '7.6|/opt' (($calls[2].Arguments | Select-Object -Last 2) -join '|') 'Bootstrap gets the requested release line and isolated root'
             if ($name -eq 'bootstrap-success')
             {
                 Assert-Contains $text 'variable=PwshPath]/opt/pwsh/pwsh' 'Bootstrap publishes path'
@@ -486,8 +488,7 @@ try
         if ($name -like 'container-*')
         {
             Assert-Equal 1 $calls.Count 'One exec per module phase'
-            Assert-Equal 'export PATH="$DOTNET_ROOT:$PATH"; exec "$@"' $calls[0].Arguments[4] 'Container reconstructs its own PATH'
-            Assert-Equal '_' $calls[0].Arguments[5] 'sh argument-zero placeholder'
+            Assert-Equal '/opt/pwsh/pwsh' $calls[0].Arguments[2] 'Container directly executes standalone PowerShell'
             Assert-Contains ($calls[0].Arguments -join '|') ("-Phase|" + $name.Substring(10)) 'Requested phase is forwarded'
             Assert-Contains ($calls[0].Arguments -join '|') '/artifacts/artifacts/PSGallery/local-repo' 'Downloaded gallery location'
             Assert-Contains ($calls[0].Arguments -join '|') '-ReportRoot|/reports' 'Container phase writes to the host-backed report root'
@@ -501,14 +502,13 @@ try
         if ($name -eq 'macos-bootstrap')
         {
             Assert-Equal 'sh' $calls[0].Command 'macOS bootstrap uses POSIX shell'
-            Assert-Equal 5 $calls[0].Arguments.Count 'macOS bootstrap signature'
+            Assert-Equal 3 $calls[0].Arguments.Count 'macOS bootstrap signature'
         }
         if ($name -in @('native-install', 'phase-hard-fails', 'phase-soft-fails'))
         {
             Assert-Equal 'tested-pwsh' $calls[0].Command 'Native phase uses requested PowerShell'
-            $dotnetRoot = Join-Path $caseRoot 'dotnet with spaces'
-            Assert-Equal $dotnetRoot $calls[0].DotnetRoot 'Native DOTNET_ROOT restored'
-            Assert-Equal $true ($calls[0].Path.StartsWith($dotnetRoot + [System.IO.Path]::PathSeparator)) 'Native PATH restored'
+            Assert-Equal $env:DOTNET_ROOT $calls[0].DotnetRoot 'Native phase does not change DOTNET_ROOT'
+            Assert-Equal $env:PATH $calls[0].Path 'Native phase does not change PATH'
             Assert-Contains ($calls[0].Arguments -join '|') "-ReportRoot|$reportRoot" 'Native report root is forwarded as one argument'
         }
         if ($name -eq 'complete-lifecycle')
@@ -612,33 +612,102 @@ exit $LASTEXITCODE
     Write-Host 'PASS: malformed phase reports fail explicitly'
     $count++
 
-    $summary = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/jobs/finalize-build-summary.yml')
-    $gates = @($summary | Where-Object { $_ -match '^\s*condition:.*ValidatePSResult' } |
-        ForEach-Object { ($_ -split 'condition:\s*', 2)[1] })
-    Assert-Equal 16 $gates.Count 'Every download, collect and publish gate is covered'
-    foreach ($gate in $gates)
+    $summaryText = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/jobs/finalize-build-summary.yml') -Raw
+    $stage = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/stages/build-unsigned-distribution.yml') -Raw
+    $finalStage = [regex]::Match($stage, '(?ms)^- stage: Finalize\r?\n(?<body>.*)\z').Groups['body'].Value
+    $finalCondition = [regex]::Match($finalStage, '(?ms)^  condition: \|\r?\n(?<body>.*?)^  variables:').Groups['body'].Value.Trim()
+    Assert-Equal $false ([string]::IsNullOrWhiteSpace($finalCondition)) 'Finalization has one stage-level prerequisite gate'
+    Assert-Equal $false ($finalStage -match 'stageDependencies\.\w+\.\w+\.result') 'Finalization does not depend on internal job names'
+    Assert-Equal $false ($summaryText -match '\$\(\w+Result\)|variables\[') 'Assembly tasks do not repeat stage-result gates'
+    $dependencyNames = @([regex]::Matches(($finalStage -split '  condition:', 2)[0], '(?m)^\s+- (\w+)\r?$') |
+        ForEach-Object { $_.Groups[1].Value })
+    $dockerStages = @('BuildDockerAzureLinux3', 'ValidateDockerAzureLinux3')
+    $dockerDownloads = [regex]::Matches($summaryText, '(?m)^    displayName: (?<name>Download Docker[^\r\n]+)\r?\n    condition: (?<condition>[^\r\n]+)')
+    Assert-Equal 6 $dockerDownloads.Count 'Only optional Docker downloads keep task-level conditions'
+    Assert-Equal $dockerDownloads.Count ([regex]::Matches($summaryText, '(?m)^    condition:').Count) 'Other assembly steps use default success conditions'
+    foreach ($buildDocker in $true, $false)
     {
-        $variables = @{}
-        foreach ($match in [regex]::Matches($gate, "variables\['([^']+)'\]"))
+        foreach ($includeDocker in $true, $false)
         {
-            $variables[$match.Groups[1].Value] = 'Succeeded'
+            foreach ($buildCli in $true, $false)
+            {
+                foreach ($buildPowerShell in $true, $false)
+                {
+                    $parameterValues = @{
+                        'parameters.build_docker_images' = $buildDocker
+                        'parameters.include_docker_images_in_final_distribution' = $includeDocker
+                        'parameters.build_cli_docker_images' = $buildCli
+                        'parameters.build_powershell_docker_images' = $buildPowerShell
+                    }
+                    $expand = [System.Text.RegularExpressions.MatchEvaluator] {
+                        param($match)
+                        (Test-Condition $match.Groups[1].Value.Trim() $parameterValues).ToString()
+                    }
+                    $gate = [regex]::Replace($finalCondition, '\$\{\{ (.*?) \}\}', $expand)
+                    $requiresDocker = $buildDocker -and $includeDocker -and ($buildCli -or $buildPowerShell)
+                    $results = @{}
+                    foreach ($name in $dependencyNames)
+                    {
+                        $results["dependencies.$name.result"] = if ($name -in $dockerStages -and -not $requiresDocker) { '' } else { 'Succeeded' }
+                    }
+                    Assert-Equal $true (Test-Condition $gate $results) 'Successful required stages allow assembly, including without Docker artifacts'
+                    foreach ($name in $dependencyNames)
+                    {
+                        $key = "dependencies.$name.result"
+                        $originalResult = $results[$key]
+                        foreach ($result in 'SucceededWithIssues', 'Failed', 'Canceled', 'Skipped', '')
+                        {
+                            $results[$key] = $result
+                            $expected = ($name -in $dockerStages -and -not $requiresDocker) -or
+                                ($result -eq 'SucceededWithIssues' -and $name -in @('ValidatePS', 'ComponentGovernance'))
+                            Assert-Equal $expected (Test-Condition $gate $results) "Finalization after stage $name has result '$result'; Docker required=$requiresDocker"
+                        }
+                        $results[$key] = $originalResult
+                    }
+                    $results['dependencies.ValidatePS.result'] = 'SucceededWithIssues'
+                    $results['dependencies.BuildCommon.result'] = 'Failed'
+                    Assert-Equal $false (Test-Condition $gate $results) 'Canary warnings never override another stage failure'
+                    $results['dependencies.BuildCommon.result'] = 'Succeeded'
+                    $results['Agent.JobStatus'] = 'Canceled'
+                    Assert-Equal $false (Test-Condition $gate $results) 'Cancellation prevents finalization'
+                    $parameterValues['parameters.build_docker_images'] = $requiresDocker
+                    foreach ($download in $dockerDownloads)
+                    {
+                        $downloadGate = [regex]::Replace($download.Groups['condition'].Value, '\$\{\{ (.*?) \}\}', $expand)
+                        $isCli = $download.Groups['name'].Value.Contains('Docker CLI')
+                        $expected = $requiresDocker -and $(if ($isCli) { $buildCli } else { $buildPowerShell })
+                        Assert-Equal $expected (Test-Condition $downloadGate @{}) 'Docker downloads follow artifact inclusion and flavor settings'
+                        Assert-Equal $false (Test-Condition $downloadGate @{ 'Agent.JobStatus' = 'Failed' }) 'Docker options cannot bypass an earlier assembly failure'
+                    }
+                }
+            }
         }
-        foreach ($psResult in @('Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled', 'Skipped'))
-        {
-            $variables.ValidatePSResult = $psResult
-            Assert-Equal ($psResult -in @('Succeeded', 'SucceededWithIssues')) (Test-Condition $gate $variables) "Publication after PS $psResult"
-        }
-        $variables.ValidatePSResult = 'SucceededWithIssues'
-        $variables.BuildCommonResult = 'Failed'
-        Assert-Equal $false (Test-Condition $gate $variables) 'Canary warning does not override another build failure'
     }
-    Write-Host 'PASS: final publication result policy'
+    Write-Host 'PASS: stage-level finalization gate covers all prerequisites, warning policy, cancellation and optional Docker artifacts'
     $count++
-
-    $summaryText = $summary -join "`n"
-    Assert-Equal $false ($summaryText.Contains('Aggregate PS Validation Results')) 'Finalization reads the single validation stage result directly'
-    Assert-Equal $false ($summaryText -match 'ValidatePS(Alpha|Beta|Release)') 'No per-mode validation results remain'
-    Assert-Contains $summaryText 'echo "ValidatePS: $(ValidatePSResult)"' 'Stage summary reports the validation result'
+    foreach ($filename in 'sign-nuget.yml', 'sign-windows.yml', 'sign-ps-module.yml')
+    {
+        $signingJob = Get-Content -LiteralPath (Join-Path $repoRoot ".azure-pipelines/templates/dist/jobs/$filename") -Raw
+        $payloadConditions = [regex]::Matches($signingJob, "(?m)^\s+condition: (?<body>[^\r\n]*variables\['(?<flag>Has\w+)'\][^\r\n]*)")
+        Assert-Equal $true ($payloadConditions.Count -gt 0) "$filename payload conditions are exercised"
+        foreach ($condition in $payloadConditions)
+        {
+            foreach ($status in 'Succeeded', 'SucceededWithIssues', 'Failed', 'Canceled', 'Skipped')
+            {
+                foreach ($payload in 'true', 'false', '')
+                {
+                    $values = @{
+                        'Agent.JobStatus' = $status
+                        $condition.Groups['flag'].Value = $payload
+                    }
+                    $expected = $status -in @('Succeeded', 'SucceededWithIssues') -and $payload -eq 'true'
+                    Assert-Equal $expected (Test-Condition $condition.Groups['body'].Value $values) "$filename payload=$payload after job status $status"
+                }
+            }
+        }
+    }
+    Write-Host 'PASS: signing payload conditions preserve optional payloads and stop after failure or cancellation'
+    $count++
     $validationJob = Get-Content -LiteralPath (Join-Path $repoRoot '.azure-pipelines/templates/dist/jobs/validate-ps-build.yml') -Raw
     $generate = [regex]::Match($validationJob, '(?ms)^  - bash: \|\r?\n(?<body>.*?)^    name: GenerateMatrix\r?\n(?<tail>.*?)(?=^- job:|\z)')
     Assert-Contains $generate.Groups['tail'].Value 'LIMIT_TESTING: ${{ parameters.limit_testing }}' 'Configured limit reaches matrix generation'
@@ -767,7 +836,7 @@ exit $LASTEXITCODE
     $finalStage = [regex]::Match($stage, '(?ms)^- stage: Finalize\r?\n(?<body>.*)\z').Groups['body'].Value
     Assert-Equal $false ($stage -match 'ValidatePS(Alpha|Beta|Release)') 'A single stage replaces the per-mode validation stages'
     Assert-Equal $true ([regex]::IsMatch($finalStage, '(?m)^  - ValidatePS\r?$')) 'Finalization waits for PS validation'
-    Assert-Contains $finalStage 'ValidatePSResult: $[ dependencies.ValidatePS.result ]' 'Publication is gated on every job and matrix leg in the validation stage'
+    Assert-Contains $finalStage "in(dependencies.ValidatePS.result, 'Succeeded', 'SucceededWithIssues')" 'Publication checks the entire validation stage result'
     $validationStage = [regex]::Match($stage, '(?ms)^- stage: ValidatePS\r?\n(?<body>.*?)(?=^- stage:|\z)').Groups['body'].Value
     Assert-Contains $validationStage 'displayName: Validate (PS)' 'Validation stage is named'
     Assert-Contains $validationStage '- BuildPSModules' 'Validation waits for the module build'
@@ -797,12 +866,13 @@ exit $LASTEXITCODE
     Assert-Contains $job 'bash devops/scripts/packaging/powershell/generate_ps_validation_matrix.sh' 'Azure Pipelines still generates the validation matrix'
     Assert-Contains $job 'PSModuleLifecycleFixtures.ps1' 'Module fixtures are wired into CI'
     Assert-Contains $job 'PSValidationPipelineFixtures.ps1' 'Pipeline fixtures are wired into CI'
-    Assert-Contains $job 'artifact: Validate_PS_Sim_$(ValidationKey)' 'Each matrix leg has a unique validation artifact'
-    Assert-Equal $true ([regex]::IsMatch($job, '(?s)displayName: Publish PS Validation Artifacts\s+condition: always\(\)')) 'Artifacts publish after validation failures'
+    Assert-Contains $job 'artifact_name: Validate_PS_Sim_$(ValidationKey)' 'Each matrix leg has a unique validation artifact'
+    Assert-Contains $job 'template: ../steps/publish-artifact.yml' 'Validation artifacts use the retry-safe publish template'
+    Assert-Equal $true ([regex]::IsMatch($job, '(?s)display_name: Publish PS Validation Artifacts\s+condition: always\(\)')) 'Artifacts publish after validation failures'
     Assert-Equal $true ([regex]::IsMatch($job, '(?s)condition: always\(\)\s+displayName: Finalize PS Validation Artifacts')) 'Finalization also runs after failures'
-    Assert-Equal $true ($job.IndexOf('complete_ps_validation_artifacts.ps1') -lt $job.IndexOf('artifact: Validate_PS_Sim_')) 'Results are finalized before publication'
+    Assert-Equal $true ($job.IndexOf('complete_ps_validation_artifacts.ps1') -lt $job.IndexOf('artifact_name: Validate_PS_Sim_')) 'Results are finalized before publication'
     Assert-Contains $template '-ReportRoot (Join-Path $env:AGENT_TEMPDIRECTORY "azclips-ps-validation-reports-$env:SYSTEM_JOBID")' 'Reports stay out of source and package directories'
-    Assert-Contains $job 'targetPath: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)' 'Published root matches the host report mount'
+    Assert-Contains $job 'target_path: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)' 'Published root matches the host report mount'
     Write-Host 'PASS: task shape, ordering, cleanup and fixture wiring'
     $count++
 
