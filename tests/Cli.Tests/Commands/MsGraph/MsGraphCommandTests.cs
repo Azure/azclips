@@ -19,6 +19,8 @@ public sealed class MsGraphCommandTests : IDisposable
     private const string ExtensionName = "MsGraph";
     private const string GroupId = "bbbbbbbb-0000-0000-0000-000000000002";
     private const string MemberId = "dddddddd-0000-0000-0000-000000000004";
+    private const string GroupIdentifierRequiredMessage = "A group identifier is required. Provide Group or GroupDisplayName.";
+    private const string GroupRequiredMessage = "Group is required.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -33,13 +35,14 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupShowBlankGroup_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "show", "--group", ""]);
+        string blankGroup = "";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "show", "--group", blankGroup]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Group is required.", Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(GroupRequiredMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     // ── group member check ─────────────────────────────────────────────────────────────────────
@@ -61,23 +64,25 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberCheckBlankGroup_ThrowsInvalidInput()
     {
+        string blankGroup = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["msgraph", "group", "member", "check", "--group", "", "--member-id", MemberId]);
+            ["msgraph", "group", "member", "check", "--group", blankGroup, "--member-id", MemberId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Group is required.", Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(GroupRequiredMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_GroupMemberCheckBlankMemberId_ThrowsInvalidInput()
     {
+        string blankMemberId = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["msgraph", "group", "member", "check", "--group", GroupId, "--member-id", ""]);
+            ["msgraph", "group", "member", "check", "--group", GroupId, "--member-id", blankMemberId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -92,9 +97,10 @@ public sealed class MsGraphCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberListGroupAndDisplayName_ThrowsInvalidInput()
     {
+        string groupDisplayName = "Sales";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["msgraph", "group", "member", "list", "--group", GroupId, "--display-name", "Sales"]);
+            ["msgraph", "group", "member", "list", "--group", GroupId, "--display-name", groupDisplayName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -114,36 +120,32 @@ public sealed class MsGraphCommandTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "A group identifier is required. Provide Group or GroupDisplayName.",
-            Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(GroupIdentifierRequiredMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_GroupMemberListBlankGroup_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "member", "list", "--group", ""]);
+        string blankGroup = "";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "member", "list", "--group", blankGroup]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "A group identifier is required. Provide Group or GroupDisplayName.",
-            Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(GroupIdentifierRequiredMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_GroupMemberListBlankDisplayName_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "member", "list", "--display-name", ""]);
+        string blankDisplayName = "";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "member", "list", "--display-name", blankDisplayName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "A group identifier is required. Provide Group or GroupDisplayName.",
-            Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(GroupIdentifierRequiredMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 }

@@ -17,6 +17,7 @@ namespace Cli.Tests.Commands.KeyVault;
 public sealed class VaultSelectionCommandTests : IDisposable
 {
     private const string ExtensionName = "KeyVault";
+    private const string PublicCloudVaultUrlMessage = "Use the root HTTPS URL of an Azure public-cloud vault.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -38,27 +39,31 @@ public sealed class VaultSelectionCommandTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Use the root HTTPS URL of an Azure public-cloud vault.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(PublicCloudVaultUrlMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_ExistingProfileWithoutVault_ThrowsArgumentException()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "show", "--name", "secret", "--profile", "test"]);
+        string existingProfile = "test";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "show", "--name", "secret", "--profile", existingProfile]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Use the root HTTPS URL of an Azure public-cloud vault.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(PublicCloudVaultUrlMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_VaultNameAndVaultUrl_ThrowsArgumentException()
     {
+        string vaultUrl = "https://myvault.vault.azure.net/";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "secret", "show", "--name", "secret", "--vault-name", "myvault", "--vault-url", "https://myvault.vault.azure.net/"]);
+            ["keyvault", "secret", "show", "--name", "secret", "--vault-name", "myvault", "--vault-url", vaultUrl]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -70,7 +75,10 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_InvalidVaultName_ThrowsArgumentException()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "show", "--name", "secret", "--vault-name", "1vault"]);
+        string vaultNameStartingWithDigit = "1vault";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "show", "--name", "secret", "--vault-name", vaultNameStartingWithDigit]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -84,7 +92,10 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RelativeVaultUrl_ThrowsArgumentException()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "show", "--name", "secret", "--vault-url", "myvault"]);
+        string relativeVaultUrl = "myvault";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["keyvault", "secret", "show", "--name", "secret", "--vault-url", relativeVaultUrl]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -96,14 +107,15 @@ public sealed class VaultSelectionCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_NonPublicCloudVaultUrl_ThrowsArgumentException()
     {
+        string nonPublicCloudVaultUrl = "https://myvault.vault.azure.cn/";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "secret", "show", "--name", "secret", "--vault-url", "https://myvault.vault.azure.cn/"]);
+            ["keyvault", "secret", "show", "--name", "secret", "--vault-url", nonPublicCloudVaultUrl]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Use the root HTTPS URL of an Azure public-cloud vault.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(PublicCloudVaultUrlMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 }

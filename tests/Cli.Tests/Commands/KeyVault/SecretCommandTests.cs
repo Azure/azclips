@@ -17,6 +17,7 @@ namespace Cli.Tests.Commands.KeyVault;
 public sealed class SecretCommandTests : IDisposable
 {
     private const string ExtensionName = "KeyVault";
+    private const string ValueSourceMessage = "Specify exactly one secret value source: value, file or SecureString.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -37,7 +38,8 @@ public sealed class SecretCommandTests : IDisposable
     [InlineData("keyvault", "secret", "delete")]
     public async Task RunAsync_InvalidSecretName_ThrowsArgumentException(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--name", "my_secret"]);
+        string invalidSecretName = "my_secret";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--name", invalidSecretName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -51,9 +53,10 @@ public sealed class SecretCommandTests : IDisposable
     [InlineData("keyvault", "secret", "set-attributes")]
     public async Task RunAsync_InvalidSecretVersion_ThrowsArgumentException(params string[] commandLine)
     {
+        string nonAlphanumericVersion = "not-a-version";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [.. commandLine, "--vault-name", "myvault", "--name", "secret", "--version", "not-a-version"]);
+            [.. commandLine, "--vault-name", "myvault", "--name", "secret", "--version", nonAlphanumericVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -83,7 +86,8 @@ public sealed class SecretCommandTests : IDisposable
     [InlineData("keyvault", "secret", "set-attributes", "--name", "secret")]
     public async Task RunAsync_InvalidEnabled_ThrowsArgumentException(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--enabled", "yes"]);
+        string nonBooleanEnabled = "yes";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--enabled", nonBooleanEnabled]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -113,7 +117,8 @@ public sealed class SecretCommandTests : IDisposable
     [InlineData("keyvault", "secret", "set-attributes", "--name", "secret")]
     public async Task RunAsync_TagWithoutName_ThrowsArgumentException(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--tags", "=value"]);
+        string tagWithoutName = "=value";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--tags", tagWithoutName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -134,33 +139,32 @@ public sealed class SecretCommandTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Specify exactly one secret value source: value, file or SecureString.",
-            Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(ValueSourceMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_SecretSetValueAndFile_ThrowsArgumentException()
     {
+        string secretValue = "secret-value";
+        string secretFile = "secret.txt";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--value", "secret-value", "--file", "secret.txt"]);
+            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--value", secretValue, "--file", secretFile]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Specify exactly one secret value source: value, file or SecureString.",
-            Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(ValueSourceMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_SecretSetValueOver25KiB_ThrowsArgumentException()
     {
+        string secretValueOver25KiB = new string('a', (25 * 1024) + 1);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--value", new string('a', (25 * 1024) + 1)]);
+            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--value", secretValueOver25KiB]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -173,9 +177,10 @@ public sealed class SecretCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSetMissingFile_ThrowsArgumentException()
     {
+        string missingFile = Path.Combine(_missingDirectory, "missing.txt");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--file", Path.Combine(_missingDirectory, "missing.txt")]);
+            ["keyvault", "secret", "set", "--vault-name", "myvault", "--name", "secret", "--file", missingFile]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 

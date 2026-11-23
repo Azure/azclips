@@ -17,6 +17,7 @@ namespace Cli.Tests.Commands.ManagedIdentity;
 public sealed class FederatedCredentialCommandTests : IDisposable
 {
     private const string ExtensionName = "ManagedServiceIdentity";
+    private const string ClaimsMatchingExpressionMessage = "Both 'ClaimsMatchingExpressionVersion' and 'ClaimsMatchingExpressionValue' must be specified together.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -35,22 +36,28 @@ public sealed class FederatedCredentialCommandTests : IDisposable
     [InlineData("identity", "federated-credential", "update")]
     public async Task RunAsync_ClaimsMatchingExpressionVersionWithoutValue_ThrowsInvalidInput(params string[] commandLine)
     {
+        string claimsMatchingExpressionVersion = "1";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [.. commandLine, "--resource-group", "rg", "--identity-name", "id", "--name", "fc", "--claims-matching-expression-version", "1"]);
+            [
+                .. commandLine,
+                "--resource-group", "rg",
+                "--identity-name", "id",
+                "--name", "fc",
+                "--claims-matching-expression-version", claimsMatchingExpressionVersion,
+            ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Both 'ClaimsMatchingExpressionVersion' and 'ClaimsMatchingExpressionValue' must be specified together.",
-            Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(ClaimsMatchingExpressionMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_CreateClaimsMatchingExpressionValueWithoutVersion_ThrowsInvalidInput()
     {
+        string claimsMatchingExpressionValue = "claims['sub'] eq 'repo'";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
@@ -58,21 +65,20 @@ public sealed class FederatedCredentialCommandTests : IDisposable
                 "--resource-group", "rg",
                 "--identity-name", "id",
                 "--name", "fc",
-                "--claims-matching-expression-value", "claims['sub'] eq 'repo'",
+                "--claims-matching-expression-value", claimsMatchingExpressionValue,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Both 'ClaimsMatchingExpressionVersion' and 'ClaimsMatchingExpressionValue' must be specified together.",
-            Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(ClaimsMatchingExpressionMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_CreateBlankClaimsMatchingExpressionValue_ThrowsInvalidInput()
     {
+        string blankClaimsMatchingExpressionValue = " ";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
@@ -81,15 +87,13 @@ public sealed class FederatedCredentialCommandTests : IDisposable
                 "--identity-name", "id",
                 "--name", "fc",
                 "--cme-version", "1",
-                "--cme-value", " ",
+                "--cme-value", blankClaimsMatchingExpressionValue,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Both 'ClaimsMatchingExpressionVersion' and 'ClaimsMatchingExpressionValue' must be specified together.",
-            Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(ClaimsMatchingExpressionMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 }

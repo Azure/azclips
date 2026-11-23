@@ -17,6 +17,9 @@ namespace Cli.Tests.Commands.KeyVault;
 public sealed class CertificateCommandTests : IDisposable
 {
     private const string ExtensionName = "KeyVault";
+    private const string InvalidCertificateNameMessage = "Certificate names must contain 1-127 letters, digits or hyphens.";
+    private const string InvalidCertificateVersionMessage = "Certificate version must be an alphanumeric version identifier.";
+    private const string UnreadableInputFileMessage = "The certificate input file could not be read.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -38,13 +41,14 @@ public sealed class CertificateCommandTests : IDisposable
     [InlineData("keyvault", "certificate", "delete")]
     public async Task RunAsync_InvalidCertificateName_ThrowsArgumentException(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--name", "my_certificate"]);
+        string invalidCertificateName = "my_certificate";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--name", invalidCertificateName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Certificate names must contain 1-127 letters, digits or hyphens.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(InvalidCertificateNameMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
@@ -52,27 +56,29 @@ public sealed class CertificateCommandTests : IDisposable
     [InlineData("keyvault", "certificate", "set-attributes")]
     public async Task RunAsync_InvalidCertificateVersion_ThrowsArgumentException(params string[] commandLine)
     {
+        string nonAlphanumericVersion = "not-a-version";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [.. commandLine, "--vault-name", "myvault", "--name", "certificate", "--version", "not-a-version"]);
+            [.. commandLine, "--vault-name", "myvault", "--name", "certificate", "--version", nonAlphanumericVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Certificate version must be an alphanumeric version identifier.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(InvalidCertificateVersionMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     // Download checks the destination before the name and version, so it needs a destination that does not exist.
     [Fact]
     public async Task RunAsync_CertificateDownloadInvalidName_ThrowsArgumentException()
     {
+        string invalidCertificateName = "my_certificate";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "keyvault", "certificate", "download",
                 "--vault-name", "myvault",
-                "--name", "my_certificate",
+                "--name", invalidCertificateName,
                 "--file", Path.Combine(_missingDirectory, "certificate.pem"),
             ]);
         OutputStreams streams = CreateOutput(_output);
@@ -80,19 +86,20 @@ public sealed class CertificateCommandTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Certificate names must contain 1-127 letters, digits or hyphens.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(InvalidCertificateNameMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_CertificateDownloadInvalidVersion_ThrowsArgumentException()
     {
+        string nonAlphanumericVersion = "not-a-version";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "keyvault", "certificate", "download",
                 "--vault-name", "myvault",
                 "--name", "certificate",
-                "--version", "not-a-version",
+                "--version", nonAlphanumericVersion,
                 "--file", Path.Combine(_missingDirectory, "certificate.pem"),
             ]);
         OutputStreams streams = CreateOutput(_output);
@@ -100,7 +107,7 @@ public sealed class CertificateCommandTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Certificate version must be an alphanumeric version identifier.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(InvalidCertificateVersionMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Theory]
@@ -125,7 +132,8 @@ public sealed class CertificateCommandTests : IDisposable
     [InlineData("keyvault", "certificate", "set-attributes", "--name", "certificate")]
     public async Task RunAsync_InvalidEnabled_ThrowsArgumentException(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--enabled", "yes"]);
+        string nonBooleanEnabled = "yes";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--enabled", nonBooleanEnabled]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -157,7 +165,8 @@ public sealed class CertificateCommandTests : IDisposable
     [InlineData("keyvault", "certificate", "set-attributes", "--name", "certificate")]
     public async Task RunAsync_TagWithoutName_ThrowsArgumentException(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--tags", "=value"]);
+        string tagWithoutName = "=value";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--vault-name", "myvault", "--tags", tagWithoutName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -171,9 +180,10 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateTimeoutOutOfRange_ThrowsArgumentException()
     {
+        string timeoutAboveMaximum = "3601";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate", "--timeout", "3601"]);
+            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate", "--timeout", timeoutAboveMaximum]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -199,14 +209,16 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreatePolicyAndPolicyFile_ThrowsArgumentException()
     {
+        string policy = "{}";
+        string policyFile = "policy.json";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "keyvault", "certificate", "create",
                 "--vault-name", "myvault",
                 "--name", "certificate",
-                "--policy", "{}",
-                "--policy-file", "policy.json",
+                "--policy", policy,
+                "--policy-file", policyFile,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -219,9 +231,10 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateInvalidPolicyJson_ThrowsArgumentException()
     {
+        string invalidPolicyJson = "not json";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate", "--policy", "not json"]);
+            ["keyvault", "certificate", "create", "--vault-name", "myvault", "--name", "certificate", "--policy", invalidPolicyJson]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -235,13 +248,14 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreatePolicyOver1MiB_ThrowsArgumentException()
     {
+        string policyOver1MiB = new string('a', (1024 * 1024) + 1);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "keyvault", "certificate", "create",
                 "--vault-name", "myvault",
                 "--name", "certificate",
-                "--policy", new string('a', (1024 * 1024) + 1),
+                "--policy", policyOver1MiB,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -254,20 +268,21 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateMissingPolicyFile_ThrowsArgumentException()
     {
+        string missingPolicyFile = Path.Combine(_missingDirectory, "missing.json");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "keyvault", "certificate", "create",
                 "--vault-name", "myvault",
                 "--name", "certificate",
-                "--policy-file", Path.Combine(_missingDirectory, "missing.json"),
+                "--policy-file", missingPolicyFile,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("The certificate input file could not be read.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(UnreadableInputFileMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     // ── certificate import ─────────────────────────────────────────────────────────────────────
@@ -275,6 +290,8 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateImportPasswordAndPasswordFile_ThrowsArgumentException()
     {
+        string password = "secret";
+        string passwordFile = "password.txt";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
@@ -282,8 +299,8 @@ public sealed class CertificateCommandTests : IDisposable
                 "--vault-name", "myvault",
                 "--name", "certificate",
                 "--file", "certificate.pfx",
-                "--password", "secret",
-                "--password-file", "password.txt",
+                "--password", password,
+                "--password-file", passwordFile,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -296,20 +313,21 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateImportMissingFile_ThrowsArgumentException()
     {
+        string missingFile = Path.Combine(_missingDirectory, "missing.pfx");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "keyvault", "certificate", "import",
                 "--vault-name", "myvault",
                 "--name", "certificate",
-                "--file", Path.Combine(_missingDirectory, "missing.pfx"),
+                "--file", missingFile,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("The certificate input file could not be read.", Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(UnreadableInputFileMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     // ── certificate set-attributes ─────────────────────────────────────────────────────────────
@@ -333,9 +351,10 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDownloadBlankFile_ThrowsArgumentException()
     {
+        string blankFile = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "certificate", "download", "--vault-name", "myvault", "--name", "certificate", "--file", ""]);
+            ["keyvault", "certificate", "download", "--vault-name", "myvault", "--name", "certificate", "--file", blankFile]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -347,6 +366,7 @@ public sealed class CertificateCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDownloadInvalidEncoding_ThrowsArgumentException()
     {
+        string invalidEncoding = "PFX";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
@@ -354,7 +374,7 @@ public sealed class CertificateCommandTests : IDisposable
                 "--vault-name", "myvault",
                 "--name", "certificate",
                 "--file", "certificate.pfx",
-                "--encoding", "PFX",
+                "--encoding", invalidEncoding,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);

@@ -18,6 +18,8 @@ public sealed class DeploymentCommandTests : IDisposable
 {
     private const string ExtensionName = "Resources";
     private const string TemplateUri = "https://example.com/template.json";
+    private const string RollbackOptionsMessage = "Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.";
+    private const string TemplateSourceMessage = "Exactly one of TemplateUri, TemplateFile, TemplateSpecId, or TemplateObject must be provided, unless ParametersFile is a .bicepparam file that carries its own template.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -54,43 +56,42 @@ public sealed class DeploymentCommandTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Exactly one of TemplateUri, TemplateFile, TemplateSpecId, or TemplateObject must be provided, unless ParametersFile is a .bicepparam file that carries its own template.",
-            Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(TemplateSourceMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_DeploymentTwoTemplateSources_ThrowsArgumentException()
     {
+        string templateSpecId = "/subscriptions/sub/templateSpecs/spec/versions/1";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "deployment", "group", "create",
                 "--resource-group", "rg",
                 "--template-uri", TemplateUri,
-                "--template-spec-id", "/subscriptions/sub/templateSpecs/spec/versions/1",
+                "--template-spec-id", templateSpecId,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Exactly one of TemplateUri, TemplateFile, TemplateSpecId, or TemplateObject must be provided, unless ParametersFile is a .bicepparam file that carries its own template.",
-            Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(TemplateSourceMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_DeploymentParametersUriAndParametersFile_ThrowsInvalidInput()
     {
+        string parametersUri = "https://example.com/parameters.json";
+        string parametersFile = "parameters.json";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "deployment", "group", "create",
                 "--resource-group", "rg",
                 "--template-uri", TemplateUri,
-                "--parameters-uri", "https://example.com/parameters.json",
-                "--parameters-file", "parameters.json",
+                "--parameters-uri", parametersUri,
+                "--parameters-file", parametersFile,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -103,14 +104,16 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentInlineParameterWithParametersUri_ThrowsInvalidInput()
     {
+        string parametersUri = "https://example.com/parameters.json";
+        string inlineParameter = "size=1";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "deployment", "group", "create",
                 "--resource-group", "rg",
                 "--template-uri", TemplateUri,
-                "--parameters-uri", "https://example.com/parameters.json",
-                "--parameter", "size=1",
+                "--parameters-uri", parametersUri,
+                "--parameter", inlineParameter,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -126,9 +129,10 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentBlankInlineParameter_ThrowsInvalidInput()
     {
+        string blankInlineParameter = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", ""]);
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", blankInlineParameter]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -140,9 +144,10 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentInlineParameterWithoutKey_ThrowsInvalidInput()
     {
+        string inlineParameterWithoutKey = "=1";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", "=1"]);
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", inlineParameterWithoutKey]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -154,9 +159,15 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentInlineParameterWithWhitespaceKey_ThrowsInvalidInput()
     {
+        string inlineParameterWithWhitespaceKey = " =1";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--parameter", " =1"]);
+            [
+                "deployment", "group", "create",
+                "--resource-group", "rg",
+                "--template-uri", TemplateUri,
+                "--parameter", inlineParameterWithWhitespaceKey,
+            ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -168,13 +179,14 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentQueryStringWithoutTemplateUri_ThrowsArgumentException()
     {
+        string queryString = "sv=1";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "deployment", "group", "create",
                 "--resource-group", "rg",
                 "--template-spec-id", "/subscriptions/sub/templateSpecs/spec/versions/1",
-                "--query-string", "sv=1",
+                "--query-string", queryString,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -189,9 +201,10 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentInvalidName_ThrowsInvalidInput()
     {
+        string invalidDeploymentName = "bad name!";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--name", "bad name!"]);
+            ["deployment", "group", "create", "--resource-group", "rg", "--template-uri", TemplateUri, "--name", invalidDeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -242,7 +255,10 @@ public sealed class DeploymentCommandTests : IDisposable
     [InlineData("deployment", "group", "validate")]
     public async Task RunAsync_DeploymentGroupBlankResourceGroup_ThrowsInvalidInput(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--resource-group", "", "--template-uri", TemplateUri]);
+        string blankResourceGroup = "";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            [.. commandLine, "--resource-group", blankResourceGroup, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -254,6 +270,7 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentGroupCreateBothRollbackOptions_ThrowsInvalidInput()
     {
+        string rollbackToDeploymentName = "previous";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
@@ -261,21 +278,20 @@ public sealed class DeploymentCommandTests : IDisposable
                 "--resource-group", "rg",
                 "--template-uri", TemplateUri,
                 "--rollback-on-error",
-                "--rollback-to-deployment-name", "previous",
+                "--rollback-to-deployment-name", rollbackToDeploymentName,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.",
-            Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(RollbackOptionsMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_DeploymentGroupValidateBothRollbackOptions_ThrowsArgumentException()
     {
+        string rollbackToDeploymentName = "previous";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
@@ -283,16 +299,14 @@ public sealed class DeploymentCommandTests : IDisposable
                 "--resource-group", "rg",
                 "--template-uri", TemplateUri,
                 "--rollback-on-error",
-                "--rollback-to-deployment-name", "previous",
+                "--rollback-to-deployment-name", rollbackToDeploymentName,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            "Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.",
-            Assert.IsType<ArgumentException>(exception).Message);
+        Assert.Equal(RollbackOptionsMessage, Assert.IsType<ArgumentException>(exception).Message);
     }
 
     // ── deployment mg create, what-if and validate ─────────────────────────────────────────────
@@ -304,9 +318,10 @@ public sealed class DeploymentCommandTests : IDisposable
     [InlineData("deployment", "mg", "validate")]
     public async Task RunAsync_DeploymentMgBlankManagementGroupId_ThrowsInvalidInput(params string[] commandLine)
     {
+        string blankManagementGroupId = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [.. commandLine, "--management-group-id", "", "--location", "westus", "--template-uri", TemplateUri]);
+            [.. commandLine, "--management-group-id", blankManagementGroupId, "--location", "westus", "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -321,9 +336,10 @@ public sealed class DeploymentCommandTests : IDisposable
     [InlineData("deployment", "mg", "validate")]
     public async Task RunAsync_DeploymentMgBlankLocation_ThrowsInvalidInput(params string[] commandLine)
     {
+        string blankLocation = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [.. commandLine, "--management-group-id", "mg", "--location", "", "--template-uri", TemplateUri]);
+            [.. commandLine, "--management-group-id", "mg", "--location", blankLocation, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -351,7 +367,10 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentTenantWaitInvalidCustomExpression_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "tenant", "wait", "--name", "deployment", "--custom", "[["]);
+        string invalidJmesPathExpression = "[[";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["deployment", "tenant", "wait", "--name", "deployment", "--custom", invalidJmesPathExpression]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -366,9 +385,10 @@ public sealed class DeploymentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentTenantWaitZeroTimeout_ThrowsInvalidOperationException()
     {
+        string zeroTimeout = "0";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "tenant", "wait", "--name", "deployment", "--created", "--timeout", "0"]);
+            ["deployment", "tenant", "wait", "--name", "deployment", "--created", "--timeout", zeroTimeout]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 

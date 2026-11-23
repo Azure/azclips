@@ -47,7 +47,9 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestUriAndPieceWiseParameters_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--resource-group", "rg"]);
+        string uri = "/subscriptions";
+        string resourceGroup = "rg";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", uri, "--resource-group", resourceGroup]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -62,7 +64,8 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestUnsupportedMethod_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--method", "TRACE"]);
+        string unsupportedMethod = "TRACE";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--method", unsupportedMethod]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -76,7 +79,8 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestHttpUrl_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "http://management.azure.com/subscriptions"]);
+        string httpUrl = "http://management.azure.com/subscriptions";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", httpUrl]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -90,7 +94,8 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestNonArmHost_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "https://graph.microsoft.com/v1.0/me"]);
+        string nonArmHostUrl = "https://graph.microsoft.com/v1.0/me";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", nonArmHostUrl]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -119,13 +124,15 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestMoreNamesThanResourceTypes_ThrowsInvalidInput()
     {
+        string firstName = "first";
+        string secondName = "second";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "rest",
                 "--resource-provider", "Microsoft.Storage",
                 "--resource-type", "storageAccounts",
-                "--name", "first", "second",
+                "--name", firstName, secondName,
                 "--api-version", "2023-01-01",
             ]);
         OutputStreams streams = CreateOutput(_output);
@@ -141,9 +148,10 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestBlankResourceType_ThrowsInvalidInput()
     {
+        string blankResourceType = " ";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["rest", "--resource-provider", "Microsoft.Storage", "--resource-type", " ", "--api-version", "2023-01-01"]);
+            ["rest", "--resource-provider", "Microsoft.Storage", "--resource-type", blankResourceType, "--api-version", "2023-01-01"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -157,9 +165,16 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestBlankName_ThrowsInvalidInput()
     {
+        string blankName = " ";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["rest", "--resource-provider", "Microsoft.Storage", "--resource-type", "storageAccounts", "--name", " ", "--api-version", "2023-01-01"]);
+            [
+                "rest",
+                "--resource-provider", "Microsoft.Storage",
+                "--resource-type", "storageAccounts",
+                "--name", blankName,
+                "--api-version", "2023-01-01",
+            ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -173,7 +188,10 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestUriParameterWithoutValue_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--uri-parameters", "top"]);
+        string uriParameterWithoutValue = "top";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["rest", "--uri", "/subscriptions", "--uri-parameters", uriParameterWithoutValue]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -185,7 +203,10 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestUriParameterWithBlankName_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--uri-parameters", " =5"]);
+        string uriParameterWithBlankName = " =5";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["rest", "--uri", "/subscriptions", "--uri-parameters", uriParameterWithBlankName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -197,7 +218,8 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestHeaderWithoutValue_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--headers", "Accept"]);
+        string headerWithoutValue = "Accept";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--headers", headerWithoutValue]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -209,7 +231,8 @@ public sealed class RestCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RestHeaderWithBlankName_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--headers", " =json"]);
+        string headerWithBlankName = " =json";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "/subscriptions", "--headers", headerWithBlankName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 

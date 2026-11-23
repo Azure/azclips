@@ -18,6 +18,7 @@ namespace Cli.Tests.Commands.ManagedIdentity;
 public sealed class IdentityCommandTests : IDisposable
 {
     private const string ExtensionName = "ManagedServiceIdentity";
+    private const string MissingIdentityAddressMessage = "Provide either --ids, or both --name and --resource-group.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -41,19 +42,20 @@ public sealed class IdentityCommandTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Provide either --ids, or both --name and --resource-group.", Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(MissingIdentityAddressMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_ShowBlankName_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "--name", " ", "--resource-group", "rg"]);
+        string blankName = " ";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "--name", blankName, "--resource-group", "rg"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Provide either --ids, or both --name and --resource-group.", Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(MissingIdentityAddressMessage, Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Theory]
@@ -62,7 +64,8 @@ public sealed class IdentityCommandTests : IDisposable
     [InlineData("identity", "delete")]
     public async Task RunAsync_InvalidResourceId_ThrowsInvalidInput(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--ids", "/subscriptions/x/resourceGroups/rg"]);
+        string resourceGroupId = "/subscriptions/x/resourceGroups/rg";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--ids", resourceGroupId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -76,7 +79,8 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_ShowBlankId_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "--ids", " "]);
+        string blankId = " ";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "--ids", blankId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -104,9 +108,10 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CreateTagWithBlankKey_ThrowsInvalidInput()
     {
+        string tagWithBlankKey = " =test";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", " =test"]);
+            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", tagWithBlankKey]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -118,9 +123,10 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CreateJsonTagWithBlankKey_ThrowsInvalidInput()
     {
+        string jsonTagWithBlankKey = "{\"\":\"test\"}";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "{\"\":\"test\"}"]);
+            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", jsonTagWithBlankKey]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -133,9 +139,10 @@ public sealed class IdentityCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_CreateMalformedJsonTags_ThrowsJsonException()
     {
+        string malformedJsonTags = "{bad";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", "{bad"]);
+            ["identity", "create", "--name", "id", "--resource-group", "rg", "--location", "westus", "--tags", malformedJsonTags]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 

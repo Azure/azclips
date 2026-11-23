@@ -37,9 +37,11 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [InlineData("role", "assignment", "delete", "--name", AssignmentName)]
     public async Task RunAsync_RoleAssignmentScopeAndResourceGroup_ThrowsUsageError(params string[] commandLine)
     {
+        string scope = "/subscriptions/sub/resourceGroups/rg";
+        string resourceGroup = "rg";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [.. commandLine, "--scope", "/subscriptions/sub/resourceGroups/rg", "--resource-group", "rg"]);
+            [.. commandLine, "--scope", scope, "--resource-group", resourceGroup]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -51,7 +53,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentBlankScope_ThrowsUsageError()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--scope", " "]);
+        string blankScope = " ";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--scope", blankScope]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -63,7 +66,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentBlankResourceGroup_ThrowsUsageError()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--resource-group", ""]);
+        string blankResourceGroup = "";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--resource-group", blankResourceGroup]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -75,7 +79,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentScopeWithMultipleLeadingSlashes_ThrowsUsageError()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--scope", "//subscriptions/sub"]);
+        string scopeWithMultipleLeadingSlashes = "//subscriptions/sub";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--scope", scopeWithMultipleLeadingSlashes]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -90,7 +95,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentBlankSubscriptionWithoutScope_ThrowsMissingRequiredArgument()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--subscription-id", ""]);
+        string blankSubscriptionId = "";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--subscription-id", blankSubscriptionId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -104,9 +110,10 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentBlankSubscriptionWithResourceGroup_ThrowsMissingRequiredArgument()
     {
+        string blankSubscriptionId = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["role", "assignment", "list", "--subscription-id", "", "--resource-group", "rg"]);
+            ["role", "assignment", "list", "--subscription-id", blankSubscriptionId, "--resource-group", "rg"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -140,7 +147,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [InlineData("role", "assignment", "create", "--role", RoleId)]
     public async Task RunAsync_RoleAssignmentAssigneeNotObjectId_ThrowsUsageError(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--assignee", "user@contoso.com"]);
+        string upnAssignee = "user@contoso.com";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--assignee", upnAssignee]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -157,7 +165,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [InlineData("role", "assignment", "create", "--role", RoleId)]
     public async Task RunAsync_RoleAssignmentAssigneeObjectIdNotGuid_ThrowsUsageError(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--assignee-object-id", "not-a-guid"]);
+        string nonGuidAssigneeObjectId = "not-a-guid";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--assignee-object-id", nonGuidAssigneeObjectId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -173,7 +182,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [InlineData("role", "assignment", "delete")]
     public async Task RunAsync_RoleAssignmentNameNotGuid_ThrowsUsageError(params string[] commandLine)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--name", "not-a-guid"]);
+        string nonGuidAssignmentName = "not-a-guid";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--name", nonGuidAssignmentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -187,7 +197,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentListRoleName_ThrowsUsageError()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--role", "Reader"]);
+        string roleName = "Reader";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--role", roleName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -229,7 +240,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentListAllWithResourceGroup_ThrowsUsageError()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--all", "--resource-group", "rg"]);
+        string resourceGroup = "rg";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--all", "--resource-group", resourceGroup]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -243,7 +255,10 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentListAllWithBlankSubscription_ThrowsMissingRequiredArgument()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--all", "--subscription-id", ""]);
+        string blankSubscriptionId = "";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["role", "assignment", "list", "--all", "--subscription-id", blankSubscriptionId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -273,7 +288,10 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentCreateBlankRole_ThrowsMissingRequiredArgument()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "create", "--role", "", "--assignee", PrincipalId]);
+        string blankRole = "";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["role", "assignment", "create", "--role", blankRole, "--assignee", PrincipalId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -287,9 +305,10 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentCreateRoleName_ThrowsUsageError()
     {
+        string roleName = "Reader";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["role", "assignment", "create", "--role", "Reader", "--assignee", PrincipalId]);
+            ["role", "assignment", "create", "--role", roleName, "--assignee", PrincipalId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -304,9 +323,10 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentCreateInvalidRoleDefinitionId_ThrowsUsageError()
     {
+        string invalidRoleDefinitionId = "/subscriptions/sub/roleDefinitions/reader";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["role", "assignment", "create", "--role", "/subscriptions/sub/roleDefinitions/reader", "--assignee", PrincipalId]);
+            ["role", "assignment", "create", "--role", invalidRoleDefinitionId, "--assignee", PrincipalId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -321,9 +341,10 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentCreateBlankCondition_ThrowsUsageError()
     {
+        string blankCondition = "";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["role", "assignment", "create", "--role", RoleId, "--assignee", PrincipalId, "--condition", ""]);
+            ["role", "assignment", "create", "--role", RoleId, "--assignee", PrincipalId, "--condition", blankCondition]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -335,9 +356,10 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentCreateConditionVersionWithoutCondition_ThrowsUsageError()
     {
+        string conditionVersion = "2.0";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["role", "assignment", "create", "--role", RoleId, "--assignee", PrincipalId, "--condition-version", "2.0"]);
+            ["role", "assignment", "create", "--role", RoleId, "--assignee", PrincipalId, "--condition-version", conditionVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -351,6 +373,7 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentCreateUnsupportedConditionVersion_ThrowsUsageError()
     {
+        string unsupportedConditionVersion = "1.0";
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
@@ -358,7 +381,7 @@ public sealed class RoleAssignmentCommandTests : IDisposable
                 "--role", RoleId,
                 "--assignee", PrincipalId,
                 "--condition", "@Resource[name] StringEquals 'x'",
-                "--condition-version", "1.0",
+                "--condition-version", unsupportedConditionVersion,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -375,7 +398,8 @@ public sealed class RoleAssignmentCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentDeleteBlankName_ThrowsMissingRequiredArgument()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "delete", "--name", ""]);
+        string blankName = "";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "delete", "--name", blankName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 

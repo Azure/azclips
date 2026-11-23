@@ -32,7 +32,8 @@ public sealed class GroupCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupDeleteBlankName_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "delete", "--name", ""]);
+        string blankName = "";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "delete", "--name", blankName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -48,7 +49,8 @@ public sealed class GroupCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupUpdateTagWithoutKey_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", "rg", "--tags", "=value"]);
+        string tagWithoutKey = "=value";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", "rg", "--tags", tagWithoutKey]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -60,7 +62,8 @@ public sealed class GroupCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupUpdateSetWithoutValue_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", "rg", "--set", "managedBy"]);
+        string setExpressionWithoutValue = "managedBy";
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", "rg", "--set", setExpressionWithoutValue]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -72,7 +75,10 @@ public sealed class GroupCommandTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupUpdateSetUnsupportedPath_ThrowsInvalidInput()
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", "rg", "--set", "location=westus"]);
+        string setExpressionWithUnsupportedPath = "location=westus";
+        CommandInvocation invocation = CreateInvocation(
+            ExtensionName,
+            ["group", "update", "--name", "rg", "--set", setExpressionWithUnsupportedPath]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
