@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#nullable enable
-
 using System;
 using System.Net.Http;
 using System.Net.Http.Json;

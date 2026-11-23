@@ -300,12 +300,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.AddressPrefix;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.AddressPrefix = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.AddressPrefix = value;
         }
     }
 
@@ -316,12 +316,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.AddressPrefixes;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.AddressPrefixes = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.AddressPrefixes = value;
         }
     }
 
@@ -332,12 +332,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.ServiceEndpoints;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.ServiceEndpoints = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.ServiceEndpoints = value;
         }
     }
 
@@ -348,12 +348,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.ServiceEndpointPolicies;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.ServiceEndpointPolicies = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.ServiceEndpointPolicies = value;
         }
     }
 
@@ -376,12 +376,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.IpAllocations;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.IpAllocations = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.IpAllocations = value;
         }
     }
 
@@ -400,12 +400,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.Delegations;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.Delegations = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.Delegations = value;
         }
     }
 
@@ -426,12 +426,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.PrivateEndpointNetworkPolicies;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.PrivateEndpointNetworkPolicies = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.PrivateEndpointNetworkPolicies = value;
         }
     }
 
@@ -443,12 +443,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.PrivateLinkServiceNetworkPolicies;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.PrivateLinkServiceNetworkPolicies = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.PrivateLinkServiceNetworkPolicies = value;
         }
     }
 
@@ -459,12 +459,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.ApplicationGatewayIPConfigurations;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.ApplicationGatewayIPConfigurations = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.ApplicationGatewayIPConfigurations = value;
         }
     }
 
@@ -476,12 +476,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.SharingScope;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.SharingScope = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.SharingScope = value;
         }
     }
 
@@ -492,12 +492,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.DefaultOutboundAccess;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.DefaultOutboundAccess = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.DefaultOutboundAccess = value;
         }
     }
 
@@ -508,12 +508,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.IpamPoolPrefixAllocations;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.IpamPoolPrefixAllocations = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.IpamPoolPrefixAllocations = value;
         }
     }
 
@@ -524,13 +524,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n5.Id = value;
         }
     }
 
@@ -549,13 +549,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Location;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Location = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n5.Location = value;
         }
     }
 
@@ -566,13 +566,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Tags;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Tags = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n5.Tags = value;
         }
     }
 
@@ -587,14 +587,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlushConnection;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Properties.FlushConnection = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n6 = n5.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n6.FlushConnection = value;
         }
     }
 
@@ -605,14 +605,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.SecurityRules;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Properties.SecurityRules = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n6 = n5.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n6.SecurityRules = value;
         }
     }
 
@@ -648,13 +648,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            n5.Id = value;
         }
     }
 
@@ -673,13 +673,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Location;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Location = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            n5.Location = value;
         }
     }
 
@@ -690,13 +690,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Tags;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Tags = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            n5.Tags = value;
         }
     }
 
@@ -711,14 +711,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.Routes;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties.Routes = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            var n6 = n5.Properties ??= new RouteTablePropertiesFormat();
+            n6.Routes = value;
         }
     }
 
@@ -733,14 +733,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.DisableBgpRoutePropagation;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties.DisableBgpRoutePropagation = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            var n6 = n5.Properties ??= new RouteTablePropertiesFormat();
+            n6.DisableBgpRoutePropagation = value;
         }
     }
 
@@ -758,14 +758,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.DisablePeeringRoute;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties.DisablePeeringRoute = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            var n6 = n5.Properties ??= new RouteTablePropertiesFormat();
+            n6.DisablePeeringRoute = value;
         }
     }
 
@@ -785,13 +785,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.NatGateway?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NatGateway ??= new SubResource();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.NatGateway.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NatGateway ??= new SubResource();
+            n5.Id = value;
         }
     }
 
@@ -802,13 +802,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationNetworkInterfaceIPConfiguration?.Properties?.Subnet?.Properties?.ServiceGateway?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.ServiceGateway ??= new SubResource();
-            Properties.DestinationNetworkInterfaceIPConfiguration.Properties.Subnet.Properties.ServiceGateway.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationNetworkInterfaceIPConfiguration ??= new NetworkInterfaceIPConfiguration();
+            var n2 = n1.Properties ??= new NetworkInterfaceIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.ServiceGateway ??= new SubResource();
+            n5.Id = value;
         }
     }
 
@@ -975,12 +975,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.AddressPrefix;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.AddressPrefix = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.AddressPrefix = value;
         }
     }
 
@@ -991,12 +991,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.AddressPrefixes;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.AddressPrefixes = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.AddressPrefixes = value;
         }
     }
 
@@ -1007,12 +1007,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.ServiceEndpoints;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.ServiceEndpoints = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.ServiceEndpoints = value;
         }
     }
 
@@ -1023,12 +1023,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.ServiceEndpointPolicies;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.ServiceEndpointPolicies = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.ServiceEndpointPolicies = value;
         }
     }
 
@@ -1051,12 +1051,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.IpAllocations;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.IpAllocations = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.IpAllocations = value;
         }
     }
 
@@ -1075,12 +1075,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.Delegations;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.Delegations = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.Delegations = value;
         }
     }
 
@@ -1101,12 +1101,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.PrivateEndpointNetworkPolicies;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.PrivateEndpointNetworkPolicies = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.PrivateEndpointNetworkPolicies = value;
         }
     }
 
@@ -1118,12 +1118,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.PrivateLinkServiceNetworkPolicies;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.PrivateLinkServiceNetworkPolicies = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.PrivateLinkServiceNetworkPolicies = value;
         }
     }
 
@@ -1134,12 +1134,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.ApplicationGatewayIPConfigurations;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.ApplicationGatewayIPConfigurations = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.ApplicationGatewayIPConfigurations = value;
         }
     }
 
@@ -1151,12 +1151,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.SharingScope;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.SharingScope = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.SharingScope = value;
         }
     }
 
@@ -1167,12 +1167,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.DefaultOutboundAccess;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.DefaultOutboundAccess = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.DefaultOutboundAccess = value;
         }
     }
 
@@ -1183,12 +1183,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.IpamPoolPrefixAllocations;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.IpamPoolPrefixAllocations = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            n4.IpamPoolPrefixAllocations = value;
         }
     }
 
@@ -1199,13 +1199,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n5.Id = value;
         }
     }
 
@@ -1224,13 +1224,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Location;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Location = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n5.Location = value;
         }
     }
 
@@ -1241,13 +1241,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Tags;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Tags = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n5.Tags = value;
         }
     }
 
@@ -1262,14 +1262,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlushConnection;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Properties.FlushConnection = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n6 = n5.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n6.FlushConnection = value;
         }
     }
 
@@ -1280,14 +1280,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.SecurityRules;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NetworkSecurityGroup.Properties.SecurityRules = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n6 = n5.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n6.SecurityRules = value;
         }
     }
 
@@ -1323,13 +1323,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            n5.Id = value;
         }
     }
 
@@ -1348,13 +1348,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Location;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Location = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            n5.Location = value;
         }
     }
 
@@ -1365,13 +1365,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Tags;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Tags = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            n5.Tags = value;
         }
     }
 
@@ -1386,14 +1386,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.Routes;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties.Routes = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            var n6 = n5.Properties ??= new RouteTablePropertiesFormat();
+            n6.Routes = value;
         }
     }
 
@@ -1408,14 +1408,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.DisableBgpRoutePropagation;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties.DisableBgpRoutePropagation = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            var n6 = n5.Properties ??= new RouteTablePropertiesFormat();
+            n6.DisableBgpRoutePropagation = value;
         }
     }
 
@@ -1433,14 +1433,14 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.RouteTable?.Properties?.DisablePeeringRoute;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.RouteTable.Properties.DisablePeeringRoute = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.RouteTable ??= new RouteTable();
+            var n6 = n5.Properties ??= new RouteTablePropertiesFormat();
+            n6.DisablePeeringRoute = value;
         }
     }
 
@@ -1460,13 +1460,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.NatGateway?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NatGateway ??= new SubResource();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.NatGateway.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.NatGateway ??= new SubResource();
+            n5.Id = value;
         }
     }
 
@@ -1477,13 +1477,13 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.Subnet?.Properties?.ServiceGateway?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet ??= new Subnet();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.ServiceGateway ??= new SubResource();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.Subnet.Properties.ServiceGateway.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.Subnet ??= new Subnet();
+            var n4 = n3.Properties ??= new SubnetPropertiesFormat();
+            var n5 = n4.ServiceGateway ??= new SubResource();
+            n5.Id = value;
         }
     }
 
@@ -1524,12 +1524,12 @@ public partial class VirtualNetworkTap
         get => Properties?.DestinationLoadBalancerFrontEndIPConfiguration?.Properties?.DdosSettings?.DdosCustomPolicy?.Id;
         set
         {
-            Properties ??= new VirtualNetworkTapPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties ??= new FrontendIPConfigurationPropertiesFormat();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.DdosSettings ??= new DdosFrontendIpConfigurationSettings();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.DdosSettings.DdosCustomPolicy ??= new SubResource();
-            Properties.DestinationLoadBalancerFrontEndIPConfiguration.Properties.DdosSettings.DdosCustomPolicy.Id = value;
+            var n0 = Properties ??= new VirtualNetworkTapPropertiesFormat();
+            var n1 = n0.DestinationLoadBalancerFrontEndIPConfiguration ??= new FrontendIPConfiguration();
+            var n2 = n1.Properties ??= new FrontendIPConfigurationPropertiesFormat();
+            var n3 = n2.DdosSettings ??= new DdosFrontendIpConfigurationSettings();
+            var n4 = n3.DdosCustomPolicy ??= new SubResource();
+            n4.Id = value;
         }
     }
 }

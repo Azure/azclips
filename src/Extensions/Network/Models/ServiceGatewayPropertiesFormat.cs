@@ -664,12 +664,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddress?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlushConnection;
         set
         {
-            RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddress.Subnet ??= new Subnet();
-            RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Properties.FlushConnection = value;
+            var n0 = RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n4 = n3.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n4.FlushConnection = value;
         }
     }
 
@@ -680,12 +680,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddress?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.SecurityRules;
         set
         {
-            RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddress.Subnet ??= new Subnet();
-            RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Properties.SecurityRules = value;
+            var n0 = RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n4 = n3.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n4.SecurityRules = value;
         }
     }
 
@@ -778,12 +778,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Properties?.Routes;
         set
         {
-            RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddress.Subnet ??= new Subnet();
-            RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            RouteTargetAddress.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.RouteTable.Properties.Routes = value;
+            var n0 = RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.Routes = value;
         }
     }
 
@@ -798,12 +798,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Properties?.DisableBgpRoutePropagation;
         set
         {
-            RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddress.Subnet ??= new Subnet();
-            RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            RouteTargetAddress.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.RouteTable.Properties.DisableBgpRoutePropagation = value;
+            var n0 = RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.DisableBgpRoutePropagation = value;
         }
     }
 
@@ -821,12 +821,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Properties?.DisablePeeringRoute;
         set
         {
-            RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddress.Subnet ??= new Subnet();
-            RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            RouteTargetAddress.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            RouteTargetAddress.Subnet.Properties.RouteTable.Properties.DisablePeeringRoute = value;
+            var n0 = RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.DisablePeeringRoute = value;
         }
     }
 
@@ -1183,12 +1183,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddressV6?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlushConnection;
         set
         {
-            RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddressV6.Subnet ??= new Subnet();
-            RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Properties.FlushConnection = value;
+            var n0 = RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n4 = n3.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n4.FlushConnection = value;
         }
     }
 
@@ -1199,12 +1199,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddressV6?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.SecurityRules;
         set
         {
-            RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddressV6.Subnet ??= new Subnet();
-            RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Properties.SecurityRules = value;
+            var n0 = RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n4 = n3.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n4.SecurityRules = value;
         }
     }
 
@@ -1297,12 +1297,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Properties?.Routes;
         set
         {
-            RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddressV6.Subnet ??= new Subnet();
-            RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties.Routes = value;
+            var n0 = RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.Routes = value;
         }
     }
 
@@ -1317,12 +1317,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Properties?.DisableBgpRoutePropagation;
         set
         {
-            RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddressV6.Subnet ??= new Subnet();
-            RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties.DisableBgpRoutePropagation = value;
+            var n0 = RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.DisableBgpRoutePropagation = value;
         }
     }
 
@@ -1340,12 +1340,12 @@ public partial class ServiceGatewayPropertiesFormat
         get => RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Properties?.DisablePeeringRoute;
         set
         {
-            RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            RouteTargetAddressV6.Subnet ??= new Subnet();
-            RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties.DisablePeeringRoute = value;
+            var n0 = RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.DisablePeeringRoute = value;
         }
     }
 

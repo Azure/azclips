@@ -198,7 +198,7 @@ public partial class PublicIPAddress
 
     /// <summary>The reference to the public IP resource.</summary>
     [JsonIgnore]
-    public PublicIPAddress? PublicIPAddress { get => Properties?.IpConfiguration?.Properties?.PublicIPAddress; }
+    public PublicIPAddress? IpConfigurationPublicIPAddress { get => Properties?.IpConfiguration?.Properties?.PublicIPAddress; }
 
     /// <summary>The provisioning state of the IP configuration resource.</summary>
     /// <remarks>Known values (extensible enum ProvisioningState): "Failed", "Succeeded", "Canceled", "Creating", "Updating", "Deleting".</remarks>

@@ -713,12 +713,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.NetworkSecurityGroup?.Id;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Id = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n4.Id = value;
         }
     }
 
@@ -737,12 +737,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.NetworkSecurityGroup?.Location;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Location = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n4.Location = value;
         }
     }
 
@@ -753,12 +753,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.NetworkSecurityGroup?.Tags;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Tags = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n4.Tags = value;
         }
     }
 
@@ -773,13 +773,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlushConnection;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Properties.FlushConnection = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n5 = n4.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n5.FlushConnection = value;
         }
     }
 
@@ -790,13 +790,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.SecurityRules;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.NetworkSecurityGroup.Properties.SecurityRules = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n5 = n4.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n5.SecurityRules = value;
         }
     }
 
@@ -832,12 +832,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Id;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Id = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            n4.Id = value;
         }
     }
 
@@ -856,12 +856,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Location;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Location = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            n4.Location = value;
         }
     }
 
@@ -872,12 +872,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Tags;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Tags = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            n4.Tags = value;
         }
     }
 
@@ -892,13 +892,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Properties?.Routes;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Properties.Routes = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            var n5 = n4.Properties ??= new RouteTablePropertiesFormat();
+            n5.Routes = value;
         }
     }
 
@@ -913,13 +913,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Properties?.DisableBgpRoutePropagation;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Properties.DisableBgpRoutePropagation = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            var n5 = n4.Properties ??= new RouteTablePropertiesFormat();
+            n5.DisableBgpRoutePropagation = value;
         }
     }
 
@@ -937,13 +937,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.RouteTable?.Properties?.DisablePeeringRoute;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.RouteTable.Properties.DisablePeeringRoute = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            var n5 = n4.Properties ??= new RouteTablePropertiesFormat();
+            n5.DisablePeeringRoute = value;
         }
     }
 
@@ -963,12 +963,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.NatGateway?.Id;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.NatGateway ??= new SubResource();
-            Properties.RouteTargetAddress.Subnet.Properties.NatGateway.Id = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NatGateway ??= new SubResource();
+            n4.Id = value;
         }
     }
 
@@ -979,12 +979,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddress?.Subnet?.Properties?.ServiceGateway?.Id;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet ??= new Subnet();
-            Properties.RouteTargetAddress.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddress.Subnet.Properties.ServiceGateway ??= new SubResource();
-            Properties.RouteTargetAddress.Subnet.Properties.ServiceGateway.Id = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddress ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.ServiceGateway ??= new SubResource();
+            n4.Id = value;
         }
     }
 
@@ -1260,12 +1260,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.NetworkSecurityGroup?.Id;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Id = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n4.Id = value;
         }
     }
 
@@ -1284,12 +1284,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.NetworkSecurityGroup?.Location;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Location = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n4.Location = value;
         }
     }
 
@@ -1300,12 +1300,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.NetworkSecurityGroup?.Tags;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Tags = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            n4.Tags = value;
         }
     }
 
@@ -1320,13 +1320,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlushConnection;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Properties.FlushConnection = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n5 = n4.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n5.FlushConnection = value;
         }
     }
 
@@ -1337,13 +1337,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.SecurityRules;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NetworkSecurityGroup.Properties.SecurityRules = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n5 = n4.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n5.SecurityRules = value;
         }
     }
 
@@ -1379,12 +1379,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Id;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Id = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            n4.Id = value;
         }
     }
 
@@ -1403,12 +1403,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Location;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Location = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            n4.Location = value;
         }
     }
 
@@ -1419,12 +1419,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Tags;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Tags = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            n4.Tags = value;
         }
     }
 
@@ -1439,13 +1439,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Properties?.Routes;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties.Routes = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            var n5 = n4.Properties ??= new RouteTablePropertiesFormat();
+            n5.Routes = value;
         }
     }
 
@@ -1460,13 +1460,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Properties?.DisableBgpRoutePropagation;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties.DisableBgpRoutePropagation = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            var n5 = n4.Properties ??= new RouteTablePropertiesFormat();
+            n5.DisableBgpRoutePropagation = value;
         }
     }
 
@@ -1484,13 +1484,13 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.RouteTable?.Properties?.DisablePeeringRoute;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.RouteTable.Properties.DisablePeeringRoute = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.RouteTable ??= new RouteTable();
+            var n5 = n4.Properties ??= new RouteTablePropertiesFormat();
+            n5.DisablePeeringRoute = value;
         }
     }
 
@@ -1510,12 +1510,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.NatGateway?.Id;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NatGateway ??= new SubResource();
-            Properties.RouteTargetAddressV6.Subnet.Properties.NatGateway.Id = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.NatGateway ??= new SubResource();
+            n4.Id = value;
         }
     }
 
@@ -1526,12 +1526,12 @@ public partial class ServiceGateway
         get => Properties?.RouteTargetAddressV6?.Subnet?.Properties?.ServiceGateway?.Id;
         set
         {
-            Properties ??= new ServiceGatewayPropertiesFormat();
-            Properties.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet ??= new Subnet();
-            Properties.RouteTargetAddressV6.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.RouteTargetAddressV6.Subnet.Properties.ServiceGateway ??= new SubResource();
-            Properties.RouteTargetAddressV6.Subnet.Properties.ServiceGateway.Id = value;
+            var n0 = Properties ??= new ServiceGatewayPropertiesFormat();
+            var n1 = n0.RouteTargetAddressV6 ??= new RouteTargetAddressPropertiesFormat();
+            var n2 = n1.Subnet ??= new Subnet();
+            var n3 = n2.Properties ??= new SubnetPropertiesFormat();
+            var n4 = n3.ServiceGateway ??= new SubResource();
+            n4.Id = value;
         }
     }
 

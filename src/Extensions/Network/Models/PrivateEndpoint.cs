@@ -454,12 +454,12 @@ public partial class PrivateEndpoint
         get => Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.FlushConnection;
         set
         {
-            Properties ??= new PrivateEndpointProperties();
-            Properties.Subnet ??= new Subnet();
-            Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.Subnet.Properties.NetworkSecurityGroup.Properties.FlushConnection = value;
+            var n0 = Properties ??= new PrivateEndpointProperties();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n4 = n3.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n4.FlushConnection = value;
         }
     }
 
@@ -470,12 +470,12 @@ public partial class PrivateEndpoint
         get => Properties?.Subnet?.Properties?.NetworkSecurityGroup?.Properties?.SecurityRules;
         set
         {
-            Properties ??= new PrivateEndpointProperties();
-            Properties.Subnet ??= new Subnet();
-            Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.Subnet.Properties.NetworkSecurityGroup ??= new NetworkSecurityGroup();
-            Properties.Subnet.Properties.NetworkSecurityGroup.Properties ??= new NetworkSecurityGroupPropertiesFormat();
-            Properties.Subnet.Properties.NetworkSecurityGroup.Properties.SecurityRules = value;
+            var n0 = Properties ??= new PrivateEndpointProperties();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.NetworkSecurityGroup ??= new NetworkSecurityGroup();
+            var n4 = n3.Properties ??= new NetworkSecurityGroupPropertiesFormat();
+            n4.SecurityRules = value;
         }
     }
 
@@ -568,12 +568,12 @@ public partial class PrivateEndpoint
         get => Properties?.Subnet?.Properties?.RouteTable?.Properties?.Routes;
         set
         {
-            Properties ??= new PrivateEndpointProperties();
-            Properties.Subnet ??= new Subnet();
-            Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.Subnet.Properties.RouteTable.Properties.Routes = value;
+            var n0 = Properties ??= new PrivateEndpointProperties();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.Routes = value;
         }
     }
 
@@ -588,12 +588,12 @@ public partial class PrivateEndpoint
         get => Properties?.Subnet?.Properties?.RouteTable?.Properties?.DisableBgpRoutePropagation;
         set
         {
-            Properties ??= new PrivateEndpointProperties();
-            Properties.Subnet ??= new Subnet();
-            Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.Subnet.Properties.RouteTable.Properties.DisableBgpRoutePropagation = value;
+            var n0 = Properties ??= new PrivateEndpointProperties();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.DisableBgpRoutePropagation = value;
         }
     }
 
@@ -611,12 +611,12 @@ public partial class PrivateEndpoint
         get => Properties?.Subnet?.Properties?.RouteTable?.Properties?.DisablePeeringRoute;
         set
         {
-            Properties ??= new PrivateEndpointProperties();
-            Properties.Subnet ??= new Subnet();
-            Properties.Subnet.Properties ??= new SubnetPropertiesFormat();
-            Properties.Subnet.Properties.RouteTable ??= new RouteTable();
-            Properties.Subnet.Properties.RouteTable.Properties ??= new RouteTablePropertiesFormat();
-            Properties.Subnet.Properties.RouteTable.Properties.DisablePeeringRoute = value;
+            var n0 = Properties ??= new PrivateEndpointProperties();
+            var n1 = n0.Subnet ??= new Subnet();
+            var n2 = n1.Properties ??= new SubnetPropertiesFormat();
+            var n3 = n2.RouteTable ??= new RouteTable();
+            var n4 = n3.Properties ??= new RouteTablePropertiesFormat();
+            n4.DisablePeeringRoute = value;
         }
     }
 
