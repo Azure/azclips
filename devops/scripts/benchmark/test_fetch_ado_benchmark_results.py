@@ -68,7 +68,6 @@ class VerifyTests(unittest.TestCase):
             "other project": (pull_request_build(project={"name": "release"}), "pull-request"),
             "other pipeline": (pull_request_build(definition={"name": "azclips-beta-build"}), "pull-request"),
             "still running": (pull_request_build(status="inProgress"), "pull-request"),
-            "not a pull request": (pull_request_build(reason="manual"), "pull-request"),
             "other commit": (pull_request_build(triggerInfo={"pr.number": "1", "pr.sourceSha": "a" * 40}),
                              "pull-request"),
             "no number": (pull_request_build(triggerInfo={"pr.sourceSha": HEAD}), "pull-request"),
@@ -77,6 +76,19 @@ class VerifyTests(unittest.TestCase):
         for label, (build, expect) in cases.items():
             with self.subTest(label), self.assertRaises(fetch.VerificationError):
                 self.verify(build, expect=expect)
+
+    def test_checks_the_run_before_its_trigger(self):
+        # A scheduled run has nothing to act on, but only once it is a completed run of the pipeline.
+        self.assertIsNone(self.verify(pull_request_build(reason="schedule")))
+        cases = {
+            "other project": {"project": {"name": "release"}},
+            "other pipeline": {"definition": {"name": "azclips-beta-build"}},
+            "still running": {"status": "inProgress"},
+            "no ID": {"id": None},
+        }
+        for label, changes in cases.items():
+            with self.subTest(label), self.assertRaises(fetch.VerificationError):
+                self.verify(pull_request_build(reason="schedule", **changes))
 
     def test_rejects_a_commit_ending_in_a_newline(self):
         # No head_sha, so only the commit pattern can reject these.
@@ -182,8 +194,10 @@ class MainTests(unittest.TestCase):
         self.github_output = Path(temp.name) / "github_output"
         self.github_output.write_text("", encoding="utf-8")
 
-    def run_main(self, responses, archive=b""):
+    def run_main(self, responses, archive=None):
         def opener(request, timeout):
+            if archive is None:
+                self.fail("the artifact was downloaded")
             self.assertEqual(request.full_url, DOWNLOAD)
             return io.BytesIO(archive)
 
@@ -230,15 +244,39 @@ class MainTests(unittest.TestCase):
         self.assertIn("nothing was benchmarked", stdout)
         self.assertIn("available=false", self.github_output.read_text(encoding="utf-8"))
 
+    def test_a_run_no_pull_request_triggered_has_nothing_to_post(self):
+        triggers = {"schedule": {"scheduleName": "Daily main alpha build"}, "manual": {}}
+        for reason, trigger in triggers.items():
+            with self.subTest(reason):
+                self.github_output.write_text("", encoding="utf-8")
+                build = pull_request_build(reason=reason, sourceBranch="refs/heads/main", sourceVersion=HEAD,
+                                           triggerInfo=trigger)
+
+                # Only the run itself is known, so listing or downloading its artifacts fails the test.
+                code, stdout = self.run_main({f"{API}?api-version=7.1": build})
+
+                self.assertEqual(code, 0)
+                self.assertEqual(stdout, "Azure DevOps run 378289 was not triggered by a pull request, "
+                                         "so there is nothing to post.\n")
+                self.assertEqual(self.github_output.read_text(encoding="utf-8"), "available=false\n")
+                self.assertFalse(self.out.exists())
+
     def test_a_rejected_run_fails_without_downloading(self):
-        responses = self.responses([])
-        responses[f"{API}?api-version=7.1"] = pull_request_build(reason="manual")
+        cases = {
+            "other pipeline": (main_build(id=378289), "the run is not a run of azclips-alpha-build"),
+            "other commit": (pull_request_build(triggerInfo={"pr.number": "1496", "pr.sourceSha": "a" * 40}),
+                             f"the run built {'a' * 40}, not {HEAD}"),
+        }
+        for label, (build, error) in cases.items():
+            with self.subTest(label):
+                self.github_output.write_text("", encoding="utf-8")
 
-        code, stdout = self.run_main(responses)
+                code, stdout = self.run_main({f"{API}?api-version=7.1": build})
 
-        self.assertEqual(code, 1)
-        self.assertIn("::error::Azure DevOps run 378289 was rejected", stdout)
-        self.assertFalse(self.out.exists())
+                self.assertEqual(code, 1)
+                self.assertEqual(stdout, f"::error::Azure DevOps run 378289 was rejected: {error}\n")
+                self.assertEqual(self.github_output.read_text(encoding="utf-8"), "")
+                self.assertFalse(self.out.exists())
 
 
 if __name__ == "__main__":

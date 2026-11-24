@@ -133,17 +133,18 @@ See the [PowerShell package validation guide](https://github.com/Azure/azclips/b
 for phase contracts, limited alpha coverage, local invocation, cleanup behavior,
 and offline regression fixtures.
 
-CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** produces signed, distributable releases.
+CI spans two systems. **GitHub Actions** gate PRs into `main`; **Azure DevOps** produces signed, distributable releases and runs the performance benchmarks.
 
 | Workflow | System | Trigger | Purpose |
 | --- | --- | --- | --- |
 | `build-and-test.yml` | GitHub | PR to `main`, dispatch | Restore/build/test `azclips.slnx`, CLI + PowerShell E2E smoke, help validation, help-tool tests |
-| `benchmark.yml` / `benchmark-comment.yml` | GitHub | push/PR touching `src/**`, `tests/Benchmark/**`, `global.json`, `azclips.slnx` | Run CLI+PS benchmarks, gate at 115% of baseline, publish dashboard |
+| `benchmark-comment.yml` | GitHub | Azure Pipelines check suite completion, dispatch | Compare the Azure DevOps `Benchmark` stage's results with `main` and post each benchmark's % change in one PR comment (same-repo and fork PRs); flag changes above +15.0% without failing the build |
+| `benchmark-publish.yml` | GitHub | Azure Pipelines check suite completion on `main`, dispatch | Append `main`'s Azure DevOps `Benchmark` stage results to the gh-pages dashboards, then dispatch `build-wiki.yml` to redeploy GitHub Pages |
 | `extension-test-coverage.yml` | GitHub | Relevant push/PR paths, dispatch | Advisory command-surface attribution report, separate from merge-gating product tests |
 | `refresh-recordings.yml` | GitHub | See workflow configuration | Refresh recorded scenario evidence |
-| `build-wiki.yml` | GitHub | Wiki changes on `main`, successful benchmark/coverage workflow completion, dispatch | Build/publish this wiki and merge generated dev dashboards |
-| `azclips-alpha-build.yml` | Azure DevOps | any PR (`pr-alpha` channel) | Unsigned per-PR distribution build |
-| `azclips-beta-build.yml` | Azure DevOps | beta channel | Unsigned beta distribution |
+| `build-wiki.yml` | GitHub | Wiki changes on `main`, successful coverage workflow completion, dispatch (manual or from `benchmark-publish.yml`) | Build/publish this wiki and merge generated dev dashboards |
+| `azclips-alpha-build.yml` | Azure DevOps | any PR (`pr-alpha` channel) | Unsigned per-PR distribution build; its `Benchmark` stage benchmarks what a PR into `main` affects, and `benchmark-comment.yml` posts the results on the PR |
+| `azclips-beta-build.yml` | Azure DevOps | beta channel | Unsigned beta distribution; its `Benchmark` stage benchmarks `main`, and `benchmark-publish.yml` publishes the results to the gh-pages dashboards |
 | `azclips-stable-{build,sign,publish,release}.yml` | Azure DevOps | `v*.*.*` tags | Versioned, signed, published stable release |
 
 The GitHub gate is intentionally pragmatic: `build-and-test.yml` builds and tests in **Debug**, not Release, with an inline comment noting Release currently has extension-DLL-location and `RequiredAssemblies` issues (`.github/workflows/build-and-test.yml:28-32`). E2E is a smoke test — run `az --help` and assert exit 0, and import the `Accounts` PS module and assert commands exist (`.github/workflows/build-and-test.yml:34-52`) — mirroring the criteria in `eng-docs/spec/ci.md:5-15` ("the code builds; all tests pass; E2E tests pass").

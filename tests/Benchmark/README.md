@@ -60,7 +60,7 @@ Results are saved to `artifacts/Benchmark/<timestamp>/` (or `artifacts/Benchmark
 - `results/` - BenchmarkDotNet's own exports (full JSON + GitHub-flavored Markdown)
 - `telemetry/<PRODUCT>.<Class>.<Method>.jsonl` - 100 sampled CLI traces per benchmark method (one span per line)
 
-When `--sidecar-out` is passed (CI does this; a plain local run does not), aggregated span trees are written as `<sidecar-out>/<EXT|LOCAL>/<PRODUCT>/<Benchmark>.json` and uploaded as the `benchmark-trace-sidecars` workflow artifact.
+When `--sidecar-out` is passed (CI does this; a plain local run does not), aggregated span trees are written as `<sidecar-out>/<EXT|LOCAL>/<PRODUCT>/<Benchmark>.json` and published in the `Benchmark_Results` pipeline artifact.
 
 ---
 
@@ -196,9 +196,9 @@ Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
 CI aggregates each benchmark's sampled spans into one averaged span tree and publishes
 `main`'s trees under `dev/bench/traces/<EXT>/<PRODUCT>/<Benchmark>.json`. A
 pull-request run reads them back and renders `main` and the PR as two trees side by side
-in the workflow **job summary**, with a per-span `Δ%` between them. The comparison lives
-only in the job summary — a block is wide enough to need horizontal scrolling in a PR
-comment, so no trace comment is posted. Open the workflow run to read it.
+in the Azure DevOps **build summary** (the run's Extensions tab), with a per-span `Δ%`
+between them. The comparison lives only in the build summary — a block is wide enough to
+need horizontal scrolling in a PR comment, so the PR comment links to it instead.
 
 **Bars are not comparable across the gutter.** Each side's `%ROOT` and bar are scaled to
 that side's own root, exactly as a standalone tree is. When the roots differ, an
@@ -218,7 +218,7 @@ A span present on only one side renders a blank row on the absent side and `n/a`
 `Δ%` — it was added, removed, or renamed rather than made slower, and any real cost
 change still shows in its parent's `Δ%`.
 
-Baselines refresh only from the main pushes the path filter selects, so each extension's
+Baselines refresh only from the `main` builds whose changes select that extension, so each extension's
 baseline sits at its own commit. The header states which: `main @ abc1234 · 13 days ago`.
 A shared change (`src/Core`, `tests/Common`, the benchmark base classes) re-runs every
 extension and realigns them all.
@@ -255,13 +255,13 @@ Omitting `--baseline` renders the single-tree view.
 3. If the extension makes orchestrated/LRO calls that read response fields, add the
    minimal shape to `tests/Common/Stubs/StubResponseMappings.cs` + a fixture file.
 
-That's it — **no workflow or `Program.cs` edits are required.** The extension universe,
+That's it — **no pipeline or `Program.cs` edits are required.** The extension universe,
 the CI run matrix, per-extension change detection, the publish dashboards, and the
-fork-PR comment are all derived at runtime from the `[BenchmarkExtension]` attribute
-(see `.github/scripts/detect-benchmark-changes.sh`). Changes to shared code
-(`src/Core`, benchmark base classes, the workflow, the detection script, …) re-run
-every extension; a change confined to one extension's source or benchmark class runs
-only that extension.
+PR comment are all derived at runtime from the `[BenchmarkExtension]` attribute
+(see `devops/scripts/benchmark/detect_benchmark_changes.py`). Changes to shared code
+(`src/Core`, benchmark base classes, the benchmark pipeline templates and scripts, …) and
+to build-wide inputs (`Directory.Build.targets`, `NuGet.config`, …) re-run every extension;
+a change confined to one extension's source or benchmark class runs only that extension.
 
 ## Key Vault Coverage
 
@@ -282,4 +282,5 @@ select all benchmark suites in CI.
 
 ## See Also
 
+- [Benchmark Workflows](../../eng-docs/spec/benchmark-workflows.md) - How CI runs, compares and publishes benchmarks
 - [Grafana Dashboard](https://ms.portal.azure.com#view/Microsoft_Azure_PinToGrafana/AzureGrafana.ReactView/GalleryType/azure%20monitor/ConfigurationId/%2Fsubscriptions%2F9e223dbe-3399-4e19-88eb-0975f02ac87f%2FresourceGroups%2Fnori-app-insights%2Fproviders%2FMicrosoft.Dashboard%2Fdashboards%2Fnori-grafana-0203) - Live performance dashboard

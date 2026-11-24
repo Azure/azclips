@@ -8,7 +8,9 @@ so the download is size-capped and only expected files with safe paths are extra
 
 Writes <out>/build.json (buildId, buildUrl, commit, pullRequest, stageResult,
 failedJobs, available) and <out>/results/, and sets the step outputs available, commit
-and pr_number when GITHUB_OUTPUT is set.
+and pr_number when GITHUB_OUTPUT is set. With --expect pull-request, a run that no
+pull request triggered, such as a scheduled or manual run, is not an error: nothing is
+downloaded or written to <out>, and only available=false is set.
 """
 
 from __future__ import annotations
@@ -59,8 +61,12 @@ class BuildFacts:
     pull_request: int | None
 
 
-def verify_build(build, *, project: str, definition: str, expect: str, head_sha: str | None) -> BuildFacts:
-    """Check a build API response and return the facts the workflows rely on."""
+def verify_build(build, *, project: str, definition: str, expect: str, head_sha: str | None) -> BuildFacts | None:
+    """Check a build API response and return the facts the workflows rely on.
+
+    Returns None, which is not a rejection, when a pull request run is expected but no pull
+    request triggered this one (a scheduled or manual run): there is nothing to act on.
+    """
     if not isinstance(build, dict):
         raise VerificationError("unexpected build response")
     if (build.get("project") or {}).get("name") != project:
@@ -75,7 +81,7 @@ def verify_build(build, *, project: str, definition: str, expect: str, head_sha:
 
     if expect == "pull-request":
         if build.get("reason") != "pullRequest":
-            raise VerificationError("the run was not triggered by a pull request")
+            return None
         trigger = build.get("triggerInfo") or {}
         commit, number = trigger.get("pr.sourceSha"), trigger.get("pr.number")
         if not isinstance(number, str) or not number.isdigit():
@@ -218,6 +224,10 @@ def main(argv=None, fetch=fetch_json, opener=urllib.request.urlopen) -> int:
     except VerificationError as exc:
         print(f"::error::Azure DevOps run {args.build_id} was rejected: {exc}")
         return 1
+    if facts is None:
+        print(f"Azure DevOps run {args.build_id} was not triggered by a pull request, so there is nothing to post.")
+        set_outputs({"available": "false"})
+        return 0
 
     artifact = pick_artifact(fetch(f"{api}/artifacts?api-version=7.1").get("value") or [])
     stage_result, failed_jobs = benchmark_stage_status(fetch(f"{api}/timeline?api-version=7.1"))

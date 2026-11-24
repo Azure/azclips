@@ -1,0 +1,142 @@
+# Publishes main's benchmark results from the Azure DevOps azclips-beta-build run to the
+# gh-pages dashboards, then redeploys GitHub Pages.
+#
+# check_suite workflows always run this file from the default branch. The run is
+# verified through the Azure DevOps API to be a main build of the suite's commit before
+# anything is written (devops/scripts/benchmark/fetch_ado_benchmark_results.py).
+name: Publish Benchmark Dashboard
+
+on:
+  check_suite:
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ado_build_id:
+        description: azclips-beta-build run ID on main in the public Azure DevOps project
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  ADO_ORGANIZATION_URL: https://dev.azure.com/azclitools
+  ADO_PROJECT: public
+  ADO_PIPELINE: azclips-beta-build
+
+jobs:
+  publish:
+    name: Publish benchmark results to gh-pages
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.check_suite.app.slug == 'azure-pipelines' && github.event.check_suite.head_branch == 'main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      checks: read
+      actions: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Find the Azure DevOps run
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUITE_ID: ${{ github.event.check_suite.id }}
+          DISPATCH_BUILD_ID: ${{ inputs.ado_build_id }}
+        run: |
+          set -euo pipefail
+          build_id="${DISPATCH_BUILD_ID}"
+          if [[ -z "$build_id" ]]; then
+            build_id="$(gh api "repos/${GITHUB_REPOSITORY}/check-suites/${SUITE_ID}/check-runs?check_name=${ADO_PIPELINE}&per_page=100" \
+              --jq '[.check_runs[] | (.external_id // "") | split("|") | (.[1] // "") | select(test("^[0-9]+$")) | tonumber] | max // empty')"
+          fi
+          if [[ -z "$build_id" ]]; then
+            echo "This check suite has no ${ADO_PIPELINE} run, so there is nothing to publish."
+            exit 0
+          fi
+          if [[ ! "$build_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::The Azure DevOps run ID must be numeric."
+            exit 1
+          fi
+          echo "build_id=${build_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout benchmark scripts
+        if: steps.run.outputs.build_id != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          sparse-checkout: devops/scripts/benchmark
+          persist-credentials: false
+
+      - name: Download verified benchmark results
+        id: fetch
+        if: steps.run.outputs.build_id != ''
+        env:
+          BUILD_ID: ${{ steps.run.outputs.build_id }}
+          HEAD_SHA: ${{ github.event.check_suite.head_sha }}
+        run: |
+          set -euo pipefail
+          arguments=(--organization-url "$ADO_ORGANIZATION_URL" --project "$ADO_PROJECT"
+            --definition "$ADO_PIPELINE" --expect main --build-id "$BUILD_ID"
+            --out "$RUNNER_TEMP/benchmark")
+          if [[ -n "$HEAD_SHA" ]]; then
+            arguments+=(--head-sha "$HEAD_SHA")
+          fi
+          python3 devops/scripts/benchmark/fetch_ado_benchmark_results.py "${arguments[@]}"
+
+      - name: Read the commit
+        if: steps.fetch.outputs.available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT: ${{ steps.fetch.outputs.commit }}
+        run: gh api "repos/${GITHUB_REPOSITORY}/commits/${COMMIT}" > "$RUNNER_TEMP/benchmark/commit.json"
+
+      - name: Checkout gh-pages
+        if: steps.fetch.outputs.available == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Publish to gh-pages
+        id: publish
+        if: steps.fetch.outputs.available == 'true'
+        env:
+          COMMIT: ${{ steps.fetch.outputs.commit }}
+          BUILD_ID: ${{ steps.run.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            python3 "$GITHUB_WORKSPACE/devops/scripts/benchmark/publish_benchmark_dashboard.py" \
+              --results "$RUNNER_TEMP/benchmark/results" --gh-pages . \
+              --commit-json "$RUNNER_TEMP/benchmark/commit.json" \
+              --repo-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            git add dev/bench
+            if git diff --cached --quiet; then
+              echo "gh-pages already has these results."
+              exit 0
+            fi
+            git commit --quiet -m "bench: publish results for ${COMMIT:0:7} (ADO build ${BUILD_ID})"
+            if git push --quiet origin HEAD:gh-pages; then
+              echo "pushed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}); retrying on the latest gh-pages."
+            sleep $((attempt * 5))
+            git fetch --quiet --depth 1 origin gh-pages
+            git reset --quiet --hard FETCH_HEAD
+          done
+          echo "::error::Could not push the benchmark results after 5 attempts."
+          exit 1
+
+      - name: Redeploy GitHub Pages
+        if: steps.publish.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: gh workflow run build-wiki.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH"
