@@ -107,14 +107,23 @@ jobs:
       pwsh: true
       ScriptType: InlineScript
       Inline: |
-        $secret = Get-AzKeyVaultSecret -VaultName $env:KEY_VAULT_NAME -Name $env:SECRET_NAME -AsPlainText
+        foreach ($name in 'LIVE_TEST_KEY_VAULT', 'LIVE_TEST_SECRET_KEY') {
+          $value = [Environment]::GetEnvironmentVariable($name)
+          # An undefined variable reaches the script as its literal macro.
+          if ([string]::IsNullOrWhiteSpace($value) -or $value -match '^\$\([A-Za-z0-9_.]+\)$') {
+            throw "$name is not set. Link the live test variable group to this pipeline."
+          }
+        }
+        $secret = Get-AzKeyVaultSecret -VaultName $env:LIVE_TEST_KEY_VAULT -Name $env:LIVE_TEST_SECRET_KEY -AsPlainText
         if ([string]::IsNullOrWhiteSpace($secret)) {
-          throw "Secret '$env:SECRET_NAME' in vault '$env:KEY_VAULT_NAME' was empty or not found."
+          throw "Secret '$env:LIVE_TEST_SECRET_KEY' in vault '$env:LIVE_TEST_KEY_VAULT' was empty or not found."
         }
         Write-Host "##vso[task.setvariable variable=LiveTestServicePrincipalSecret;issecret=true;isreadonly=true]$secret"
+    # Not SECRET_*: the task library deletes environment variables with that prefix before the
+    # script runs, because the agent uses it to hand secret variables to tasks.
     env:
-      KEY_VAULT_NAME: $(LiveTestServicePrincipalKeyVaultName)
-      SECRET_NAME: $(LiveTestServicePrincipalSecretName)
+      LIVE_TEST_KEY_VAULT: $(LiveTestServicePrincipalKeyVaultName)
+      LIVE_TEST_SECRET_KEY: $(LiveTestServicePrincipalSecretName)
 
   # AZCLIPS_HOME keeps the profile, and the secret azclips stores with it, in the job's temp
   # directory rather than the agent user's home, so nothing outlives the job. Without a session
