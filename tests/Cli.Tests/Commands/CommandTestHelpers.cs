@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net;
 using System.Reflection;
 using System.Text;
+using System.Web;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
@@ -24,6 +26,8 @@ internal static class CommandTestHelpers
 {
     internal const string TenantId = "11111111-1111-1111-1111-111111111111";
     internal const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
+    internal const string ArmUrl = "https://management.azure.com";
+    internal const string EmptyList = """{"value":[]}""";
 
     /// <summary>
     /// Creates an engine that loads <paramref name="extension"/>, signs in as a fixed profile, and sends every
@@ -110,4 +114,104 @@ internal static class CommandTestHelpers
             WriteError: ignore,
             WriteInformation: ignore);
     }
+
+    /// <summary>
+    /// Answers every <paramref name="method"/> request to <paramref name="url"/> (any query string) with
+    /// <paramref name="statusCode"/> and the JSON <paramref name="responseBody"/>. Returns the body of each matching
+    /// request, read as it is sent because the pipeline disposes the request content afterwards.
+    /// </summary>
+    internal static List<string?> RespondTo(
+        this Mock<ISendAsync> mockWire, HttpMethod method, string url, HttpStatusCode statusCode, string? responseBody = null) =>
+        mockWire.RespondWithHeaders(method, url, statusCode, responseBody);
+
+    /// <summary>
+    /// Like <see cref="RespondTo"/>, and also adds each of <paramref name="responseHeaders"/> ("Name: value") to the
+    /// response, e.g. "Retry-After: 0" so a long-running operation polls straight away instead of waiting.
+    /// </summary>
+    internal static List<string?> RespondWithHeaders(
+        this Mock<ISendAsync> mockWire, HttpMethod method, string url, HttpStatusCode statusCode, string? responseBody, params string[] responseHeaders)
+    {
+        List<string?> sentBodies = [];
+        mockWire
+            .Setup(w => w.SendAsync(
+                It.Is<HttpRequestMessage>(r => r.Method == method && Uri.UnescapeDataString(r.RequestUri!.GetLeftPart(UriPartial.Path)) == url),
+                It.IsAny<IEventPublisher>()))
+            .Returns((HttpRequestMessage request, IEventPublisher _) =>
+            {
+                sentBodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult());
+                HttpResponseMessage response = CreateResponse(request, statusCode, responseBody);
+                foreach (string header in responseHeaders)
+                {
+                    int separator = header.IndexOf(':');
+                    response.Headers.TryAddWithoutValidation(header[..separator].Trim(), header[(separator + 1)..].Trim());
+                }
+
+                return Task.FromResult(response);
+            });
+        return sentBodies;
+    }
+
+    /// <summary>
+    /// Answers every <paramref name="method"/> request, whatever its URL, with <paramref name="statusCode"/> and the JSON
+    /// <paramref name="responseBody"/>, e.g. when the command generates part of the URL. Returns the body of each matching request.
+    /// </summary>
+    internal static List<string?> RespondToAnyUrl(
+        this Mock<ISendAsync> mockWire, HttpMethod method, HttpStatusCode statusCode, string? responseBody = null)
+    {
+        List<string?> sentBodies = [];
+        mockWire
+            .Setup(w => w.SendAsync(It.Is<HttpRequestMessage>(r => r.Method == method), It.IsAny<IEventPublisher>()))
+            .Returns((HttpRequestMessage request, IEventPublisher _) =>
+            {
+                sentBodies.Add(request.Content?.ReadAsStringAsync().GetAwaiter().GetResult());
+                return Task.FromResult(CreateResponse(request, statusCode, responseBody));
+            });
+        return sentBodies;
+    }
+
+    /// <summary>Answers every request, whatever its method and URL, with 200 OK and the JSON <paramref name="responseBody"/>.</summary>
+    internal static void RespondToAnyRequest(this Mock<ISendAsync> mockWire, string responseBody) =>
+        mockWire
+            .Setup(w => w.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .Returns((HttpRequestMessage request, IEventPublisher _) => Task.FromResult(CreateResponse(request, HttpStatusCode.OK, responseBody)));
+
+    /// <summary>Answers each request, whatever its URL, with 200 OK and the next of <paramref name="responseBodies"/> in order.</summary>
+    internal static void RespondInOrder(this Mock<ISendAsync> mockWire, params string[] responseBodies)
+    {
+        Queue<string> remaining = new(responseBodies);
+        mockWire
+            .Setup(w => w.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<IEventPublisher>()))
+            .Returns((HttpRequestMessage request, IEventPublisher _) =>
+                Task.FromResult(CreateResponse(request, HttpStatusCode.OK, remaining.Dequeue())));
+    }
+
+    /// <summary>Every request that reached the wire, in the order sent.</summary>
+    internal static HttpRequestMessage[] SentRequests(this Mock<ISendAsync> mockWire) =>
+        mockWire.Invocations
+            .Where(i => i.Method.Name == nameof(ISendAsync.SendAsync))
+            .Select(i => (HttpRequestMessage)i.Arguments[0])
+            .ToArray();
+
+    /// <summary>"METHOD /path" for every request sent, in order.</summary>
+    internal static string[] RequestLines(this Mock<ISendAsync> mockWire) =>
+        mockWire.SentRequests().Select(r => $"{r.Method} {r.RequestUri!.AbsolutePath}").ToArray();
+
+    /// <summary>"METHOD /path?query" for every request sent, in order, with the URL decoded.</summary>
+    internal static string[] FullRequestLines(this Mock<ISendAsync> mockWire) =>
+        mockWire.SentRequests().Select(r => $"{r.Method} {Uri.UnescapeDataString(r.RequestUri!.PathAndQuery)}").ToArray();
+
+    /// <summary>The decoded value of query parameter <paramref name="name"/>, or null when it is not sent.</summary>
+    internal static string? QueryValue(this HttpRequestMessage request, string name) =>
+        HttpUtility.ParseQueryString(request.RequestUri!.Query)[name];
+
+    /// <summary>The values of header <paramref name="name"/> joined with commas, or null when it is not sent.</summary>
+    internal static string? HeaderValues(this HttpRequestMessage request, string name) =>
+        request.Headers.TryGetValues(name, out IEnumerable<string>? values) ? string.Join(",", values) : null;
+
+    private static HttpResponseMessage CreateResponse(HttpRequestMessage request, HttpStatusCode statusCode, string? responseBody) =>
+        new(statusCode)
+        {
+            RequestMessage = request,
+            Content = responseBody is null ? null : new StringContent(responseBody, Encoding.UTF8, "application/json"),
+        };
 }
