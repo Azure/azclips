@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Accounts.Tests;
 
 /// <summary>
 /// Behavioral tests for <see cref="GetAccessTokenProcessor"/>: tenant-compatibility validation for

@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Accounts.Tests;
 
 /// <summary>
 /// Removing a profile must take its credentials with it, since tokens that outlive the profile naming

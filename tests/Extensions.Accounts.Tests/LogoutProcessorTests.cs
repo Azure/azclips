@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Accounts.Tests;
 
 /// <summary>
 /// Logout must hand the whole profile to the auth service: service principal tokens live in an app cache
