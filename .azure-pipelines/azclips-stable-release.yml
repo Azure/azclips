@@ -99,6 +99,7 @@ stages:
     release_channel: stable
     limit_ps_testing: false
     skip_ps_version_check: true
+    run_benchmarks: false
     release_date: auto
     pr_number: auto
     sequence: auto

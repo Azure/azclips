@@ -1,6 +1,7 @@
 variables:
   ubuntu_pool: 'pool-ubuntu-2404'
   ubuntu_arm64_pool: 'pool-ubuntu-latest-arm64'
+  benchmark_pool: 'pool-ubuntu-gh'
   windows_pool: 'pool-windows-2022'
   windows_arm64_pool: 'pool-windows-2025-gen2-arm64'
   macos_arm64_pool: 'macOS-15-arm64'

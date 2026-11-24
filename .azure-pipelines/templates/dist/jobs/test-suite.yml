@@ -22,6 +22,11 @@ jobs:
       python3 -m unittest discover -s devops/scripts/ci -p test_pipeline_input_safety.py -v
     displayName: Run Pipeline Input Safety Tests
 
+  - bash: |
+      set -euo pipefail
+      python3 -m unittest discover -s devops/scripts/benchmark -p 'test_*.py' -v
+    displayName: Run Benchmark Script Tests
+
   - task: UseDotNet@2
     displayName: .NET SDK
     inputs:

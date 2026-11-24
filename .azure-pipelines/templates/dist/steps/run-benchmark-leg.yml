@@ -1,0 +1,59 @@
+# One benchmark leg on the fixed-hardware benchmark pool. The solution built by
+# BuildBenchmarks is downloaded into the checkout, the benchmark runs with a per-attempt
+# timeout and one retry (devops/scripts/benchmark/run_benchmark.sh), and its CI output,
+# artifacts/Benchmark/ci/<EXT>/<PRODUCT>/, is published even after a failure so
+# CollectBenchmarks can report partial results.
+parameters:
+- name: product
+  type: string
+  values:
+  - CLI
+  - PS
+  - STARTUP
+- name: extension
+  type: string
+  default: ''
+- name: artifact_name
+  type: string
+- name: attempt_timeout
+  type: string
+
+steps:
+- checkout: self
+  clean: true
+  fetchDepth: 1
+
+- task: UseDotNet@2
+  displayName: .NET SDK
+  inputs:
+    packageType: sdk
+    useGlobalJson: true
+
+- task: DownloadPipelineArtifact@2
+  displayName: Download Benchmark Build Outputs
+  inputs:
+    buildType: current
+    artifactName: Benchmark_Build_Outputs
+    targetPath: $(Build.SourcesDirectory)/artifacts/Release
+
+- bash: |
+    set -euo pipefail
+    dotnet --version
+    mkdir -p artifacts/Benchmark/ci
+    arguments=(--ci --product "$BENCHMARK_PRODUCT")
+    if [[ -n "${BENCHMARK_EXTENSION:-}" ]]; then
+      arguments+=(--extension "$BENCHMARK_EXTENSION")
+    fi
+    bash devops/scripts/benchmark/run_benchmark.sh dotnet artifacts/Release/Benchmark/Benchmark.dll "${arguments[@]}"
+  displayName: Run ${{ parameters.product }} Benchmarks
+  env:
+    BENCHMARK_PRODUCT: ${{ parameters.product }}
+    BENCHMARK_EXTENSION: ${{ parameters.extension }}
+    BENCHMARK_ATTEMPT_TIMEOUT: ${{ parameters.attempt_timeout }}
+
+- template: publish-artifact.yml
+  parameters:
+    display_name: Publish ${{ parameters.product }} Benchmark Results
+    artifact_name: ${{ parameters.artifact_name }}
+    target_path: $(Build.SourcesDirectory)/artifacts/Benchmark/ci
+    condition: succeededOrFailed()
