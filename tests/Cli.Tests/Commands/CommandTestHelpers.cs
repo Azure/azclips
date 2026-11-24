@@ -28,6 +28,7 @@ internal static class CommandTestHelpers
     internal const string SubscriptionId = "00000000-0000-0000-0000-000000000000";
     internal const string ArmUrl = "https://management.azure.com";
     internal const string EmptyList = """{"value":[]}""";
+    private const string PollingIntervalVariable = "TEMP_AZCLIPS_PLAYBACK_TEST_POLLING_INTERVAL";
 
     /// <summary>
     /// Creates an engine that loads <paramref name="extension"/>, signs in as a fixed profile, and sends every
@@ -36,6 +37,9 @@ internal static class CommandTestHelpers
     /// </summary>
     internal static Engine CreateEngine(Assembly extension, Mock<ISendAsync> mockWire, bool signedIn = true)
     {
+        // Polling waits this many seconds when a response has no Retry-After header; the default is 15.
+        Environment.SetEnvironmentVariable(PollingIntervalVariable, "0");
+
         Profile profile = new() { Name = "test", TenantId = TenantId, SubscriptionId = SubscriptionId };
         Mock<IProfileService> mockProfiles = new();
         mockProfiles.Setup(p => p.GetActiveProfileNameAsync(It.IsAny<CancellationToken>())).ReturnsAsync(signedIn ? profile.Name : null);
