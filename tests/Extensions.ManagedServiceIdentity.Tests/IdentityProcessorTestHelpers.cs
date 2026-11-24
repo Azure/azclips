@@ -8,7 +8,7 @@ using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Moq;
 
-namespace Cli.Tests;
+namespace Extensions.ManagedServiceIdentity.Tests;
 
 /// <summary>
 /// Shared Moq setup for Managed Identity orchestrator unit tests. Create the pipeline mock with

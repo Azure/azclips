@@ -36,8 +36,10 @@
 
     <ItemGroup Condition="'$(Configuration)' == 'Release'">
         <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
+        <InternalsVisibleTo Include="Extensions.ManagedServiceIdentity.Tests" Key="$(MSSharedLibPublicKey)" />
     </ItemGroup>
     <ItemGroup Condition="'$(Configuration)' != 'Release'">
         <InternalsVisibleTo Include="Cli.Tests" />
+        <InternalsVisibleTo Include="Extensions.ManagedServiceIdentity.Tests" />
     </ItemGroup>
 </Project>

@@ -4,7 +4,7 @@
 using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 
-namespace Cli.Tests;
+namespace Extensions.ManagedServiceIdentity.Tests;
 
 public class FederatedCredentialValidatorTests
 {

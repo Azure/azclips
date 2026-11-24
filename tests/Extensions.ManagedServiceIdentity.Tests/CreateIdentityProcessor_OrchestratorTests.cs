@@ -6,9 +6,9 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 using Moq;
-using static Cli.Tests.IdentityProcessorTestHelpers;
+using static Extensions.ManagedServiceIdentity.Tests.IdentityProcessorTestHelpers;
 
-namespace Cli.Tests;
+namespace Extensions.ManagedServiceIdentity.Tests;
 
 // IdentityCliArgumentParserTests covers every tag and resource-restriction case; these prove the orchestrator
 // parses both before any request.
