@@ -218,13 +218,38 @@ public class TableFormatterTests
     }
 
     [Fact]
-    public void Format_ShouldConstrainEmojiByDisplayWidth()
+    public void Format_ShouldPreserveFirstEmojiWhenMinimumWidthExceedsTerminal()
     {
         var json = """["😀😀😀😀"]""";
 
         var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 4);
 
-        Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 4, line));
+        Assert.Equal("😀...", result);
+        Assert.Equal(5, MeasureDisplayCells(result));
+    }
+
+    [Theory]
+    [InlineData("""[{"name":"漢字漢","icon":"😀😀😀"}]""")]
+    [InlineData("""[{"name":"abcdef","icon":"abcdef"},{"name":"漢字漢","icon":"😀😀😀"}]""")]
+    public void Format_ShouldPreserveFirstWideRuneInEveryRow_WhenColumnsOverflow(string json)
+    {
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 10);
+        var lines = result.Split('\n');
+
+        Assert.Equal(new[] { "name", "icon" }, Columns(lines[0]));
+        Assert.Equal("-----  -----", lines[1]);
+        Assert.Equal("漢...  😀...", lines[^1]);
+        Assert.Equal(12, MeasureDisplayCells(lines[^1]));
+    }
+
+    [Fact]
+    public void Format_ShouldNotReserveEllipsisSpaceForShortWideValues()
+    {
+        var json = """[{"name":"漢"},{"name":"abcdef"}]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 4);
+
+        Assert.Equal("name\n----\n漢\na...", result);
     }
 
     [Fact]

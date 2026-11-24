@@ -89,11 +89,19 @@ internal static class TableFormatter
         {
             var headerWidth = (headers is not null && c < headers.Length) ? GetDisplayWidth(headers[c]) : 0;
             widths[c] = headerWidth;
+            minimumWidths[c] = headerWidth;
             foreach (var row in rows)
             {
-                widths[c] = Math.Max(widths[c], c < row.Length ? GetDisplayWidth(row[c]) : 0);
+                if (c >= row.Length)
+                    continue;
+
+                var cellWidth = GetDisplayWidth(row[c]);
+                widths[c] = Math.Max(widths[c], cellWidth);
+                var firstVisibleRune = row[c].EnumerateRunes().FirstOrDefault(rune => GetRuneDisplayWidth(rune) > 0);
+                // Reserve a visible rune before the three-cell truncation marker.
+                var minimumCellWidth = Math.Min(cellWidth, GetRuneDisplayWidth(firstVisibleRune) + 3);
+                minimumWidths[c] = Math.Max(minimumWidths[c], minimumCellWidth);
             }
-            minimumWidths[c] = Math.Min(widths[c], Math.Max(headerWidth, 4));
         }
 
         const int separatorWidth = 2;
