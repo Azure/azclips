@@ -115,10 +115,10 @@ All jobs keep checkout task retries at the Azure Pipelines default (none).
 | Job | Pool | Runs when | Work |
 | --- | --- | --- | --- |
 | `DetectBenchmarks` | `ubuntu_pool` | always | Full-history checkout. Runs `detect_benchmark_changes.py` and sets output variables (step name `detect`): `hasExtensionWork`, `runStartup`, `extensionMatrix`, and the human-readable `extensions` and `changeBase`. |
-| `BuildBenchmarks` | `ubuntu_pool` | `hasExtensionWork` or `runStartup` | `UseDotNet@2` (`global.json`), then `dotnet build azclips.slnx -c Release -p:CopilotSkipCliDownload=true`. Publishes `artifacts/Release` and `tests/Benchmark/bin/Release`, laid out relative to the repo root, as `Benchmark_Build_Outputs` (success-only publish that ends its job). |
-| `RunCliBenchmarks` | `benchmark_pool` | `hasExtensionWork` | Runtime matrix from `extensionMatrix` (`{"<ext>": {"Extension": "<ext>"}}`). Checkout, `UseDotNet@2`, download `Benchmark_Build_Outputs` into the repo root, then `dotnet artifacts/Release/Benchmark/Benchmark.dll --ci --extension $(Extension) --product CLI` with `timeoutInMinutes: 60` and `retryCountOnTaskFailure: 1`. Publishes `artifacts/Benchmark/ci` as `Benchmark_CLI_$(Extension)` through `steps/publish-artifact.yml` (`always()`, suffix mode). |
+| `BuildBenchmarks` | `ubuntu_pool` | `hasExtensionWork` or `runStartup` | `UseDotNet@2` (`global.json`), then `dotnet build azclips.slnx -c Release -p:CopilotSkipCliDownload=true`. Publishes `artifacts/Release` as `Benchmark_Build_Outputs` (a success-only publish that ends its job). `Shared.props` sends every project's output there, so `tests/Benchmark/bin/Release`, which the GitHub workflow also uploaded, is never produced. |
+| `RunCliBenchmarks` | `benchmark_pool` | `hasExtensionWork` | Runtime matrix from `extensionMatrix` (`{"<ext>": {"Extension": "<ext>"}}`). Steps come from `steps/run-benchmark-leg.yml`: checkout, `UseDotNet@2`, download `Benchmark_Build_Outputs` into `artifacts/Release`, then `run_benchmark.sh dotnet artifacts/Release/Benchmark/Benchmark.dll --ci --extension $(Extension) --product CLI`. The wrapper gives each attempt a 60-minute timeout and retries once after 30 seconds, like `nick-fields/retry` today; `retryCountOnTaskFailure` is not used because it does not retry a step that times out. Publishes `artifacts/Benchmark/ci` as `Benchmark_CLI_$(Extension)` through `steps/publish-artifact.yml` (`succeededOrFailed()`, suffix mode). |
 | `RunPsBenchmarks` | `benchmark_pool` | `hasExtensionWork` | Same as CLI with `--product PS`, artifact `Benchmark_PS_$(Extension)`. |
-| `RunStartupBenchmarks` | `benchmark_pool` | `runStartup` | Same setup, `--ci --product STARTUP`, `timeoutInMinutes: 20`, one retry, artifact `Benchmark_STARTUP`. |
+| `RunStartupBenchmarks` | `benchmark_pool` | `runStartup` | Same steps with `--ci --product STARTUP`, a 20-minute attempt timeout and one retry; artifact `Benchmark_STARTUP`. |
 | `CollectBenchmarks` | `ubuntu_pool` | not canceled, and `hasExtensionWork` or `runStartup` (also after leg failures) | See "Collect" below. |
 
 Job timeouts leave room for the retry: 150 minutes for CLI and PS legs, 60 for startup,
@@ -150,7 +150,8 @@ paths updated:
   `tests/Benchmark/CLI/BenchmarkAssemblyConfigurationService.cs`,
   `tests/Benchmark/PS/PSBenchmarkBase.cs`, `tests/Benchmark/PS/PSManifestStager.cs`,
   `tests/Common/**`, `global.json`, `azclips.slnx`, `Shared.props`,
-  `.azure-pipelines/templates/dist/jobs/benchmark-suite.yml`, and
+  `.azure-pipelines/templates/dist/jobs/benchmark-suite.yml`,
+  `.azure-pipelines/templates/dist/steps/run-benchmark-leg.yml`, and
   `devops/scripts/benchmark/**`.
 - **Startup** paths run startup only: `tests/Benchmark/Startup/**`.
 - **Extension** hits: a changed benchmark class file maps to its attribute's extension, and
@@ -165,8 +166,10 @@ skip on their condition instead of failing matrix expansion.
 `CollectBenchmarks`:
 
 1. Downloads every `Benchmark_CLI_*`, `Benchmark_PS_*`, and `Benchmark_STARTUP*` artifact
-   of the current run and keeps the highest attempt per leg (`<name>` is attempt 1,
-   `<name>_attempt<N>` is attempt N).
+   of the current run with `DownloadPipelineArtifact@2`, which does not fail when nothing
+   matches. `collect_benchmark_results.py` keeps the newest attempt of each leg
+   (`<name>` is attempt 1, `<name>_attempt<N>` is attempt N), merges their telemetry for
+   the trace aggregation, and copies their reports into `Benchmark_Results`.
 2. Clones `gh-pages` read-only and anonymously from `https://github.com/$(Build.Repository.Name)`
    (sparse `dev/bench`). If the clone fails, it warns and renders "no baseline".
 3. Renders the summary with `compare_benchmarks.py --format summary` (the same tables as
@@ -177,11 +180,13 @@ skip on their condition instead of failing matrix expansion.
 4. Publishes `Benchmark_Results` through `steps/publish-artifact.yml` (suffix mode):
 
    ```text
-   metadata.json                                        # build id, reason, branch, commit, PR number, leg results (informational only)
-   reports/<EXT>/<PRODUCT>/<Namespace.Class>-report-full-compressed.json  # BenchmarkDotNet JSON (EXT = ALL for STARTUP)
+   metadata.json                                        # build ID and URL, reason, branch, commit (PR head for PRs), PR number, selected extensions
+   reports/<EXT>/<PRODUCT>/results/<Namespace.Class>-report-full-compressed.json  # BenchmarkDotNet JSON in the runner's layout (EXT = ALL for STARTUP)
    sidecars/<EXT>/<PRODUCT>/<Benchmark>.json            # aggregated trace trees
    summary.md                                           # the rendered build summary
    ```
+
+   `metadata.json` feeds the build summary only; the GitHub workflows never trust it.
 
 ### Failure behavior
 
@@ -230,7 +235,7 @@ Permissions: `contents: read`, `checks: read`, `pull-requests: write`.
 4. Download the highest-attempt `Benchmark_Results` artifact. Exit quietly if there is none
    (nothing was benchmarked); an existing comment is left as is.
 5. Read the `Benchmark` stage result and failed job names from the ADO timeline.
-6. Sparse-check out `gh-pages` `dev/bench/*/data.js` and render the comment with
+6. Sparse-check out `gh-pages` `dev/bench` and render the comment with
    `compare_benchmarks.py --format comment`.
 7. Upsert the comment that contains `<!-- benchmark-results -->` and is authored by
    `github-actions[bot]`. This is the marker today's fork comment uses, so existing
@@ -263,12 +268,14 @@ results on the [CLI](https://azure.github.io/azclips/dev/bench/cli/) and
 ### Startup
 … (warm rows use the threshold; cold rows are labelled informational and never flagged)
 
-Failed benchmark jobs: `CLI Benchmarks (compute)`   (only when there are failures)
+Failed benchmark jobs: `CLI Benchmarks compute`   (only when there are failures)
 
 Per-span telemetry comparison: [build summary](<build url>&view=ms.vss-build-web.run-extensions-tab)
 <!-- benchmark-results -->
 ```
 
+- When the artifact has no results (for example, the build job failed), the tables are
+  replaced by "No benchmark results were produced."
 - The benchmark label is the class name without the `Benchmarks` suffix, then the method.
 - "This PR" is the BenchmarkDotNet mean ± standard deviation. Units scale automatically
   (ns, µs, ms, s).
@@ -308,10 +315,14 @@ Permissions: `contents: write`, `checks: read`, `actions: write`.
        benchmarks never reached the dashboard.
      - Benches without statistics are skipped with a warning.
    - The publisher skips a series that already has an entry for this commit id, so reruns
-     and backfills are idempotent. It updates `lastUpdate` and keeps `repoUrl`.
-   - It writes `window.BENCHMARK_DATA = <JSON, 2-space indent>`, the action's format.
+     and backfills are idempotent. It also skips a series whose entries include a later
+     commit (by committer timestamp), so a late or backfilled publish never reorders a
+     chart. It updates `lastUpdate` and keeps `repoUrl`.
+   - It writes `window.BENCHMARK_DATA = <JSON, 2-space indent>`, the action's format,
+     byte for byte, so existing files only gain the new entries.
    - Trace sidecars are merged into `dev/bench/traces/<EXT>/<PRODUCT>/`. Every path
-     segment is validated (`^[A-Z0-9]+$`, `^(CLI|PS|STARTUP)$`, `^[A-Za-z0-9._-]+\.json$`).
+     segment is validated (`^[A-Z0-9]+$`, `^(CLI|PS|STARTUP)$`, `^[A-Za-z0-9._-]+\.json$`),
+     and a sidecar never replaces one generated later (`source.generated`).
 4. Commit as `github-actions[bot]` with message
    `bench: publish results for <sha7> (ADO build <id>)`. If the push is rejected, reset to
    `origin/gh-pages`, re-apply, and retry, up to 5 attempts. There is no concurrency group,
@@ -332,12 +343,15 @@ can call them directly.
 
 | Script | Responsibility |
 | --- | --- |
-| `benchmark_results.py` | Shared library: load BenchmarkDotNet reports from a results tree, parse and write `data.js`, map series names and files, and safely extract a zip (no absolute paths, `..`, links, or unexpected names; compressed and extracted size caps). |
+| `benchmark_results.py` | Shared library: load BenchmarkDotNet reports from a results tree, parse and write `data.js`, map series names and files, pick the newest artifact attempts, and print warnings in the format of the CI system running the script. |
 | `detect_benchmark_changes.py` | ADO-side change detection (above). Emits `##vso[task.setvariable …;isOutput=true]`. |
+| `run_benchmark.sh` | Runs a benchmark leg with a per-attempt GNU `timeout` (which stops BenchmarkDotNet's child processes too) and retries, like `nick-fields/retry`. |
+| `collect_benchmark_results.py` | Combines the newest attempt of each leg into merged telemetry and the `Benchmark_Results` reports, and writes `metadata.json`. |
 | `compare_benchmarks.py` | Renders the comparison markdown (`--format summary` or `comment`) from a results tree and a `dev/bench` baseline directory. |
 | `aggregate_benchmark_traces.py` | Moved from `.github/scripts/aggregate-benchmark-traces.py`. Warnings use `##vso[task.logissue type=warning]` when `TF_BUILD` is set and `::warning::` otherwise. |
-| `fetch_ado_benchmark_results.py` | GitHub-side: verify an ADO build against the expected project, definition, reason, branch, and commit; pick the highest-attempt `Benchmark_Results`; stream it with a size cap; extract it safely; report the `Benchmark` stage result and failed job names from the timeline. |
+| `fetch_ado_benchmark_results.py` | GitHub-side: verify an ADO build against the expected project, definition, reason, branch, and commit; pick the highest-attempt `Benchmark_Results`; stream it with a size cap; extract it safely (no absolute paths, `..`, links, or unexpected names; per-file and total size caps); report the `Benchmark` stage result and failed job names from the timeline. |
 | `publish_benchmark_dashboard.py` | Update a `gh-pages` checkout (`data.js` entries and trace sidecars) idempotently. |
+| `benchmark_fixtures.py` | Test support that writes reports and `data.js` files in the pipeline's shapes. |
 
 `.github/scripts/detect-benchmark-changes.sh` and
 `.github/scripts/aggregate-benchmark-traces.py` are deleted.
@@ -354,8 +368,9 @@ can call them directly.
   - Downloads are streamed with a size cap.
   - Extraction accepts only regular files with safe relative paths and expected names.
   - Each JSON file has a size limit; numbers must be finite.
-  - Benchmark names must match `[A-Za-z0-9_.]+` and are otherwise sanitized; they render
-    inside code spans.
+  - Benchmark names must match `[A-Za-z0-9_.]+` (others are skipped with a warning) and
+    render inside code spans. Failed job names from the timeline are reduced to
+    `[A-Za-z0-9 _().-]`.
   - The comment body is built only from these validated values. Text from the build
     (including `summary.md`) is never reposted.
 - The comment workflow edits only comments authored by `github-actions[bot]` that contain
@@ -373,7 +388,7 @@ can call them directly.
 | New benchmark with no `main` history | Shown as `new` |
 | `gh-pages` unreachable from ADO | Summary renders without a baseline (warning) |
 | Concurrent `main` publishes | Push retry re-applies on top of the latest `gh-pages` |
-| Lost publish (outage) | Dispatch `benchmark-publish.yml` with the beta build id; idempotent backfill |
+| Lost publish (outage) | Dispatch `benchmark-publish.yml` with the beta build id; idempotent backfill. A commit older than a series' newest entry is not inserted. |
 | Batched `main` builds, or an earlier beta failure | Detection diffs against the last succeeded beta run, so those changes are covered |
 
 ## Intentional Behavior Changes
@@ -409,10 +424,15 @@ can call them directly.
   that failure-tolerant publishes use `steps/publish-artifact.yml`.
 - This PR's own alpha build runs the whole ADO stage on `pool-ubuntu-gh`. Its template and
   script changes are shared paths, so every extension and startup are exercised.
-- Before merging, dispatch both GitHub workflows on the fork (`JaysonTaiMicrosoft/cirrus`)
-  with this PR's alpha build id (and a fork PR number) and a beta build id, to check
-  comment rendering and `gh-pages` publishing. After merging, the first PR verifies the
-  `check_suite` trigger.
+- Before merging, check the GitHub side without write access: run
+  `fetch_ado_benchmark_results.py` and `compare_benchmarks.py` locally against this PR's
+  alpha run to render the comment, and `publish_benchmark_dashboard.py` against a scratch
+  copy of `gh-pages` to inspect the diff. No `main` beta run has `Benchmark_Results` until
+  this merges, and `workflow_dispatch` only works for workflows already on a repository's
+  default branch, so the workflows themselves are first exercised after merging: the
+  first PR into `main` runs `benchmark-comment.yml` and the first `main` build runs
+  `benchmark-publish.yml`. A scratch repository can host an earlier dispatch test if
+  wanted.
 
 ## Documentation Updates
 
@@ -428,11 +448,12 @@ can call them directly.
 | Change | Path |
 | --- | --- |
 | Modify | `.azure-pipelines/templates/dist/jobs/benchmark-suite.yml` |
+| Add | `.azure-pipelines/templates/dist/steps/run-benchmark-leg.yml` |
 | Modify | `.azure-pipelines/templates/dist/stages/build-unsigned-distribution.yml` |
 | Modify | `.azure-pipelines/templates/dist/jobs/test-suite.yml` |
 | Modify | `.azure-pipelines/templates/variables.yml` |
 | Modify | `.azure-pipelines/azclips-alpha-build.yml`, `azclips-beta-build.yml`, `azclips-stable-release.yml`, `azclips-stable-release-test.yml` |
-| Add | `devops/scripts/benchmark/*.py` (scripts and tests listed above) |
+| Add | `devops/scripts/benchmark/*.py` and `run_benchmark.sh` (scripts and tests listed above) |
 | Rewrite | `.github/workflows/benchmark-comment.yml` |
 | Add | `.github/workflows/benchmark-publish.yml` |
 | Modify | `.github/workflows/build-wiki.yml` |
