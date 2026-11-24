@@ -17,9 +17,11 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 
+from benchmark_results import warn
+
 BAR_WIDTH = 20
 PRODUCTS = ("CLI", "PS", "STARTUP")
-SUMMARY_BUDGET_BYTES = 900_000  # GitHub caps job summaries at 1 MiB; leave headroom.
+SUMMARY_BUDGET_BYTES = 900_000  # Keep the build summary under 1 MiB; leave headroom.
 FAR_FUTURE = datetime.max.replace(tzinfo=timezone.utc)
 SIDECAR_SCHEMA = 1
 
@@ -353,7 +355,7 @@ def write_sidecars(root, reports, commit, ref, run_id):
                 os.unlink(path)
             except OSError:
                 pass
-            print(f"::warning::could not write sidecar {path}: {exc}", file=sys.stderr)
+            warn(f"could not write sidecar {path}: {exc}")
     return written
 
 
@@ -367,7 +369,7 @@ def load_sidecar(path, source="baseline"):
             return Report.from_dict(json.load(handle))
     except Exception as exc:
         # A missing baseline degrades to a single-tree render rather than failing.
-        print(f"::warning::ignoring {source} sidecar {path}: {exc}", file=sys.stderr)
+        warn(f"ignoring {source} sidecar {path}: {exc}")
         return None
 
 
@@ -687,7 +689,7 @@ def render_comparison(baseline, current):
 # ------------------------------------------------------------------- outputs
 
 def render_summary(reports, baselines=None):
-    """Markdown for $GITHUB_STEP_SUMMARY, truncated to stay under the 1 MiB cap.
+    """Markdown for the build summary, truncated to stay under the 1 MiB budget.
 
     A benchmark with a baseline renders side by side; one without falls back to a
     single tree.
@@ -715,7 +717,7 @@ def render_summary(reports, baselines=None):
     if truncated:
         blocks.append(
             f"\n_Output truncated: {truncated} benchmark(s) omitted to stay under "
-            "GitHub's 1 MiB job summary limit._\n")
+            "the 1 MiB build summary budget._\n")
 
     return "\n".join(blocks)
 
@@ -771,7 +773,7 @@ def run(args):
 
     summary = render_summary(usable, baselines)
     if args.summary_out:
-        # Append: the runner may already have written to $GITHUB_STEP_SUMMARY.
+        # Append: compare_benchmarks.py writes the result tables to this file first.
         with open(args.summary_out, "a", encoding="utf-8") as handle:
             handle.write(summary + "\n")
         print(f"[traces] wrote summary to {args.summary_out}")
@@ -798,7 +800,7 @@ def main():
     try:
         return run(args)
     except Exception as exc:  # telemetry must never fail the workflow
-        print(f"::warning::trace aggregation failed: {exc}", file=sys.stderr)
+        warn(f"trace aggregation failed: {exc}")
         return 0
 
 

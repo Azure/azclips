@@ -228,12 +228,12 @@ To compare two local runs without CI:
 ```bash
 git switch main
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --extension Resources
-python3 .github/scripts/aggregate-benchmark-traces.py \
+python3 devops/scripts/benchmark/aggregate_benchmark_traces.py \
   --input artifacts/Benchmark/<timestamp> --sidecar-out ./main-traces
 
 git switch my-branch
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --extension Resources
-python3 .github/scripts/aggregate-benchmark-traces.py \
+python3 devops/scripts/benchmark/aggregate_benchmark_traces.py \
   --input artifacts/Benchmark/<timestamp> --baseline ./main-traces
 ```
 
