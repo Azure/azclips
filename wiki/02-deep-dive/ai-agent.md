@@ -17,7 +17,7 @@ assembly `azclips-agent`).
 > `eng-docs/spec/ARCHITECTURE.md` describes the agent as *"Azure OpenAI Integration — CloudAgent
 > with GPT-4o-mini"* driven by an `AgentEngine`/`OrchestratorEngine`
 > (`eng-docs/spec/ARCHITECTURE.md:9`, `:20`). **That document is stale.** The shipping agent is
-> built on the **GitHub Copilot SDK** (`GitHub.Copilot.SDK` `1.0.13`,
+> built on the **GitHub Copilot SDK** (`GitHub.Copilot.SDK` `1.0.15`,
 > `Agent/Core.Agent.csproj:31`) which drives a **bundled Copilot CLI daemon** resolved from
 > the SDK's NuGet payload (`Agent/BundledDaemonResolver.cs:11`). There is no `CloudAgent`,
 > `AgentEngine`, or hard-wired `gpt-4o-mini`. The model is configurable; the `builtin`
@@ -464,7 +464,7 @@ is separate and does not host this entry point
 
 ## References
 
-- `Agent/Core.Agent.csproj` — `GitHub.Copilot.SDK` 1.0.13, `net10.0`, prompt content copy
+- `Agent/Core.Agent.csproj` — `GitHub.Copilot.SDK` 1.0.15, `net10.0`, prompt content copy
 - `Agent/BundledDaemonResolver.cs` — RID → `runtimes/<rid>/native/copilot`
 - `Agent/ChatAgent.cs` — daemon client, turn contract, `OnPreToolUse` gate, provider selection, prompt loading
 - `Agent/Hosting/ProposePlanTool.cs`, `SubmitResponseTool.cs` — turn-closing tools

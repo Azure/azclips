@@ -1,12 +1,16 @@
 <Project>
   <!--
     Fetches the Copilot CLI bundle that GitHub.Copilot.SDK needs from the Microsoft package feed
-    proxy (CFS) instead of GitHub Releases. The same npm package (@github/copilot-<platform>) is
-    mirrored there, and the files the SDK copies are identical to the GitHub release archive.
-    CFS is already the NuGet source in nuget.config, so every machine that can restore can reach it.
+    proxy (CFS) instead of GitHub Releases. CFS mirrors the npm package @github/copilot-<platform>
+    and is already the NuGet source in nuget.config, so every machine that can restore can reach it.
 
-    How it works: before the SDK's _DownloadCopilotCli target runs, this unpacks the package into
-    the folder the SDK reads ($(IntermediateOutputPath)copilot-cli/<version>/<platform>) and writes
+    The npm package holds one single-file executable (package/copilot[.exe]). That executable embeds
+    the GitHub release archive github-copilot-<version>-<platform>.tgz byte for byte, as the Node.js
+    single-executable asset "copilot.tgz", and unpacks it on first run.
+
+    How it works: before the SDK's _DownloadCopilotCli target runs, this downloads the npm package,
+    checks its npm SHA-1 shasum, reads the embedded archive out of the executable, and unpacks it into
+    the folder the SDK reads ($(IntermediateOutputPath)copilot-cli/<version>/<platform>), then writes
     the SDK's completion marker. The SDK then finds a complete bundle and does not download.
 
     This depends on SDK internals: the _DownloadCopilotCli target name, the _CopilotPlatform property,
@@ -61,6 +65,65 @@
         {
           Log.LogError("Checksum mismatch for {0}: expected {1}, got {2}.", PackageFile, expected, actual);
           return false;
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <!--
+    Writes the "copilot.tgz" asset of a Node.js single executable application to ArchiveFile.
+    Node's SEA blob stores each asset as: name length (8-byte little-endian), name, content length
+    (8-byte little-endian), content. The name is matched with its length prefix, so the search
+    finds the asset entry and not the string "copilot.tgz" inside the bundled JavaScript.
+    Exactly one match is required.
+  -->
+  <UsingTask
+    TaskName="ExtractCopilotSeaArchive"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ExecutableFile ParameterType="System.String" Required="true" />
+      <ArchiveFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var name = System.Text.Encoding.ASCII.GetBytes("copilot.tgz");
+        var key = new byte[8 + name.Length];
+        BitConverter.GetBytes((long)name.Length).CopyTo(key, 0);
+        name.CopyTo(key, 8);
+        var data = File.ReadAllBytes(ExecutableFile);
+        int found = -1;
+        for (int i = 0; i + key.Length + 8 <= data.Length; i++)
+        {
+          int j = 0;
+          while (j < key.Length && data[i + j] == key[j])
+            j++;
+          if (j < key.Length)
+            continue;
+          if (found >= 0)
+          {
+            Log.LogError("{0} has more than one copilot.tgz asset.", ExecutableFile);
+            return false;
+          }
+          found = i;
+        }
+        if (found < 0)
+        {
+          Log.LogError("{0} has no copilot.tgz asset.", ExecutableFile);
+          return false;
+        }
+        int start = found + key.Length + 8;
+        long length = BitConverter.ToInt64(data, found + key.Length);
+        if (length <= 0 || length > data.Length - start)
+        {
+          Log.LogError("{0} has a copilot.tgz asset with an invalid length {1}.", ExecutableFile, length);
+          return false;
+        }
+        using (var file = File.Create(ArchiveFile))
+        {
+          file.Write(data, start, (int)length);
         }
       ]]></Code>
     </Task>
@@ -182,6 +245,10 @@ public class DownloadCopilotCliFile : Microsoft.Build.Utilities.Task, ICancelabl
     <PropertyGroup>
       <_CopilotFeedDir>$(IntermediateOutputPath)copilot-cli\$(CopilotCliVersion)\$(_CopilotPlatform)</_CopilotFeedDir>
       <_CopilotFeedMarker>$(_CopilotFeedDir)\.copilot-runtime-complete</_CopilotFeedMarker>
+      <_CopilotFeedPackageFile>$(_CopilotFeedDir)\npm-package.tgz</_CopilotFeedPackageFile>
+      <_CopilotFeedExecutableDir>$(_CopilotFeedDir)\npm-package</_CopilotFeedExecutableDir>
+      <_CopilotFeedExecutable Condition="$(_CopilotPlatform.StartsWith('win32-'))">$(_CopilotFeedExecutableDir)\copilot.exe</_CopilotFeedExecutable>
+      <_CopilotFeedExecutable Condition="'$(_CopilotFeedExecutable)' == ''">$(_CopilotFeedExecutableDir)\copilot</_CopilotFeedExecutable>
       <_CopilotFeedArchive>$(_CopilotFeedDir)\copilot.tgz</_CopilotFeedArchive>
       <_CopilotFeedMetadata>$(_CopilotFeedDir)\metadata.json</_CopilotFeedMetadata>
       <_CopilotFeedPackage>copilot-$(_CopilotPlatform)</_CopilotFeedPackage>
@@ -196,13 +263,19 @@ public class DownloadCopilotCliFile : Microsoft.Build.Utilities.Task, ICancelabl
     <Message Importance="high" Text="Downloading Copilot CLI $(CopilotCliVersion) for $(_CopilotPlatform) from $(CopilotCliFeedUrl)..." Condition="!Exists('$(_CopilotFeedMarker)')" />
     <DownloadCopilotCliFile SourceUrl="$(_CopilotFeedMetadataUrl)" DestinationFile="$(_CopilotFeedMetadata)"
                             Condition="!Exists('$(_CopilotFeedMarker)')" />
-    <DownloadCopilotCliFile SourceUrl="$(_CopilotFeedPackageUrl)" DestinationFile="$(_CopilotFeedArchive)"
+    <DownloadCopilotCliFile SourceUrl="$(_CopilotFeedPackageUrl)" DestinationFile="$(_CopilotFeedPackageFile)"
                             Condition="!Exists('$(_CopilotFeedMarker)')" />
-    <VerifyNpmPackageShasum MetadataFile="$(_CopilotFeedMetadata)" PackageFile="$(_CopilotFeedArchive)" Version="$(CopilotCliVersion)"
+    <VerifyNpmPackageShasum MetadataFile="$(_CopilotFeedMetadata)" PackageFile="$(_CopilotFeedPackageFile)" Version="$(CopilotCliVersion)"
                             Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <MakeDir Directories="$(_CopilotFeedExecutableDir)" Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <Exec Command="&quot;$(_CopilotFeedTar)&quot; -xzf &quot;$(_CopilotFeedPackageFile)&quot; --strip-components=1 -C &quot;$(_CopilotFeedExecutableDir)&quot;"
+          Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <ExtractCopilotSeaArchive ExecutableFile="$(_CopilotFeedExecutable)" ArchiveFile="$(_CopilotFeedArchive)"
+                              Condition="!Exists('$(_CopilotFeedMarker)')" />
     <Exec Command="&quot;$(_CopilotFeedTar)&quot; -xzf &quot;$(_CopilotFeedArchive)&quot; --strip-components=1 -C &quot;$(_CopilotFeedDir)&quot;"
           Condition="!Exists('$(_CopilotFeedMarker)')" />
-    <Delete Files="$(_CopilotFeedArchive);$(_CopilotFeedMetadata)" />
+    <RemoveDir Directories="$(_CopilotFeedExecutableDir)" />
+    <Delete Files="$(_CopilotFeedPackageFile);$(_CopilotFeedArchive);$(_CopilotFeedMetadata)" />
     <WriteLinesToFile File="$(_CopilotFeedMarker)" Lines="$(CopilotCliVersion)" Overwrite="true" Condition="!Exists('$(_CopilotFeedMarker)')" />
   </Target>
 
