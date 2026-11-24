@@ -48,15 +48,6 @@ invocation, even if `core.output.color=always` or `FORCE_COLOR` requests styling
 | `defaults.vmss`                               | string | (empty)            | Default VMSS name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `defaults.acr`                                | string | (empty)            | Default ACR name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
-## Table output width
-
-Interactive `--output table` shares available width across long columns and truncates
-values with `...`. It preserves full column headers and at least four display cells
-per column, unless the column's contents naturally require less space.
-If these minimums cannot fit, the table exceeds the terminal width and may wrap
-rather than silently removing columns. Use `--query` to select fewer columns.
-Redirected table output is not constrained to the terminal width.
-
 ## AI recovery configuration
 
 Trigger and style are independent. The default `off` trigger saves nothing and

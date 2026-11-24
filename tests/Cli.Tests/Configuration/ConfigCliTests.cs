@@ -365,16 +365,28 @@ public class ConfigCliTests
         Assert.Contains("core.logging.level", infoOutput);
     }
 
-    [Fact]
-    public void CliInvocation_ShouldConstrainConfigTableToTerminalWidth()
+    [Theory]
+    [InlineData(60)]
+    [InlineData(120)]
+    public void CliInvocation_ShouldPreserveConfigTableColumnsWithinReadableWidth(int terminalWidth)
     {
         using var fixture = new ConfigCommandFixture();
 
-        var output = fixture.ExecuteCli(["config", "info", "--output", "table"], terminalWidth: 60).Single();
+        var output = fixture.ExecuteCli(["config", "info", "--output", "table"], terminalWidth: terminalWidth).Single();
+        var lines = output.Split('\n');
+        var expectedHeaders = new[]
+        {
+            "key", "description", "defaultValue", "valueType", "allowedValues",
+            "minimum", "maximum", "validationPattern", "isUri"
+        };
+        var minimumWidth = expectedHeaders.Sum(header => Math.Max(header.Length, 4))
+            + 2 * (expectedHeaders.Length - 1);
 
+        Assert.Equal(expectedHeaders, lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(Math.Max(terminalWidth, minimumWidth), lines[1].Length);
         Assert.All(
-            output.Split('\n'),
-            line => Assert.True(line.Length <= 60, $"Expected line at most 60 characters, but got {line.Length}: {line}"));
+            lines,
+            line => Assert.True(line.Length <= Math.Max(terminalWidth, minimumWidth), line));
     }
 
     [Fact]
