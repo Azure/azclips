@@ -32,14 +32,24 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     private const string CertificatePath = $"/certificates/{CertificateName}";
     private const string SecretUrl = VaultUrl + SecretPath;
     private const string CertificateUrl = VaultUrl + CertificatePath;
-    private const string SecretBundle = $$$"""{"id":"{{{SecretUrl}}}/{{{Version}}}","value":"{{{SecretValue}}}","contentType":"text/plain","attributes":{"enabled":true},"tags":{"env":"dev"}}""";
-    private const string DeletedSecretBundle = $$"""{"id":"{{SecretUrl}}/{{Version}}","recoveryId":"{{VaultUrl}}/deletedsecrets/{{SecretName}}","deletedDate":1700000000,"scheduledPurgeDate":1707776000}""";
-    private const string CertificateBundle = $$$"""{"id":"{{{CertificateUrl}}}/{{{Version}}}","x5t":"AQID","attributes":{"enabled":true,"created":1700000000},"tags":{"env":"dev"}}""";
-    private const string DeletedCertificateBundle = $$"""{"id":"{{CertificateUrl}}/{{Version}}","recoveryId":"{{VaultUrl}}/deletedcertificates/{{CertificateName}}","deletedDate":1700000000,"scheduledPurgeDate":1707776000}""";
+    private const string DeletedSeconds = "1700000000";
+    private const string PurgeSeconds = "1707776000";
+    private const string SecretBundleWithTags =
+        $$$"""{"id":"{{{SecretUrl}}}/{{{Version}}}","value":"{{{SecretValue}}}","contentType":"text/plain","attributes":{"enabled":true},"tags":{"env":"dev"}}""";
+    private const string DeletedSecretBundle =
+        $$"""{"id":"{{SecretUrl}}/{{Version}}","recoveryId":"{{VaultUrl}}/deletedsecrets/{{SecretName}}","deletedDate":{{DeletedSeconds}},"scheduledPurgeDate":{{PurgeSeconds}}}""";
+    private const string CertificateBundleWithTags =
+        $$$"""{"id":"{{{CertificateUrl}}}/{{{Version}}}","x5t":"_-8","attributes":{"enabled":true,"created":1700000000},"tags":{"env":"dev"}}""";
+    private const string DeletedCertificateBundle =
+        $$"""{"id":"{{CertificateUrl}}/{{Version}}","recoveryId":"{{VaultUrl}}/deletedcertificates/{{CertificateName}}","deletedDate":{{DeletedSeconds}},"scheduledPurgeDate":{{PurgeSeconds}}}""";
     private const string CompletedOperation = $$$"""{"id":"{{{CertificateUrl}}}/pending","status":"completed","issuer":{"name":"Self"},"target":"{{{CertificateUrl}}}"}""";
     private const string PendingOperation = $$$"""{"id":"{{{CertificateUrl}}}/pending","status":"inProgress","issuer":{"name":"Self"}}""";
     private const string SelfSignedPolicy = """{"issuer":{"name":"Self"},"x509_props":{"subject":"CN=contoso.com"}}""";
+    private const string UnknownIssuerPolicy = """{"issuer":{"name":"Unknown"},"x509_props":{"subject":"CN=a"}}""";
+    private const string ValidityPolicy = """{"x509_props":{"validity_months":24}}""";
     private const string ForbiddenError = """{"error":{"code":"Forbidden","message":"Caller is not authorized."}}""";
+    private const string AccessDeniedMessage = "Access denied. Check the resource permissions and network access rules.";
+    private const string NotFoundMessage = "Request failed with HTTP 404. Response details are omitted because the request contains sensitive data.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -55,7 +65,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSet_WritesSecretMetadataId()
     {
-        _mockWire.RespondTo(HttpMethod.Put, SecretUrl, HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondTo(HttpMethod.Put, SecretUrl, HttpStatusCode.OK, SecretBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "secret", "set", "--vault-name", VaultName, "--name", SecretName, "--value", SecretValue]);
@@ -70,7 +80,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSet_DoesNotWriteSecretValue()
     {
-        _mockWire.RespondTo(HttpMethod.Put, SecretUrl, HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondTo(HttpMethod.Put, SecretUrl, HttpStatusCode.OK, SecretBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "secret", "set", "--vault-name", VaultName, "--name", SecretName, "--value", SecretValue]);
@@ -87,7 +97,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretShow_WritesSecretMetadataTags()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "secret", "show", "--vault-name", VaultName, "--name", SecretName]);
@@ -102,7 +112,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretShow_DoesNotWriteSecretValue()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "secret", "show", "--vault-name", VaultName, "--name", SecretName]);
@@ -117,7 +127,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretShowAsPlainText_WritesOnlySecretValue()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "secret", "show", "--vault-name", VaultName, "--name", SecretName, "--as-plain-text"]);
@@ -132,7 +142,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretShowAsPlainTextFalse_WritesSecretMetadata()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "secret", "show", "--vault-name", VaultName, "--name", SecretName, "--as-plain-text", "false"]);
@@ -173,7 +183,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Request failed with HTTP 404. Response details are omitted because the request contains sensitive data.", Assert.IsType<HttpRequestException>(exception).Message);
+        Assert.Equal(NotFoundMessage, Assert.IsType<HttpRequestException>(exception).Message);
     }
 
     [Fact]
@@ -188,7 +198,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Access denied. Check the resource permissions and network access rules.", Assert.IsType<HttpRequestException>(exception).Message);
+        Assert.Equal(AccessDeniedMessage, Assert.IsType<HttpRequestException>(exception).Message);
     }
 
     [Fact]
@@ -220,6 +230,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
+        // Current behaviour: secret lists are written as List<SecretMetadata> while certificate lists are CertificateMetadata[].
         Assert.Equal([$"{VaultUrl}/secrets/one", $"{VaultUrl}/secrets/two"], Assert.IsType<List<SecretMetadata>>(Assert.Single(_output)).Select(s => s.Id));
     }
 
@@ -259,7 +270,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Access denied. Check the resource permissions and network access rules.", Assert.IsType<HttpRequestException>(exception).Message);
+        Assert.Equal(AccessDeniedMessage, Assert.IsType<HttpRequestException>(exception).Message);
     }
 
     // ── secret list-versions ───────────────────────────────────────────────────────────────────
@@ -301,7 +312,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_SecretSetAttributesResponseWithValue_DoesNotWriteSecretValue()
     {
-        _mockWire.RespondTo(HttpMethod.Patch, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondTo(HttpMethod.Patch, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "secret", "set-attributes", "--vault-name", VaultName, "--name", SecretName, "--enabled", "true"]);
@@ -342,6 +353,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
+        // Current behaviour: secret dates stay Unix seconds while certificate dates are DateTimeOffset.
         Assert.Equal(1707776000, Assert.IsType<SecretMetadata>(Assert.Single(_output)).ScheduledPurgeDate);
     }
 
@@ -396,16 +408,10 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateUnknownIssuer_WritesInProgressOperation()
     {
-        _mockWire.RespondTo(HttpMethod.Post, $"{CertificateUrl}/create", HttpStatusCode.Accepted,
-            $$$"""{"id":"{{{CertificateUrl}}}/pending","status":"inProgress","issuer":{"name":"Unknown"}}""");
+        _mockWire.RespondTo(HttpMethod.Post, $"{CertificateUrl}/create", HttpStatusCode.Accepted, PendingOperation);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [
-                "keyvault", "certificate", "create",
-                "--vault-name", VaultName,
-                "--name", CertificateName,
-                "--policy", """{"issuer":{"name":"Unknown"},"x509_props":{"subject":"CN=a"}}""",
-            ]);
+            ["keyvault", "certificate", "create", "--vault-name", VaultName, "--name", CertificateName, "--policy", UnknownIssuerPolicy]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -416,6 +422,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
 
     [Theory]
     [InlineData("failed")]
+    [InlineData("canceled")]
     [InlineData("cancelled")]
     public async Task RunAsync_CertificateCreateTerminalFailure_ThrowsWithoutServiceDetails(string status)
     {
@@ -468,7 +475,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateShow_WritesNameFromId()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
+        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "certificate", "show", "--vault-name", VaultName, "--name", CertificateName]);
@@ -483,7 +490,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateShow_WritesThumbprintAsHex()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
+        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "certificate", "show", "--vault-name", VaultName, "--name", CertificateName]);
@@ -492,13 +499,13 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal("010203", Assert.IsType<CertificateResult>(Assert.Single(_output)).X509ThumbprintHex);
+        Assert.Equal("FFEF", Assert.IsType<CertificateResult>(Assert.Single(_output)).X509ThumbprintHex);
     }
 
     [Fact]
     public async Task RunAsync_CertificateShow_WritesUnixSecondsAsDates()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
+        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "certificate", "show", "--vault-name", VaultName, "--name", CertificateName]);
@@ -523,7 +530,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Request failed with HTTP 404. Response details are omitted because the request contains sensitive data.", Assert.IsType<HttpRequestException>(exception).Message);
+        Assert.Equal(NotFoundMessage, Assert.IsType<HttpRequestException>(exception).Message);
     }
 
     // ── certificate list ───────────────────────────────────────────────────────────────────────
@@ -559,7 +566,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateList_WritesEmptySubject()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{VaultUrl}/certificates", HttpStatusCode.OK, $$"""{"value":[{"id":"{{VaultUrl}}/certificates/one","x5t":"AQID"}]}""");
+        _mockWire.RespondTo(HttpMethod.Get, $"{VaultUrl}/certificates", HttpStatusCode.OK, $$"""{"value":[{"id":"{{VaultUrl}}/certificates/one"}]}""");
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "certificate", "list", "--vault-name", VaultName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -609,15 +616,15 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateSetAttributesPolicyOnly_WritesCertificateFromFollowUpGet()
     {
-        _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/policy", HttpStatusCode.OK, """{"x509_props":{"validity_months":24}}""");
-        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
+        _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/policy", HttpStatusCode.OK, ValidityPolicy);
+        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
                 "keyvault", "certificate", "set-attributes",
                 "--vault-name", VaultName,
                 "--name", CertificateName,
-                "--policy", """{"x509_props":{"validity_months":24}}""",
+                "--policy", ValidityPolicy,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -632,7 +639,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDownloadWithoutCer_ThrowsNoPublicCertificate()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
+        _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundleWithTags);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             [
@@ -660,8 +667,7 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
                 "keyvault", "certificate", "download",
                 "--vault-name", VaultName,
                 "--name", CertificateName,
-                "--file", Path.Combine(_missingDirectory, $"{CertificateName}.cer"),
-                "--encoding", "DER",
+                "--file", Path.Combine(_missingDirectory, $"{CertificateName}.pem"),
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);

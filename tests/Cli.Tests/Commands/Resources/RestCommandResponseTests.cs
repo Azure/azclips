@@ -20,10 +20,11 @@ public sealed class RestCommandResponseTests : IDisposable
 {
     private const string ExtensionName = "Resources";
     private const string GroupName = "rg";
+    private const string Location = "westus";
     private const string ApiVersion = "2021-04-01";
-    private const string GroupUrl = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{GroupName}";
-    private const string GroupUri = $"{GroupUrl}?api-version={ApiVersion}";
-    private const string GroupBody = $$"""{"id":"/subscriptions/{{SubscriptionId}}/resourceGroups/{{GroupName}}","name":"{{GroupName}}","location":"westus"}""";
+    private const string GroupUrl = $"{ArmUrl}/subscriptions/{SubscriptionId}/resourcegroups/{GroupName}";
+    private const string GroupUrlWithApiVersion = $"{GroupUrl}?api-version={ApiVersion}";
+    private const string GroupBody = $$"""{"id":"/subscriptions/{{SubscriptionId}}/resourceGroups/{{GroupName}}","name":"{{GroupName}}","location":"{{Location}}"}""";
     private const string NotFoundError = """{"error":{"code":"ResourceGroupNotFound"}}""";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
@@ -40,7 +41,7 @@ public sealed class RestCommandResponseTests : IDisposable
     public async Task RunAsync_RestOk_WritesStatusCode()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.OK, GroupBody);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -53,7 +54,7 @@ public sealed class RestCommandResponseTests : IDisposable
     public async Task RunAsync_RestOk_WritesRawContent()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.OK, GroupBody);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -66,20 +67,20 @@ public sealed class RestCommandResponseTests : IDisposable
     public async Task RunAsync_RestOk_WritesParsedJson()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.OK, GroupBody);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("westus", Assert.IsType<RestResponse>(Assert.Single(_output)).Json?.GetProperty("location").GetString());
+        Assert.Equal(Location, Assert.IsType<RestResponse>(Assert.Single(_output)).Json?.GetProperty("location").GetString());
     }
 
     [Fact]
     public async Task RunAsync_RestOk_WritesResponseHeaders()
     {
         _mockWire.RespondWithHeaders(HttpMethod.Get, GroupUrl, HttpStatusCode.OK, GroupBody, "x-ms-request-id: req-1");
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -92,7 +93,7 @@ public sealed class RestCommandResponseTests : IDisposable
     public async Task RunAsync_RestNoContent_WritesEmptyContent()
     {
         _mockWire.RespondTo(HttpMethod.Delete, GroupUrl, HttpStatusCode.NoContent);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", "delete", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", "delete", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -105,7 +106,7 @@ public sealed class RestCommandResponseTests : IDisposable
     public async Task RunAsync_RestNoContent_WritesNullJson()
     {
         _mockWire.RespondTo(HttpMethod.Delete, GroupUrl, HttpStatusCode.NoContent);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", "delete", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", "delete", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -118,24 +119,24 @@ public sealed class RestCommandResponseTests : IDisposable
     public async Task RunAsync_RestNotFound_ThrowsStatusAndUrl()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.NotFound, NotFoundError);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal($"404 Not Found from {GroupUri}", Assert.IsType<HttpRequestException>(exception).Message);
+        Assert.Equal($"404 Not Found from {GroupUrlWithApiVersion}", Assert.IsType<HttpRequestException>(exception).Message);
     }
 
     [Fact]
     public async Task RunAsync_RestNotFound_WritesErrorResponseBeforeThrowing()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.NotFound, NotFoundError);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
-        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+        _ = await Record.ExceptionAsync(session.RunAsync);
 
         Assert.Equal(404, Assert.IsType<RestResponse>(Assert.Single(_output)).StatusCode);
     }

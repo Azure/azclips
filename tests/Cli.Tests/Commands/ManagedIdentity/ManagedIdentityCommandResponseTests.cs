@@ -21,7 +21,7 @@ namespace Cli.Tests.Commands.ManagedIdentity;
 public sealed class ManagedIdentityCommandResponseTests : IDisposable
 {
     private const string ExtensionName = "ManagedServiceIdentity";
-    private const string ResourceGroupName = "rg";
+    private const string GroupName = "rg";
     private const string IdentityName = "id1";
     private const string SecondIdentityName = "id2";
     private const string CredentialName = "fic1";
@@ -31,21 +31,24 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     private const string ClientId = "c";
     private const string Issuer = "https://issuer";
     private const string Subject = "sub1";
+    private const string UpdatedSubject = "sub2";
     private const string ApiVersion = "2025-05-31-preview";
     private const string IdentitiesProvider = "providers/Microsoft.ManagedIdentity/userAssignedIdentities";
-    private const string ResourceGroupIdentitiesPath = $"/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/{IdentitiesProvider}";
-    private const string IdentityPath = $"{ResourceGroupIdentitiesPath}/{IdentityName}";
-    private const string SecondIdentityPath = $"{ResourceGroupIdentitiesPath}/{SecondIdentityName}";
+    private const string GroupIdentitiesPath = $"/subscriptions/{SubscriptionId}/resourceGroups/{GroupName}/{IdentitiesProvider}";
+    private const string IdentityPath = $"{GroupIdentitiesPath}/{IdentityName}";
+    private const string SecondIdentityPath = $"{GroupIdentitiesPath}/{SecondIdentityName}";
     private const string CredentialsPath = $"{IdentityPath}/federatedIdentityCredentials";
     private const string CredentialPath = $"{CredentialsPath}/{CredentialName}";
     private const string SecondCredentialPath = $"{CredentialsPath}/{SecondCredentialName}";
     private const string IdentityUrl = ArmUrl + IdentityPath;
-    private const string ListUrl = $"{ArmUrl}/subscriptions/{SubscriptionId}/{IdentitiesProvider}";
+    private const string SubscriptionIdentitiesUrl = $"{ArmUrl}/subscriptions/{SubscriptionId}/{IdentitiesProvider}";
     private const string CredentialsUrl = ArmUrl + CredentialsPath;
     private const string CredentialUrl = ArmUrl + CredentialPath;
-    private const string IdentityBody = $$$"""{"id":"{{{IdentityPath}}}","name":"{{{IdentityName}}}","type":"Microsoft.ManagedIdentity/userAssignedIdentities","location":"{{{Location}}}","tags":{"env":"dev"},"properties":{"tenantId":"t","principalId":"{{{PrincipalId}}}","clientId":"{{{ClientId}}}","isolationScope":"None"}}""";
+    private const string IdentityBody = $$$"""{"id":"{{{IdentityPath}}}","name":"{{{IdentityName}}}","type":"Microsoft.ManagedIdentity/userAssignedIdentities","location":"{{{Location}}}","tags":{"env":"dev"},"properties":{"tenantId":"t","principalId":"{{{PrincipalId}}}","clientId":"{{{ClientId}}}","isolationScope":"None"},"systemData":{"createdBy":"x"}}""";
+    private const string ProdTagsIdentityBody = $$$"""{"id":"{{{IdentityPath}}}","name":"{{{IdentityName}}}","type":"Microsoft.ManagedIdentity/userAssignedIdentities","location":"{{{Location}}}","tags":{"env":"prod"},"properties":{"tenantId":"t","principalId":"{{{PrincipalId}}}","clientId":"{{{ClientId}}}","isolationScope":"None"},"systemData":{"createdBy":"x"}}""";
     private const string SecondIdentityBody = $$"""{"id":"{{SecondIdentityPath}}","name":"{{SecondIdentityName}}"}""";
     private const string CredentialBody = $$$"""{"id":"{{{CredentialPath}}}","name":"{{{CredentialName}}}","type":"Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials","properties":{"issuer":"{{{Issuer}}}","subject":"{{{Subject}}}","audiences":["api://AzureADTokenExchange"]}}""";
+    private const string UpdatedCredentialBody = $$$"""{"id":"{{{CredentialPath}}}","name":"{{{CredentialName}}}","type":"Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials","properties":{"issuer":"{{{Issuer}}}","subject":"{{{UpdatedSubject}}}","audiences":["api://AzureADTokenExchange"]}}""";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -63,7 +66,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Put, IdentityUrl, HttpStatusCode.Created, IdentityBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "create", "-n", IdentityName, "-g", ResourceGroupName, "-l", Location]);
+            ["identity", "create", "-n", IdentityName, "-g", GroupName, "-l", Location]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -78,7 +81,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Put, IdentityUrl, HttpStatusCode.Conflict, """{"error":{"code":"Conflict","message":"Identity id1 already exists."}}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "create", "-n", IdentityName, "-g", ResourceGroupName, "-l", Location]);
+            ["identity", "create", "-n", IdentityName, "-g", GroupName, "-l", Location]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -95,7 +98,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     public async Task RunAsync_IdentityShow_WritesIdentityPrincipalId()
     {
         _mockWire.RespondTo(HttpMethod.Get, IdentityUrl, HttpStatusCode.OK, IdentityBody);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "-n", IdentityName, "-g", ResourceGroupName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "-n", IdentityName, "-g", GroupName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -122,7 +125,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     public async Task RunAsync_IdentityShowNotFound_ThrowsStatusUrlAndBody()
     {
         _mockWire.RespondTo(HttpMethod.Get, IdentityUrl, HttpStatusCode.NotFound, """{"error":{"code":"ResourceNotFound","message":"Identity id1 was not found."}}""");
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "-n", IdentityName, "-g", ResourceGroupName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "show", "-n", IdentityName, "-g", GroupName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -139,7 +142,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     public async Task RunAsync_IdentityListTwoPages_WritesIdentitiesFromBothPages()
     {
         _mockWire.RespondInOrder(
-            $$"""{"value":[{"id":"{{IdentityPath}}","name":"{{IdentityName}}"}],"nextLink":"{{ListUrl}}?api-version={{ApiVersion}}&$skiptoken=p2"}""",
+            $$"""{"value":[{"id":"{{IdentityPath}}","name":"{{IdentityName}}"}],"nextLink":"{{SubscriptionIdentitiesUrl}}?api-version={{ApiVersion}}&$skiptoken=p2"}""",
             $$"""{"value":[{"id":"{{SecondIdentityPath}}","name":"{{SecondIdentityName}}"}]}""");
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "list"]);
         OutputStreams streams = CreateOutput(_output);
@@ -153,7 +156,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_IdentityListEmptyValue_WritesEmptyList()
     {
-        _mockWire.RespondTo(HttpMethod.Get, ListUrl, HttpStatusCode.OK, EmptyList);
+        _mockWire.RespondTo(HttpMethod.Get, SubscriptionIdentitiesUrl, HttpStatusCode.OK, EmptyList);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "list"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -168,10 +171,10 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_IdentityUpdate_WritesPatchResponse()
     {
-        _mockWire.RespondTo(HttpMethod.Patch, IdentityUrl, HttpStatusCode.OK, IdentityBody.Replace("\"env\":\"dev\"", "\"env\":\"prod\""));
+        _mockWire.RespondTo(HttpMethod.Patch, IdentityUrl, HttpStatusCode.OK, ProdTagsIdentityBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "update", "-n", IdentityName, "-g", ResourceGroupName, "--tags", "env=prod"]);
+            ["identity", "update", "-n", IdentityName, "-g", GroupName, "--tags", "env=prod"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -204,7 +207,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     public async Task RunAsync_IdentityDeleteWithoutBody_WritesNothing(HttpStatusCode statusCode)
     {
         _mockWire.RespondTo(HttpMethod.Delete, IdentityUrl, statusCode);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "delete", "-n", IdentityName, "-g", ResourceGroupName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "delete", "-n", IdentityName, "-g", GroupName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -217,7 +220,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     public async Task RunAsync_IdentityDeleteWithBody_WritesBodyAsJson()
     {
         _mockWire.RespondTo(HttpMethod.Delete, IdentityUrl, HttpStatusCode.OK, """{"status":"Deleted"}""");
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "delete", "-n", IdentityName, "-g", ResourceGroupName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["identity", "delete", "-n", IdentityName, "-g", GroupName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -236,7 +239,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
             ExtensionName,
             [
                 "identity", "federated-credential", "create",
-                "-g", ResourceGroupName,
+                "-g", GroupName,
                 "--identity-name", IdentityName,
                 "-n", CredentialName,
                 "--issuer", Issuer,
@@ -258,7 +261,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, CredentialUrl, HttpStatusCode.OK, CredentialBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "federated-credential", "show", "-g", ResourceGroupName, "--identity-name", IdentityName, "-n", CredentialName]);
+            ["identity", "federated-credential", "show", "-g", GroupName, "--identity-name", IdentityName, "-n", CredentialName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -277,7 +280,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
             $$"""{"value":[{"id":"{{SecondCredentialPath}}","name":"{{SecondCredentialName}}"}]}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "federated-credential", "list", "-g", ResourceGroupName, "--identity-name", IdentityName]);
+            ["identity", "federated-credential", "list", "-g", GroupName, "--identity-name", IdentityName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -292,7 +295,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, CredentialsUrl, HttpStatusCode.OK, EmptyList);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "federated-credential", "list", "-g", ResourceGroupName, "--identity-name", IdentityName]);
+            ["identity", "federated-credential", "list", "-g", GroupName, "--identity-name", IdentityName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -307,16 +310,16 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     public async Task RunAsync_CredentialUpdate_WritesPutResponse()
     {
         _mockWire.RespondTo(HttpMethod.Get, CredentialUrl, HttpStatusCode.OK, CredentialBody);
-        _mockWire.RespondTo(HttpMethod.Put, CredentialUrl, HttpStatusCode.OK, CredentialBody.Replace($"\"{Subject}\"", "\"sub2\""));
+        _mockWire.RespondTo(HttpMethod.Put, CredentialUrl, HttpStatusCode.OK, UpdatedCredentialBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "federated-credential", "update", "-g", ResourceGroupName, "--identity-name", IdentityName, "-n", CredentialName, "--subject", "sub2"]);
+            ["identity", "federated-credential", "update", "-g", GroupName, "--identity-name", IdentityName, "-n", CredentialName, "--subject", UpdatedSubject]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("sub2", Assert.IsType<FederatedIdentityCredential>(Assert.Single(_output)).Properties!.Subject);
+        Assert.Equal(UpdatedSubject, Assert.IsType<FederatedIdentityCredential>(Assert.Single(_output)).Properties!.Subject);
     }
 
     [Fact]
@@ -325,7 +328,7 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, CredentialUrl, HttpStatusCode.NotFound, """{"error":{"code":"NotFound","message":"Federated credential fic1 was not found."}}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "federated-credential", "update", "-g", ResourceGroupName, "--identity-name", IdentityName, "-n", CredentialName, "--subject", "sub2"]);
+            ["identity", "federated-credential", "update", "-g", GroupName, "--identity-name", IdentityName, "-n", CredentialName, "--subject", UpdatedSubject]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -341,12 +344,12 @@ public sealed class ManagedIdentityCommandResponseTests : IDisposable
     [Theory]
     [InlineData(HttpStatusCode.OK)]
     [InlineData(HttpStatusCode.NoContent)]
-    public async Task RunAsync_CredentialDelete_WritesNothing(HttpStatusCode statusCode)
+    public async Task RunAsync_CredentialDeleteWithoutBody_WritesNothing(HttpStatusCode statusCode)
     {
         _mockWire.RespondTo(HttpMethod.Delete, CredentialUrl, statusCode);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["identity", "federated-credential", "delete", "-g", ResourceGroupName, "--identity-name", IdentityName, "-n", CredentialName]);
+            ["identity", "federated-credential", "delete", "-g", GroupName, "--identity-name", IdentityName, "-n", CredentialName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 

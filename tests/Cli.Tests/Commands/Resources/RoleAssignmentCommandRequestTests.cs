@@ -83,7 +83,7 @@ public sealed class RoleAssignmentCommandRequestTests : IDisposable
     public async Task RunAsync_RoleAssignmentCommandResourceGroup_SendsRequestUnderGroupScope(string[] commandLine, string method, string url, string? responseBody)
     {
         string groupUrl = url.Replace(AssignmentsUrl, GroupAssignmentsUrl);
-        _mockWire.RespondTo(new HttpMethod(method), groupUrl, HttpStatusCode.OK, responseBody == AssignmentBody ? GroupAssignmentBody : responseBody);
+        _mockWire.RespondTo(new HttpMethod(method), groupUrl, HttpStatusCode.OK, responseBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "-g", GroupName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -110,13 +110,17 @@ public sealed class RoleAssignmentCommandRequestTests : IDisposable
         Assert.Equal([$"PUT {AssignmentPath}?api-version={ApiVersion}"], _mockWire.FullRequestLines());
     }
 
-    [Fact]
-    public async Task RunAsync_RoleAssignmentCreateRequiredArgs_SendsRoleDefinitionAndPrincipalBody()
+    [Theory]
+    [InlineData("--assignee-object-id", RoleId)]
+    [InlineData("--assignee-object-id", RoleDefinitionId)]
+    [InlineData("--assignee", RoleId)]
+    [InlineData("--assignee", RoleDefinitionId)]
+    public async Task RunAsync_RoleAssignmentCreateAssigneeAndRole_SendsRoleDefinitionAndPrincipalBody(string assigneeFlag, string role)
     {
         List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Put, AssignmentUrl, HttpStatusCode.Created, AssignmentBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["role", "assignment", "create", "--assignee-object-id", PrincipalId, "--role", RoleId, "--name", AssignmentName]);
+            ["role", "assignment", "create", assigneeFlag, PrincipalId, "--role", role, "--name", AssignmentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -172,40 +176,6 @@ public sealed class RoleAssignmentCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_RoleAssignmentCreateAssignee_SendsAssigneeAsPrincipalId()
-    {
-        List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Put, AssignmentUrl, HttpStatusCode.Created, AssignmentBody);
-        CommandInvocation invocation = CreateInvocation(
-            ExtensionName,
-            ["role", "assignment", "create", "--assignee", PrincipalId, "--role", RoleId, "--name", AssignmentName]);
-        OutputStreams streams = CreateOutput(_output);
-        using ISession session = _engine.OpenExecutionSession(invocation, streams);
-
-        await session.RunAsync();
-
-        Assert.Equal(
-            """{"properties":{"roleDefinitionId":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7","principalId":"aaaaaaaa-0000-0000-0000-000000000001"}}""",
-            Assert.Single(sentBodies));
-    }
-
-    [Fact]
-    public async Task RunAsync_RoleAssignmentCreateRoleDefinitionId_SendsRoleDefinitionIdAsGiven()
-    {
-        List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Put, AssignmentUrl, HttpStatusCode.Created, AssignmentBody);
-        CommandInvocation invocation = CreateInvocation(
-            ExtensionName,
-            ["role", "assignment", "create", "--assignee-object-id", PrincipalId, "--role", RoleDefinitionId, "--name", AssignmentName]);
-        OutputStreams streams = CreateOutput(_output);
-        using ISession session = _engine.OpenExecutionSession(invocation, streams);
-
-        await session.RunAsync();
-
-        Assert.Equal(
-            """{"properties":{"roleDefinitionId":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7","principalId":"aaaaaaaa-0000-0000-0000-000000000001"}}""",
-            Assert.Single(sentBodies));
-    }
-
-    [Fact]
     public async Task RunAsync_RoleAssignmentCreateScopeWithoutLeadingSlash_SendsPutUnderNormalisedScope()
     {
         _mockWire.RespondTo(HttpMethod.Put, ArmUrl + GroupAssignmentPath, HttpStatusCode.Created, GroupAssignmentBody);
@@ -254,7 +224,9 @@ public sealed class RoleAssignmentCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal($"principalId eq '{PrincipalId}'", _mockWire.SentRequests()[1].QueryValue("$filter"));
+        Assert.Equal(
+            $"GET {AssignmentsPath}?api-version={ApiVersion}&$filter=principalId eq '{PrincipalId}'",
+            Assert.Single(_mockWire.FullRequestLines(), line => line.StartsWith("GET ", StringComparison.Ordinal)));
     }
 
     // ── role assignment delete ─────────────────────────────────────────────────────────────────
@@ -328,7 +300,7 @@ public sealed class RoleAssignmentCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_RoleAssignmentListNextLink_SendsNextLinkSkipToken()
+    public async Task RunAsync_RoleAssignmentListNextLink_FollowsNextLink()
     {
         _mockWire.RespondInOrder(
             $$"""{"value":[{{AssignmentBody}}],"nextLink":"{{AssignmentsUrl}}?api-version={{ApiVersion}}&$filter=atScope()&$skiptoken=p2"}""",
@@ -339,6 +311,11 @@ public sealed class RoleAssignmentCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal("p2", _mockWire.SentRequests()[1].QueryValue("$skiptoken"));
+        Assert.Equal(
+            [
+                $"GET {AssignmentsPath}?api-version={ApiVersion}&$filter=atScope()",
+                $"GET {AssignmentsPath}?api-version={ApiVersion}&$filter=atScope()&$skiptoken=p2",
+            ],
+            _mockWire.FullRequestLines());
     }
 }

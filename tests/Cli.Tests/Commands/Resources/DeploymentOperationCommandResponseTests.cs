@@ -19,13 +19,13 @@ namespace Cli.Tests.Commands.Resources;
 public sealed class DeploymentOperationCommandResponseTests : IDisposable
 {
     private const string ExtensionName = "Resources";
-    private const string ResourceGroup = "rg";
+    private const string GroupName = "rg";
     private const string ManagementGroupId = "mg1";
     private const string DeploymentName = "d1";
     private const string OperationId = "op1";
     private const string SecondOperationId = "op2";
     private const string ApiVersion = "2026-06-01";
-    private const string GroupOperations = $"/subscriptions/{SubscriptionId}/resourcegroups/{ResourceGroup}/deployments/{DeploymentName}/operations";
+    private const string GroupOperations = $"/subscriptions/{SubscriptionId}/resourcegroups/{GroupName}/deployments/{DeploymentName}/operations";
     private const string SubOperations = $"/subscriptions/{SubscriptionId}/providers/Microsoft.Resources/deployments/{DeploymentName}/operations";
     private const string MgOperations = $"/providers/Microsoft.Management/managementGroups/{ManagementGroupId}/providers/Microsoft.Resources/deployments/{DeploymentName}/operations";
     private const string TenantOperations = $"/providers/Microsoft.Resources/deployments/{DeploymentName}/operations";
@@ -44,7 +44,7 @@ public sealed class DeploymentOperationCommandResponseTests : IDisposable
     // Each scope's operation command for verb, with the scope and deployment arguments, and the operations path.
     public static TheoryData<string[], string> GetOperationCommands(string verb) => new()
     {
-        { ["deployment", "operation", "group", verb, "--resource-group", ResourceGroup, "--name", DeploymentName], GroupOperations },
+        { ["deployment", "operation", "group", verb, "--resource-group", GroupName, "--name", DeploymentName], GroupOperations },
         { ["deployment", "operation", "sub", verb, "--name", DeploymentName], SubOperations },
         { ["deployment", "operation", "mg", verb, "--management-group-id", ManagementGroupId, "--name", DeploymentName], MgOperations },
         { ["deployment", "operation", "tenant", verb, "--name", DeploymentName], TenantOperations },
@@ -64,7 +64,7 @@ public sealed class DeploymentOperationCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal(["op1", "op2"], Assert.IsType<List<DeploymentOperation>>(Assert.Single(_output)).Select(o => o.OperationId));
+        Assert.Equal([OperationId, SecondOperationId], Assert.IsType<List<DeploymentOperation>>(Assert.Single(_output)).Select(o => o.OperationId));
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class DeploymentOperationCommandResponseTests : IDisposable
             $$$"""{"value":[{"id":"{{{GroupOperations}}}/{{{OperationId}}}","operationId":"{{{OperationId}}}","properties":{"provisioningState":"Succeeded"}}]}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "operation", "group", "list", "--resource-group", ResourceGroup, "--name", DeploymentName]);
+            ["deployment", "operation", "group", "list", "--resource-group", GroupName, "--name", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -91,22 +91,22 @@ public sealed class DeploymentOperationCommandResponseTests : IDisposable
             $$"""{"value":[{{SecondGroupOperationBody}}]}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "operation", "group", "list", "--resource-group", ResourceGroup, "--name", DeploymentName]);
+            ["deployment", "operation", "group", "list", "--resource-group", GroupName, "--name", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal(["op1", "op2"], Assert.IsType<List<DeploymentOperation>>(Assert.Single(_output)).Select(o => o.OperationId));
+        Assert.Equal([OperationId, SecondOperationId], Assert.IsType<List<DeploymentOperation>>(Assert.Single(_output)).Select(o => o.OperationId));
     }
 
     [Fact]
     public async Task RunAsync_DeploymentOperationGroupListEmpty_WritesEmptyList()
     {
-        _mockWire.RespondTo(HttpMethod.Get, GroupOperationsUrl, HttpStatusCode.OK, """{"value":[]}""");
+        _mockWire.RespondTo(HttpMethod.Get, GroupOperationsUrl, HttpStatusCode.OK, EmptyList);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "operation", "group", "list", "--resource-group", ResourceGroup, "--name", DeploymentName]);
+            ["deployment", "operation", "group", "list", "--resource-group", GroupName, "--name", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -141,7 +141,7 @@ public sealed class DeploymentOperationCommandResponseTests : IDisposable
             ExtensionName,
             [
                 "deployment", "operation", "group", "show",
-                "--resource-group", ResourceGroup,
+                "--resource-group", GroupName,
                 "--name", DeploymentName,
                 "--operation-ids", OperationId, SecondOperationId,
             ]);
@@ -159,7 +159,7 @@ public sealed class DeploymentOperationCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, $"{GroupOperationsUrl}/{OperationId}", HttpStatusCode.NoContent);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "operation", "group", "show", "--resource-group", ResourceGroup, "--name", DeploymentName, "--operation-ids", OperationId]);
+            ["deployment", "operation", "group", "show", "--resource-group", GroupName, "--name", DeploymentName, "--operation-ids", OperationId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -175,7 +175,7 @@ public sealed class DeploymentOperationCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, $"{GroupOperationsUrl}/{OperationId}", HttpStatusCode.NotFound, ErrorBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "operation", "group", "show", "--resource-group", ResourceGroup, "--name", DeploymentName, "--operation-ids", OperationId]);
+            ["deployment", "operation", "group", "show", "--resource-group", GroupName, "--name", DeploymentName, "--operation-ids", OperationId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 

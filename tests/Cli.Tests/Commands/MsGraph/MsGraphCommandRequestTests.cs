@@ -13,7 +13,8 @@ namespace Cli.Tests.Commands.MsGraph;
 
 /// <summary>
 /// Runs MsGraph CLI commands through the real engine and checks the request each one sends to Graph: method,
-/// path, decoded query values, headers and JSON body. The wire mock is strict, so an unexpected request fails the test.
+/// path, decoded query values, headers and JSON body. The wire mock is strict; the constructor answers the URLs
+/// the commands call, so a request to any other URL or with another method fails the test.
 /// </summary>
 public sealed class MsGraphCommandRequestTests : IDisposable
 {
@@ -39,6 +40,8 @@ public sealed class MsGraphCommandRequestTests : IDisposable
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
+    private readonly List<string?> _checkMemberGroupsBodies;
+    private readonly List<string?> _createAppBodies;
     private readonly Engine _engine;
 
     public MsGraphCommandRequestTests()
@@ -52,9 +55,9 @@ public sealed class MsGraphCommandRequestTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, $"{GroupsUrl}/{GroupId}/members", HttpStatusCode.OK, EmptyList);
         _mockWire.RespondTo(HttpMethod.Get, $"{GroupsUrl}/{ResolvedGroupId}", HttpStatusCode.OK, $$"""{"id":"{{ResolvedGroupId}}"}""");
         _mockWire.RespondTo(HttpMethod.Get, $"{GroupsUrl}/{ResolvedGroupId}/members", HttpStatusCode.OK, EmptyList);
-        _mockWire.RespondTo(HttpMethod.Post, CheckMemberGroupsUrl, HttpStatusCode.OK, EmptyList);
+        _checkMemberGroupsBodies = _mockWire.RespondTo(HttpMethod.Post, CheckMemberGroupsUrl, HttpStatusCode.OK, EmptyList);
         _mockWire.RespondTo(HttpMethod.Get, ApplicationsUrl, HttpStatusCode.OK, EmptyList);
-        _mockWire.RespondTo(HttpMethod.Post, ApplicationsUrl, HttpStatusCode.Created, AppObject);
+        _createAppBodies = _mockWire.RespondTo(HttpMethod.Post, ApplicationsUrl, HttpStatusCode.Created, AppObject);
     }
 
     public void Dispose() => _engine.Dispose();
@@ -335,10 +338,12 @@ public sealed class MsGraphCommandRequestTests : IDisposable
 
     // ── group show ─────────────────────────────────────────────────────────────────────────────
 
-    [Fact]
-    public async Task RunAsync_GroupShowObjectId_GetsGroupWithoutLookup()
+    [Theory]
+    [InlineData("--group")]
+    [InlineData("-g")]
+    public async Task RunAsync_GroupShowObjectId_GetsGroupWithoutLookup(string groupFlag)
     {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "show", "--group", GroupId]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "show", groupFlag, GroupId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -691,7 +696,6 @@ public sealed class MsGraphCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupMemberCheckObjectId_SendsGroupIdInBody()
     {
-        List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Post, CheckMemberGroupsUrl, HttpStatusCode.OK, EmptyList);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["msgraph", "group", "member", "check", "--group", GroupId, "--member-id", MemberId]);
@@ -700,7 +704,7 @@ public sealed class MsGraphCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal($$"""{"groupIds":["{{GroupId}}"]}""", Assert.Single(sentBodies));
+        Assert.Equal("""{"groupIds":["bbbbbbbb-0000-0000-0000-000000000002"]}""", Assert.Single(_checkMemberGroupsBodies));
     }
 
     [Fact]
@@ -727,7 +731,6 @@ public sealed class MsGraphCommandRequestTests : IDisposable
     public async Task RunAsync_GroupMemberCheckGroupName_SendsResolvedGroupIdInBody()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupsUrl, HttpStatusCode.OK, ResolvedGroupLookup);
-        List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Post, CheckMemberGroupsUrl, HttpStatusCode.OK, EmptyList);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["msgraph", "group", "member", "check", "--group", GroupName, "--member-id", MemberId]);
@@ -736,7 +739,7 @@ public sealed class MsGraphCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal($$"""{"groupIds":["{{ResolvedGroupId}}"]}""", Assert.Single(sentBodies));
+        Assert.Equal("""{"groupIds":["cccccccc-0000-0000-0000-000000000003"]}""", Assert.Single(_checkMemberGroupsBodies));
     }
 
     // ── app create ─────────────────────────────────────────────────────────────────────────────
@@ -756,20 +759,18 @@ public sealed class MsGraphCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_AppCreateWithoutSignInAudience_SendsOnlyDisplayName()
     {
-        List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Post, ApplicationsUrl, HttpStatusCode.Created, AppObject);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "app", "create", "--display-name", AppDisplayName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("""{"displayName":"Contoso"}""", Assert.Single(sentBodies));
+        Assert.Equal("""{"displayName":"Contoso"}""", Assert.Single(_createAppBodies));
     }
 
     [Fact]
     public async Task RunAsync_AppCreateSignInAudience_SendsSignInAudience()
     {
-        List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Post, ApplicationsUrl, HttpStatusCode.Created, AppObject);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["msgraph", "app", "create", "--display-name", AppDisplayName, "--sign-in-audience", "AzureADMyOrg"]);
@@ -778,7 +779,7 @@ public sealed class MsGraphCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal("""{"displayName":"Contoso","signInAudience":"AzureADMyOrg"}""", Assert.Single(sentBodies));
+        Assert.Equal("""{"displayName":"Contoso","signInAudience":"AzureADMyOrg"}""", Assert.Single(_createAppBodies));
     }
 
     // ── app show / app delete ──────────────────────────────────────────────────────────────────
@@ -880,18 +881,6 @@ public sealed class MsGraphCommandRequestTests : IDisposable
     // ── CLI argument binding ───────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task RunAsync_GroupShowShortAlias_BindsGroup()
-    {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "group", "show", "-g", GroupId]);
-        OutputStreams streams = CreateOutput(_output);
-        using ISession session = _engine.OpenExecutionSession(invocation, streams);
-
-        await session.RunAsync();
-
-        Assert.Equal([$"GET /v1.0/groups/{GroupId}"], _mockWire.FullRequestLines());
-    }
-
-    [Fact]
     public async Task RunAsync_SingleValueFlagRepeated_UsesLastValue()
     {
         _mockWire.RespondTo(HttpMethod.Get, $"{UsersUrl}/second", HttpStatusCode.OK, """{"id":"second"}""");
@@ -905,7 +894,7 @@ public sealed class MsGraphCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_MultiValueFlagRepeated_SendsSameSelectAsSpaceSeparatedValues()
+    public async Task RunAsync_MultiValueFlagRepeated_CombinesValues()
     {
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,

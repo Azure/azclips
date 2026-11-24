@@ -24,7 +24,11 @@ public sealed class RestCommandRequestTests : IDisposable
     private const string StorageAccountType = "storageAccounts";
     private const string StorageAccountName = "sa1";
     private const string ApiVersion = "2021-04-01";
+    private const string SubscriptionsApiVersion = "2022-12-01";
     private const string StorageApiVersion = "2023-01-01";
+    private const string CustomHeaderName = "x-ms-custom";
+    private const string CustomHeaderValue = "v1";
+    private const string CustomHeader = $"{CustomHeaderName}={CustomHeaderValue}";
     private const string PlaceholderGroupsPath = "/subscriptions/{subscriptionId}/resourcegroups";
     private const string GroupsPath = $"/subscriptions/{SubscriptionId}/resourcegroups";
     private const string GroupPath = $"{GroupsPath}/{GroupName}";
@@ -32,7 +36,7 @@ public sealed class RestCommandRequestTests : IDisposable
     private const string OtherSubscriptionStorageAccountsPath = $"/subscriptions/{OtherSubscriptionId}/providers/{StorageProvider}/{StorageAccountType}";
     private const string GroupsUrl = ArmUrl + GroupsPath;
     private const string GroupUrl = ArmUrl + GroupPath;
-    private const string GroupUri = $"{GroupUrl}?api-version={ApiVersion}";
+    private const string GroupUrlWithApiVersion = $"{GroupUrl}?api-version={ApiVersion}";
     private const string StorageAccountUrl = ArmUrl + StorageAccountPath;
     private const string EmptyObject = "{}";
     private const string LocationBody = """{"location":"westus"}""";
@@ -66,7 +70,7 @@ public sealed class RestCommandRequestTests : IDisposable
     public async Task RunAsync_RestFullUri_SendsGetToUri()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.OK, EmptyObject);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -79,13 +83,13 @@ public sealed class RestCommandRequestTests : IDisposable
     public async Task RunAsync_RestRelativeUriWithoutSlash_SendsGetUnderArmEndpoint()
     {
         _mockWire.RespondTo(HttpMethod.Get, $"{ArmUrl}/subscriptions", HttpStatusCode.OK, EmptyList);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", "subscriptions?api-version=2022-12-01"]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", $"subscriptions?api-version={SubscriptionsApiVersion}"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal(["GET /subscriptions?api-version=2022-12-01"], _mockWire.FullRequestLines());
+        Assert.Equal([$"GET /subscriptions?api-version={SubscriptionsApiVersion}"], _mockWire.FullRequestLines());
     }
 
     [Fact]
@@ -132,7 +136,7 @@ public sealed class RestCommandRequestTests : IDisposable
     public async Task RunAsync_RestMethod_SendsMethodInUpperCase(string method, string expected)
     {
         _mockWire.RespondTo(new HttpMethod(expected), GroupUrl, HttpStatusCode.OK, EmptyObject);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", method, "--uri", GroupUri]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", method, "--uri", GroupUrlWithApiVersion]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -145,7 +149,7 @@ public sealed class RestCommandRequestTests : IDisposable
     public async Task RunAsync_RestBody_SendsBodyAsGiven()
     {
         List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Put, GroupUrl, HttpStatusCode.OK, EmptyObject);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", "put", "--uri", GroupUri, "--body", LocationBody]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", "put", "--uri", GroupUrlWithApiVersion, "--body", LocationBody]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -158,7 +162,7 @@ public sealed class RestCommandRequestTests : IDisposable
     public async Task RunAsync_RestBody_SendsJsonContentType()
     {
         _mockWire.RespondTo(HttpMethod.Put, GroupUrl, HttpStatusCode.OK, EmptyObject);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", "put", "--uri", GroupUri, "--body", LocationBody]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--method", "put", "--uri", GroupUrlWithApiVersion, "--body", LocationBody]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -173,13 +177,13 @@ public sealed class RestCommandRequestTests : IDisposable
     public async Task RunAsync_RestHeaders_SendsCustomHeader()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.OK, EmptyObject);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUri, "--headers", "x-ms-custom=v1"]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["rest", "--uri", GroupUrlWithApiVersion, "--headers", CustomHeader]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("v1", Assert.Single(_mockWire.SentRequests()).HeaderValues("x-ms-custom"));
+        Assert.Equal(CustomHeaderValue, Assert.Single(_mockWire.SentRequests()).HeaderValues(CustomHeaderName));
     }
 
     [Fact]
@@ -188,13 +192,13 @@ public sealed class RestCommandRequestTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.OK, EmptyObject);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["rest", "--uri", GroupUri, "--headers", "x-ms-custom=v1", "--headers", "If-Match=*"]);
+            ["rest", "--uri", GroupUrlWithApiVersion, "--headers", CustomHeader, "--headers", "If-Match=*"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("*", Assert.Single(_mockWire.SentRequests()).HeaderValues("If-Match"));
+        Assert.Equal([CustomHeaderValue, "*"], new[] { CustomHeaderName, "If-Match" }.Select(Assert.Single(_mockWire.SentRequests()).HeaderValues));
     }
 
     [Fact]
@@ -265,7 +269,7 @@ public sealed class RestCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_RestResourceParametersWithoutNameOrGroup_SendsGetToSubscriptionCollection()
+    public async Task RunAsync_RestResourceParametersWithoutNameOrGroup_SendsGetToGivenSubscriptionCollection()
     {
         _mockWire.RespondTo(HttpMethod.Get, ArmUrl + OtherSubscriptionStorageAccountsPath, HttpStatusCode.OK, EmptyList);
         CommandInvocation invocation = CreateInvocation(

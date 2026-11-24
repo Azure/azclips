@@ -20,13 +20,14 @@ namespace Cli.Tests.Commands.Resources;
 public sealed class DeploymentCommandResponseTests : IDisposable
 {
     private const string ExtensionName = "Resources";
-    private const string ResourceGroup = "rg";
+    private const string GroupName = "rg";
     private const string ManagementGroupId = "mg1";
     private const string DeploymentName = "d1";
+    private const string SecondDeploymentName = "d2";
     private const string Location = "westus";
     private const string TemplateUri = "https://example.com/t.json";
     private const string ApiVersion = "2025-04-01";
-    private const string GroupDeployments = $"/subscriptions/{SubscriptionId}/resourcegroups/{ResourceGroup}/providers/Microsoft.Resources/deployments";
+    private const string GroupDeployments = $"/subscriptions/{SubscriptionId}/resourcegroups/{GroupName}/providers/Microsoft.Resources/deployments";
     private const string SubDeployments = $"/subscriptions/{SubscriptionId}/providers/Microsoft.Resources/deployments";
     private const string MgDeployments = $"/providers/Microsoft.Management/managementGroups/{ManagementGroupId}/providers/Microsoft.Resources/deployments";
     private const string TenantDeployments = "/providers/Microsoft.Resources/deployments";
@@ -34,7 +35,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     private const string SubDeployment = $"{SubDeployments}/{DeploymentName}";
     private const string MgDeployment = $"{MgDeployments}/{DeploymentName}";
     private const string TenantDeployment = $"{TenantDeployments}/{DeploymentName}";
-    private const string OperationStatus = SubDeployment + "/operationStatuses/op1";
+    private const string OperationStatus = $"{GroupDeployment}/operationStatuses/op1";
     private const string OperationResults = $"/subscriptions/{SubscriptionId}/operationresults";
     private const string GroupDeploymentUrl = ArmUrl + GroupDeployment;
     private const string TenantDeploymentUrl = ArmUrl + TenantDeployment;
@@ -47,23 +48,20 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     private const string ValidationErrorBody = """{"error":{"code":"InvalidTemplate","message":"Bad template"}}""";
     private const string FailedWhatIfBody = """{"status":"Failed","error":{"code":"WhatIfFailed","message":"bad"}}""";
     private const string DeploymentNotFoundBody = $$$"""{"error":{"code":"DeploymentNotFound","message":"Deployment '{{{DeploymentName}}}' could not be found."}}""";
+    private const string DeletedBody = """{"status":"Deleted"}""";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
     private readonly Engine _engine;
 
-    public DeploymentCommandResponseTests()
-    {
-        _engine = CreateEngine(typeof(ResourcesIndex).Assembly, _mockWire);
-        _mockWire.RespondTo(HttpMethod.Post, $"{GroupDeploymentUrl}/validate", HttpStatusCode.OK, GroupDeploymentBody);
-    }
+    public DeploymentCommandResponseTests() => _engine = CreateEngine(typeof(ResourcesIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
 
     // Each scope's create command and its deployment path.
     public static TheoryData<string[], string> GetCreateCommands() => new()
     {
-        { ["deployment", "group", "create", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri], GroupDeployment },
+        { ["deployment", "group", "create", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri], GroupDeployment },
         { ["deployment", "sub", "create", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri], SubDeployment },
         {
             [
@@ -81,7 +79,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     // Each scope's validate command and its deployment path.
     public static TheoryData<string[], string> GetValidateCommands() => new()
     {
-        { ["deployment", "group", "validate", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri], GroupDeployment },
+        { ["deployment", "group", "validate", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri], GroupDeployment },
         { ["deployment", "sub", "validate", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri], SubDeployment },
         {
             [
@@ -99,7 +97,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     // Each validate command whose scope formats a validation error.
     public static TheoryData<string[]> GetErrorFormattingValidateCommands() => new()
     {
-        { ["deployment", "group", "validate", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri] },
+        { ["deployment", "group", "validate", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri] },
         {
             [
                 "deployment", "mg", "validate",
@@ -112,11 +110,11 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         { ["deployment", "tenant", "validate", "--location", Location, "--name", DeploymentName, "--template-uri", TemplateUri] },
     };
 
-    // Each scope's what-if command.
-    public static TheoryData<string[]> GetWhatIfCommands() => new()
+    // Each scope's what-if command and its deployment path.
+    public static TheoryData<string[], string> GetWhatIfCommands() => new()
     {
-        { ["deployment", "group", "what-if", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri] },
-        { ["deployment", "sub", "what-if", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri] },
+        { ["deployment", "group", "what-if", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri], GroupDeployment },
+        { ["deployment", "sub", "what-if", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri], SubDeployment },
         {
             [
                 "deployment", "mg", "what-if",
@@ -124,15 +122,16 @@ public sealed class DeploymentCommandResponseTests : IDisposable
                 "--name", DeploymentName,
                 "--location", Location,
                 "--template-uri", TemplateUri,
-            ]
+            ],
+            MgDeployment
         },
-        { ["deployment", "tenant", "what-if", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri] },
+        { ["deployment", "tenant", "what-if", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri], TenantDeployment },
     };
 
     // Each what-if command whose scope throws when the what-if status is Failed.
     public static TheoryData<string[]> GetThrowingWhatIfCommands() => new()
     {
-        { ["deployment", "group", "what-if", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri] },
+        { ["deployment", "group", "what-if", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri] },
         {
             [
                 "deployment", "mg", "what-if",
@@ -148,7 +147,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     // Each scope's command taking only the scope and the deployment name, for verb, with its deployment path.
     public static TheoryData<string[], string> GetNamedCommands(string verb) => new()
     {
-        { ["deployment", "group", verb, "--resource-group", ResourceGroup, "--name", DeploymentName], GroupDeployment },
+        { ["deployment", "group", verb, "--resource-group", GroupName, "--name", DeploymentName], GroupDeployment },
         { ["deployment", "sub", verb, "--name", DeploymentName], SubDeployment },
         { ["deployment", "mg", verb, "--management-group-id", ManagementGroupId, "--name", DeploymentName], MgDeployment },
         { ["deployment", "tenant", verb, "--name", DeploymentName], TenantDeployment },
@@ -157,26 +156,31 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     // Each scope's list command and its deployments path.
     public static TheoryData<string[], string> GetListCommands() => new()
     {
-        { ["deployment", "group", "list", "--resource-group", ResourceGroup], GroupDeployments },
+        { ["deployment", "group", "list", "--resource-group", GroupName], GroupDeployments },
         { ["deployment", "sub", "list"], SubDeployments },
         { ["deployment", "mg", "list", "--management-group-id", ManagementGroupId], MgDeployments },
         { ["deployment", "tenant", "list"], TenantDeployments },
     };
 
-    // Each scope's delete command and how many values it writes for a 200 response with a body.
-    public static TheoryData<string[], int> GetDeleteCommands() => new()
+    // Each delete command that drops the body of a 200 response, with its deployment path.
+    public static TheoryData<string[], string> GetBodyDroppingDeleteCommands() => new()
     {
-        { ["deployment", "group", "delete", "--resource-group", ResourceGroup, "--name", DeploymentName], 0 },
-        { ["deployment", "sub", "delete", "--name", DeploymentName], 0 },
-        { ["deployment", "mg", "delete", "--management-group-id", ManagementGroupId, "--name", DeploymentName], 1 },
-        { ["deployment", "tenant", "delete", "--name", DeploymentName], 1 },
+        { ["deployment", "group", "delete", "--resource-group", GroupName, "--name", DeploymentName], GroupDeployment },
+        { ["deployment", "sub", "delete", "--name", DeploymentName], SubDeployment },
+    };
+
+    // Each delete command that writes the body of a 200 response, with its deployment path.
+    public static TheoryData<string[], string> GetBodyWritingDeleteCommands() => new()
+    {
+        { ["deployment", "mg", "delete", "--management-group-id", ManagementGroupId, "--name", DeploymentName], MgDeployment },
+        { ["deployment", "tenant", "delete", "--name", DeploymentName], TenantDeployment },
     };
 
     // Each export command that throws for a response without a template, with the message it throws.
     public static TheoryData<string[], string> GetThrowingExportCommands() => new()
     {
         {
-            ["deployment", "group", "export", "--resource-group", ResourceGroup, "--name", DeploymentName],
+            ["deployment", "group", "export", "--resource-group", GroupName, "--name", DeploymentName],
             "The export response for deployment 'd1' in resource group 'rg' did not contain a template."
         },
         {
@@ -192,13 +196,21 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         { ["deployment", "mg", "export", "--management-group-id", ManagementGroupId, "--name", DeploymentName] },
     };
 
+    // Each tenant wait condition argument list met by a deployment in provisioningState.
+    public static TheoryData<string[], string> GetMetWaitConditions() => new()
+    {
+        { ["--created"], "Succeeded" },
+        { ["--exists"], "Running" },
+        { ["--custom", "properties.provisioningState=='Running'"], "Running" },
+    };
+
     // ── deployment <scope> create ──────────────────────────────────────────────────────────────
 
     [Theory]
     [MemberData(nameof(GetCreateCommands))]
-    public async Task RunAsync_DeploymentCreateSucceeded_WritesSucceededDeployment(string[] commandLine, string deployment)
+    public async Task RunAsync_DeploymentCreateRunningPut_WritesSucceededDeploymentFromGet(string[] commandLine, string deployment)
     {
-        RespondToImmediateCreate(deployment, "Succeeded");
+        RespondToCreate(deployment, "Succeeded");
         CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -209,30 +221,16 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_DeploymentGroupCreateSucceeded_WritesDeploymentName()
-    {
-        RespondToImmediateCreate(GroupDeployment, "Succeeded");
-        CommandInvocation invocation = CreateInvocation(
-            ExtensionName,
-            ["deployment", "group", "create", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
-        OutputStreams streams = CreateOutput(_output);
-        using ISession session = _engine.OpenExecutionSession(invocation, streams);
-
-        await session.RunAsync();
-
-        Assert.Equal(DeploymentName, Assert.IsType<DeploymentExtended>(Assert.Single(_output)).Name);
-    }
-
-    [Fact]
     public async Task RunAsync_DeploymentGroupCreateAsyncOperation_WritesDeploymentAfterOperationSucceeds()
     {
+        RespondToGroupValidate();
         _mockWire.RespondWithHeaders(HttpMethod.Put, GroupDeploymentUrl, HttpStatusCode.Created, AcceptedGroupDeploymentBody,
             $"Azure-AsyncOperation: {ArmUrl}{OperationStatus}?api-version={ApiVersion}", "Retry-After: 0");
         _mockWire.RespondTo(HttpMethod.Get, ArmUrl + OperationStatus, HttpStatusCode.OK, """{"status":"Succeeded"}""");
         _mockWire.RespondTo(HttpMethod.Get, GroupDeploymentUrl, HttpStatusCode.OK, GroupDeploymentBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "create", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
+            ["deployment", "group", "create", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -244,10 +242,10 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentGroupCreateFailed_ThrowsLongRunningOperationFailed()
     {
-        RespondToImmediateCreate(GroupDeployment, "Failed");
+        RespondToCreate(GroupDeployment, "Failed");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "create", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
+            ["deployment", "group", "create", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -264,7 +262,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
             """{"error":{"code":"InvalidTemplate","message":"Bad template","target":"res1","details":[{"code":"Inner","message":"inner msg"}]}}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "create", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
+            ["deployment", "group", "create", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -279,10 +277,11 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     public async Task RunAsync_DeploymentGroupCreatePutBadRequest_ThrowsStatusUrlAndBody()
     {
         const string ErrorBody = """{"error":{"code":"Bad","message":"nope"}}""";
+        RespondToGroupValidate();
         _mockWire.RespondTo(HttpMethod.Put, GroupDeploymentUrl, HttpStatusCode.BadRequest, ErrorBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "create", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
+            ["deployment", "group", "create", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -351,7 +350,9 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
         // Current behaviour: unlike the other scopes, the subscription validate does not format the validation error.
-        Assert.Equal($"400 Bad Request from {ArmUrl}{SubDeployment}/validate?api-version={ApiVersion}: {ValidationErrorBody}", Assert.IsType<HttpRequestException>(exception).Message);
+        Assert.Equal(
+            $"400 Bad Request from {ArmUrl}{SubDeployment}/validate?api-version={ApiVersion}: {ValidationErrorBody}",
+            Assert.IsType<HttpRequestException>(exception).Message);
     }
 
     [Fact]
@@ -360,7 +361,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Post, $"{GroupDeploymentUrl}/validate", HttpStatusCode.BadRequest, """{"x":1}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "validate", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
+            ["deployment", "group", "validate", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -375,7 +376,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Post, $"{GroupDeploymentUrl}/validate", HttpStatusCode.NoContent);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "validate", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
+            ["deployment", "group", "validate", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -392,7 +393,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, $"{ArmUrl}{OperationResults}/v1", HttpStatusCode.OK, GroupDeploymentBody);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "validate", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
+            ["deployment", "group", "validate", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -405,9 +406,9 @@ public sealed class DeploymentCommandResponseTests : IDisposable
 
     [Theory]
     [MemberData(nameof(GetWhatIfCommands))]
-    public async Task RunAsync_DeploymentWhatIf_WritesChangedResourceId(string[] commandLine)
+    public async Task RunAsync_DeploymentWhatIf_WritesChangedResourceId(string[] commandLine, string deployment)
     {
-        _mockWire.RespondToAnyRequest(WhatIfCreateBody);
+        _mockWire.RespondTo(HttpMethod.Post, $"{ArmUrl}{deployment}/whatIf", HttpStatusCode.OK, WhatIfCreateBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -415,21 +416,6 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         await session.RunAsync();
 
         Assert.Equal("/r1", Assert.Single(Assert.IsType<WhatIfOperationResult>(Assert.Single(_output)).Properties!.Changes!).ResourceId);
-    }
-
-    [Fact]
-    public async Task RunAsync_DeploymentGroupWhatIf_WritesChangeType()
-    {
-        _mockWire.RespondTo(HttpMethod.Post, $"{GroupDeploymentUrl}/whatIf", HttpStatusCode.OK, WhatIfCreateBody);
-        CommandInvocation invocation = CreateInvocation(
-            ExtensionName,
-            ["deployment", "group", "what-if", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
-        OutputStreams streams = CreateOutput(_output);
-        using ISession session = _engine.OpenExecutionSession(invocation, streams);
-
-        await session.RunAsync();
-
-        Assert.Equal("Create", Assert.Single(Assert.IsType<WhatIfOperationResult>(Assert.Single(_output)).Properties!.Changes!).ChangeType);
     }
 
     [Theory]
@@ -470,7 +456,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Get, $"{ArmUrl}{OperationResults}/w1", HttpStatusCode.OK, """{"status":"Succeeded","properties":{"changes":[]}}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "group", "what-if", "--resource-group", ResourceGroup, "--name", DeploymentName, "--template-uri", TemplateUri]);
+            ["deployment", "group", "what-if", "--resource-group", GroupName, "--name", DeploymentName, "--template-uri", TemplateUri]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -500,7 +486,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     public async Task RunAsync_DeploymentGroupShowNotFound_ThrowsStatusUrlAndBody()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupDeploymentUrl, HttpStatusCode.NotFound, DeploymentNotFoundBody);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "show", "--resource-group", ResourceGroup, "--name", DeploymentName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "show", "--resource-group", GroupName, "--name", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -516,14 +502,15 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     public async Task RunAsync_DeploymentList_WritesDeploymentNames(string[] commandLine, string deployments)
     {
         _mockWire.RespondTo(HttpMethod.Get, ArmUrl + deployments, HttpStatusCode.OK,
-            $$"""{"value":[{"id":"{{deployments}}/{{DeploymentName}}","name":"{{DeploymentName}}"},{"id":"{{deployments}}/d2","name":"d2"}]}""");
+            $$"""{"value":[{"id":"{{deployments}}/{{DeploymentName}}","name":"{{DeploymentName}}"},"""
+                + $$"""{"id":"{{deployments}}/{{SecondDeploymentName}}","name":"{{SecondDeploymentName}}"}]}""");
         CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal(["d1", "d2"], Assert.IsType<List<DeploymentExtended>>(Assert.Single(_output)).Select(d => d.Name));
+        Assert.Equal([DeploymentName, SecondDeploymentName], Assert.IsType<List<DeploymentExtended>>(Assert.Single(_output)).Select(d => d.Name));
     }
 
     [Fact]
@@ -531,21 +518,21 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     {
         _mockWire.RespondInOrder(
             $$"""{"value":[{"id":"{{GroupDeployment}}","name":"{{DeploymentName}}"}],"nextLink":"{{ArmUrl}}{{GroupDeployments}}?api-version={{ApiVersion}}&$skiptoken=p2"}""",
-            $$"""{"value":[{"id":"{{GroupDeployments}}/d2","name":"d2"}]}""");
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "list", "--resource-group", ResourceGroup]);
+            $$"""{"value":[{"id":"{{GroupDeployments}}/{{SecondDeploymentName}}","name":"{{SecondDeploymentName}}"}]}""");
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "list", "--resource-group", GroupName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal(["d1", "d2"], Assert.IsType<List<DeploymentExtended>>(Assert.Single(_output)).Select(d => d.Name));
+        Assert.Equal([DeploymentName, SecondDeploymentName], Assert.IsType<List<DeploymentExtended>>(Assert.Single(_output)).Select(d => d.Name));
     }
 
     [Fact]
     public async Task RunAsync_DeploymentGroupListEmpty_WritesEmptyList()
     {
-        _mockWire.RespondTo(HttpMethod.Get, ArmUrl + GroupDeployments, HttpStatusCode.OK, """{"value":[]}""");
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "list", "--resource-group", ResourceGroup]);
+        _mockWire.RespondTo(HttpMethod.Get, ArmUrl + GroupDeployments, HttpStatusCode.OK, EmptyList);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "list", "--resource-group", GroupName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -573,14 +560,15 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_DeploymentGroupCancelWithBody_WritesResponseJson()
     {
-        _mockWire.RespondTo(HttpMethod.Post, $"{GroupDeploymentUrl}/cancel", HttpStatusCode.OK, """{"status":"Canceled"}""");
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "cancel", "--resource-group", ResourceGroup, "--name", DeploymentName]);
+        const string CanceledBody = """{"status":"Canceled"}""";
+        _mockWire.RespondTo(HttpMethod.Post, $"{GroupDeploymentUrl}/cancel", HttpStatusCode.OK, CanceledBody);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "cancel", "--resource-group", GroupName, "--name", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("""{"status":"Canceled"}""", Assert.IsType<JsonElement>(Assert.Single(_output)).GetRawText());
+        Assert.Equal(CanceledBody, Assert.IsType<JsonElement>(Assert.Single(_output)).GetRawText());
     }
 
     [Fact]
@@ -588,7 +576,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     {
         const string ErrorBody = """{"error":{"code":"DeploymentCannotBeCancelled","message":"Already finished."}}""";
         _mockWire.RespondTo(HttpMethod.Post, $"{GroupDeploymentUrl}/cancel", HttpStatusCode.Conflict, ErrorBody);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "cancel", "--resource-group", ResourceGroup, "--name", DeploymentName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "cancel", "--resource-group", GroupName, "--name", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -614,18 +602,32 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     }
 
     [Theory]
-    [MemberData(nameof(GetDeleteCommands))]
-    public async Task RunAsync_DeploymentDeleteOkWithBody_WritesBodyOnlyAtMgAndTenantScope(string[] commandLine, int expectedCount)
+    [MemberData(nameof(GetBodyDroppingDeleteCommands))]
+    public async Task RunAsync_DeploymentDeleteOkWithBody_WritesNothing(string[] commandLine, string deployment)
     {
-        _mockWire.RespondToAnyRequest("""{"status":"Deleted"}""");
+        _mockWire.RespondTo(HttpMethod.Delete, ArmUrl + deployment, HttpStatusCode.OK, DeletedBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        // Current behaviour: a 200 delete body is written at management group and tenant scope but dropped at the others.
-        Assert.Equal(expectedCount, _output.Count);
+        // Current behaviour: a 200 delete body is dropped at group and subscription scope but written at the other scopes.
+        Assert.Empty(_output);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetBodyWritingDeleteCommands))]
+    public async Task RunAsync_DeploymentDeleteOkWithBody_WritesResponseJson(string[] commandLine, string deployment)
+    {
+        _mockWire.RespondTo(HttpMethod.Delete, ArmUrl + deployment, HttpStatusCode.OK, DeletedBody);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
+
+        await session.RunAsync();
+
+        Assert.Equal(DeletedBody, Assert.IsType<JsonElement>(Assert.Single(_output)).GetRawText());
     }
 
     [Fact]
@@ -634,7 +636,7 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         _mockWire.RespondWithHeaders(HttpMethod.Delete, GroupDeploymentUrl, HttpStatusCode.Accepted, null,
             $"Location: {ArmUrl}{OperationResults}/x1?api-version={ApiVersion}", "Retry-After: 0");
         _mockWire.RespondTo(HttpMethod.Get, $"{ArmUrl}{OperationResults}/x1", HttpStatusCode.NoContent);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "delete", "--resource-group", ResourceGroup, "--name", DeploymentName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "group", "delete", "--resource-group", GroupName, "--name", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -649,14 +651,16 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     [MemberData(nameof(GetNamedCommands), "export")]
     public async Task RunAsync_DeploymentExport_WritesTemplateOnly(string[] commandLine, string deployment)
     {
-        _mockWire.RespondTo(HttpMethod.Post, $"{ArmUrl}{deployment}/exportTemplate", HttpStatusCode.OK, """{"template":{"$schema":"s","resources":[]}}""");
+        const string Template = """{"$schema":"s","resources":[]}""";
+        const string ExportBody = $$$"""{"template":{{{Template}}}}""";
+        _mockWire.RespondTo(HttpMethod.Post, $"{ArmUrl}{deployment}/exportTemplate", HttpStatusCode.OK, ExportBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("""{"$schema":"s","resources":[]}""", Assert.IsType<JsonElement>(Assert.Single(_output)).GetRawText());
+        Assert.Equal(Template, Assert.IsType<JsonElement>(Assert.Single(_output)).GetRawText());
     }
 
     [Theory]
@@ -684,21 +688,18 @@ public sealed class DeploymentCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
-        // Current behaviour: subscription and management group export write null where the other scopes throw.
-        Assert.Equal("null", Assert.Single(_output).ToString());
+        // Current behaviour: sub and mg export write null when the template is missing, while group and tenant throw.
+        Assert.Equal(new SerializedJson("null"), Assert.Single(_output));
     }
 
     // ── deployment tenant wait ─────────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("--created", "Succeeded")]
-    [InlineData("--exists", "Running")]
-    [InlineData("--custom", "Running")]
-    public async Task RunAsync_DeploymentTenantWaitConditionMet_WritesNothing(string condition, string provisioningState)
+    [MemberData(nameof(GetMetWaitConditions))]
+    public async Task RunAsync_DeploymentTenantWaitConditionMet_WritesNothing(string[] conditionArgs, string provisioningState)
     {
         _mockWire.RespondTo(HttpMethod.Get, TenantDeploymentUrl, HttpStatusCode.OK,
             $$$"""{"id":"{{{TenantDeployment}}}","name":"{{{DeploymentName}}}","properties":{"provisioningState":"{{{provisioningState}}}"}}""");
-        string[] conditionArgs = condition == "--custom" ? [condition, "properties.provisioningState=='Running'"] : [condition];
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "tenant", "wait", "--name", DeploymentName, .. conditionArgs]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -749,13 +750,17 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         Assert.Equal($"403 Forbidden from {TenantDeploymentUrl}?api-version={ApiVersion}: {ErrorBody}", Assert.IsType<HttpRequestException>(exception).Message);
     }
 
-    // Answers the validation POST, the PUT (with Retry-After 0 so polling does not wait) and the completion GETs for
-    // deployment, reporting provisioningState.
-    private void RespondToImmediateCreate(string deployment, string provisioningState)
+    // Answers the validation POST, the PUT (200 Running, with Retry-After 0 so polling does not wait) and the polling
+    // and final GETs for deployment, which report provisioningState.
+    private void RespondToCreate(string deployment, string provisioningState)
     {
-        string body = $$$"""{"id":"{{{deployment}}}","name":"{{{DeploymentName}}}","properties":{"provisioningState":"{{{provisioningState}}}","mode":"Incremental"}}""";
-        _mockWire.RespondTo(HttpMethod.Post, $"{ArmUrl}{deployment}/validate", HttpStatusCode.OK, body.Replace(provisioningState, "Succeeded"));
-        _mockWire.RespondWithHeaders(HttpMethod.Put, ArmUrl + deployment, HttpStatusCode.OK, body, "Retry-After: 0");
-        _mockWire.RespondTo(HttpMethod.Get, ArmUrl + deployment, HttpStatusCode.OK, body);
+        _mockWire.RespondTo(HttpMethod.Post, $"{ArmUrl}{deployment}/validate", HttpStatusCode.OK, DeploymentBody(deployment, "Succeeded"));
+        _mockWire.RespondWithHeaders(HttpMethod.Put, ArmUrl + deployment, HttpStatusCode.OK, DeploymentBody(deployment, "Running"), "Retry-After: 0");
+        _mockWire.RespondTo(HttpMethod.Get, ArmUrl + deployment, HttpStatusCode.OK, DeploymentBody(deployment, provisioningState));
     }
+
+    private void RespondToGroupValidate() => _mockWire.RespondTo(HttpMethod.Post, $"{GroupDeploymentUrl}/validate", HttpStatusCode.OK, GroupDeploymentBody);
+
+    private static string DeploymentBody(string deployment, string provisioningState) =>
+        $$$"""{"id":"{{{deployment}}}","name":"{{{DeploymentName}}}","properties":{"provisioningState":"{{{provisioningState}}}","mode":"Incremental"}}""";
 }

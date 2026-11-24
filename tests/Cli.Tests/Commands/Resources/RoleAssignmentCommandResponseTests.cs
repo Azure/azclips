@@ -28,10 +28,11 @@ public sealed class RoleAssignmentCommandResponseTests : IDisposable
     private const string FourthAssignmentName = "44444444-0000-0000-0000-000000000004";
     private const string RoleId = "acdd72a7-3385-48ef-bd42-f606fba81ae7";
     private const string OtherRoleId = "b24988ac-6180-42a0-ab88-20f7382dd24c";
+    private const string GroupName = "rg";
     private const string ApiVersion = "2022-04-01";
     private const string SubscriptionScope = $"/subscriptions/{SubscriptionId}";
-    private const string GroupScope = $"{SubscriptionScope}/resourceGroups/rg";
-    private const string AssignmentsUrl = $"https://management.azure.com{SubscriptionScope}/providers/Microsoft.Authorization/roleAssignments";
+    private const string GroupScope = $"{SubscriptionScope}/resourceGroups/{GroupName}";
+    private const string AssignmentsUrl = $"{ArmUrl}{SubscriptionScope}/providers/Microsoft.Authorization/roleAssignments";
     private const string AssignmentUrl = $"{AssignmentsUrl}/{AssignmentName}";
     private const string ConflictError = """{"error":{"code":"RoleAssignmentExists","message":"exists"}}""";
 
@@ -154,16 +155,15 @@ public sealed class RoleAssignmentCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_RoleAssignmentListIncludeInherited_WritesEveryReturnedAssignment()
     {
-        _mockWire.RespondTo(HttpMethod.Get, AssignmentsUrl, HttpStatusCode.OK, ListOfMixedAssignments());
+        _mockWire.RespondTo(HttpMethod.Get, AssignmentsUrl, HttpStatusCode.OK, ListOfInheritedAssignments());
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["role", "assignment", "list", "--include-inherited"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        // Current behaviour: no client-side scope filter is applied, so a child resource group assignment is kept too.
         Assert.Equal(
-            [FirstAssignmentName, SecondAssignmentName, ThirdAssignmentName, FourthAssignmentName],
+            [FirstAssignmentName, SecondAssignmentName, FourthAssignmentName],
             Assert.IsType<List<RoleAssignment>>(Assert.Single(_output)).Select(a => a.Name));
     }
 
@@ -203,7 +203,9 @@ public sealed class RoleAssignmentCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal(4, Assert.IsType<List<RoleAssignment>>(Assert.Single(_output)).Count);
+        Assert.Equal(
+            [FirstAssignmentName, SecondAssignmentName, ThirdAssignmentName, FourthAssignmentName],
+            Assert.IsType<List<RoleAssignment>>(Assert.Single(_output)).Select(a => a.Name));
     }
 
     [Fact]
@@ -243,6 +245,14 @@ public sealed class RoleAssignmentCommandResponseTests : IDisposable
         + Assignment(FirstAssignmentName, PrincipalId, RoleId, SubscriptionScope) + ","
         + Assignment(SecondAssignmentName, OtherPrincipalId, OtherRoleId, SubscriptionScope) + ","
         + Assignment(ThirdAssignmentName, PrincipalId, RoleId, GroupScope) + ","
+        + Assignment(FourthAssignmentName, PrincipalId, RoleId, "/")
+        + "]}";
+
+    // Two assignments at the subscription and one at the root: the subscription and its ancestors, as atScope() returns.
+    private string ListOfInheritedAssignments() =>
+        "{\"value\":["
+        + Assignment(FirstAssignmentName, PrincipalId, RoleId, SubscriptionScope) + ","
+        + Assignment(SecondAssignmentName, OtherPrincipalId, OtherRoleId, SubscriptionScope) + ","
         + Assignment(FourthAssignmentName, PrincipalId, RoleId, "/")
         + "]}";
 }

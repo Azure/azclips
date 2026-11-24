@@ -18,13 +18,14 @@ namespace Cli.Tests.Commands.Resources;
 public sealed class DeploymentOperationCommandRequestTests : IDisposable
 {
     private const string ExtensionName = "Resources";
-    private const string ResourceGroup = "rg";
+    private const string GroupName = "rg";
     private const string ManagementGroupId = "mg1";
     private const string DeploymentName = "d1";
     private const string OperationId = "op1";
     private const string SecondOperationId = "op2";
     private const string ApiVersion = "2026-06-01";
-    private const string GroupOperations = $"/subscriptions/{SubscriptionId}/resourcegroups/{ResourceGroup}/deployments/{DeploymentName}/operations";
+    private const string NextPageToken = "p2";
+    private const string GroupOperations = $"/subscriptions/{SubscriptionId}/resourcegroups/{GroupName}/deployments/{DeploymentName}/operations";
     private const string SubOperations = $"/subscriptions/{SubscriptionId}/providers/Microsoft.Resources/deployments/{DeploymentName}/operations";
     private const string MgOperations = $"/providers/Microsoft.Management/managementGroups/{ManagementGroupId}/providers/Microsoft.Resources/deployments/{DeploymentName}/operations";
     private const string TenantOperations = $"/providers/Microsoft.Resources/deployments/{DeploymentName}/operations";
@@ -43,7 +44,7 @@ public sealed class DeploymentOperationCommandRequestTests : IDisposable
     // Each scope's operation command for verb, with the scope and deployment arguments, and the operations path.
     public static TheoryData<string[], string> GetOperationCommands(string verb) => new()
     {
-        { ["deployment", "operation", "group", verb, "--resource-group", ResourceGroup, "--name", DeploymentName], GroupOperations },
+        { ["deployment", "operation", "group", verb, "--resource-group", GroupName, "--name", DeploymentName], GroupOperations },
         { ["deployment", "operation", "sub", verb, "--name", DeploymentName], SubOperations },
         { ["deployment", "operation", "mg", verb, "--management-group-id", ManagementGroupId, "--name", DeploymentName], MgOperations },
         { ["deployment", "operation", "tenant", verb, "--name", DeploymentName], TenantOperations },
@@ -69,7 +70,7 @@ public sealed class DeploymentOperationCommandRequestTests : IDisposable
     public async Task RunAsync_DeploymentOperationGroupListShortAliases_SendsGetToOperationsPath()
     {
         _mockWire.RespondTo(HttpMethod.Get, GroupOperationsUrl, HttpStatusCode.OK, EmptyList);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "operation", "group", "list", "-g", ResourceGroup, "-n", DeploymentName]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["deployment", "operation", "group", "list", "-g", GroupName, "-n", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -79,20 +80,22 @@ public sealed class DeploymentOperationCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_DeploymentOperationGroupListNextLink_SendsNextLinkSkipToken()
+    public async Task RunAsync_DeploymentOperationGroupListNextLink_SendsListGetThenNextLinkGet()
     {
         _mockWire.RespondInOrder(
-            $$"""{"value":[{{GroupOperationBody}}],"nextLink":"{{GroupOperationsUrl}}?api-version={{ApiVersion}}&$skiptoken=p2"}""",
+            $$"""{"value":[{{GroupOperationBody}}],"nextLink":"{{GroupOperationsUrl}}?api-version={{ApiVersion}}&$skiptoken={{NextPageToken}}"}""",
             $$"""{"value":[{{SecondGroupOperationBody}}]}""");
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["deployment", "operation", "group", "list", "--resource-group", ResourceGroup, "--name", DeploymentName]);
+            ["deployment", "operation", "group", "list", "--resource-group", GroupName, "--name", DeploymentName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("p2", _mockWire.SentRequests()[1].QueryValue("$skiptoken"));
+        Assert.Equal(
+            [$"GET {GroupOperations}?api-version={ApiVersion}", $"GET {GroupOperations}?api-version={ApiVersion}&$skiptoken={NextPageToken}"],
+            _mockWire.FullRequestLines());
     }
 
     // ── deployment operation <scope> show ──────────────────────────────────────────────────────
@@ -121,7 +124,7 @@ public sealed class DeploymentOperationCommandRequestTests : IDisposable
             ExtensionName,
             [
                 "deployment", "operation", "group", "show",
-                "--resource-group", ResourceGroup,
+                "--resource-group", GroupName,
                 "--name", DeploymentName,
                 "--operation-ids", OperationId, SecondOperationId,
             ]);

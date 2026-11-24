@@ -32,9 +32,18 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     private const string SecretBundle = $$$"""{"id":"{{{SecretUrl}}}/{{{Version}}}","value":"{{{SecretValue}}}","attributes":{"enabled":true}}""";
     private const string DeletedSecretBundle = $$"""{"id":"{{SecretUrl}}/{{Version}}","recoveryId":"{{VaultUrl}}/deletedsecrets/{{SecretName}}"}""";
     private const string CertificateBundle = $$$"""{"id":"{{{CertificateUrl}}}/{{{Version}}}","attributes":{"enabled":true}}""";
+    private const string DeletedCertificateBundle =
+        $$"""{"id":"{{CertificateUrl}}/{{Version}}","recoveryId":"{{VaultUrl}}/deletedcertificates/{{CertificateName}}"}""";
     private const string CompletedOperation = $$$"""{"id":"{{{CertificateUrl}}}/pending","status":"completed","issuer":{"name":"Self"}}""";
     private const string PendingOperation = $$$"""{"id":"{{{CertificateUrl}}}/pending","status":"inProgress","issuer":{"name":"Self"}}""";
     private const string SelfSignedPolicy = """{"issuer":{"name":"Self"},"x509_props":{"subject":"CN=contoso.com"}}""";
+    private const string UnknownIssuerPolicy = """{"issuer":{"name":"Unknown"},"x509_props":{"subject":"CN=a"}}""";
+    private const string ValidityPolicy = """{"x509_props":{"validity_months":24}}""";
+    private const string RestApiPolicy =
+        """{"issuerParameters":{"name":"Self","certificateType":"OV-SSL"},"x509CertificateProperties":{"subject":"CN=a","subjectAlternativeNames":{"dnsNames":["a.com"]},"validityInMonths":6},"keyProperties":{"keyType":"EC","curve":"P-256"},"lifetimeActions":[{"trigger":{"daysBeforeExpiry":30},"action":{"actionType":"AutoRenew"}}]}""";
+    private const string OtherVaultUrl = "https://othervault.vault.azure.net";
+    private const string NotBefore = "2025-01-01T00:00:00Z";
+    private const string Expires = "2030-01-01T00:00:00Z";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -45,7 +54,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
 
     public void Dispose() => _engine.Dispose();
 
-    // Each vault command with the arguments it needs and a response it accepts.
+    // Each command that completes from one canned response, with the arguments it needs and a response it accepts.
     public static TheoryData<string[], string> GetVaultCommands() => new()
     {
         { ["keyvault", "secret", "set", "--vault-name", VaultName, "--name", SecretName, "--value", SecretValue], SecretBundle },
@@ -59,7 +68,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
         { ["keyvault", "certificate", "list", "--vault-name", VaultName], EmptyList },
         { ["keyvault", "certificate", "list-versions", "--vault-name", VaultName, "--name", CertificateName], EmptyList },
         { ["keyvault", "certificate", "set-attributes", "--vault-name", VaultName, "--name", CertificateName, "--enabled", "false"], CertificateBundle },
-        { ["keyvault", "certificate", "delete", "--vault-name", VaultName, "--name", CertificateName, "--yes"], CertificateBundle },
+        { ["keyvault", "certificate", "delete", "--vault-name", VaultName, "--name", CertificateName, "--yes"], DeletedCertificateBundle },
     };
 
     [Theory]
@@ -81,7 +90,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_VaultName_SendsToVaultNameHost()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"{SecretUrl}/", HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondToAnyUrl(HttpMethod.Get, HttpStatusCode.OK, SecretBundle);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "secret", "show", "--vault-name", VaultName, "--name", SecretName]);
@@ -96,16 +105,16 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_VaultUrlWithTrailingSlash_SendsToVaultUrlWithoutDoubleSlash()
     {
-        _mockWire.RespondTo(HttpMethod.Get, $"https://othervault.vault.azure.net{SecretPath}/", HttpStatusCode.OK, SecretBundle);
+        _mockWire.RespondToAnyUrl(HttpMethod.Get, HttpStatusCode.OK, SecretBundle);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["keyvault", "secret", "show", "--vault-url", "https://othervault.vault.azure.net/", "--name", SecretName]);
+            ["keyvault", "secret", "show", "--vault-url", $"{OtherVaultUrl}/", "--name", SecretName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal($"https://othervault.vault.azure.net{SecretPath}/", Assert.Single(_mockWire.SentRequests()).RequestUri!.GetLeftPart(UriPartial.Path));
+        Assert.Equal($"{OtherVaultUrl}{SecretPath}/", Assert.Single(_mockWire.SentRequests()).RequestUri!.GetLeftPart(UriPartial.Path));
     }
 
     // ── secret set ─────────────────────────────────────────────────────────────────────────────
@@ -154,15 +163,17 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
                 "--tags", "env=dev",
                 "--content-type", "text/plain",
                 "--enabled", "false",
-                "--not-before", "2025-01-01T00:00:00Z",
-                "--expires", "2030-01-01T00:00:00Z",
+                "--not-before", NotBefore,
+                "--expires", Expires,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("""{"value":"s3cret","tags":{"env":"dev"},"contentType":"text/plain","attributes":{"enabled":false,"nbf":1735689600,"exp":1893456000}}""", Assert.Single(sentBodies));
+        Assert.Equal(
+            """{"value":"s3cret","tags":{"env":"dev"},"contentType":"text/plain","attributes":{"enabled":false,"nbf":1735689600,"exp":1893456000}}""",
+            Assert.Single(sentBodies));
     }
 
     [Fact]
@@ -231,7 +242,6 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        // Current behaviour: without --version the empty version segment leaves a trailing slash, which Key Vault accepts as "latest".
         Assert.Equal([$"GET {SecretPath}/?api-version={ApiVersion}"], _mockWire.FullRequestLines());
     }
 
@@ -385,8 +395,9 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
                 "--vault-name", VaultName,
                 "--name", SecretName,
                 "--content-type", "text/plain",
-                "--not-before", "2025-01-01T00:00:00Z",
-                "--expires", "2030-01-01T00:00:00Z",
+                "--enabled", "false",
+                "--not-before", NotBefore,
+                "--expires", Expires,
                 "--tags", "env=prod",
             ]);
         OutputStreams streams = CreateOutput(_output);
@@ -394,7 +405,9 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal("""{"contentType":"text/plain","attributes":{"nbf":1735689600,"exp":1893456000},"tags":{"env":"prod"}}""", Assert.Single(sentBodies));
+        Assert.Equal(
+            """{"contentType":"text/plain","attributes":{"enabled":false,"nbf":1735689600,"exp":1893456000},"tags":{"env":"prod"}}""",
+            Assert.Single(sentBodies));
     }
 
     // ── secret delete ──────────────────────────────────────────────────────────────────────────
@@ -448,7 +461,9 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal("""{"policy":{"key_props":{"kty":"RSA","key_size":2048},"x509_props":{"subject":"CN=contoso.com","validity_months":12},"issuer":{"name":"Self"}}}""", Assert.Single(sentBodies));
+        Assert.Equal(
+            """{"policy":{"key_props":{"kty":"RSA","key_size":2048},"x509_props":{"subject":"CN=contoso.com","validity_months":12},"issuer":{"name":"Self"}}}""",
+            Assert.Single(sentBodies));
     }
 
     [Fact]
@@ -457,12 +472,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
         List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Post, $"{CertificateUrl}/create", HttpStatusCode.Accepted, CompletedOperation);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [
-                "keyvault", "certificate", "create",
-                "--vault-name", VaultName,
-                "--name", CertificateName,
-                "--policy", """{"issuerParameters":{"name":"Self","certificateType":"OV-SSL"},"x509CertificateProperties":{"subject":"CN=a","subjectAlternativeNames":{"dnsNames":["a.com"]},"validityInMonths":6},"keyProperties":{"keyType":"EC","curve":"P-256"},"lifetimeActions":[{"trigger":{"daysBeforeExpiry":30},"action":{"actionType":"AutoRenew"}}]}""",
-            ]);
+            ["keyvault", "certificate", "create", "--vault-name", VaultName, "--name", CertificateName, "--policy", RestApiPolicy]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -496,7 +506,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_CertificateCreateAttributesAndTags_SendsThemAfterPolicy()
+    public async Task RunAsync_CertificateCreateAttributesAndTags_SendsAttributesAndTags()
     {
         List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Post, $"{CertificateUrl}/create", HttpStatusCode.Accepted, CompletedOperation);
         CommandInvocation invocation = CreateInvocation(
@@ -507,8 +517,8 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
                 "--name", CertificateName,
                 "--policy", """{"issuer":{"name":"Self"},"x509_props":{"subject":"CN=a"}}""",
                 "--enabled", "false",
-                "--expires", "2030-01-01T00:00:00Z",
-                "--not-before", "2025-01-01T00:00:00Z",
+                "--expires", Expires,
+                "--not-before", NotBefore,
                 "--tags", "env=dev",
             ]);
         OutputStreams streams = CreateOutput(_output);
@@ -555,16 +565,10 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateCreateUnknownIssuer_DoesNotPoll()
     {
-        _mockWire.RespondTo(HttpMethod.Post, $"{CertificateUrl}/create", HttpStatusCode.Accepted,
-            $$$"""{"id":"{{{CertificateUrl}}}/pending","status":"inProgress","issuer":{"name":"Unknown"}}""");
+        _mockWire.RespondTo(HttpMethod.Post, $"{CertificateUrl}/create", HttpStatusCode.Accepted, PendingOperation);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            [
-                "keyvault", "certificate", "create",
-                "--vault-name", VaultName,
-                "--name", CertificateName,
-                "--policy", """{"issuer":{"name":"Unknown"},"x509_props":{"subject":"CN=a"}}""",
-            ]);
+            ["keyvault", "certificate", "create", "--vault-name", VaultName, "--name", CertificateName, "--policy", UnknownIssuerPolicy]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -762,8 +766,8 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
                 "keyvault", "certificate", "set-attributes",
                 "--vault-name", VaultName,
                 "--name", CertificateName,
-                "--not-before", "2025-01-01T00:00:00Z",
-                "--expires", "2030-01-01T00:00:00Z",
+                "--not-before", NotBefore,
+                "--expires", Expires,
                 "--tags", "env=prod",
             ]);
         OutputStreams streams = CreateOutput(_output);
@@ -777,7 +781,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateSetAttributesPolicyOnly_PatchesPolicyThenGetsCertificate()
     {
-        _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/policy", HttpStatusCode.OK, """{"x509_props":{"validity_months":24}}""");
+        _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/policy", HttpStatusCode.OK, ValidityPolicy);
         _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
@@ -785,7 +789,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
                 "keyvault", "certificate", "set-attributes",
                 "--vault-name", VaultName,
                 "--name", CertificateName,
-                "--policy", """{"x509_props":{"validity_months":24}}""",
+                "--policy", ValidityPolicy,
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -796,9 +800,9 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_CertificateSetAttributesPolicy_SendsPolicyAsPatchBody()
+    public async Task RunAsync_CertificateSetAttributesRestApiPolicyNames_SendsSnakeCasePolicy()
     {
-        List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/policy", HttpStatusCode.OK, """{"x509_props":{"validity_months":24}}""");
+        List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/policy", HttpStatusCode.OK, ValidityPolicy);
         _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
@@ -806,7 +810,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
                 "keyvault", "certificate", "set-attributes",
                 "--vault-name", VaultName,
                 "--name", CertificateName,
-                "--policy", """{"x509_props":{"validity_months":24}}""",
+                "--policy", """{"x509CertificateProperties":{"validityInMonths":24}}""",
             ]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -819,7 +823,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateSetAttributesPolicyAndEnabled_PatchesPolicyThenCertificate()
     {
-        _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/policy", HttpStatusCode.OK, """{"x509_props":{"validity_months":24}}""");
+        _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/policy", HttpStatusCode.OK, ValidityPolicy);
         _mockWire.RespondTo(HttpMethod.Patch, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
@@ -827,7 +831,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
                 "keyvault", "certificate", "set-attributes",
                 "--vault-name", VaultName,
                 "--name", CertificateName,
-                "--policy", """{"x509_props":{"validity_months":24}}""",
+                "--policy", ValidityPolicy,
                 "--enabled", "true",
             ]);
         OutputStreams streams = CreateOutput(_output);
@@ -841,7 +845,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     // ── certificate download ───────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task RunAsync_CertificateDownload_SendsGetToCertificatePath()
+    public async Task RunAsync_CertificateDownload_SendsGetToCertificatePathWithTrailingSlash()
     {
         _mockWire.RespondTo(HttpMethod.Get, $"{CertificateUrl}/", HttpStatusCode.OK, CertificateBundle);
         CommandInvocation invocation = CreateInvocation(
@@ -856,7 +860,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         // The canned certificate has no "cer", so the command stops before writing the file.
-        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+        _ = await Record.ExceptionAsync(session.RunAsync);
 
         Assert.Equal([$"GET {CertificatePath}/?api-version={ApiVersion}"], _mockWire.FullRequestLines());
     }
@@ -878,7 +882,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         // The canned certificate has no "cer", so the command stops before writing the file.
-        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+        _ = await Record.ExceptionAsync(session.RunAsync);
 
         Assert.Equal([$"GET {CertificatePath}/{Version}?api-version={ApiVersion}"], _mockWire.FullRequestLines());
     }
@@ -888,7 +892,7 @@ public sealed class KeyVaultCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_CertificateDelete_SendsDeleteToCertificatePath()
     {
-        _mockWire.RespondTo(HttpMethod.Delete, CertificateUrl, HttpStatusCode.OK, CertificateBundle);
+        _mockWire.RespondTo(HttpMethod.Delete, CertificateUrl, HttpStatusCode.OK, DeletedCertificateBundle);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
             ["keyvault", "certificate", "delete", "--vault-name", VaultName, "--name", CertificateName, "--yes"]);

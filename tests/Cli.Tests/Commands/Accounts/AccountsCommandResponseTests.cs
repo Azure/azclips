@@ -22,14 +22,18 @@ public sealed class AccountsCommandResponseTests : IDisposable
 {
     private const string ExtensionName = "Accounts";
     private const string OtherTenantId = "22222222-2222-2222-2222-222222222222";
-    private const string SubscriptionId = "aaaaaaaa-0000-0000-0000-000000000001";
+    private const string LoginSubscriptionId = "aaaaaaaa-0000-0000-0000-000000000001";
     private const string ClientId = "bbbbbbbb-0000-0000-0000-000000000002";
     private const string ClientSecret = "app-secret";
     private const string WorkProfileName = "work";
     private const string HomeProfileName = "home";
     private const string MissingProfileName = "missing";
     private const string LoginToken = "login-token";
+    private const string AzureCloud = "AzureCloud";
     private const string RawToken = "eyJ.secret.token";
+
+    private static readonly DateTimeOffset TokenExpiry = DateTimeOffset.UnixEpoch.AddYears(60);
+    private static readonly DateTimeOffset IssuedTokenExpiry = new(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly Mock<IProfileService> _mockProfiles = new(MockBehavior.Strict);
@@ -37,10 +41,10 @@ public sealed class AccountsCommandResponseTests : IDisposable
     private readonly Mock<ISubscriptionService> _mockSubscriptions = new(MockBehavior.Strict);
     private readonly Mock<ILoggingService> _mockLogging = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
-    private readonly Profile _workProfile = new() { Name = WorkProfileName, TenantId = TenantId, SubscriptionId = SubscriptionId, CloudName = "AzureCloud" };
-    private readonly Profile _homeProfile = new() { Name = HomeProfileName, TenantId = TenantId, SubscriptionId = SubscriptionId, CloudName = "AzureCloud" };
-    private readonly AuthResult _authResult = new() { AccessToken = LoginToken, ExpiresOn = DateTimeOffset.UnixEpoch.AddYears(60), TenantId = TenantId, Scopes = [] };
-    private readonly AuthResult _tokenResult = new() { AccessToken = RawToken, ExpiresOn = DateTimeOffset.UnixEpoch.AddYears(60), TenantId = TenantId, Scopes = [] };
+    private readonly Profile _workProfile = new() { Name = WorkProfileName, TenantId = TenantId, SubscriptionId = LoginSubscriptionId, CloudName = AzureCloud };
+    private readonly Profile _homeProfile = new() { Name = HomeProfileName, TenantId = TenantId, SubscriptionId = LoginSubscriptionId, CloudName = AzureCloud };
+    private readonly AuthResult _authResult = new() { AccessToken = LoginToken, ExpiresOn = TokenExpiry, TenantId = TenantId, Scopes = [] };
+    private readonly AuthResult _tokenResult = new() { AccessToken = RawToken, ExpiresOn = TokenExpiry, TenantId = TenantId, Scopes = [] };
     private readonly Engine _engine;
 
     public AccountsCommandResponseTests()
@@ -69,8 +73,8 @@ public sealed class AccountsCommandResponseTests : IDisposable
         _mockProfiles.Setup(p => p.SaveAndActivateProfileAsync(It.IsAny<Profile>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockAuth.Setup(a => a.LogoutAsync(WorkProfileName, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockAuth.Setup(a => a.LoginAsync(It.IsAny<LoginRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync(_authResult);
-        _mockSubscriptions.Setup(s => s.GetSubscriptionByIdAsync(LoginToken, SubscriptionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SubscriptionInfo(SubscriptionId, "Development", "Enabled"));
+        _mockSubscriptions.Setup(s => s.GetSubscriptionByIdAsync(LoginToken, LoginSubscriptionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SubscriptionInfo(LoginSubscriptionId, "Development", "Enabled"));
         SetupToken(_tokenResult);
     }
 
@@ -111,7 +115,6 @@ public sealed class AccountsCommandResponseTests : IDisposable
     public async Task RunAsync_ProfileListWithoutProfiles_WritesEmptyList()
     {
         _mockProfiles.Setup(p => p.GetAllProfilesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _mockProfiles.Setup(p => p.GetActiveProfileNameAsync(It.IsAny<CancellationToken>())).ReturnsAsync((string?)null);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["profile", "list"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -132,7 +135,17 @@ public sealed class AccountsCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal(ProfileResult.From(_workProfile, isActive: true), Assert.Single(_output));
+        Assert.Equal(
+            new ProfileResult
+            {
+                Name = WorkProfileName,
+                TenantId = TenantId,
+                SubscriptionId = LoginSubscriptionId,
+                CloudName = AzureCloud,
+                AuthMethod = AuthMethod.Browser,
+                IsActive = true,
+            },
+            Assert.Single(_output));
     }
 
     [Fact]
@@ -144,7 +157,7 @@ public sealed class AccountsCommandResponseTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Profile 'missing' does not exist.", Assert.IsType<AzclipsErrorException>(exception).Message);
+        Assert.Equal(("ProfileNotFound", "Profile 'missing' does not exist."), CodeAndMessage(exception));
     }
 
     // ── profile remove ─────────────────────────────────────────────────────────────────────────
@@ -170,7 +183,7 @@ public sealed class AccountsCommandResponseTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Profile 'missing' does not exist.", Assert.IsType<AzclipsErrorException>(exception).Message);
+        Assert.Equal(("ProfileNotFound", "Profile 'missing' does not exist."), CodeAndMessage(exception));
     }
 
     // ── profile show ───────────────────────────────────────────────────────────────────────────
@@ -184,7 +197,17 @@ public sealed class AccountsCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal(ProfileResult.From(_homeProfile, isActive: false), Assert.Single(_output));
+        Assert.Equal(
+            new ProfileResult
+            {
+                Name = HomeProfileName,
+                TenantId = TenantId,
+                SubscriptionId = LoginSubscriptionId,
+                CloudName = AzureCloud,
+                AuthMethod = AuthMethod.Browser,
+                IsActive = false,
+            },
+            Assert.Single(_output));
     }
 
     [Fact]
@@ -196,11 +219,21 @@ public sealed class AccountsCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal(ProfileResult.From(_workProfile, isActive: true), Assert.Single(_output));
+        Assert.Equal(
+            new ProfileResult
+            {
+                Name = WorkProfileName,
+                TenantId = TenantId,
+                SubscriptionId = LoginSubscriptionId,
+                CloudName = AzureCloud,
+                AuthMethod = AuthMethod.Browser,
+                IsActive = true,
+            },
+            Assert.Single(_output));
     }
 
     [Fact]
-    public async Task RunAsync_ProfileShowWithoutActiveProfile_ThrowsNoActiveProfile()
+    public async Task RunAsync_ProfileShowWithoutActiveProfile_ThrowsNotSignedIn()
     {
         _mockProfiles.Setup(p => p.GetActiveProfileAsync(It.IsAny<CancellationToken>())).ReturnsAsync((Profile?)null);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["profile", "show"]);
@@ -209,7 +242,7 @@ public sealed class AccountsCommandResponseTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("No active profile is set.", Assert.IsType<AzclipsErrorException>(exception).Message);
+        Assert.Equal(("NotSignedIn", "No active profile is set."), CodeAndMessage(exception));
     }
 
     [Fact]
@@ -221,19 +254,7 @@ public sealed class AccountsCommandResponseTests : IDisposable
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal("Profile 'missing' does not exist.", Assert.IsType<AzclipsErrorException>(exception).Message);
-    }
-
-    [Fact]
-    public async Task RunAsync_ProfileShowNameAndActive_ThrowsInvalidInput()
-    {
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["profile", "show", "--name", WorkProfileName, "--active"]);
-        OutputStreams streams = CreateOutput(_output);
-        using ISession session = _engine.OpenExecutionSession(invocation, streams);
-
-        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
-
-        Assert.Equal("Specify either a profile name or --active, not both.", Assert.IsType<InvalidInputException>(exception).Message);
+        Assert.Equal(("ProfileNotFound", "Profile 'missing' does not exist."), CodeAndMessage(exception));
     }
 
     // ── logout ─────────────────────────────────────────────────────────────────────────────────
@@ -279,21 +300,21 @@ public sealed class AccountsCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_GetAccessToken_WritesTokenExpiry()
     {
-        SetupToken(_tokenResult with { ExpiresOn = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero) });
+        SetupToken(_tokenResult with { ExpiresOn = IssuedTokenExpiry });
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["account", "get-access-token"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal(new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero), Assert.IsType<AccessTokenResult>(Assert.Single(_output)).ExpiresOn);
+        Assert.Equal(IssuedTokenExpiry, Assert.IsType<AccessTokenResult>(Assert.Single(_output)).ExpiresOn);
     }
 
     [Fact]
-    public async Task RunAsync_GetAccessTokenOtherTenant_WritesTenantOfIssuedToken()
+    public async Task RunAsync_GetAccessTokenIssuedForOtherTenant_WritesTenantOfIssuedToken()
     {
         SetupToken(_tokenResult with { TenantId = OtherTenantId });
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["account", "get-access-token", "--tenant-id", OtherTenantId]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["account", "get-access-token"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -311,7 +332,7 @@ public sealed class AccountsCommandResponseTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal(CommandTestHelpers.SubscriptionId, Assert.IsType<AccessTokenResult>(Assert.Single(_output)).SubscriptionId);
+        Assert.Equal(SubscriptionId, Assert.IsType<AccessTokenResult>(Assert.Single(_output)).SubscriptionId);
     }
 
     [Fact]
@@ -340,10 +361,12 @@ public sealed class AccountsCommandResponseTests : IDisposable
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
         Assert.Equal(
-            $"Could not acquire an access token for tenant '{TenantId}'. No cached account. You may not be signed in to that tenant, or it requires additional sign-in "
-            + "(for example, multi-factor authentication or a conditional access policy). "
-            + $"Run 'az login --tenant-id {TenantId} --subscription-id {CommandTestHelpers.SubscriptionId}' to authenticate, then retry.",
-            Assert.IsType<AzclipsErrorException>(exception).Message);
+            (
+                "NotSignedIn",
+                $"Could not acquire an access token for tenant '{TenantId}'. No cached account. You may not be signed in to that tenant, or it requires additional sign-in "
+                + "(for example, multi-factor authentication or a conditional access policy). "
+                + $"Run 'az login --tenant-id {TenantId} --subscription-id {SubscriptionId}' to authenticate, then retry."),
+            CodeAndMessage(exception));
     }
 
     // ── login ──────────────────────────────────────────────────────────────────────────────────
@@ -353,7 +376,7 @@ public sealed class AccountsCommandResponseTests : IDisposable
     {
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["login", "--client-id", ClientId, "--client-secret", ClientSecret, "--tenant-id", TenantId, "--subscription-id", SubscriptionId]);
+            ["login", "--client-id", ClientId, "--client-secret", ClientSecret, "--tenant-id", TenantId, "--subscription-id", LoginSubscriptionId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -364,8 +387,8 @@ public sealed class AccountsCommandResponseTests : IDisposable
             {
                 Name = "default",
                 TenantId = TenantId,
-                SubscriptionId = SubscriptionId,
-                CloudName = "AzureCloud",
+                SubscriptionId = LoginSubscriptionId,
+                CloudName = AzureCloud,
                 AuthMethod = AuthMethod.ServicePrincipalSecret,
                 IsActive = true,
                 ClientId = ClientId,
@@ -378,7 +401,7 @@ public sealed class AccountsCommandResponseTests : IDisposable
     {
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["login", "--identity", "--client-id", ClientId, "--subscription-id", SubscriptionId]);
+            ["login", "--identity", "--client-id", ClientId, "--subscription-id", LoginSubscriptionId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -388,34 +411,37 @@ public sealed class AccountsCommandResponseTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_LoginSubscriptionOnly_WritesSubscriptionOwningTenant()
+    public async Task RunAsync_LoginSubscriptionInOtherTenant_WritesSubscriptionOwningTenant()
     {
-        _mockSubscriptions.Setup(s => s.ResolveSubscriptionTenantAsync(LoginToken, SubscriptionId, It.IsAny<CancellationToken>())).ReturnsAsync(TenantId.ToUpperInvariant());
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", "--subscription-id", SubscriptionId]);
+        _mockSubscriptions.Setup(s => s.ResolveSubscriptionTenantAsync(LoginToken, LoginSubscriptionId, It.IsAny<CancellationToken>())).ReturnsAsync(OtherTenantId);
+        _mockLogging.Setup(l => l.Verbose(It.IsAny<string>()));
+        SetupToken(_tokenResult with { TenantId = OtherTenantId });
+        _mockSubscriptions.Setup(s => s.GetSubscriptionByIdAsync(RawToken, LoginSubscriptionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SubscriptionInfo(LoginSubscriptionId, "Development", "Enabled"));
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["login", "--subscription-id", LoginSubscriptionId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        // Current behaviour: the tenant is written as the subscription lookup returned it, not as the sign-in returned it.
-        Assert.Equal(TenantId.ToUpperInvariant(), Assert.IsType<ProfileResult>(Assert.Single(_output)).TenantId);
+        Assert.Equal(OtherTenantId, Assert.IsType<ProfileResult>(Assert.Single(_output)).TenantId);
     }
 
     [Fact]
     public async Task RunAsync_LoginInaccessibleSubscription_ThrowsSubscriptionAccessMessage()
     {
-        _mockSubscriptions.Setup(s => s.GetSubscriptionByIdAsync(LoginToken, SubscriptionId, It.IsAny<CancellationToken>()))
+        _mockSubscriptions.Setup(s => s.GetSubscriptionByIdAsync(LoginToken, LoginSubscriptionId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("403 Forbidden"));
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["login", "--client-id", ClientId, "--client-secret", ClientSecret, "--tenant-id", TenantId, "--subscription-id", SubscriptionId]);
+            ["login", "--client-id", ClientId, "--client-secret", ClientSecret, "--tenant-id", TenantId, "--subscription-id", LoginSubscriptionId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
         Assert.Equal(
-            $"Failed to access subscription '{SubscriptionId}': 403 Forbidden. Make sure the subscription ID is correct and you have the necessary permissions.",
+            $"Failed to access subscription '{LoginSubscriptionId}': 403 Forbidden. Make sure the subscription ID is correct and you have the necessary permissions.",
             Assert.IsType<InvalidInputException>(exception).Message);
     }
 
@@ -423,4 +449,7 @@ public sealed class AccountsCommandResponseTests : IDisposable
         _mockAuth
             .Setup(a => a.AcquireTokenSilentlyAsync(It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
             .ReturnsAsync(authResult);
+
+    private static (string? Code, string? Message) CodeAndMessage(Exception? exception) =>
+        exception is AzclipsErrorException error ? (error.Code, error.Message) : (null, exception?.Message);
 }

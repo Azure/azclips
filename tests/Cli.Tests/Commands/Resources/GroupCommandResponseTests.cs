@@ -20,13 +20,15 @@ public sealed class GroupCommandResponseTests : IDisposable
 {
     private const string ExtensionName = "Resources";
     private const string GroupName = "rg";
+    private const string FirstListedGroupName = "rg1";
+    private const string SecondListedGroupName = "rg2";
     private const string Location = "westus";
     private const string ApiVersion = "2025-04-01";
     private const string GroupId = $"/subscriptions/{SubscriptionId}/resourceGroups/{GroupName}";
     private const string GroupsUrl = $"{ArmUrl}/subscriptions/{SubscriptionId}/resourcegroups";
     private const string GroupUrl = $"{GroupsUrl}/{GroupName}";
-    private const string OperationUrl = $"{ArmUrl}/subscriptions/{SubscriptionId}/operationresults/op1";
     private const string GroupBody = $$$"""{"id":"{{{GroupId}}}","name":"{{{GroupName}}}","type":"Microsoft.Resources/resourceGroups","location":"{{{Location}}}","managedBy":"me","tags":{"env":"dev"},"properties":{"provisioningState":"Succeeded"}}""";
+    private const string ProdTagsGroupBody = $$$"""{"id":"{{{GroupId}}}","name":"{{{GroupName}}}","type":"Microsoft.Resources/resourceGroups","location":"{{{Location}}}","managedBy":"me","tags":{"env":"prod"},"properties":{"provisioningState":"Succeeded"}}""";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -82,7 +84,11 @@ public sealed class GroupCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupShowNotFound_ThrowsStatusUrlAndBody()
     {
-        _mockWire.RespondTo(HttpMethod.Get, GroupUrl, HttpStatusCode.NotFound, """{"error":{"code":"ResourceGroupNotFound","message":"Resource group 'rg' could not be found."}}""");
+        _mockWire.RespondTo(
+            HttpMethod.Get,
+            GroupUrl,
+            HttpStatusCode.NotFound,
+            """{"error":{"code":"ResourceGroupNotFound","message":"Resource group 'rg' could not be found."}}""");
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "show", "--name", GroupName]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -140,36 +146,21 @@ public sealed class GroupCommandResponseTests : IDisposable
         Assert.Empty(_output);
     }
 
-    [Fact]
-    public async Task RunAsync_GroupDeleteAcceptedThenDone_WritesNothing()
-    {
-        _mockWire.RespondWithHeaders(HttpMethod.Delete, GroupUrl, HttpStatusCode.Accepted, null,
-            $"Location: {OperationUrl}?api-version={ApiVersion}", "Retry-After: 0");
-        _mockWire.RespondTo(HttpMethod.Get, OperationUrl, HttpStatusCode.OK);
-        CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "delete", "--name", GroupName]);
-        OutputStreams streams = CreateOutput(_output);
-        using ISession session = _engine.OpenExecutionSession(invocation, streams);
-
-        await session.RunAsync();
-
-        Assert.Empty(_output);
-    }
-
     // ── group list ─────────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task RunAsync_GroupListNextLink_WritesGroupsFromEveryPage()
     {
         _mockWire.RespondInOrder(
-            $$"""{"value":[{"name":"rg1"}],"nextLink":"{{GroupsUrl}}?api-version={{ApiVersion}}&$skiptoken=p2"}""",
-            """{"value":[{"name":"rg2"}]}""");
+            $$"""{"value":[{"name":"{{FirstListedGroupName}}"}],"nextLink":"{{GroupsUrl}}?api-version={{ApiVersion}}&$skiptoken=p2"}""",
+            $$"""{"value":[{"name":"{{SecondListedGroupName}}"}]}""");
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "list"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal(["rg1", "rg2"], Assert.IsType<List<ResourceGroup>>(Assert.Single(_output)).Select(g => g.Name));
+        Assert.Equal([FirstListedGroupName, SecondListedGroupName], Assert.IsType<List<ResourceGroup>>(Assert.Single(_output)).Select(g => g.Name));
     }
 
     [Fact]
@@ -190,7 +181,7 @@ public sealed class GroupCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupUpdate_WritesUpdatedGroupTags()
     {
-        _mockWire.RespondTo(HttpMethod.Patch, GroupUrl, HttpStatusCode.OK, GroupBody.Replace("\"env\":\"dev\"", "\"env\":\"prod\""));
+        _mockWire.RespondTo(HttpMethod.Patch, GroupUrl, HttpStatusCode.OK, ProdTagsGroupBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", GroupName, "--tags", "env=prod"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);

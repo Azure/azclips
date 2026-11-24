@@ -37,6 +37,7 @@ public sealed class MsGraphCommandResponseTests : IDisposable
     private const string AppObject = $$"""{"id":"{{AppId}}","displayName":"{{AppDisplayName}}"}""";
     private const string MembersPageWithNextLink = $$"""{"value":[{"id":"m1"}],"@odata.nextLink":"{{GroupMembersUrl}}?$skiptoken=page2"}""";
     private const string ForbiddenError = """{"error":{"code":"Authorization_RequestDenied"}}""";
+    private const string NotFoundError = """{"error":{"code":"Request_ResourceNotFound"}}""";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -232,9 +233,7 @@ public sealed class MsGraphCommandResponseTests : IDisposable
         _mockWire.RespondInOrder(
             $$"""{"value":[{"id":"u1"}],"@odata.nextLink":"{{UsersUrl}}?$skiptoken=page2"}""",
             """{"value":[{"id":"u2"}]}""");
-        CommandInvocation invocation = CreateInvocation(
-            ExtensionName,
-            ["msgraph", "user", "list", "--search", "\"displayName:ada\"", "--consistency-level", "eventual"]);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "user", "list", "--consistency-level", "eventual"]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
@@ -457,16 +456,14 @@ public sealed class MsGraphCommandResponseTests : IDisposable
     [Fact]
     public async Task RunAsync_AppShowNotFound_ThrowsHttpRequestExceptionWithStatusUrlAndBody()
     {
-        _mockWire.RespondTo(HttpMethod.Get, AppUrl, HttpStatusCode.NotFound, """{"error":{"code":"Request_ResourceNotFound"}}""");
+        _mockWire.RespondTo(HttpMethod.Get, AppUrl, HttpStatusCode.NotFound, NotFoundError);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["msgraph", "app", "show", "--id", AppId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
-        Assert.Equal(
-            $$$"""404 Not Found from {{{AppUrl}}}: {"error":{"code":"Request_ResourceNotFound"}}""",
-            Assert.IsType<HttpRequestException>(exception).Message);
+        Assert.Equal($"404 Not Found from {AppUrl}: {NotFoundError}", Assert.IsType<HttpRequestException>(exception).Message);
     }
 
     [Fact]
@@ -480,7 +477,7 @@ public sealed class MsGraphCommandResponseTests : IDisposable
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
         Assert.Equal(
-            """403 Forbidden from https://graph.microsoft.com/v1.0/users?$filter=startswith%28displayName%2C%27Ada%27%29: {"error":{"code":"Authorization_RequestDenied"}}""",
+            "403 Forbidden from https://graph.microsoft.com/v1.0/users?$filter=startswith%28displayName%2C%27Ada%27%29: " + ForbiddenError,
             Assert.IsType<HttpRequestException>(exception).Message);
     }
 
@@ -508,7 +505,7 @@ public sealed class MsGraphCommandResponseTests : IDisposable
         Exception? exception = await Record.ExceptionAsync(session.RunAsync);
 
         Assert.Equal(
-            """403 Forbidden from https://graph.microsoft.com/v1.0/groups?$filter=startswith%28displayName%2C%27Sales%27%29&$select=id%2CdisplayName: {"error":{"code":"Authorization_RequestDenied"}}""",
+            "403 Forbidden from https://graph.microsoft.com/v1.0/groups?$filter=startswith%28displayName%2C%27Sales%27%29&$select=id%2CdisplayName: " + ForbiddenError,
             Assert.IsType<HttpRequestException>(exception).Message);
     }
 

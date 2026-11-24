@@ -22,6 +22,7 @@ public sealed class GroupCommandRequestTests : IDisposable
     private const string GroupName = "rg";
     private const string SpacedGroupName = "my rg";
     private const string Location = "westus";
+    private const string ForceDeletionType = "Microsoft.Compute/virtualMachines";
     private const string ApiVersion = "2025-04-01";
     private const string GroupsPath = $"/subscriptions/{SubscriptionId}/resourcegroups";
     private const string GroupPath = $"{GroupsPath}/{GroupName}";
@@ -83,14 +84,15 @@ public sealed class GroupCommandRequestTests : IDisposable
     [MemberData(nameof(GetGroupCommands))]
     public async Task RunAsync_GroupCommandSubscriptionId_SendsRequestUnderGivenSubscription(string[] commandLine, string method, string url, string? responseBody)
     {
-        _mockWire.RespondTo(new HttpMethod(method), url.Replace(SubscriptionId, OtherSubscriptionId), HttpStatusCode.OK, responseBody?.Replace(SubscriptionId, OtherSubscriptionId));
+        string otherUrl = url.Replace(SubscriptionId, OtherSubscriptionId);
+        _mockWire.RespondTo(new HttpMethod(method), otherUrl, HttpStatusCode.OK, responseBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, [.. commandLine, "--subscription-id", OtherSubscriptionId]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal([$"{method} {new Uri(url.Replace(SubscriptionId, OtherSubscriptionId)).AbsolutePath}"], _mockWire.RequestLines());
+        Assert.Equal([$"{method} {new Uri(otherUrl).AbsolutePath}"], _mockWire.RequestLines());
     }
 
     [Theory]
@@ -123,7 +125,7 @@ public sealed class GroupCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_GroupCreate_SendsNameAndLocationBody()
+    public async Task RunAsync_GroupCreate_SendsBodyWithEmptyReadOnlyFields()
     {
         List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Put, GroupUrl, HttpStatusCode.OK, GroupBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "create", "--name", GroupName, "--location", Location]);
@@ -139,11 +141,7 @@ public sealed class GroupCommandRequestTests : IDisposable
     [Fact]
     public async Task RunAsync_GroupCreateNameWithSpace_SendsEscapedPath()
     {
-        _mockWire.RespondTo(
-            HttpMethod.Put,
-            $"{GroupsUrl}/{SpacedGroupName}",
-            HttpStatusCode.OK,
-            GroupBody.Replace($"/{GroupName}\"", $"/{SpacedGroupName}\"").Replace($"\"{GroupName}\"", $"\"{SpacedGroupName}\""));
+        _mockWire.RespondTo(HttpMethod.Put, $"{GroupsUrl}/{SpacedGroupName}", HttpStatusCode.OK, GroupBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "create", "--name", SpacedGroupName, "--location", Location]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
@@ -206,13 +204,13 @@ public sealed class GroupCommandRequestTests : IDisposable
         _mockWire.RespondTo(HttpMethod.Delete, GroupUrl, HttpStatusCode.OK);
         CommandInvocation invocation = CreateInvocation(
             ExtensionName,
-            ["group", "delete", "--name", GroupName, flag, "Microsoft.Compute/virtualMachines"]);
+            ["group", "delete", "--name", GroupName, flag, ForceDeletionType]);
         OutputStreams streams = CreateOutput(_output);
         using ISession session = _engine.OpenExecutionSession(invocation, streams);
 
         await session.RunAsync();
 
-        Assert.Equal("Microsoft.Compute/virtualMachines", Assert.Single(_mockWire.SentRequests()).QueryValue("forceDeletionTypes"));
+        Assert.Equal(ForceDeletionType, Assert.Single(_mockWire.SentRequests()).QueryValue("forceDeletionTypes"));
     }
 
     [Fact]
@@ -248,7 +246,7 @@ public sealed class GroupCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_GroupListNextLink_SendsNextLinkSkipToken()
+    public async Task RunAsync_GroupListNextLink_FollowsNextLink()
     {
         _mockWire.RespondInOrder(
             $$"""{"value":[{"name":"rg1"}],"nextLink":"{{GroupsUrl}}?api-version={{ApiVersion}}&$skiptoken=p2"}""",
@@ -259,7 +257,9 @@ public sealed class GroupCommandRequestTests : IDisposable
 
         await session.RunAsync();
 
-        Assert.Equal("p2", _mockWire.SentRequests()[1].QueryValue("$skiptoken"));
+        Assert.Equal(
+            [$"GET {GroupsPath}?api-version={ApiVersion}", $"GET {GroupsPath}?api-version={ApiVersion}&$skiptoken=p2"],
+            _mockWire.FullRequestLines());
     }
 
     // ── group update ───────────────────────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ public sealed class GroupCommandRequestTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_GroupUpdateTags_SendsTagsBodySplitOnFirstEquals()
+    public async Task RunAsync_GroupUpdateTags_SplitsOnFirstEqualsAndDefaultsEmptyValue()
     {
         List<string?> sentBodies = _mockWire.RespondTo(HttpMethod.Patch, GroupUrl, HttpStatusCode.OK, GroupBody);
         CommandInvocation invocation = CreateInvocation(ExtensionName, ["group", "update", "--name", GroupName, "--tags", "env=dev", "team=a=b", "solo"]);
