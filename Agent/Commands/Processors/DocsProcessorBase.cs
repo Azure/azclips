@@ -14,15 +14,22 @@ public abstract class DocsProcessorBase : AgentProcessorBase
 {
     protected abstract Task<string> ReadJsonAsync(HelpCatalogProvider provider);
 
-    public override async Task ProcessAsync()
+    /// <summary>Provider over the default agent help cache that regenerates in process.</summary>
+    internal static HelpCatalogProvider CreateHelpCatalogProvider()
     {
-        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
         var configuration = AzclipsServiceProvider.GetRequiredService<IConfigurationService>();
         var azPath = Path.Combine(AppContext.BaseDirectory, "az.dll");
         var cache = HomePaths.GetDefaultAgentHelpDirectory();
         var provider = new HelpCatalogProvider(azPath, configuration, cache, ct => Task.FromResult(
             DocsGenerateProcessor.Generate(AzclipsServiceProvider.GetRequiredService<IAssemblyLoadingService>(),
                 configuration, azPath, cache, ct)));
+        return provider;
+    }
+
+    public override async Task ProcessAsync()
+    {
+        await Publisher.Publish(Events.ProcessorProcessAsyncStart);
+        var provider = CreateHelpCatalogProvider();
         // A JSON element, not a string, so the CLI formatter indents it and applies --output and --query.
         using var document = JsonDocument.Parse(await ReadJsonAsync(provider));
         await WriteOutput(document.RootElement.Clone());
