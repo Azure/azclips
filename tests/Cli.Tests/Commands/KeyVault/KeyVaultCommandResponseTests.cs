@@ -50,6 +50,9 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     private const string ForbiddenError = """{"error":{"code":"Forbidden","message":"Caller is not authorized."}}""";
     private const string AccessDeniedMessage = "Access denied. Check the resource permissions and network access rules.";
     private const string NotFoundMessage = "Request failed with HTTP 404. Response details are omitted because the request contains sensitive data.";
+    private const string OtherHostUrl = "https://attacker.example.com";
+    private const string OtherHostNextPage = $$"""{"value":[],"nextLink":"{{OtherHostUrl}}/secrets?api-version={{ApiVersion}}"}""";
+    private const string OutsideVaultMessage = "The request must target the selected vault's secrets or certificates endpoint.";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
@@ -59,6 +62,79 @@ public sealed class KeyVaultCommandResponseTests : IDisposable
     public KeyVaultCommandResponseTests() => _engine = CreateEngine(typeof(KeyVaultIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
+
+    // Each list command with the first request it sends.
+    public static TheoryData<string[], string> GetListCommandFirstRequests() => new()
+    {
+        { ["keyvault", "secret", "list", "--vault-name", VaultName], $"GET /secrets?api-version={ApiVersion}" },
+        { ["keyvault", "secret", "list-versions", "--vault-name", VaultName, "--name", SecretName], $"GET {SecretPath}/versions?api-version={ApiVersion}" },
+        { ["keyvault", "certificate", "list", "--vault-name", VaultName], $"GET /certificates?api-version={ApiVersion}" },
+        { ["keyvault", "certificate", "list-versions", "--vault-name", VaultName, "--name", CertificateName], $"GET {CertificatePath}/versions?api-version={ApiVersion}" },
+    };
+
+    public static TheoryData<string[]> GetListCommands()
+    {
+        TheoryData<string[]> data = new();
+        foreach (object[] row in GetListCommandFirstRequests())
+        {
+            data.Add((string[])row[0]);
+        }
+
+        return data;
+    }
+
+    // Next-page links that leave the selected vault's secrets and certificates endpoints.
+    public static TheoryData<string> GetNextLinksOutsideVault() => new()
+    {
+        $"{OtherHostUrl}/secrets?api-version={ApiVersion}&$skiptoken=page2",
+        $"http://{VaultName}.vault.azure.net/secrets?api-version={ApiVersion}&$skiptoken=page2",
+        $"https://{VaultName}.vault.azure.net:8443/secrets?api-version={ApiVersion}&$skiptoken=page2",
+        $"{VaultUrl}/keys?api-version={ApiVersion}&$skiptoken=page2",
+    };
+
+    // ── next page outside the vault ────────────────────────────────────────────────────────────
+
+    [Theory]
+    [MemberData(nameof(GetListCommands))]
+    public async Task RunAsync_ListNextLinkToOtherHost_ThrowsOutsideVaultError(string[] commandLine)
+    {
+        _mockWire.RespondInOrder(OtherHostNextPage, EmptyList);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal(OutsideVaultMessage, Assert.IsType<ArgumentException>(exception).Message);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetListCommandFirstRequests))]
+    public async Task RunAsync_ListNextLinkToOtherHost_SendsOnlyFirstPageRequest(string[] commandLine, string firstRequestLine)
+    {
+        _mockWire.RespondInOrder(OtherHostNextPage, EmptyList);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
+
+        _ = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal([firstRequestLine], _mockWire.FullRequestLines());
+    }
+
+    [Theory]
+    [MemberData(nameof(GetNextLinksOutsideVault))]
+    public async Task RunAsync_SecretListNextLinkOutsideVault_ThrowsOutsideVaultError(string nextLink)
+    {
+        _mockWire.RespondInOrder($$"""{"value":[],"nextLink":"{{nextLink}}"}""", EmptyList);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, ["keyvault", "secret", "list", "--vault-name", VaultName]);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        Assert.Equal(OutsideVaultMessage, Assert.IsType<ArgumentException>(exception).Message);
+    }
 
     // ── secret set ─────────────────────────────────────────────────────────────────────────────
 

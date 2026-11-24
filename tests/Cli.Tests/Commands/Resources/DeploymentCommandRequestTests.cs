@@ -53,6 +53,8 @@ public sealed class DeploymentCommandRequestTests : IDisposable
     private const string TenantDeploymentBody = $$$"""{"id":"{{{TenantDeployment}}}","name":"{{{DeploymentName}}}","properties":{"provisioningState":"Succeeded"}}""";
     private const string AcceptedTenantDeploymentBody = $$$"""{"id":"{{{TenantDeployment}}}","name":"{{{DeploymentName}}}","properties":{"provisioningState":"Accepted"}}""";
 
+    private const string SubWhatIfResultBody = """{"status":"Succeeded","properties":{"changes":[]}}""";
+    private const string SubValidateResultBody = $$$"""{"id":"{{{SubDeployment}}}","name":"{{{DeploymentName}}}","properties":{"provisioningState":"Succeeded"}}""";
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
     private readonly List<object> _output = [];
     private readonly Engine _engine;
@@ -60,6 +62,13 @@ public sealed class DeploymentCommandRequestTests : IDisposable
     public DeploymentCommandRequestTests() => _engine = CreateEngine(typeof(ResourcesIndex).Assembly, _mockWire);
 
     public void Dispose() => _engine.Dispose();
+
+    // The subscription what-if and validate, which poll Location with the shared poller, with the action and a result.
+    public static TheoryData<string[], string, string> GetSubLocationPolledCommands() => new()
+    {
+        { ["deployment", "sub", "what-if", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri], "whatIf", SubWhatIfResultBody },
+        { ["deployment", "sub", "validate", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri], "validate", SubValidateResultBody },
+    };
 
     // Each command that sends one request, with the method, the path, a response status and body.
     public static TheoryData<string[], string, string, HttpStatusCode, string?> GetSingleRequestCommands()
@@ -599,6 +608,24 @@ public sealed class DeploymentCommandRequestTests : IDisposable
         await session.RunAsync();
 
         Assert.Equal([$"POST {GroupDeployment}/whatIf", $"GET {OperationResults}/w1"], _mockWire.RequestLines());
+    }
+
+    [Theory]
+    [MemberData(nameof(GetSubLocationPolledCommands))]
+    public async Task RunAsync_DeploymentSubAccepted_GetsLocationResultTwice(string[] commandLine, string action, string resultBody)
+    {
+        _mockWire.RespondWithHeaders(HttpMethod.Post, $"{ArmUrl}{SubDeployment}/{action}", HttpStatusCode.Accepted, null,
+            $"Location: {ArmUrl}{OperationResults}/s1?api-version={ApiVersion}", "Retry-After: 0");
+        _mockWire.RespondTo(HttpMethod.Get, $"{ArmUrl}{OperationResults}/s1", HttpStatusCode.OK, resultBody);
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
+
+        await session.RunAsync();
+
+        // Current behaviour: unlike the group, mg and tenant what-if and validate, which read the Location result once, the
+        // subscription commands read it a second time, and ARM can answer that second read with 404.
+        Assert.Equal([$"POST {SubDeployment}/{action}", $"GET {OperationResults}/s1", $"GET {OperationResults}/s1"], _mockWire.RequestLines());
     }
 
     // ── deployment <scope> show ────────────────────────────────────────────────────────────────

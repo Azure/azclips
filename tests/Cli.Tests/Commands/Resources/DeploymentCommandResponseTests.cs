@@ -48,6 +48,9 @@ public sealed class DeploymentCommandResponseTests : IDisposable
     private const string ValidationErrorBody = """{"error":{"code":"InvalidTemplate","message":"Bad template"}}""";
     private const string FailedWhatIfBody = """{"status":"Failed","error":{"code":"WhatIfFailed","message":"bad"}}""";
     private const string DeploymentNotFoundBody = $$$"""{"error":{"code":"DeploymentNotFound","message":"Deployment '{{{DeploymentName}}}' could not be found."}}""";
+    private const string SubWhatIfResultBody = """{"status":"Succeeded","properties":{"changes":[]}}""";
+    private const string SubValidateResultBody = $$$"""{"id":"{{{SubDeployment}}}","name":"{{{DeploymentName}}}","properties":{"provisioningState":"Succeeded"}}""";
+    private const string OperationResultGoneBody = """{"error":{"code":"NotFound","message":"Operation result not found."}}""";
     private const string DeletedBody = """{"status":"Deleted"}""";
 
     private readonly Mock<ISendAsync> _mockWire = new(MockBehavior.Strict);
@@ -202,6 +205,13 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         { ["--created"], "Succeeded" },
         { ["--exists"], "Running" },
         { ["--custom", "properties.provisioningState=='Running'"], "Running" },
+    };
+
+    // The subscription what-if and validate, which poll Location with the shared poller, with the action and a result.
+    public static TheoryData<string[], string, string> GetSubLocationPolledCommands() => new()
+    {
+        { ["deployment", "sub", "what-if", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri], "whatIf", SubWhatIfResultBody },
+        { ["deployment", "sub", "validate", "--name", DeploymentName, "--location", Location, "--template-uri", TemplateUri], "validate", SubValidateResultBody },
     };
 
     // ── deployment <scope> create ──────────────────────────────────────────────────────────────
@@ -463,6 +473,29 @@ public sealed class DeploymentCommandResponseTests : IDisposable
         await session.RunAsync();
 
         Assert.Equal("Succeeded", Assert.IsType<WhatIfOperationResult>(Assert.Single(_output)).Status);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetSubLocationPolledCommands))]
+    public async Task RunAsync_DeploymentSubAcceptedResultGoneOnSecondRead_ThrowsNotFound(string[] commandLine, string action, string resultBody)
+    {
+        _mockWire.RespondWithHeaders(HttpMethod.Post, $"{ArmUrl}{SubDeployment}/{action}", HttpStatusCode.Accepted, null,
+            $"Location: {ArmUrl}{OperationResults}/s1?api-version={ApiVersion}", "Retry-After: 0");
+        _mockWire.RespondInSequence(
+            HttpMethod.Get,
+            $"{ArmUrl}{OperationResults}/s1",
+            (HttpStatusCode.OK, resultBody),
+            (HttpStatusCode.NotFound, OperationResultGoneBody));
+        CommandInvocation invocation = CreateInvocation(ExtensionName, commandLine);
+        OutputStreams streams = CreateOutput(_output);
+        using ISession session = _engine.OpenExecutionSession(invocation, streams);
+
+        Exception? exception = await Record.ExceptionAsync(session.RunAsync);
+
+        // Current behaviour: the operation succeeded, but the command fails because it reads the one-shot result twice.
+        Assert.Equal(
+            $"404 Not Found from {ArmUrl}{OperationResults}/s1?api-version={ApiVersion}: {OperationResultGoneBody}",
+            Assert.IsType<HttpRequestException>(exception).Message);
     }
 
     // ── deployment <scope> show ────────────────────────────────────────────────────────────────

@@ -189,6 +189,25 @@ internal static class CommandTestHelpers
                 Task.FromResult(CreateResponse(request, HttpStatusCode.OK, remaining.Dequeue())));
     }
 
+    /// <summary>
+    /// Answers successive <paramref name="method"/> requests to <paramref name="url"/> (any query string) with each of
+    /// <paramref name="responses"/> in order, e.g. a result that is gone when it is read a second time.
+    /// </summary>
+    internal static void RespondInSequence(
+        this Mock<ISendAsync> mockWire, HttpMethod method, string url, params (HttpStatusCode StatusCode, string? Body)[] responses)
+    {
+        Queue<(HttpStatusCode StatusCode, string? Body)> remaining = new(responses);
+        mockWire
+            .Setup(w => w.SendAsync(
+                It.Is<HttpRequestMessage>(r => r.Method == method && Uri.UnescapeDataString(r.RequestUri!.GetLeftPart(UriPartial.Path)) == url),
+                It.IsAny<IEventPublisher>()))
+            .Returns((HttpRequestMessage request, IEventPublisher _) =>
+            {
+                (HttpStatusCode statusCode, string? body) = remaining.Dequeue();
+                return Task.FromResult(CreateResponse(request, statusCode, body));
+            });
+    }
+
     /// <summary>Every request that reached the wire, in the order sent.</summary>
     internal static HttpRequestMessage[] SentRequests(this Mock<ISendAsync> mockWire) =>
         mockWire.Invocations
