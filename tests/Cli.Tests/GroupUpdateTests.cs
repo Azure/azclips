@@ -13,6 +13,7 @@ using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 

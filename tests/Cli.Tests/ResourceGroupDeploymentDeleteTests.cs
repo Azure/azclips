@@ -3,6 +3,7 @@
 
 using System.Net;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Tests.Common.Stubs;
 using static Cli.Tests.DeploymentProcessorTestKit;
 
 namespace Cli.Tests;

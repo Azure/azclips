@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
+using Tests.Common.Stubs;
 using static Cli.Tests.DeploymentProcessorTestKit;
 
 namespace Cli.Tests;

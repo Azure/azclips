@@ -6,13 +6,13 @@ using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using GetEventData = System.Func<object>;
 
-namespace Cli.Tests;
+namespace Tests.Common.Stubs;
 
 /// <summary>
 /// Shared offline fakes for the runtime context (pipeline, publisher, auth, output) used by
-/// processor tests. Hand-written to match the no-mocking-framework style used across Cli.Tests.
+/// processor tests. Hand-written fakes shared by the CLI and extension test projects.
 /// </summary>
-internal sealed class FakeOutputHandler : IOutputHandler
+public sealed class FakeOutputHandler : IOutputHandler
 {
     public List<object> WrittenValues { get; } = new();
 
@@ -28,7 +28,7 @@ internal sealed class FakeOutputHandler : IOutputHandler
     }
 }
 
-internal sealed class FakeAuthHandler : IAuthHandler
+public sealed class FakeAuthHandler : IAuthHandler
 {
     public FakeAuthHandler(Profile? profile) => Profile = profile;
 
@@ -44,7 +44,7 @@ internal sealed class FakeAuthHandler : IAuthHandler
     public SendAsyncStep SendAsync => (request, callback, next) => next.SendAsync(request, callback);
 }
 
-internal sealed class FakeHttpPipeline : IRuntimeHttpPipeline
+public sealed class FakeHttpPipeline : IRuntimeHttpPipeline
 {
     private readonly Func<HttpRequestMessage, IEventPublisher, HttpResponseMessage> _responder;
 
@@ -73,7 +73,7 @@ internal sealed class FakeHttpPipeline : IRuntimeHttpPipeline
     public IRuntimeHttpPipeline Prepend(SendAsyncStepExpand item) => throw new NotSupportedException();
 }
 
-internal sealed class FakeEventPublisher : IEventPublisher
+public sealed class FakeEventPublisher : IEventPublisher
 {
     public CancellationToken Token { get; init; } = CancellationToken.None;
     public Action Cancel => () => { };

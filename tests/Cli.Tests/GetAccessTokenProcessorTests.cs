@@ -7,6 +7,7 @@ using Microsoft.Azure.Azclips.Extensions.Accounts.Models;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 
