@@ -18,6 +18,7 @@ Customer-facing documentation is located in the **docs** folder at the root of t
 | [howto](howto/) | How-to guides for engineering processes and workflows. |
 | [integrate-custom-code-agent.md](howto/integrate-custom-code-agent.md) | Explains how to use the custom-code prompts with OpenSpec apply and archive. |
 | [spec](spec/) | Engineering specifications and design documents. |
+| [Declarative create tooling research](spec/declarative-create-tooling-research.md) | Dated Azure tooling inventory, design caveats, and evaluation criteria for the declarative create prototype. |
 
 > [!NOTE]
 > End-user documentation belongs in the **docs** folder. Engineering documentation belongs in
