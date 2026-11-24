@@ -12,7 +12,7 @@ using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
-namespace Cmdlets.Tests;
+namespace Extensions.Accounts.Tests;
 
 [Collection("Azclips Service Provider Tests")]
 public class LoginProcessorClientSecretTests

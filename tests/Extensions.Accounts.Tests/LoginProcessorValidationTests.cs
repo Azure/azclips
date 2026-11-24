@@ -11,7 +11,7 @@ using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
-namespace Cmdlets.Tests;
+namespace Extensions.Accounts.Tests;
 
 /// <summary>
 /// Regression tests for the surface-aware parameter naming in every <see cref="LoginProcessor"/>
