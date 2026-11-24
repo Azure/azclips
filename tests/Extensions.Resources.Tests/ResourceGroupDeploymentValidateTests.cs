@@ -9,9 +9,9 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
 using Tests.Common.Stubs;
-using static Cli.Tests.DeploymentProcessorTestKit;
+using static Extensions.Resources.Tests.DeploymentProcessorTestKit;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// Offline processor tests for deployment validate (Test-AzResourceGroupDeployment / az deployment group validate): the request sent, response
@@ -169,7 +169,7 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
     [Fact]
     public async Task ProcessAsync_BothRollbackOptions_ThrowsArgumentException()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new TestResourceGroupDeploymentProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,
@@ -194,7 +194,7 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
     [InlineData("   ")]
     public async Task ProcessAsync_MissingResourceGroupName_ThrowsInvalidInput(string? resourceGroupName)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new TestResourceGroupDeploymentProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,
@@ -212,7 +212,7 @@ public sealed class ResourceGroupDeploymentValidateTests : IDisposable
     [Fact]
     public async Task ProcessAsync_InvalidMode_ThrowsInvalidInput()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new TestResourceGroupDeploymentProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,

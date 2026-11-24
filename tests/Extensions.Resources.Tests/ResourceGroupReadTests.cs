@@ -1,9 +1,9 @@
 using System.Net;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
-using static Cli.Tests.DeploymentProcessorTestKit;
+using static Extensions.Resources.Tests.DeploymentProcessorTestKit;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 public class ResourceGroupReadTests
 {

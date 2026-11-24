@@ -7,9 +7,9 @@ using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
 using Tests.Common.Stubs;
-using static Cli.Tests.DeploymentProcessorTestKit;
+using static Extensions.Resources.Tests.DeploymentProcessorTestKit;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// Offline tests for resource-group deployment create (az deployment group create / New-AzResourceGroupDeployment):
@@ -114,7 +114,7 @@ public class ResourceGroupDeploymentCreateTests
     [Fact]
     public async Task ProcessAsync_BothRollbackOptions_ThrowsInvalidInput()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new NewResourceGroupDeploymentProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,
@@ -139,7 +139,7 @@ public class ResourceGroupDeploymentCreateTests
     [InlineData("   ")]
     public async Task ProcessAsync_MissingResourceGroupName_ThrowsInvalidInput(string? resourceGroupName)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new NewResourceGroupDeploymentProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,
@@ -157,7 +157,7 @@ public class ResourceGroupDeploymentCreateTests
     [Fact]
     public async Task ProcessAsync_InvalidMode_ThrowsInvalidInput()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new NewResourceGroupDeploymentProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,

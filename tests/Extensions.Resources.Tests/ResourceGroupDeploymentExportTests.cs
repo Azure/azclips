@@ -6,9 +6,9 @@ using System.Text.Json;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Stubs;
-using static Cli.Tests.DeploymentProcessorTestKit;
+using static Extensions.Resources.Tests.DeploymentProcessorTestKit;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// Offline processor tests for deployment export (Save-AzResourceGroupDeploymentTemplate / az deployment group export): the request sent, response

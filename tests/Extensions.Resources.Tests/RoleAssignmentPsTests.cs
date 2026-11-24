@@ -5,7 +5,7 @@ using Core.Abstractions;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// PowerShell metadata tests for <c>Get-AzRoleAssignment</c>. The cmdlet reuses the same

@@ -12,7 +12,7 @@ using Moq;
 using Xunit;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// Offline, deterministic tests for the security-sensitive URL resolution / validation logic in
@@ -541,7 +541,7 @@ public class RestProcessorTests
     public async Task ProcessAsync_UnsupportedMethod_ThrowsInvalidInput()
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new RestProcessor_Orchestrator { Method = "TRACE", Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" },
             _mockPipeline,
             profile);
@@ -557,7 +557,7 @@ public class RestProcessorTests
     public async Task ProcessAsync_ByParametersWithoutSubscription_ThrowsNotSignedIn()
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = "" };
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new RestProcessor_Orchestrator { ResourceProviderName = "Microsoft.Resources", ResourceType = ["resourceGroups"], ApiVersion = "2021-04-01" },
             _mockPipeline,
             profile);
@@ -573,7 +573,7 @@ public class RestProcessorTests
     public async Task ProcessAsync_SubscriptionTokenWithoutSubscription_ThrowsNotSignedIn()
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = "" };
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" },
             _mockPipeline,
             profile);
@@ -593,7 +593,7 @@ public class RestProcessorTests
     public async Task ProcessAsync_MalformedUriParameter_ThrowsInvalidInput(string parameter)
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01", UriParameters = [parameter] },
             _mockPipeline,
             profile);
@@ -607,7 +607,7 @@ public class RestProcessorTests
     public async Task ProcessAsync_UriParameterEmptyName_ThrowsInvalidInput()
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01", UriParameters = [" =value"] },
             _mockPipeline,
             profile);
@@ -623,7 +623,7 @@ public class RestProcessorTests
     public async Task ProcessAsync_MalformedHeader_ThrowsInvalidInput(string header)
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01", Headers = [header] },
             _mockPipeline,
             profile);
@@ -637,7 +637,7 @@ public class RestProcessorTests
     public async Task ProcessAsync_HeaderEmptyName_ThrowsInvalidInput()
     {
         var profile = new Profile { TenantId = "test-tenant", SubscriptionId = TestSubscriptionId };
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new RestProcessor_Orchestrator { Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01", Headers = [" =value"] },
             _mockPipeline,
             profile);

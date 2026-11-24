@@ -8,9 +8,9 @@ using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
 using Tests.Common.Stubs;
-using static Cli.Tests.DeploymentProcessorTestKit;
+using static Extensions.Resources.Tests.DeploymentProcessorTestKit;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// Offline tests for resource-group deployment what-if (az deployment group what-if / New-AzResourceGroupDeploymentWhatIf):
@@ -96,7 +96,7 @@ public class ResourceGroupDeploymentWhatIfTests
     [Fact]
     public async Task ProcessAsync_InvalidResultFormat_ThrowsInvalidInput()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new NewResourceGroupDeploymentWhatIfProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,
@@ -120,7 +120,7 @@ public class ResourceGroupDeploymentWhatIfTests
     [InlineData("   ")]
     public async Task ProcessAsync_MissingResourceGroupName_ThrowsInvalidInput(string? resourceGroupName)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new NewResourceGroupDeploymentWhatIfProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,
@@ -138,7 +138,7 @@ public class ResourceGroupDeploymentWhatIfTests
     [Fact]
     public async Task ProcessAsync_InvalidMode_ThrowsInvalidInput()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(
+        var processor = ResourcesProcessorTestHelpers.Initialize(
             new NewResourceGroupDeploymentWhatIfProcessor_Orchestrator
             {
                 SubscriptionId = SubscriptionId,

@@ -7,8 +7,9 @@ using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Stubs;
+using static Extensions.Resources.Tests.DeploymentProcessorTestKit;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// PowerShell surface tests for resource-group deployment cmdlets, focused on legacy
@@ -70,9 +71,9 @@ public class ResourceGroupDeploymentPsTests
         var pipeline = new FakeHttpPipeline((request, _) =>
         {
             sentUri = request.RequestUri;
-            return ResourceGroupDeploymentCliTests.JsonResponse("""{"name":"dep1"}""");
+            return JsonResponse("""{"name":"dep1"}""");
         });
-        var processor = ResourceGroupDeploymentCliTests.CreateProcessor(
+        var processor = CreateProcessor(
             new GetResourceGroupDeploymentProcessor_Orchestrator { Id = DeploymentId }, pipeline, new FakeOutputHandler());
 
         await processor.ProcessAsync();
@@ -108,8 +109,8 @@ public class ResourceGroupDeploymentPsTests
             }
             """;
         var output = new FakeOutputHandler();
-        var pipeline = new FakeHttpPipeline((_, _) => ResourceGroupDeploymentCliTests.JsonResponse(body));
-        var processor = ResourceGroupDeploymentCliTests.CreateProcessor(
+        var pipeline = new FakeHttpPipeline((_, _) => JsonResponse(body));
+        var processor = CreateProcessor(
             new GetResourceGroupDeploymentProcessor_Orchestrator { Id = DeploymentId }, pipeline, output);
 
         await processor.ProcessAsync();
@@ -166,7 +167,7 @@ public class ResourceGroupDeploymentPsTests
     public async Task GetById_MalformedId_ThrowsWithoutRequest(string id)
     {
         var pipeline = new FakeHttpPipeline((_, _) => throw new InvalidOperationException("should not send"));
-        var processor = ResourceGroupDeploymentCliTests.CreateProcessor(
+        var processor = CreateProcessor(
             new GetResourceGroupDeploymentProcessor_Orchestrator { Id = id }, pipeline, new FakeOutputHandler());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
