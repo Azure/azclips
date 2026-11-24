@@ -15,6 +15,8 @@ namespace Core.Cli.Output;
 /// </summary>
 internal static class TableFormatter
 {
+    private const string TruncationMarker = "...";
+
     internal static string Format(string json, int? terminalWidth = null)
     {
         using var doc = JsonDocument.Parse(json);
@@ -83,27 +85,7 @@ internal static class TableFormatter
             return string.Empty;
         }
 
-        var widths = new int[columnCount];
-        var minimumWidths = new int[columnCount];
-        for (var c = 0; c < columnCount; c++)
-        {
-            var headerWidth = (headers is not null && c < headers.Length) ? GetDisplayWidth(headers[c]) : 0;
-            widths[c] = headerWidth;
-            minimumWidths[c] = headerWidth;
-            foreach (var row in rows)
-            {
-                if (c >= row.Length)
-                    continue;
-
-                var cellWidth = GetDisplayWidth(row[c]);
-                widths[c] = Math.Max(widths[c], cellWidth);
-                var firstVisibleRune = row[c].EnumerateRunes().FirstOrDefault(rune => GetRuneDisplayWidth(rune) > 0);
-                // Reserve a visible rune before the three-cell truncation marker.
-                var minimumCellWidth = Math.Min(cellWidth, GetRuneDisplayWidth(firstVisibleRune) + 3);
-                minimumWidths[c] = Math.Max(minimumWidths[c], minimumCellWidth);
-            }
-        }
-
+        var (widths, minimumWidths) = MeasureColumnWidths(rows, headers, columnCount);
         const int separatorWidth = 2;
         widths = ConstrainWidths(widths, minimumWidths, terminalWidth, separatorWidth);
 
@@ -120,6 +102,38 @@ internal static class TableFormatter
         return string.Join("\n", lines);
     }
 
+    private static (int[] Widths, int[] MinimumWidths) MeasureColumnWidths(
+        List<string[]> rows,
+        string[]? headers,
+        int columnCount)
+    {
+        var widths = new int[columnCount];
+        var minimumWidths = new int[columnCount];
+        for (var c = 0; c < columnCount; c++)
+        {
+            var headerWidth = (headers is not null && c < headers.Length) ? GetDisplayWidth(headers[c]) : 0;
+            widths[c] = headerWidth;
+            minimumWidths[c] = headerWidth;
+            foreach (var row in rows)
+            {
+                if (c >= row.Length)
+                    continue;
+
+                var cellWidth = GetDisplayWidth(row[c]);
+                widths[c] = Math.Max(widths[c], cellWidth);
+                minimumWidths[c] = Math.Max(minimumWidths[c], GetMinimumCellWidth(row[c], cellWidth));
+            }
+        }
+        return (widths, minimumWidths);
+    }
+
+    private static int GetMinimumCellWidth(string value, int cellWidth)
+    {
+        var firstVisibleRune = value.EnumerateRunes().FirstOrDefault(rune => GetRuneDisplayWidth(rune) > 0);
+        var minimumWidth = GetRuneDisplayWidth(firstVisibleRune) + TruncationMarker.Length;
+        return Math.Min(cellWidth, minimumWidth);
+    }
+
     private static int[] ConstrainWidths(int[] widths, int[] minimumWidths, int? terminalWidth, int separatorWidth)
     {
         if (terminalWidth is not > 0)
@@ -133,7 +147,23 @@ internal static class TableFormatter
         if (minimumWidths.Sum() >= availableWidth)
             return minimumWidths;
 
-        // Find a shared width cap without iterating once per excess display cell.
+        var cap = FindSharedWidthCap(widths, minimumWidths, availableWidth);
+        var constrained = widths.Select((width, i) => Math.Max(minimumWidths[i], Math.Min(width, cap))).ToArray();
+        var remaining = availableWidth - constrained.Sum();
+        for (var i = 0; i < constrained.Length && remaining > 0; i++)
+        {
+            if (constrained[i] != cap || constrained[i] >= widths[i])
+                continue;
+
+            constrained[i]++;
+            remaining--;
+        }
+        return constrained;
+    }
+
+    private static int FindSharedWidthCap(int[] widths, int[] minimumWidths, int availableWidth)
+    {
+        // Binary search avoids iterating once per excess display cell.
         var lower = 0;
         var upper = widths.Max();
         while (lower < upper)
@@ -146,17 +176,7 @@ internal static class TableFormatter
                 upper = cap - 1;
         }
 
-        var constrained = widths.Select((width, i) => Math.Max(minimumWidths[i], Math.Min(width, lower))).ToArray();
-        var remaining = availableWidth - constrained.Sum();
-        for (var i = 0; i < constrained.Length && remaining > 0; i++)
-        {
-            if (constrained[i] != lower || constrained[i] >= widths[i])
-                continue;
-
-            constrained[i]++;
-            remaining--;
-        }
-        return constrained;
+        return lower;
     }
 
     // Pads every cell to its column's width except the last, which avoids trailing whitespace.
@@ -194,8 +214,8 @@ internal static class TableFormatter
         if (GetDisplayWidth(value) <= width)
             return value;
 
-        if (width <= 3)
-            return new string('.', width);
+        if (width <= TruncationMarker.Length)
+            return TruncationMarker[..width];
 
         var runes = value.EnumerateRunes().ToList();
         if (runes.Count == 0)
@@ -212,20 +232,20 @@ internal static class TableFormatter
                 continue;
             }
 
-            if (used + cellWidth > width - 3)
+            if (used + cellWidth > width - TruncationMarker.Length)
                 break;
 
             sb.Append(rune);
             used += cellWidth;
         }
 
-        while (GetDisplayWidth(sb.ToString()) + 3 > width && sb.Length > 0)
+        while (GetDisplayWidth(sb.ToString()) + TruncationMarker.Length > width && sb.Length > 0)
         {
             var lastRune = sb.ToString().EnumerateRunes().Last();
             sb.Length -= lastRune.Utf16SequenceLength;
         }
 
-        return sb.ToString() + "...";
+        return sb.ToString() + TruncationMarker;
     }
 
     private static int GetDisplayWidth(string value)
