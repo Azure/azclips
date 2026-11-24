@@ -7,7 +7,7 @@
     {
       "request": {
         "method": "PUT",
-        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-test-rg?api-version=2025-04-01",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-test-rg?api-version=2000-01-01",
         "headers": {
           "Content-Type": [
             "application/json; charset=utf-8"
