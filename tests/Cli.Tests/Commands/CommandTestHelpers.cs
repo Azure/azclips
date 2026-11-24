@@ -36,43 +36,43 @@ internal static class CommandTestHelpers
     /// </summary>
     internal static Engine CreateEngine(Assembly extension, Mock<ISendAsync> mockWire, bool signedIn = true)
     {
-        var profile = new Profile { Name = "test", TenantId = TenantId, SubscriptionId = SubscriptionId };
-        var mockProfiles = new Mock<IProfileService>();
+        Profile profile = new() { Name = "test", TenantId = TenantId, SubscriptionId = SubscriptionId };
+        Mock<IProfileService> mockProfiles = new();
         mockProfiles.Setup(p => p.GetActiveProfileNameAsync(It.IsAny<CancellationToken>())).ReturnsAsync(signedIn ? profile.Name : null);
         mockProfiles.Setup(p => p.GetProfileAsync(profile.Name, It.IsAny<CancellationToken>())).ReturnsAsync(profile);
         mockProfiles.Setup(p => p.GetProfileKeysForDefault()).Returns([nameof(Profile.SubscriptionId)]);
         mockProfiles.Setup(p => p.GetProfileValueByKey(It.IsAny<Profile?>(), nameof(Profile.SubscriptionId)))
             .Returns((Profile? p, string _) => p?.SubscriptionId);
 
-        var mockAuth = new Mock<IAuthService>();
+        Mock<IAuthService> mockAuth = new();
         mockAuth.Setup(a => a.AcquireTokenSilentlyAsync(
                 It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<Profile?>()))
             .ReturnsAsync(new AuthResult { AccessToken = "token", ExpiresOn = DateTimeOffset.UtcNow.AddHours(1), TenantId = TenantId, Scopes = [] });
 
-        var mockConfiguration = new Mock<IConfigurationService>();
+        Mock<IConfigurationService> mockConfiguration = new();
         mockConfiguration.Setup(c => c.GetConfiguration<CoreOptions>()).Returns(new CoreOptions());
         mockConfiguration.Setup(c => c.GetConfiguration<BenchmarkOptions>()).Returns(new BenchmarkOptions());
 
-        var mockLoader = new Mock<IAssemblyLoadingService>();
+        Mock<IAssemblyLoadingService> mockLoader = new();
         mockLoader.Setup(l => l.LoadExtension(It.IsAny<string>(), It.IsAny<string?>())).Returns(extension);
 
-        var mockWireFactory = new Mock<ISendAsyncTerminalFactory>();
+        Mock<ISendAsyncTerminalFactory> mockWireFactory = new();
         mockWireFactory.Setup(f => f.Create()).Returns(mockWire.Object);
 
         SendAsyncStep passThrough = (request, callback, next) => next.SendAsync(request, callback);
-        var mockPipelineSteps = new Mock<IHttpPipelineService>();
+        Mock<IHttpPipelineService> mockPipelineSteps = new();
         mockPipelineSteps.SetupGet(s => s.HttpAddUserAgentStep).Returns(passThrough);
         mockPipelineSteps.SetupGet(s => s.HttpAddClientRequestIdStep).Returns(passThrough);
         mockPipelineSteps.SetupGet(s => s.HttpRequestMessageTracingStep).Returns(passThrough);
         mockPipelineSteps.SetupGet(s => s.HttpPipelineTerminatingStep).Returns(passThrough);
 
         // A cached data boundary for the tenant stops the engine looking it up over the network.
-        var mockPersistence = new Mock<IPersistenceStore>();
+        Mock<IPersistenceStore> mockPersistence = new();
         mockPersistence.Setup(s => s.ReadAsync(HomePaths.DataBoundaryCacheFileName, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Encoding.UTF8.GetBytes($"{{\"{TenantId}\":\"Global\"}}"));
 
-        var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), mockProfiles.Object);
+        ConsoleLoggingService logging = new();
+        ArgumentParsingService binder = new(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), mockProfiles.Object);
 
         return new Engine(
             new ClientMetadata(ClientType.CLI, "00000000-0000-0000-0000-000000000000"),
