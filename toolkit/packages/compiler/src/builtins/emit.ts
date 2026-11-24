@@ -59,6 +59,7 @@ export function createBuiltinEmit(runtime: Runtime): EmitProducer {
       const request: EmitToolRequest = {
         entrypoint: input.entrypoint,
         ...(input.apiVersion !== undefined ? { apiVersion: input.apiVersion } : {}),
+        ...(input.sourceCommit !== undefined ? { sourceCommit: input.sourceCommit } : {}),
         ...settings,
       };
 

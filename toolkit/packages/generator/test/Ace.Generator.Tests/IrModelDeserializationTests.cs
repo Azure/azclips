@@ -14,6 +14,60 @@ public sealed class IrModelDeserializationTests
     private static T Parse<T>(string json) => JsonSerializer.Deserialize<T>(json, IrJson.Options)!;
 
     [Fact]
+    public void Deployment_Metadata_Preserves_Bindings_And_Source_Facets()
+    {
+        TransformedIR document = IrJson.Deserialize(
+            """
+            {
+              "deployment": {
+                "schemaVersion": "1.0.0",
+                "resources": [{
+                  "operation": { "module": "M", "namespace": ["Service"], "name": "create" },
+                  "resourceType": "Service/widgets/children",
+                  "apiVersion": "2024-01-01",
+                  "writableScope": "resourceGroup",
+                  "name": [
+                    { "parameter": { "module": "M", "namespace": ["Service"], "name": "create.parent" }, "kind": "parameter" },
+                    { "value": "default", "kind": "literal" }
+                  ],
+                  "scopeParameters": [{ "module": "M", "namespace": ["Service"], "name": "create.subscription" }]
+                }],
+                "facets": [{
+                  "target": { "module": "M", "namespace": ["Service"], "name": "Widget.secret" },
+                  "typePath": ["element"],
+                  "minLength": 8,
+                  "sensitive": true,
+                  "minValue": "9223372036854775807"
+                }],
+                "provenance": {
+                  "sourceHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "tools": [{ "name": "emitter", "version": "1.0.0" }]
+                }
+              }
+            }
+            """);
+        TransformedIR roundTripped = IrJson.Deserialize(JsonSerializer.Serialize(document, IrJson.Options));
+        IRDeploymentContract contract = Assert.IsType<IRDeploymentContract>(roundTripped.Deployment);
+        IRDeploymentResource resource = Assert.Single(contract.Resources);
+        Assert.Equal(IRDeploymentResourceWritableScope.ResourceGroup, resource.WritableScope);
+        Assert.Equal("create.parent", Assert.IsType<IRDeploymentBindingParameter>(resource.Name[0]).Parameter.Name);
+        Assert.Equal("default", Assert.IsType<IRDeploymentBindingLiteral>(resource.Name[1]).Value);
+        IRDeploymentFacet facet = Assert.Single(contract.Facets);
+        Assert.Equal(IRDeploymentFacetTypePath.Element, Assert.Single(facet.TypePath));
+        Assert.Equal(8, facet.MinLength);
+        Assert.True(facet.Sensitive);
+        Assert.Equal("9223372036854775807", facet.MinValue);
+        Assert.Null(IrJson.Deserialize("{}").Deployment);
+        using JsonDocument absent = JsonDocument.Parse(JsonSerializer.Serialize(IrJson.Deserialize("{}"), IrJson.Options));
+        Assert.False(absent.RootElement.TryGetProperty("deployment", out _));
+        using JsonDocument metadataJson = JsonDocument.Parse(JsonSerializer.Serialize(contract, IrJson.Options));
+        Assert.False(metadataJson.RootElement.GetProperty("provenance").TryGetProperty("sourceCommit", out _));
+        Assert.False(metadataJson.RootElement.GetProperty("facets")[0].TryGetProperty("maxLength", out _));
+        contract.Resources = [];
+        Assert.Empty(IrJson.Deserialize(JsonSerializer.Serialize(roundTripped, IrJson.Options)).Deployment!.Resources);
+    }
+
+    [Fact]
     public void IROperation_RoundTripsSourceInterfaceAndParameterIdentity()
     {
         IROperation operation = Parse<IROperation>(

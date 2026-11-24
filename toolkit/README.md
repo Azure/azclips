@@ -114,6 +114,99 @@ stages:
 The design and its rationale:
 [`DocDumpster/Aceconfig-Generation-Time-Config.md`](DocDumpster/Aceconfig-Generation-Time-Config.md).
 
+## Optional TypeSpec deployment contracts
+
+Deployment contracts are **build-only prerequisites**, not a Bicep backend switch.
+Existing atomic/customization commands, CLI/PowerShell surfaces and generated
+processors remain unchanged. TypeSpec remains the API source of truth; the
+optional IR section references canonical operations, inputs and types rather
+than maintaining a second resource schema.
+
+Enable the existing emitter through the compile configuration:
+
+```yaml
+entrypoints:
+  - path: client.tsp
+    api-version: 2024-05-01
+stages:
+  tsp-emit:
+    options:
+      emitter:
+        deploymentContract: true
+```
+
+Direct emitter consumers set `deploymentContract: true` and the existing
+`api-version` option. There is no independent metadata version selector.
+The selector must resolve to the **same concrete source/SDK/operation version**;
+omitted, `latest`, `all` and unresolved versions fail only when this feature is
+enabled. The ARM deployment transport API version is a separate future concern.
+
+IR `deployment` is absent by default. An enabled contract with `resources: []`
+means discovery found no eligible ARM create-or-update operation. Root IR remains
+`0.17.0`; the optional contract has its own `1.0.0` schema. Official ARM metadata
+supplies resource association and scope; ordered names/scope inputs reference
+canonical path parameters. Supplemental facets preserve constraints, sensitivity
+and exact literals separately from defaults. See
+[`deployment.ts`](packages/ir/src/deployment.ts).
+
+Provenance contains a deterministic SHA-256 of loaded TypeSpec source contents
+and file identities plus resolved toolchain versions. Remote primary sources
+also record the commit acquired by the CLI; local primary sources do not borrow
+an additional directory's commit. This digest is not a hash of every compiler
+implementation or a certification of Bicep compiler association.
+
+Unsupported/lossy projections fail explicitly instead of emitting a partial
+enabled contract. Examples include explicit wire encodings, nested collection
+nullability, constrained structural union variants and length/item counts above
+the .NET reader's Int32 range. Numeric bounds remain exact decimal strings.
+Tenant, subscription, resource-group and single-input extension scopes have
+extraction mappings; dedicated management-group/location mappings are not yet
+established. The schema's ability to express a scope does not certify extraction
+or runtime support for it.
+
+## Offline Bicep catalogue audit
+
+Build the standalone tool once with the pinned repository .NET SDK, then audit
+validated emitted or transformed IR. Run from the toolkit directory:
+
+```powershell
+npm run build
+dotnet build packages\generator\tools\Ace.DeploymentAudit\Ace.DeploymentAudit.csproj
+npm run audit:deployment -- --ir .\generated\ir.json --catalogue Azure.Bicep.Types.Az@0.2.972 --select Microsoft.Network/publicIPAddresses@2025-07-01
+```
+
+The selection is illustrative, not a certified resource or approved pilot.
+Repeat `--select` to audit multiple descriptors. Select an existing unambiguous
+`resourceType@apiVersion`; resource type casing is insensitive, API versions are
+exact. Unknown/ambiguous selections and missing catalogue versions never fall
+back to another version. The entry invokes the existing Debug build and performs
+no restore, compilation, Azure request or live deployment.
+
+The standalone tool pins official `Azure.Bicep.Types`/`Azure.Bicep.Types.Az`
+loader/catalogue packages with restore locks. These are not product/runtime
+dependencies, and `Azure.Bicep.Core` is not required. The Node entry validates IR
+with the existing Zod schemas before starting the .NET worker.
+
+Results compare normalized names/scopes/envelopes, writable field membership,
+requiredness, nullability, collections/object openness, supported constraints,
+string enum openness and nested model discriminator structures. Recursive
+references are recorded without skipping later siblings. Floating point is
+never narrowed to integer; unsupported unions, lexical formats, numeric literals/
+enums and polymorphic resource envelopes receive explicit diagnostics. Mixed
+open catalogue unions and constrained exact literals also remain unsupported.
+
+JSON reports carry deterministic diagnostics, compared/recursive/unsupported
+paths, input/catalogue hashes and source/audit tool provenance. Exit zero means
+**every selection is structurally compatible within the reported coverage**;
+incompatible or unsupported results return nonzero. Input/invocation failures
+also produce structured diagnostics and a nonzero exit. Unsupported paths are
+not counted as compared coverage. `compilerAssociation: "unverified"` is
+intentional: a compatible audit is not migration approval.
+
+Template compilation, command input derivation, permissions, deployment
+transport/query/header behavior, outputs, existing-resource handling and live
+regression gates still require a separately approved implementation/pilot.
+
 ## Orchestration
 
 The **compiler owns the workflow**. `STAGE_CATALOG` in

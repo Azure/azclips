@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Ace.Generator.Model.Ir;
 
@@ -17,6 +18,7 @@ public static class IrJson
     public static JsonSerializerOptions Options { get; } = new()
     {
         AllowOutOfOrderMetadataProperties = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     /// <summary>Deserialize an IR document from JSON using <see cref="Options"/>.</summary>

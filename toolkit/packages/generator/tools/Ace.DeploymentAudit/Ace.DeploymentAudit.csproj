@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Ace.Generator.csproj" />
+    <PackageReference Include="Azure.Bicep.Types" Version="0.6.144" PrivateAssets="all" />
+    <PackageReference Include="Azure.Bicep.Types.Az" Version="0.2.972" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

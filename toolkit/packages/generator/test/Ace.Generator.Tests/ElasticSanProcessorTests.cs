@@ -1,6 +1,7 @@
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
 using Microsoft.CodeAnalysis.CSharp;
+using System.Text.Json;
 using Xunit;
 
 namespace Ace.Generator.Tests;
@@ -20,6 +21,35 @@ public sealed class ElasticSanProcessorTests
         Path.Combine(AppContext.BaseDirectory, "TestData", "elasticsan.ir.json");
 
     private static TransformedIR LoadIr() => IrJson.Deserialize(File.ReadAllText(IrPath));
+
+    [Fact]
+    public async Task Deployment_Metadata_Does_Not_Change_Generated_Command_Artifacts()
+    {
+        TransformedIR ir = LoadIr();
+        var baseline = new GeneratedFileCollector();
+        var generator = new CSharpClientGenerator();
+        Assert.True((await generator.GenerateAsync(ir, null, baseline.WriteAsync)).Success);
+        string commands = JsonSerializer.Serialize(ir.Commands, IrJson.Options);
+        IROperation create = ir.Operations.Single(operation => operation.Id.Interface == "ElasticSans" && operation.Name == "create");
+        ir.Deployment = new()
+        {
+            SchemaVersion = "1.0.0",
+            Resources = [new()
+            {
+                Operation = create.Id, ResourceType = "Microsoft.ElasticSan/elasticSans", ApiVersion = create.ApiVersion!.Value,
+                WritableScope = IRDeploymentResourceWritableScope.ResourceGroup,
+                Name = [new IRDeploymentBindingParameter { Parameter = create.PathParameters.Single(parameter => parameter.WireName == "elasticSanName").Id }],
+                ScopeParameters = [.. create.PathParameters.Where(parameter => parameter.WireName is "subscriptionId" or "resourceGroupName").Select(parameter => parameter.Id)],
+            }],
+            Provenance = new() { SourceHash = new string('a', 64), Tools = [new() { Name = "regression-fixture", Version = "1" }] },
+        };
+        var enabled = new GeneratedFileCollector();
+        Assert.True((await generator.GenerateAsync(ir, null, enabled.WriteAsync)).Success);
+        Assert.NotEmpty(baseline.Files);
+        Assert.Equal(baseline.Files.Keys.Order(StringComparer.Ordinal), enabled.Files.Keys.Order(StringComparer.Ordinal));
+        foreach ((string path, string contents) in baseline.Files) Assert.Equal(contents, enabled.Files[path]);
+        Assert.Equal(commands, JsonSerializer.Serialize(ir.Commands, IrJson.Options));
+    }
 
     private static async Task<(GenerationResult Result, ArtifactWriter Writer)> EmitAsync(string scenario)
     {

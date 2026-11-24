@@ -29,6 +29,40 @@ be checked again before adoption. No integration tests or performance benchmarks
 
 ## Executive findings
 
+### Verified prerequisite implementation
+
+The approved follow-on
+[deployment-contract change](../../openspec/changes/add-typespec-deployment-contract/proposal.md)
+keeps codegen, atomic/customization commands and CLI/PowerShell surfaces as-is.
+It adds opt-in TypeSpec-derived IR metadata and a standalone offline audit using
+pinned official Bicep loader/catalogue packages; it does **not** introduce a
+template implementation, runtime provisioning dependency or production pilot.
+Usage and supported/unsupported coverage are documented in the
+[toolkit reference](../../toolkit/README.md#optional-typespec-deployment-contracts).
+
+Verified evidence is narrower than migration readiness:
+
+- A multi-version ARM fixture proves the older selected API excludes a newer-only
+  property and that descriptors use the exact canonical operation API version.
+- Child/subscription bindings, encoded wire names, sensitive constraints,
+  provenance and explicit loss rejection have focused emitter tests.
+- Feature-disabled canonical IR is identical to enabled IR after removing the
+  optional section. The existing ElasticSan generation fixture produces identical
+  file paths and bytes with/without metadata, including command processors.
+- Official serialized catalogue fixtures exercise compatible envelopes, missing
+  versions, enum narrowing, discriminator mismatches, recursive sibling checks,
+  unsupported shapes, deterministic mixed results and nonzero exits.
+- The public Node/.NET entry checks canonical IR, exact pins and explicit failure
+  reports against the real packaged catalogue. Synthetic fixture compatibility is
+  not a claim that a production resource/version passed the audit.
+
+The .NET/TypeScript builds and targeted tests validate these prerequisites, not
+live parity. Existing dependency linting currently crashes in its unchanged
+`sameRange` rule; all eleven workspace peer/dev pairs were independently checked
+for presence and range containment. No template compilation, permission,
+deployment transport, query/header, output, existing-resource or live regression
+gate is certified. Compiler/catalogue association remains explicitly unverified.
+
 1. The shared declarative engine is a reasonable candidate, but should be compared with
    **build-time Bicep compilation**, not only runtime Bicep compilation.
 2. Existing Bicep type loaders may replace the handwritten type-index parser while keeping

@@ -37,9 +37,18 @@ import { operationsFrom } from "./operations.js";
 import { buildSource } from "./source.js";
 import { writeIR } from "./writer.js";
 import { $lib, reportDiagnostic } from "./lib.js";
+import { deploymentFrom, DeploymentContractError } from "./deployment.js";
 
 export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<void> {
   const options = resolveOptions(context.options);
+  const selector = context.options["api-version"];
+  const deploymentError = (detail: string): void =>
+    reportDiagnostic(context.program, { code: "deployment-contract-invalid", format: { detail }, target: NoTarget });
+  if (options.deploymentContract &&
+      (!selector || !selector.trim() || ["latest", "all", "unknown"].includes(selector.toLowerCase()))) {
+    deploymentError("deploymentContract requires an explicit, concrete api-version; latest/all/default selection is not supported");
+    return;
+  }
 
   const sdkContext = await createSdkContext<Record<string, any>, SdkHttpOperation>(
     context as unknown as EmitContext<Record<string, any>>,
@@ -59,6 +68,10 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
   }
   const serviceNs = services[0]!;
   if (services.length > 1) {
+    if (options.deploymentContract) {
+      deploymentError("Multiple services are not supported by the current canonical IR projection");
+      return;
+    }
     reportDiagnostic(context.program, {
       code: "multiple-services-found",
       format: { count: String(services.length), chosen: serviceNs.name ?? "<unknown>" },
@@ -74,6 +87,10 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
   });
 
   const { source, apiVersion, server } = buildSource(buildCtx, serviceNs);
+  if (options.deploymentContract && (apiVersion.value !== selector || sdkContext.apiVersion !== selector)) {
+    deploymentError(`Requested version '${selector}' did not resolve to the same SDK/operation version ('${sdkContext.apiVersion}'/'${apiVersion.value}')`);
+    return;
+  }
 
   const operations = operationsFrom(buildCtx, apiVersion, server.id);
   const models = modelsFrom(buildCtx);
@@ -88,6 +105,30 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
     discriminatedUnions: [...buildCtx.discriminatedUnions.values()],
     operations,
   };
+  if (options.deploymentContract) {
+    const lossyCodes = new Set([
+      "unsupported-type-kind", "union-non-mappable", "unsupported-enum-value-type",
+      "unsupported-multi-content-body", "cookie-parameter-dropped", "streaming-body-dropped", "override-method-skipped",
+    ]);
+    const prefix = `${$lib.name}/`;
+    const failures = [
+      ...sdkContext.diagnostics.filter((diagnostic) => diagnostic.severity === "error"),
+      ...context.program.diagnostics.filter((diagnostic) =>
+        diagnostic.severity === "error" || (diagnostic.code.startsWith(prefix) && lossyCodes.has(diagnostic.code.slice(prefix.length)))),
+    ];
+    if (failures.length > 0) {
+      deploymentError(`The source projection is incomplete: ${failures.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`).join("; ")}`);
+      return;
+    }
+    try {
+      ir.deployment = await deploymentFrom(buildCtx, ir, options.sourceCommit);
+    } catch (error) {
+      if (!(error instanceof DeploymentContractError)) throw error;
+      deploymentError(error.message);
+      return;
+    }
+    if (context.program.hasError()) return;
+  }
 
   // Integrity check. Re-throwing here surfaces emitter bugs immediately.
   try {
@@ -99,6 +140,7 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
       format: { detail },
       target: NoTarget,
     });
+    if (options.deploymentContract) return;
     // Still write the (broken) IR for diagnosis — the diagnostic surfaces the bug.
   }
 

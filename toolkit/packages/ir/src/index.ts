@@ -9,6 +9,19 @@
 export { IR_SCHEMA_VERSION } from "./version.js";
 
 export {
+  IRDeploymentBindingSchema,
+  IRDeploymentResourceSchema,
+  IRDeploymentFacetSchema,
+  IRDeploymentToolSchema,
+  IRDeploymentProvenanceSchema,
+  IRDeploymentContractSchema,
+  type IRDeploymentBinding,
+  type IRDeploymentResource,
+  type IRDeploymentFacet,
+  type IRDeploymentContract,
+} from "./deployment.js";
+
+export {
   IRIdSchema,
   serializeId,
   idKey,

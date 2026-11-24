@@ -122,6 +122,7 @@ async function run({ compilerPath, emitterPath, request }: TspEmitWorkerRequest)
   const runOptions: EmitterOptions = {
     // TCGC reads the api-version selector from this exact (kebab) option key.
     ...(request.apiVersion !== undefined ? { "api-version": request.apiVersion } : {}),
+    ...(request.sourceCommit !== undefined ? { sourceCommit: request.sourceCommit } : {}),
     format: "json",
     outputFile: IR_OUTPUT_FILE,
     pretty: false,

@@ -132,6 +132,36 @@ describe("tweak-ir: type names", () => {
     expect(out.models.map((m) => m.id)).toEqual(before);
   });
 
+  it("preserves deployment operation and facet references when rendering names collide", () => {
+    const ir = document([
+      model("Widget", [MODULE]),
+      model("Widget", ["Azure", "Common"], LIBRARY),
+    ]);
+    const body = ir.models[1]!;
+    const operationId = id("create", [MODULE]);
+    const parameterId = id("create.name", [MODULE]);
+    const apiVersion = ir.sources[0]!.apiVersion;
+    ir.operations.push({
+      id: operationId, name: "create", source: MODULE, method: "PUT", server: SERVER, apiVersion,
+      pathTemplate: "/providers/Contoso/widgets/{name}",
+      pathParameters: [{ id: parameterId, name: "name", wireName: "name", type: { kind: "primitive", name: "string" }, optional: false, nullable: false }],
+      queryParameters: [], headerParameters: [],
+      requestBody: { type: { kind: "model", id: body.id }, contentType: "application/json" },
+      responses: [{ statusCode: { kind: "exact", code: 200 }, isError: false }],
+    });
+    ir.deployment = {
+      schemaVersion: "1.0.0",
+      resources: [{ operation: operationId, resourceType: "Contoso/widgets", apiVersion: apiVersion.value,
+        writableScope: "tenant", name: [{ kind: "parameter", parameter: parameterId }], scopeParameters: [] }],
+      facets: [{ target: body.properties[0]!.id, typePath: [], minLength: 2 }],
+      provenance: { sourceHash: "a".repeat(64), tools: [{ name: "fixture", version: "1" }] },
+    };
+    const { out } = run(ir);
+    expect(out.models[1]!.name).toBe("CommonWidget");
+    expect(out.deployment).toEqual(ir.deployment);
+    expect(out.operations[0]!.requestBody!.type).toEqual({ kind: "model", id: body.id });
+  });
+
   it("treats models and enums as one name space, since both become types", () => {
     const { out, diagnostics } = run(
       document([model("Status", [MODULE])], [enumeration("Status", ["Azure", "Common"], LIBRARY)]),

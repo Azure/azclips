@@ -91,6 +91,8 @@ export interface CompileInput {
    * with its entrypoint.
    */
   apiVersion?: string;
+  /** Resolved primary source commit, supplied by the acquiring host when available. */
+  sourceCommit?: string;
   /**
    * Resolved gen-time config (see `CompileConfig`). Each stage receives only its
    * own stage config: `stages.<id>.options`, or for `seed-ir` every key that is not

@@ -34,6 +34,8 @@ export interface TspEmitRequest {
    * project the `@versioned` program before the IR is built.
    */
   apiVersion?: string;
+  /** Resolved primary source commit, not an independent version selector. */
+  sourceCommit?: string;
   /** Extra imports layered on top of the entrypoint's own imports. */
   additionalImports?: string[];
   /** Promote warning-severity TypeSpec diagnostics to errors. */

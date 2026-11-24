@@ -27,6 +27,8 @@ export interface EmitToolRequest {
   emitterOptions?: Record<string, unknown>;
   /** API version to compile at (a specific version, `"latest"`, or `"all"`). */
   apiVersion?: string;
+  /** Resolved primary source commit for optional deployment provenance. */
+  sourceCommit?: string;
   /** Extra imports layered on top of the entrypoint's own imports. */
   additionalImports?: string[];
   /** Promote warning-severity TypeSpec diagnostics to errors. */

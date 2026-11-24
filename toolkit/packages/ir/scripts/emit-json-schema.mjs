@@ -30,6 +30,12 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   IR_SCHEMA_VERSION,
+  IRDeploymentBindingSchema,
+  IRDeploymentResourceSchema,
+  IRDeploymentFacetSchema,
+  IRDeploymentToolSchema,
+  IRDeploymentProvenanceSchema,
+  IRDeploymentContractSchema,
   // The generator only ever reads a *transformed* document — commands and a
   // resolved target, not bare operations — so that is the root, and the C# root
   // type is named `TransformedIR` to say so. `IR`'s own types come along as
@@ -158,6 +164,12 @@ const outFile = join(outputDir, "ir.schema.json");
 
 /** Named definitions → stable `#/definitions/<name>` refs (clean C# class names). */
 const definitions = {
+  IRDeploymentBinding: IRDeploymentBindingSchema,
+  IRDeploymentResource: IRDeploymentResourceSchema,
+  IRDeploymentFacet: IRDeploymentFacetSchema,
+  IRDeploymentTool: IRDeploymentToolSchema,
+  IRDeploymentProvenance: IRDeploymentProvenanceSchema,
+  IRDeploymentContract: IRDeploymentContractSchema,
   IRId: IRIdSchema,
   IRLiteralValue: IRLiteralValueSchema,
   IRTypeRef: IRTypeRefSchema,

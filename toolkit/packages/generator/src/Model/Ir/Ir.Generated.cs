@@ -172,6 +172,32 @@ public enum IRCommandTemplate
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRDeploymentFacetTypePath
+{
+    [JsonStringEnumMemberName("element")]
+    Element,
+    [JsonStringEnumMemberName("value")]
+    Value,
+    [JsonStringEnumMemberName("additionalProperties")]
+    AdditionalProperties
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum IRDeploymentResourceWritableScope
+{
+    [JsonStringEnumMemberName("tenant")]
+    Tenant,
+    [JsonStringEnumMemberName("managementGroup")]
+    ManagementGroup,
+    [JsonStringEnumMemberName("subscription")]
+    Subscription,
+    [JsonStringEnumMemberName("resourceGroup")]
+    ResourceGroup,
+    [JsonStringEnumMemberName("resource")]
+    Resource
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum IRDiscriminatedUnionEnvelope
 {
     [JsonStringEnumMemberName("object")]
@@ -1092,6 +1118,124 @@ public partial class IRCommandWireEntry
 
     [JsonPropertyName("value")]
     public IRCommandValue Value { get; set; } = default !;
+}
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(IRDeploymentBindingParameter), "parameter")]
+[JsonDerivedType(typeof(IRDeploymentBindingLiteral), "literal")]
+public abstract partial class IRDeploymentBinding
+{
+}
+
+public partial class IRDeploymentBindingLiteral : IRDeploymentBinding
+{
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = default !;
+}
+
+public partial class IRDeploymentBindingParameter : IRDeploymentBinding
+{
+    [JsonPropertyName("parameter")]
+    public IRId Parameter { get; set; } = default !;
+}
+
+public partial class IRDeploymentContract
+{
+    [JsonPropertyName("schemaVersion")]
+    public string SchemaVersion { get; set; } = default !;
+
+    [JsonPropertyName("resources")]
+    public IReadOnlyList<IRDeploymentResource> Resources { get; set; } = [];
+
+    [JsonPropertyName("facets")]
+    public IReadOnlyList<IRDeploymentFacet> Facets { get; set; } = [];
+
+    [JsonPropertyName("provenance")]
+    public IRDeploymentProvenance Provenance { get; set; } = default !;
+}
+
+public partial class IRDeploymentFacet
+{
+    [JsonPropertyName("target")]
+    public IRId Target { get; set; } = default !;
+
+    [JsonPropertyName("typePath")]
+    public IReadOnlyList<IRDeploymentFacetTypePath> TypePath { get; set; } = [];
+
+    [JsonPropertyName("minLength")]
+    public int? MinLength { get; set; }
+
+    [JsonPropertyName("maxLength")]
+    public int? MaxLength { get; set; }
+
+    [JsonPropertyName("pattern")]
+    public string? Pattern { get; set; }
+
+    [JsonPropertyName("minValue")]
+    public string? MinValue { get; set; }
+
+    [JsonPropertyName("maxValue")]
+    public string? MaxValue { get; set; }
+
+    [JsonPropertyName("minValueExclusive")]
+    public string? MinValueExclusive { get; set; }
+
+    [JsonPropertyName("maxValueExclusive")]
+    public string? MaxValueExclusive { get; set; }
+
+    [JsonPropertyName("minItems")]
+    public int? MinItems { get; set; }
+
+    [JsonPropertyName("maxItems")]
+    public int? MaxItems { get; set; }
+
+    [JsonPropertyName("sensitive")]
+    public bool? Sensitive { get; set; }
+
+    [JsonPropertyName("literalValue")]
+    public IRLiteralValue? LiteralValue { get; set; }
+}
+
+public partial class IRDeploymentProvenance
+{
+    [JsonPropertyName("sourceHash")]
+    public string SourceHash { get; set; } = default !;
+
+    [JsonPropertyName("sourceCommit")]
+    public string? SourceCommit { get; set; }
+
+    [JsonPropertyName("tools")]
+    public IReadOnlyList<IRDeploymentTool> Tools { get; set; } = [];
+}
+
+public partial class IRDeploymentResource
+{
+    [JsonPropertyName("operation")]
+    public IRId Operation { get; set; } = default !;
+
+    [JsonPropertyName("resourceType")]
+    public string ResourceType { get; set; } = default !;
+
+    [JsonPropertyName("apiVersion")]
+    public string ApiVersion { get; set; } = default !;
+
+    [JsonPropertyName("writableScope")]
+    public IRDeploymentResourceWritableScope WritableScope { get; set; }
+
+    [JsonPropertyName("name")]
+    public IReadOnlyList<IRDeploymentBinding> Name { get; set; } = [];
+
+    [JsonPropertyName("scopeParameters")]
+    public IReadOnlyList<IRId> ScopeParameters { get; set; } = [];
+}
+
+public partial class IRDeploymentTool
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = default !;
+
+    [JsonPropertyName("version")]
+    public string Version { get; set; } = default !;
 }
 
 public partial class IRDiscriminatedUnion
@@ -2230,6 +2374,9 @@ public partial class TransformedIR
 
     [JsonPropertyName("operations")]
     public IReadOnlyList<IROperation> Operations { get; set; } = [];
+
+    [JsonPropertyName("deployment")]
+    public IRDeploymentContract? Deployment { get; set; }
 
     [JsonPropertyName("target")]
     public IRTarget Target { get; set; } = default !;

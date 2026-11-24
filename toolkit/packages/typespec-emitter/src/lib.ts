@@ -10,9 +10,7 @@
  *   bumps will pick them up later):
  *
  *   - Examples (`@opExample`): IR has no `IRExample` node.
- *   - Primitive constraints (`@minLength`, `@pattern`, etc.): dropped
- *     silently; the transformer layer (or a future IR bump) is the right
- *     home for these.
+ *   - Primitive constraints are retained only in opt-in deployment metadata.
  *   - Cookies, tuples, streaming bodies: each diagnosed and skipped.
  *   - Multi-content-type bodies: first content-type wins; rest warned.
  *   - Override methods (`SdkServiceMethod.isOverride`): skipped.
@@ -35,6 +33,8 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
     emitterName: { type: "string", nullable: true },
     sourceId: { type: "string", nullable: true },
     "api-version": { type: "string", nullable: true },
+    deploymentContract: { type: "boolean", nullable: true },
+    sourceCommit: { type: "string", pattern: "^[a-f0-9]{40}$", nullable: true },
     diagnosticsAsErrors: { type: "boolean", nullable: true },
   },
   required: [],
@@ -43,6 +43,12 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
 export const $lib = createTypeSpecLibrary({
   name: EMITTER_NAME,
   diagnostics: {
+    "deployment-contract-invalid": {
+      severity: "error",
+      messages: {
+        default: paramMessage`Cannot emit deployment contract: ${"detail"}`,
+      },
+    },
     "paging-property-unbound": {
       severity: "warning",
       messages: {

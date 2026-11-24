@@ -33,6 +33,10 @@ export interface EmitterOptions {
    * it — declaring it here lets it pass the emitter's option-schema validation.
    */
   "api-version"?: string;
+  /** Emit opt-in deployment contracts. Requires a concrete api-version. */
+  deploymentContract?: boolean;
+  /** Resolved source commit supplied by the host, when the source was fetched. */
+  sourceCommit?: string;
   /** If true, any warning-severity diagnostic causes a non-zero exit code. Default `false`. */
   diagnosticsAsErrors?: boolean;
 }
@@ -43,6 +47,7 @@ export const EMITTER_OPTION_DEFAULTS = {
   pretty: true,
   emitterName: "@azure-client-engine/typespec-emitter",
   diagnosticsAsErrors: false,
+  deploymentContract: false,
 } as const;
 
 /**
@@ -52,7 +57,7 @@ export const EMITTER_OPTION_DEFAULTS = {
  * optional pass-throughs the emitter never reads from here (`api-version` flows
  * through the raw `context.options` to TCGC's `createSdkContext`).
  */
-export function resolveOptions(opts: EmitterOptions | undefined): Required<Omit<EmitterOptions, "sourceId" | "api-version">> & { sourceId?: string } {
+export function resolveOptions(opts: EmitterOptions | undefined): Required<Omit<EmitterOptions, "sourceId" | "sourceCommit" | "api-version">> & { sourceId?: string; sourceCommit?: string } {
   const o = opts ?? {};
   return {
     outputFile: o.outputFile ?? EMITTER_OPTION_DEFAULTS.outputFile,
@@ -60,6 +65,8 @@ export function resolveOptions(opts: EmitterOptions | undefined): Required<Omit<
     pretty: o.pretty ?? EMITTER_OPTION_DEFAULTS.pretty,
     emitterName: o.emitterName ?? EMITTER_OPTION_DEFAULTS.emitterName,
     diagnosticsAsErrors: o.diagnosticsAsErrors ?? EMITTER_OPTION_DEFAULTS.diagnosticsAsErrors,
+    deploymentContract: o.deploymentContract ?? EMITTER_OPTION_DEFAULTS.deploymentContract,
     ...(o.sourceId !== undefined ? { sourceId: o.sourceId } : {}),
+    ...(o.sourceCommit !== undefined ? { sourceCommit: o.sourceCommit } : {}),
   };
 }

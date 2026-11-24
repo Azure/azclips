@@ -27,6 +27,7 @@
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="Ace.Generator.Tests" />
+    <InternalsVisibleTo Include="Ace.DeploymentAudit" />
   </ItemGroup>
 
   <!--

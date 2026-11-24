@@ -88,6 +88,18 @@ dotnet test test/Ace.Generator.Tests/Ace.Generator.Tests.csproj
 To build this package *and* the TypeScript packages together, run the toolkit's
 `../../build.ps1` (see the toolkit README, "Building the whole toolkit").
 
+The optional deployment catalogue checker is a separate build-only tool under
+`tools/Ace.DeploymentAudit`; it is not built into the generator host or a command
+processor. For source-of-truth boundaries, opt-in generation, pinned/offline
+invocation and coverage limitations, see
+[the toolkit audit documentation](../../README.md#offline-bicep-catalogue-audit).
+
+Its focused tests run independently:
+
+```powershell
+dotnet test test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj
+```
+
 ## Out-of-process host
 
 `CSharpClientGenerator` is a pure in-process library; the compiler runs it as an
@@ -103,7 +115,10 @@ stdout : NDJSON — one {"kind":"file","path","contents"} per generated file
 ```
 
 The IR is read with `IrJson.Options` (the polymorphic unions place their
-discriminator out of order). `config` is the `csharp` stage's own stage config
+discriminator out of order). Canonical serialization omits null optional fields:
+absent deployment metadata/provenance/facets must not become invalid explicit
+JSON nulls. Tagged null literal values remain represented by their `kind: "null"`
+object. `config` is the `csharp` stage's own stage config
 (`stages.csharp.options`), as written; the generator takes none yet, and its
 `GenerationContext.Config` carries it unread. Placement comes only from the
 document's `target`,

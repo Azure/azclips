@@ -97,6 +97,7 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
       {
         entrypoint: "e.tsp",
         apiVersion: "2025-09-01",
+        sourceCommit: "a".repeat(40),
         config: { stages: { "tsp-emit": { options: { emitter: { sourceId: "X" }, warnAsError: true } } } },
       },
       { runtime },
@@ -104,6 +105,7 @@ describe("built-in emit (runtime tsp-emit tool)", () => {
 
     expect(seen?.entrypoint).toBe("e.tsp");
     expect(seen?.apiVersion).toBe("2025-09-01");
+    expect(seen?.sourceCommit).toBe("a".repeat(40));
     expect(seen?.emitterOptions).toEqual({ sourceId: "X" });
     expect(seen?.warnAsError).toBe(true);
   });

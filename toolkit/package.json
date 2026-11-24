@@ -21,6 +21,7 @@
     "fix:deps": "syncpack fix-mismatches",
     "schema": "npm run schema -w @azure-client-engine/ir --",
     "schema:check": "npm run schema:check -w @azure-client-engine/ir --",
+    "audit:deployment": "node packages/generator/tools/Ace.DeploymentAudit/run.mjs",
     "login": "npm install @microsoft/artifacts-npm-credprovider -g --registry https://pkgs.dev.azure.com/artifacts-public/PublicTools/_packaging/AzureArtifacts/npm/registry/ && artifacts-npm-credprovider -c ./.npmrc"
   },
   "keywords": [],

@@ -19,6 +19,8 @@ import { IRDiscriminatedUnionSchema, type IRDiscriminatedUnion } from "./discrim
 import { IRCommandSchema, commandKey, type IRCommand } from "./command.js";
 import { IRTargetSchema, type IRTarget } from "./target.js";
 import { idKey, serializeId, type IRId } from "./id.js";
+import { IRDeploymentContractSchema, type IRDeploymentContract } from "./deployment.js";
+import type { IRTypeRef } from "./type-ref.js";
 
 export type IR = {
   schemaVersion: string;
@@ -28,6 +30,7 @@ export type IR = {
   enums: IREnum[];
   discriminatedUnions?: IRDiscriminatedUnion[] | undefined;
   operations: IROperation[];
+  deployment?: IRDeploymentContract | undefined;
   /**
    * Resolved generation target. Optional here because the emitter cannot produce it:
    * a field is required on `IR` only if the emitter emits it. A transform writes it,
@@ -57,6 +60,7 @@ const IRSchemaRoot = z
     enums: z.array(IREnumSchema),
     discriminatedUnions: z.array(IRDiscriminatedUnionSchema).optional(),
     operations: z.array(IROperationSchema),
+    deployment: IRDeploymentContractSchema.optional(),
     target: IRTargetSchema.optional(),
   })
   .strict();
@@ -92,7 +96,131 @@ function checkServers(ir: IR, ctx: z.RefinementCtx): void {
   );
 }
 
-export const IRSchema: z.ZodType<IR> = IRSchemaRoot.superRefine(checkServers);
+function checkDeployment(ir: IR, ctx: z.RefinementCtx): void {
+  if (!ir.deployment) return;
+  const issue = (path: (string | number)[], message: string): void =>
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["deployment", ...path], message });
+  const operations = new Map<string, IROperation[]>();
+  for (const operation of ir.operations) {
+    const key = idKey(operation.id);
+    operations.set(key, [...(operations.get(key) ?? []), operation]);
+  }
+  const targets = new Map<string, IRTypeRef[]>();
+  for (const model of ir.models) {
+    targets.set(idKey(model.id), [{ kind: "model", id: model.id }]);
+    for (const property of model.properties) {
+      const key = idKey(property.id);
+      targets.set(key, [...(targets.get(key) ?? []), property.type]);
+    }
+  }
+  for (const operation of ir.operations) {
+    for (const parameter of [...operation.pathParameters, ...operation.queryParameters, ...operation.headerParameters]) {
+      const key = idKey(parameter.id);
+      targets.set(key, [...(targets.get(key) ?? []), parameter.type]);
+    }
+  }
+  const seen = new Set<string>();
+  const visitedTypes = new Set<string>();
+  const checkType = (type: IRTypeRef, path: (string | number)[]): void => {
+    if (type.kind === "array") return checkType(type.element, path);
+    if (type.kind === "dictionary") return checkType(type.value, path);
+    if (type.kind === "union") {
+      type.variants.forEach((variant) => checkType(variant, path));
+      return;
+    }
+    if (type.kind === "primitive") return;
+    const key = idKey(type.id);
+    const definitions = type.kind === "model" ? ir.models : type.kind === "enum" ? ir.enums : ir.discriminatedUnions ?? [];
+    if (definitions.filter((definition) => idKey(definition.id) === key).length !== 1) {
+      issue(path, `Deployment ${type.kind} reference must resolve unambiguously: ${serializeId(type.id)}`);
+      return;
+    }
+    const visitKey = `${type.kind}:${key}`;
+    if (visitedTypes.has(visitKey)) return;
+    visitedTypes.add(visitKey);
+    if (type.kind === "model") {
+      const model = ir.models.find((definition) => idKey(definition.id) === key)!;
+      model.properties.forEach((property) => checkType(property.type, path));
+      if (model.additionalProperties) checkType(model.additionalProperties, path);
+      if (model.parent) checkType({ kind: "model", id: model.parent }, path);
+      if (model.polymorphism) {
+        if (model.properties.filter((property) => idKey(property.id) === idKey(model.polymorphism!.discriminator)).length !== 1) {
+          issue(path, "Deployment discriminator property must resolve unambiguously");
+        }
+        model.polymorphism.subtypes.forEach((subtype) => checkType({ kind: "model", id: subtype.type }, path));
+      }
+    } else if (type.kind === "discriminatedUnion") {
+      const union = ir.discriminatedUnions!.find((definition) => idKey(definition.id) === key)!;
+      union.variants.forEach((variant) => { if (variant.type) checkType(variant.type, path); });
+    }
+  };
+  ir.deployment.resources.forEach((resource, index) => {
+    const path = ["resources", index];
+    const key = idKey(resource.operation);
+    if (seen.has(key)) issue([...path, "operation"], "Duplicate deployment operation");
+    seen.add(key);
+    const matches = operations.get(key);
+    if (matches?.length !== 1) {
+      issue([...path, "operation"], "Deployment operation must resolve unambiguously");
+      return;
+    }
+    const operation = matches[0]!;
+    const bodyType = operation.requestBody?.type;
+    if (operation.method !== "PUT" || bodyType?.kind !== "model") {
+      issue([...path, "operation"], "Deployment operation must be a PUT with a model body");
+    } else {
+      checkType(bodyType, [...path, "operation"]);
+    }
+    if (resource.apiVersion !== operation.apiVersion.value) {
+      issue([...path, "apiVersion"], "Deployment and operation API versions differ");
+    }
+    const checkInput = (id: IRId, bindingPath: (string | number)[]): void => {
+      if (operation.pathParameters.filter((parameter) => idKey(parameter.id) === idKey(id)).length !== 1) {
+        issue(bindingPath, "Deployment input must resolve to an operation path parameter");
+      }
+    };
+    resource.name.forEach((binding, bindingIndex) => {
+      if (binding.kind === "parameter") checkInput(binding.parameter, [...path, "name", bindingIndex, "parameter"]);
+    });
+    resource.scopeParameters.forEach((id, bindingIndex) =>
+      checkInput(id, [...path, "scopeParameters", bindingIndex]));
+  });
+  const facets = new Set<string>();
+  ir.deployment.facets.forEach((facet, index) => {
+    const key = `${idKey(facet.target)}:${facet.typePath.join("/")}`;
+    if (facets.has(key)) issue(["facets", index], "Duplicate deployment facet");
+    facets.add(key);
+    const types = targets.get(idKey(facet.target));
+    if (!types?.length) {
+      issue(["facets", index, "target"], "Deployment facet target has no canonical definition");
+      return;
+    }
+    if (new Set(types.map((type) => JSON.stringify(type))).size !== 1) {
+      issue(["facets", index, "target"], "Deployment facet target has ambiguous types");
+    }
+    for (let type of types) {
+      for (const segment of facet.typePath) {
+        if (segment === "element" && type.kind === "array") type = type.element;
+        else if (segment === "value" && type.kind === "dictionary") type = type.value;
+        else if (segment === "additionalProperties" && type.kind === "model") {
+          const key = idKey(type.id);
+          const additional = ir.models.find((model) => idKey(model.id) === key)?.additionalProperties;
+          if (additional) type = additional;
+          else issue(["facets", index, "typePath"], "Deployment model has no additional-properties type");
+        }
+        else {
+          issue(["facets", index, "typePath"], "Deployment facet type path does not resolve");
+          break;
+        }
+      }
+    }
+  });
+}
+
+export const IRSchema: z.ZodType<IR> = IRSchemaRoot.superRefine((ir, ctx) => {
+  checkServers(ir, ctx);
+  checkDeployment(ir, ctx);
+});
 
 /**
  * Compile-time guard that a hand-written type and its schema stay in step.
@@ -195,6 +323,7 @@ void _transformedIrMatchesSchema;
 export const TransformedIRSchema: z.ZodType<TransformedIR> = TransformedIRSchemaRoot.superRefine(
   (ir, ctx) => {
     checkServers(ir, ctx);
+    checkDeployment(ir, ctx);
 
     // Commands reference operations and servers by id. A dangling reference is a
     // generator crash otherwise, so it is caught at the boundary instead.

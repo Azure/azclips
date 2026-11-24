@@ -208,6 +208,20 @@ export async function runCompile(
     const fetched = folders.map((folder) => (folder === "" ? "(the whole repo)" : folder)).join(", ");
     process.stdout.write(`Fetched ${owner}/${repo}@${commit}: ${fetched}\n`);
   }
+  let sourceCommit: string | undefined;
+  if (isUrl(tspLocation)) {
+    const primary = parseGitHubUrl(tspLocation);
+    if ("problem" in primary) {
+      process.stderr.write(`compile: cannot identify primary source provenance: ${primary.problem}\n`);
+      return 1;
+    }
+    sourceCommit = staged.fetched.find((source) =>
+      source.owner === primary.location.owner && source.repo === primary.location.repo && source.ref === primary.location.ref)?.commit;
+    if (sourceCommit === undefined) {
+      process.stderr.write("compile: fetched primary source has no resolved commit provenance.\n");
+      return 1;
+    }
+  }
 
   // The backbone streams every artifact (generated files, and each IR snapshot
   // when --capture-ir is set) to this filesystem sink as it is produced, so the
@@ -217,6 +231,7 @@ export async function runCompile(
       entrypoint: staged.entrypoint,
       // A run input: the API version travels with its entrypoint.
       ...(apiVersion !== undefined ? { apiVersion } : {}),
+      ...(sourceCommit !== undefined ? { sourceCommit } : {}),
       config: loaded.config,
     },
     {
