@@ -10,6 +10,12 @@ trigger:
     - v*-*
 pr: none
 
+parameters:
+- name: sync_preview_docs
+  displayName: Generate preview docs PRs (setup required)
+  type: boolean
+  default: false
+
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
@@ -211,3 +217,9 @@ stages:
     powershell_registry_server: $(DockerPowerShellRegistryServer)
     powershell_repository: $(DockerPowerShellRepository)
     PackagingScriptsRoot: $(PackagingScriptsRoot)
+
+- ${{ if eq(parameters.sync_preview_docs, true) }}:
+  - template: templates/dist/stages/sync-preview-docs.yml
+    parameters:
+      ubuntu_pool: ${{ variables.ubuntu_pool }}
+      dependency_stage: ValidateSignedDistribution

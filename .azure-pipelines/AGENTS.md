@@ -24,6 +24,18 @@ guide in the same PR so it stays accurate.
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → signed lifecycle validation → publish GitHub release. In parallel after verify, signed PowerShell images are built/validated and CLI + PowerShell images are published to the ACR repositories configured by the `Docker*Registry*`/`Docker*Repository` variables in the entry pipeline, then verified from ACR and from MCR after a 10-minute delay. |
 
 ## Template Layout (`templates/`)
+- Preview docs integration is currently an opt-in scaffold: `sync_preview_docs`
+  defaults to `false` in `azclips-stable-release.yml`. When selected,
+  `SyncPreviewDocs` depends on `ValidateSignedDistribution`, alongside GitHub
+  publication, and is not a dependency of package/container publication.
+  `templates/dist/stages/sync-preview-docs.yml` deliberately fails its setup job
+  before the two sync jobs can run. PAT vault/secret, CLI2Yaml feed connection
+  and reviewer variables are placeholders; notification and structured result
+  handling are not implemented. Do not remove the setup stop until approved
+  configuration and those behaviors are implemented and validated. The job
+  template uses full tag/history checkout, the pinned SDK, the existing Key Vault
+  PAT helper, and process-scoped Git authentication through `gh`. No promotion
+  to `live` or manual-merge gate is implemented.
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
 - `templates/dist/variables/` — `common.yml`, `packaging.yml` (script/out roots, RIDs), `release.yml` (ESRP keycodes).
 - `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `validate-signed-distribution.yml`, `component-governance.yml`, `init-resolve-version.yml`, `build-signed-docker.yml`, `publish-docker-to-acr.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.

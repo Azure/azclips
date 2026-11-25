@@ -1,0 +1,83 @@
+parameters:
+- name: job_name
+  type: string
+- name: display_name
+  type: string
+- name: ubuntu_pool
+  type: string
+- name: sync_script
+  type: string
+- name: target_repository
+  type: string
+- name: fetch_cli2yaml
+  type: boolean
+  default: false
+
+jobs:
+- job: ${{ parameters.job_name }}
+  displayName: ${{ parameters.display_name }}
+  dependsOn: CheckDocsSetup
+  pool:
+    name: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+    fetchTags: true
+
+  - task: UseDotNet@2
+    displayName: Install Pinned .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - template: ../steps/get-github-pat-token.yml
+    parameters:
+      azureSubscription: $(AzureSubscription)
+      keyVaultName: $(DocsGitHubPatKeyVault)
+      secretName: $(DocsGitHubPatSecretName)
+
+  - ${{ if eq(parameters.fetch_cli2yaml, true) }}:
+    - task: NuGetAuthenticate@1
+      displayName: Authenticate To CLI2Yaml Feed
+      inputs:
+        nuGetServiceConnections: $(DocsNuGetServiceConnection)
+
+  - task: PowerShell@2
+    displayName: Generate Tagged Docs And Open Draft PR
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+          throw 'GitHub token is required for docs branch push and PR creation.'
+        }
+        if ($env:SOURCE_REF -notmatch '^refs/tags/(v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z)$') {
+          throw 'Docs sync requires the stable release tag.'
+        }
+        $tag = $Matches[1]
+        $syncArgs = @{
+          ReleaseTag = $tag
+          Push = $true
+          TargetBranch = 'main'
+          HeadRepository = $env:DOCS_REPOSITORY
+          TargetRepository = $env:DOCS_REPOSITORY
+          CommitAuthor = 'Azclips Release Automation'
+          CommitEmail = 'azclips-release-automation@microsoft.com'
+        }
+        if ($env:FETCH_CLI2YAML -eq 'True') {
+          $syncArgs.FetchIfMissing = $true
+        }
+        $script = Join-Path "$(Build.SourcesDirectory)/build" $env:SYNC_SCRIPT
+        & $script @syncArgs
+    env:
+      GH_TOKEN: $(GH_TOKEN)
+      SOURCE_REF: $(Build.SourceBranch)
+      DOCS_REPOSITORY: ${{ parameters.target_repository }}
+      SYNC_SCRIPT: ${{ parameters.sync_script }}
+      FETCH_CLI2YAML: ${{ parameters.fetch_cli2yaml }}
+      GIT_TERMINAL_PROMPT: '0'
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: credential.https://github.com.helper
+      GIT_CONFIG_VALUE_0: '!gh auth git-credential'
