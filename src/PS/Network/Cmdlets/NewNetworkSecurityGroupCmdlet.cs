@@ -3,54 +3,34 @@
 
 using System.Collections;
 using System.Management.Automation;
-using Core.Abstractions;
-using Core.DependencyInjection;
-using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Network;
 
 [Cmdlet(VerbsCommon.New, "AzNetworkSecurityGroup", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Network.Models.NetworkSecurityGroup")]
-public class NewNetworkSecurityGroupCmdlet : PSCmdlet
+public class NewNetworkSecurityGroupCmdlet : NetworkCmdletBase
 {
-    private readonly CancellationTokenSource _cts = new();
-    private OutputStreams streams = null!;
-    private IEngine engine = null!;
-
-    [Parameter(Mandatory = false)]
-    public string SubscriptionId { get; set; } = "";
-
-    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true)]
     [Alias("ResourceName")]
+    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "The name of the network security group.")]
     public string Name { get; set; } = "";
 
-    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "The resource group name.")]
     public string ResourceGroupName { get; set; } = "";
 
-    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, HelpMessage = "The location of the resource.")]
     public string Location { get; set; } = "";
 
-    [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true)]
+    [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, HelpMessage = "Key-value pairs in the form of a hash table.")]
     public Hashtable? Tag { get; set; }
 
-    [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
-
-    protected override void BeginProcessing()
-    {
-        streams = CmdletOutputStreamsFactory.Create(this, "NetworkSecurityGroupError", ErrorCategory.NotSpecified);
-        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-    }
+    protected override string ErrorId => "NetworkSecurityGroupError";
 
     protected override void ProcessRecord()
     {
-        if (!ShouldProcess($"Network security group '{Name}' in resource group '{ResourceGroupName}'", "Create"))
+        if (!ShouldProcess($"network security group '{Name}' in resource group '{ResourceGroupName}'", "Create"))
         {
             return;
         }
-
-        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
-        using var activity = telemetryService.StartRootActivity();
 
         var parameters = new Dictionary<string, object>
         {
@@ -58,25 +38,8 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
             { "ResourceGroupName", ResourceGroupName },
             { "Location", Location },
         };
+        if (IsBound(nameof(Tag)) && Tag is not null) { parameters.Add("Tag", NetworkCmdletArgumentConverter.ToStringDictionary(Tag)); }
 
-        var bound = MyInvocation.BoundParameters;
-        if (bound.ContainsKey(nameof(SubscriptionId))) { parameters.Add("SubscriptionId", SubscriptionId); }
-        if (bound.ContainsKey(nameof(Tag)))            { parameters.Add("Tag", ToKeyValuePairs(Tag!)); }
-        if (bound.ContainsKey(nameof(Profile)))        { parameters.Add("Profile", Profile!); }
-
-        var moduleName = MyInvocation.MyCommand.ModuleName;
-        var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Network", "New-AzNetworkSecurityGroup", parameters, false, moduleName, moduleVersion);
-        telemetryService.TagInvocation(invocation);
-
-        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
-        session.Run();
+        RunCommand("New-AzNetworkSecurityGroup", parameters);
     }
-
-    private static string[] ToKeyValuePairs(Hashtable table) =>
-        table.Cast<DictionaryEntry>().Select(entry => $"{entry.Key}={entry.Value}").ToArray();
-
-    protected override void EndProcessing() => _cts.Dispose();
-
-    protected override void StopProcessing() => _cts.Cancel();
 }

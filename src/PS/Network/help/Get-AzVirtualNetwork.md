@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/08/2026
+ms.date: 11/24/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzVirtualNetwork
 ---
@@ -13,47 +13,64 @@ title: Get-AzVirtualNetwork
 
 ## SYNOPSIS
 
-Get one or more virtual networks.
+Gets a virtual network or lists virtual networks.
 
 ## SYNTAX
 
 ### List (Default)
 
 ```
-Get-AzVirtualNetwork [-SubscriptionId <string>] [-ResourceGroupName <string>] [-Profile <string>]
+Get-AzVirtualNetwork [-ResourceGroupName <string>] [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzVirtualNetwork -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-ExpandResource <string>] [-Profile <string>] [<CommonParameters>]
+Get-AzVirtualNetwork -ResourceGroupName <string> -Name <string> [-ExpandResource <string>]
+ [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
+
 ## DESCRIPTION
 
-Retrieves virtual networks.
-Supply `-Name` to fetch a single virtual network from a resource group.
-Omit `-Name` to list them: scoped to a resource group when `-ResourceGroupName` is supplied, or across the whole subscription when it is not. Listing follows pagination transparently.
+The Get-AzVirtualNetwork cmdlet gets one virtual network when you specify -ResourceGroupName and -Name. Without -Name, it lists the virtual networks in a resource group, or in the whole subscription when you do not specify -ResourceGroupName.
 
 ## EXAMPLES
 
-### Get a single virtual network
+### Example 1: List all virtual networks in the subscription
 
-Fetch the virtual network `myvnet` from resource group `myrg`.
+This command lists every virtual network in the current subscription.
 
 ```powershell
-Get-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet
+Get-AzVirtualNetwork
+```
+
+### Example 2: List virtual networks in a resource group
+
+This command lists the virtual networks in the resource group myrg.
+
+```powershell
+Get-AzVirtualNetwork -ResourceGroupName myrg
+```
+
+### Example 3: Get one virtual network
+
+This command gets the virtual network named myvnet in the resource group myrg.
+
+```powershell
+Get-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS
 
 ### -ExpandResource
 
-Expand referenced resources, e.g. subnets/ipConfigurations.
+Expands referenced resources.
 
 ```yaml
 Type: System.String
@@ -74,7 +91,7 @@ HelpMessage: ''
 
 ### -Name
 
-The name of the virtual network.
+The resource name.
 
 ```yaml
 Type: System.String
@@ -117,7 +134,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-The resource group name. Required when retrieving a single virtual network by name; omit it to list every virtual network in the subscription.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -152,13 +169,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -182,8 +193,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Network.Models.VirtualNetwork
 
-The matching virtual network, or each virtual network in scope when listing.
+The virtual network objects that match the query.
 
 ## NOTES
 
 ## RELATED LINKS
+
+- [New-AzVirtualNetwork](./New-AzVirtualNetwork.md)
+- [Remove-AzVirtualNetwork](./Remove-AzVirtualNetwork.md)
+

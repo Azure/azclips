@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/08/2026
+ms.date: 11/24/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzVirtualNetwork
 ---
@@ -13,32 +13,42 @@ title: Remove-AzVirtualNetwork
 
 ## SYNOPSIS
 
-Delete a virtual network.
+Removes a virtual network.
 
 ## SYNTAX
 
 ### __AllParameterSets
 
 ```
-Remove-AzVirtualNetwork -Name <string> -ResourceGroupName <string> [-SubscriptionId <string>]
- [-Force] [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzVirtualNetwork -Name <string> -ResourceGroupName <string> [-Force] [-PassThru]
+ [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
+
 ## DESCRIPTION
 
-Deletes the named virtual network from the specified resource group and subscription.
-The delete fails while the virtual network is still in use, so detach or delete dependent resources such as network interfaces, private endpoints, and gateways first.
+The Remove-AzVirtualNetwork cmdlet deletes a virtual network from a resource group. It asks for confirmation unless you specify -Force. Specify -PassThru to write $true to the pipeline after the virtual network is removed.
 
 ## EXAMPLES
 
-### Remove a virtual network
+### Example 1: Remove a virtual network
 
-Delete the virtual network `myvnet` from resource group `myrg`.
+This command removes the virtual network named myvnet from the resource group myrg after you confirm.
 
 ```powershell
-Remove-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet
+Remove-AzVirtualNetwork -Name myvnet -ResourceGroupName myrg
+```
+
+### Example 2: Remove a virtual network without confirmation
+
+This command removes the virtual network without a prompt and writes $true when the removal is complete.
+
+```powershell
+Remove-AzVirtualNetwork -Name myvnet -ResourceGroupName myrg -Force -PassThru
 ```
 
 ## PARAMETERS
@@ -67,7 +77,7 @@ HelpMessage: ''
 
 ### -Force
 
-Delete the virtual network without prompting for confirmation.
+Do not ask for confirmation.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -88,7 +98,7 @@ HelpMessage: ''
 
 ### -Name
 
-The name of the virtual network.
+The resource name.
 
 ```yaml
 Type: System.String
@@ -110,7 +120,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Return $true when the delete succeeds. By default this cmdlet returns no output.
+Writes $true after the resource is removed.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -225,14 +235,13 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Void
-
-This cmdlet does not emit an object on the pipeline; it only writes progress and status messages via the Information and Verbose streams.
-
 ### System.Boolean
 
-Returned only when `-PassThru` is specified: `$true` once the virtual network has been deleted.
+When you specify -PassThru, the cmdlet writes $true after the resource is removed. Otherwise, it writes no output.
 
 ## NOTES
 
 ## RELATED LINKS
+
+- [Get-AzVirtualNetwork](./Get-AzVirtualNetwork.md)
+

@@ -3,86 +3,66 @@
 
 using System.Collections;
 using System.Management.Automation;
-using Core.Abstractions;
-using Core.DependencyInjection;
-using Microsoft.Azure.Azclips.Cmdlets.Common;
 
 namespace Microsoft.Azure.Azclips.Cmdlets.Network;
 
 [Cmdlet(VerbsCommon.New, "AzNetworkInterface", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType("Microsoft.Azure.Azclips.Extensions.Network.Models.NetworkInterface")]
-public class NewNetworkInterfaceCmdlet : PSCmdlet
+public class NewNetworkInterfaceCmdlet : NetworkCmdletBase
 {
-    private readonly CancellationTokenSource _cts = new();
-    private OutputStreams streams = null!;
-    private IEngine engine = null!;
-
-    [Parameter(Mandatory = false)]
-    public string SubscriptionId { get; set; } = "";
-
-    [Parameter(Mandatory = true)]
     [Alias("ResourceName")]
+    [Parameter(Mandatory = true, HelpMessage = "The name of the network interface.")]
     public string Name { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, HelpMessage = "The location of the resource.")]
     public string Location { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, HelpMessage = "The resource group name.")]
     public string ResourceGroupName { get; set; } = "";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = true, HelpMessage = "The resource ID of the subnet.")]
     public string SubnetId { get; set; } = "";
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The resource ID of the public IP address.")]
     public string? PublicIpAddressId { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The resource ID of the network security group.")]
     public string? NetworkSecurityGroupId { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The static private IP address. Without it the allocation is dynamic.")]
     public string? PrivateIpAddress { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The name of the IP configuration. Default: ipconfig1.")]
     public string? IpConfigurationName { get; set; }
 
-    [Parameter(Mandatory = false)]
     [Alias("DnsServers")]
+    [Parameter(Mandatory = false, HelpMessage = "DNS server IP addresses.")]
     public string[]? DnsServer { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The internal DNS name label.")]
     public string? InternalDnsNameLabel { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "Enable accelerated networking.")]
     public SwitchParameter EnableAcceleratedNetworking { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "Enable IP forwarding.")]
     public SwitchParameter EnableIPForwarding { get; set; }
 
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "The name of the edge zone.")]
     public string? EdgeZone { get; set; }
 
-    [Parameter(Mandatory = false)]
     [Alias("Tags")]
+    [Parameter(Mandatory = false, HelpMessage = "Key-value pairs in the form of a hash table.")]
     public Hashtable? Tag { get; set; }
 
-    [Parameter(Mandatory = false)]
-    public string? Profile { get; set; }
-
-    protected override void BeginProcessing()
-    {
-        streams = CmdletOutputStreamsFactory.Create(this, "NetworkInterfaceError", ErrorCategory.NotSpecified);
-        engine = AzclipsServiceProvider.GetRequiredService<IEngine>();
-    }
+    protected override string ErrorId => "NetworkInterfaceError";
 
     protected override void ProcessRecord()
     {
-        if (!ShouldProcess($"Network interface '{Name}' in resource group '{ResourceGroupName}'", "Create"))
+        if (!ShouldProcess($"network interface '{Name}' in resource group '{ResourceGroupName}'", "Create"))
         {
             return;
         }
-
-        var telemetryService = AzclipsServiceProvider.GetRequiredService<ITelemetryService>();
-        using var activity = telemetryService.StartRootActivity();
 
         var parameters = new Dictionary<string, object>
         {
@@ -91,40 +71,17 @@ public class NewNetworkInterfaceCmdlet : PSCmdlet
             { "ResourceGroupName", ResourceGroupName },
             { "SubnetId", SubnetId },
         };
+        if (IsBound(nameof(PublicIpAddressId)) && PublicIpAddressId is not null)           { parameters.Add("PublicIpAddressId", PublicIpAddressId); }
+        if (IsBound(nameof(NetworkSecurityGroupId)) && NetworkSecurityGroupId is not null) { parameters.Add("NetworkSecurityGroupId", NetworkSecurityGroupId); }
+        if (IsBound(nameof(PrivateIpAddress)) && PrivateIpAddress is not null)             { parameters.Add("PrivateIpAddress", PrivateIpAddress); }
+        if (IsBound(nameof(IpConfigurationName)) && IpConfigurationName is not null)       { parameters.Add("IpConfigurationName", IpConfigurationName); }
+        if (IsBound(nameof(DnsServer)) && DnsServer is not null)                           { parameters.Add("DnsServer", DnsServer); }
+        if (IsBound(nameof(InternalDnsNameLabel)) && InternalDnsNameLabel is not null)     { parameters.Add("InternalDnsNameLabel", InternalDnsNameLabel); }
+        if (IsBound(nameof(EnableAcceleratedNetworking)))                                  { parameters.Add("EnableAcceleratedNetworking", EnableAcceleratedNetworking.IsPresent); }
+        if (IsBound(nameof(EnableIPForwarding)))                                           { parameters.Add("EnableIPForwarding", EnableIPForwarding.IsPresent); }
+        if (IsBound(nameof(EdgeZone)) && EdgeZone is not null)                             { parameters.Add("EdgeZone", EdgeZone); }
+        if (IsBound(nameof(Tag)) && Tag is not null)                                       { parameters.Add("Tag", NetworkCmdletArgumentConverter.ToStringDictionary(Tag)); }
 
-        var bound = MyInvocation.BoundParameters;
-        if (bound.ContainsKey(nameof(SubscriptionId)))              { parameters.Add("SubscriptionId", SubscriptionId); }
-        if (bound.ContainsKey(nameof(PublicIpAddressId)))           { parameters.Add("PublicIpAddressId", PublicIpAddressId!); }
-        if (bound.ContainsKey(nameof(NetworkSecurityGroupId)))      { parameters.Add("NetworkSecurityGroupId", NetworkSecurityGroupId!); }
-        if (bound.ContainsKey(nameof(PrivateIpAddress)))            { parameters.Add("PrivateIpAddress", PrivateIpAddress!); }
-        if (bound.ContainsKey(nameof(IpConfigurationName)))         { parameters.Add("IpConfigurationName", IpConfigurationName!); }
-        if (bound.ContainsKey(nameof(DnsServer)))                   { parameters.Add("DnsServer", DnsServer!); }
-        if (bound.ContainsKey(nameof(InternalDnsNameLabel)))        { parameters.Add("InternalDnsNameLabel", InternalDnsNameLabel!); }
-        if (bound.ContainsKey(nameof(EnableAcceleratedNetworking))) { parameters.Add("EnableAcceleratedNetworking", EnableAcceleratedNetworking.IsPresent); }
-        if (bound.ContainsKey(nameof(EnableIPForwarding)))          { parameters.Add("EnableIPForwarding", EnableIPForwarding.IsPresent); }
-        if (bound.ContainsKey(nameof(EdgeZone)))                    { parameters.Add("EdgeZone", EdgeZone!); }
-        if (bound.ContainsKey(nameof(Tag)))                         { parameters.Add("Tag", ToKeyValuePairs(Tag!)); }
-        if (bound.ContainsKey(nameof(Profile)))                     { parameters.Add("Profile", Profile!); }
-
-        var moduleName = MyInvocation.MyCommand.ModuleName;
-        var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Network", "New-AzNetworkInterface", parameters, false, moduleName, moduleVersion);
-        telemetryService.TagInvocation(invocation);
-
-        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
-        session.Run();
+        RunCommand("New-AzNetworkInterface", parameters);
     }
-
-    // The processor takes KEY=VALUE tokens on both surfaces; PowerShell users expect hashtables.
-    private static string[] ToKeyValuePairs(Hashtable table) =>
-        table.Cast<DictionaryEntry>()
-            .Select(entry => $"{entry.Key}={entry.Value}")
-            .ToArray();
-
-    protected override void EndProcessing()
-    {
-        _cts.Dispose();
-    }
-
-    protected override void StopProcessing() => _cts.Cancel();
 }

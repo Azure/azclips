@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/25/2026
+ms.date: 11/24/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzPublicIpAddress
 ---
@@ -13,63 +13,64 @@ title: Get-AzPublicIpAddress
 
 ## SYNOPSIS
 
-Get a public IP address, or list the public IP addresses in a resource group or subscription.
+Gets a public IP address or lists public IP addresses.
 
 ## SYNTAX
 
 ### List (Default)
 
 ```
-Get-AzPublicIpAddress [-SubscriptionId <string>] [-ResourceGroupName <string>] [-Profile <string>]
+Get-AzPublicIpAddress [-ResourceGroupName <string>] [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzPublicIpAddress -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-ExpandResource <string>] [-Profile <string>] [<CommonParameters>]
+Get-AzPublicIpAddress -ResourceGroupName <string> -Name <string> [-ExpandResource <string>]
+ [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
+
 ## DESCRIPTION
 
-Gets a public IP address by name, or lists the public IP addresses in a resource group or, when `-ResourceGroupName` is omitted, in the whole subscription.
+The Get-AzPublicIpAddress cmdlet gets one public IP address when you specify -ResourceGroupName and -Name. Without -Name, it lists the public IP addresses in a resource group, or in the whole subscription when you do not specify -ResourceGroupName.
 
 ## EXAMPLES
 
-### Get a public IP address
+### Example 1: List all public IP addresses in the subscription
 
-Show the public IP address `mypip` in resource group `myrg`.
-
-```powershell
-Get-AzPublicIpAddress -ResourceGroupName myrg -Name mypip
-```
-
-### Expand the attached IP configuration
+This command lists every public IP address in the current subscription.
 
 ```powershell
-Get-AzPublicIpAddress -ResourceGroupName myrg -Name mypip -ExpandResource ipConfiguration
+Get-AzPublicIpAddress
 ```
 
-### List the public IP addresses in a resource group
+### Example 2: List public IP addresses in a resource group
+
+This command lists the public IP addresses in the resource group myrg.
 
 ```powershell
 Get-AzPublicIpAddress -ResourceGroupName myrg
 ```
 
-### List every public IP address in the subscription
+### Example 3: Get one public IP address
+
+This command gets the public IP address named mypip in the resource group myrg.
 
 ```powershell
-Get-AzPublicIpAddress
+Get-AzPublicIpAddress -ResourceGroupName myrg -Name mypip -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS
 
 ### -ExpandResource
 
-Expands referenced resources in the response, e.g. `ipConfiguration`.
+Expands referenced resources.
 
 ```yaml
 Type: System.String
@@ -90,7 +91,7 @@ HelpMessage: ''
 
 ### -Name
 
-Name of the public IP address.
+The resource name.
 
 ```yaml
 Type: System.String
@@ -112,7 +113,7 @@ HelpMessage: ''
 
 ### -Profile
 
-Azure profile to target, e.g. `latest`.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -133,7 +134,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-Name of the resource group that contains the public IP address.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -160,7 +161,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-ID of the subscription that contains the public IP address. Defaults to the subscription of the current context.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -168,13 +169,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -198,8 +193,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Network.Models.PublicIPAddress
 
-The requested public IP address, or every public IP address in the resource group or subscription when `-Name` is omitted.
+The public IP address objects that match the query.
 
 ## NOTES
 
 ## RELATED LINKS
+
+- [New-AzPublicIpAddress](./New-AzPublicIpAddress.md)
+- [Remove-AzPublicIpAddress](./Remove-AzPublicIpAddress.md)
+

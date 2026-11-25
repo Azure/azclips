@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/08/2026
+ms.date: 11/24/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzVirtualNetwork
 ---
@@ -13,7 +13,7 @@ title: New-AzVirtualNetwork
 
 ## SYNOPSIS
 
-Create a virtual network.
+Creates a virtual network.
 
 ## SYNTAX
 
@@ -21,39 +21,47 @@ Create a virtual network.
 
 ```
 New-AzVirtualNetwork -Name <string> -Location <string> -ResourceGroupName <string>
- [-SubscriptionId <string>] [-AddressPrefix <string[]>] [-Subnet <Object[]>]
- [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>] [-DnsServer <string[]>]
- [-Tag <hashtable>] [-EnableDdosProtection] [-DdosProtectionPlanId <string>] [-EnableVmProtection]
- [-FlowTimeout <int>] [-BgpCommunity <string>] [-EnableEncryption]
+ [-AddressPrefix <string[]>] [-SubnetNames <string[]>] [-SubnetAddressPrefixes <string[][]>]
+ [-DnsServer <string[]>] [-Tag <hashtable>] [-EnableDdosProtection] [-DdosProtectionPlanId <string>]
+ [-EnableVmProtection] [-FlowTimeout <int>] [-BgpCommunity <string>] [-EnableEncryption]
  [-EncryptionEnforcementPolicy <string>] [-EdgeZone <string>]
  [-PrivateEndpointVNetPoliciesValue <string>] [-IpAllocation <string[]>]
- [-IpamPoolPrefixAllocation <string[]>] [-SummarizedGatewayPrefix <string[]>] [-Profile <string>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-IpamPoolPrefixAllocation <string[]>] [-SummarizedGatewayPrefix <string[]>]
+ [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
+
 ## DESCRIPTION
 
-Creates an Azure virtual network in the specified resource group and location.
-Supply the VNet address space with `-AddressPrefix`, and optionally create subnets in the same call with `-Subnet`, passing subnet configuration objects or hashtables.
-For the simple name-and-prefix case you can instead pair `-SubnetNames` with `-SubnetAddressPrefixes`, which are matched positionally: the first prefix list belongs to the first subnet name, and so on.
+The New-AzVirtualNetwork cmdlet creates an Azure virtual network in a resource group. If you do not specify -AddressPrefix, the address space is 10.0.0.0/16. You can create subnets in the same call with -SubnetNames and -SubnetAddressPrefixes.
 
 ## EXAMPLES
 
-### Create a virtual network with one subnet
+### Example 1: Create a virtual network
 
-Create the virtual network `myvnet` with address space 10.0.0.0/16 and a single subnet `default`.
+This command creates a virtual network with the default address space.
 
 ```powershell
-New-AzVirtualNetwork -ResourceGroupName myrg -Name myvnet -Location eastus -AddressPrefix 10.0.0.0/16 -Subnet @{ Name = 'default'; AddressPrefix = '10.0.0.0/24' }
+New-AzVirtualNetwork -Name myvnet -ResourceGroupName myrg -Location eastus
+```
+
+### Example 2: Create a virtual network with a subnet
+
+This command creates a virtual network with the address space 10.1.0.0/16, a subnet named default, and a tag.
+
+```powershell
+New-AzVirtualNetwork -Name myvnet -ResourceGroupName myrg -Location eastus -AddressPrefix 10.1.0.0/16 -SubnetNames default -SubnetAddressPrefixes @(,@('10.1.0.0/24')) -Tag @{env = 'test'} -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS
 
 ### -AddressPrefix
 
-Address prefixes for the virtual network, e.g. 10.0.0.0/16. Defaults to 10.0.0.0/16 unless IPAM pool allocations are supplied.
+Address prefixes of the virtual network. Default: 10.0.0.0/16, unless -IpamPoolPrefixAllocation is given.
 
 ```yaml
 Type: System.String[]
@@ -61,27 +69,6 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - AddressPrefixes
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -AddressPrefixes
-
-Address prefixes for the virtual network, e.g. 10.0.0.0/16. Defaults to 10.0.0.0/16 unless IPAM pool allocations are supplied.
-
-```yaml
-Type: System.String[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases: []
 ParameterSets:
 - Name: (All)
   Position: Named
@@ -139,7 +126,7 @@ HelpMessage: ''
 
 ### -DdosProtectionPlanId
 
-Resource id of the DDoS protection plan to associate.
+Resource ID of the DDoS protection plan.
 
 ```yaml
 Type: System.String
@@ -160,7 +147,7 @@ HelpMessage: ''
 
 ### -DnsServer
 
-DNS server IP addresses for the virtual network.
+DNS server IP addresses.
 
 ```yaml
 Type: System.String[]
@@ -182,7 +169,7 @@ HelpMessage: ''
 
 ### -EdgeZone
 
-Name of the edge zone (extended location) to create the virtual network in.
+The name of the edge zone.
 
 ```yaml
 Type: System.String
@@ -224,7 +211,7 @@ HelpMessage: ''
 
 ### -EnableEncryption
 
-Enable virtual network encryption.
+Enable encryption on the virtual network.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -245,7 +232,7 @@ HelpMessage: ''
 
 ### -EnableVmProtection
 
-Enable VM protection for every subnet in the virtual network.
+Enable VM protection for all subnets in the virtual network.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -266,7 +253,7 @@ HelpMessage: ''
 
 ### -EncryptionEnforcementPolicy
 
-Behaviour when a VM without encryption joins an encrypted virtual network.
+Whether the encrypted virtual network allows VMs that do not support encryption: DropUnencrypted or AllowUnencrypted.
 
 ```yaml
 Type: System.String
@@ -287,7 +274,7 @@ HelpMessage: ''
 
 ### -FlowTimeout
 
-Flow timeout in minutes for the virtual network, between 4 and 30.
+The FlowTimeout value (in minutes), from 4 to 30.
 
 ```yaml
 Type: System.Int32
@@ -308,7 +295,7 @@ HelpMessage: ''
 
 ### -IpAllocation
 
-Resource ids of the IP allocations to reference.
+IP allocation resource IDs.
 
 ```yaml
 Type: System.String[]
@@ -329,7 +316,7 @@ HelpMessage: ''
 
 ### -IpamPoolPrefixAllocation
 
-Resource ids of the IPAM pools to allocate address prefixes from.
+IPAM pool resource IDs for the address space.
 
 ```yaml
 Type: System.String[]
@@ -350,7 +337,7 @@ HelpMessage: ''
 
 ### -Location
 
-Location for the virtual network.
+The location of the resource.
 
 ```yaml
 Type: System.String
@@ -393,7 +380,7 @@ HelpMessage: ''
 
 ### -PrivateEndpointVNetPoliciesValue
 
-Private endpoint VNet policies. Accepts Disabled or Basic.
+Private endpoint virtual network policies: Disabled or Basic.
 
 ```yaml
 Type: System.String
@@ -454,31 +441,9 @@ AcceptedValues: []
 HelpMessage: ''
 ```
 
-### -Subnet
-
-Subnet objects, or hashtables describing subnets to create. Recognised hashtable keys: Name, AddressPrefix, AddressPrefixes, Nsg, RouteTable, NatGateway, DefaultOutboundAccess, ServiceEndpoint, ServiceEndpointPolicy, Delegation, IpamPoolPrefixAllocation, DisablePrivateEndpointNetworkPolicies, DisablePrivateLinkServiceNetworkPolicies. Multi-valued hashtable keys take an array or a comma-separated value.
-
-```yaml
-Type: System.Object[]
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- Subnets
-ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
 ### -SubnetAddressPrefixes
 
-Address prefixes for each subnet, positionally matched to `-SubnetNames`.
+Address prefixes of each subnet; item i belongs to subnet name i.
 
 ```yaml
 Type: System.String[][]
@@ -499,7 +464,7 @@ HelpMessage: ''
 
 ### -SubnetNames
 
-Names of the subnets to create.
+Names of subnets to create with the virtual network.
 
 ```yaml
 Type: System.String[]
@@ -541,7 +506,7 @@ HelpMessage: ''
 
 ### -SummarizedGatewayPrefix
 
-Summarized gateway prefixes advertised for the virtual network.
+Summarized gateway address prefixes.
 
 ```yaml
 Type: System.String[]
@@ -562,7 +527,7 @@ HelpMessage: ''
 
 ### -Tag
 
-Resource tags supplied as a hashtable, e.g. @{ owner = 'team-a' }.
+Key-value pairs in the form of a hash table.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -617,8 +582,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Network.Models.VirtualNetwork
 
-The virtual network that was created, including its address space, subnets, and provisioning state.
+The virtual network that was created or updated.
 
 ## NOTES
 
 ## RELATED LINKS
+
+- [Get-AzVirtualNetwork](./Get-AzVirtualNetwork.md)
+- [Remove-AzVirtualNetwork](./Remove-AzVirtualNetwork.md)
+

@@ -14,7 +14,7 @@ public partial class FrontendIPConfiguration
 
     /// <summary>The name of the resource that is unique within the set of frontend IP configurations used by the load balancer. This name can be used to access the resource.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; } = null !;
+    public string Name { get; set; } = null!;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]
@@ -682,8 +682,7 @@ public partial class FrontendIPConfiguration
 
     /// <summary>The IP configuration associated with the public IP address.</summary>
     [JsonIgnore]
-    // Circular reference: hidden.
-    internal IPConfiguration? IpConfiguration { get => Properties?.PublicIPAddress?.Properties?.IpConfiguration; }
+    public IPConfiguration? IpConfiguration { get => Properties?.PublicIPAddress?.Properties?.IpConfiguration; }
 
     /// <summary>The list of tags associated with the public IP address.</summary>
     [JsonIgnore]
@@ -738,8 +737,7 @@ public partial class FrontendIPConfiguration
 
     /// <summary>The service public IP address of the public IP address resource.</summary>
     [JsonIgnore]
-    // Circular reference: hidden.
-    internal PublicIPAddress? ServicePublicIPAddress
+    public PublicIPAddress? ServicePublicIPAddress
     {
         get => Properties?.PublicIPAddress?.Properties?.ServicePublicIPAddress;
         set
@@ -768,8 +766,7 @@ public partial class FrontendIPConfiguration
 
     /// <summary>The linked public IP address of the public IP address resource.</summary>
     [JsonIgnore]
-    // Circular reference: hidden.
-    internal PublicIPAddress? LinkedPublicIPAddress
+    public PublicIPAddress? LinkedPublicIPAddress
     {
         get => Properties?.PublicIPAddress?.Properties?.LinkedPublicIPAddress;
         set

@@ -4,9 +4,17 @@
         <RootNamespace>Microsoft.Azure.Azclips.Cmdlets.Network</RootNamespace>
         <Description>PowerShell binary cmdlets for AzClips Network module</Description>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <Version>0.1.0</Version>
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <InternalsVisibleTo Include="Cmdlets.Tests" Key="$(MSSharedLibPublicKey)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' != 'Release'">
+        <InternalsVisibleTo Include="Cmdlets.Tests" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="System.Management.Automation" PrivateAssets="all" />

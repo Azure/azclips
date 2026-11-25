@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 10/22/2026
+ms.date: 11/24/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzNetworkSecurityGroup
 ---
@@ -13,63 +13,64 @@ title: Get-AzNetworkSecurityGroup
 
 ## SYNOPSIS
 
-Get a network security group, or list the network security groups in a resource group or subscription.
+Gets a network security group or lists network security groups.
 
 ## SYNTAX
 
 ### List (Default)
 
 ```
-Get-AzNetworkSecurityGroup [-SubscriptionId <string>] [-ResourceGroupName <string>] [-Profile <string>]
- [<CommonParameters>]
+Get-AzNetworkSecurityGroup [-ResourceGroupName <string>] [-SubscriptionId <string>]
+ [-Profile <string>] [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzNetworkSecurityGroup -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-ExpandResource <string>] [-Profile <string>] [<CommonParameters>]
+Get-AzNetworkSecurityGroup -ResourceGroupName <string> -Name <string> [-ExpandResource <string>]
+ [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
+
 ## DESCRIPTION
 
-Gets a network security group by name, or lists the network security groups in a resource group or, when `-ResourceGroupName` is omitted, in the whole subscription.
+The Get-AzNetworkSecurityGroup cmdlet gets one network security group when you specify -ResourceGroupName and -Name. Without -Name, it lists the network security groups in a resource group, or in the whole subscription when you do not specify -ResourceGroupName.
 
 ## EXAMPLES
 
-### Get a network security group
+### Example 1: List all network security groups in the subscription
 
-Show the network security group `mynsg` in resource group `myrg`.
-
-```powershell
-Get-AzNetworkSecurityGroup -ResourceGroupName myrg -Name mynsg
-```
-
-### Expand the associated network interfaces
+This command lists every network security group in the current subscription.
 
 ```powershell
-Get-AzNetworkSecurityGroup -ResourceGroupName myrg -Name mynsg -ExpandResource networkInterfaces
+Get-AzNetworkSecurityGroup
 ```
 
-### List the network security groups in a resource group
+### Example 2: List network security groups in a resource group
+
+This command lists the network security groups in the resource group myrg.
 
 ```powershell
 Get-AzNetworkSecurityGroup -ResourceGroupName myrg
 ```
 
-### List every network security group in the subscription
+### Example 3: Get one network security group
+
+This command gets the network security group named mynsg in the resource group myrg.
 
 ```powershell
-Get-AzNetworkSecurityGroup
+Get-AzNetworkSecurityGroup -ResourceGroupName myrg -Name mynsg -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS
 
 ### -ExpandResource
 
-Expands referenced resources in the response, e.g. `networkInterfaces` or `subnets`.
+Expands referenced resources.
 
 ```yaml
 Type: System.String
@@ -90,7 +91,7 @@ HelpMessage: ''
 
 ### -Name
 
-Name of the network security group.
+The resource name.
 
 ```yaml
 Type: System.String
@@ -112,7 +113,7 @@ HelpMessage: ''
 
 ### -Profile
 
-Azure profile to target, e.g. `latest`.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -133,7 +134,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-Name of the resource group that contains the network security group.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -160,7 +161,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-ID of the subscription that contains the network security group. Defaults to the subscription of the current context.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -168,13 +169,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -198,8 +193,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Network.Models.NetworkSecurityGroup
 
-The requested network security group, or every network security group in the resource group or subscription when `-Name` is omitted.
+The network security group objects that match the query.
 
 ## NOTES
 
 ## RELATED LINKS
+
+- [New-AzNetworkSecurityGroup](./New-AzNetworkSecurityGroup.md)
+- [Remove-AzNetworkSecurityGroup](./Remove-AzNetworkSecurityGroup.md)
+

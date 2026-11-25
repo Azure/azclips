@@ -22,8 +22,8 @@
     <Project Path="src/Extensions/Accounts/Extensions.Accounts.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
-    <Project Path="src/Extensions/Storage/Extensions.Storage.csproj" />
     <Project Path="src/Extensions/Network/Extensions.Network.csproj" />
+    <Project Path="src/Extensions/Storage/Extensions.Storage.csproj" />
     <Project Path="src/Extensions/ManagedServiceIdentity/Extensions.ManagedServiceIdentity.csproj" />
     <Project Path="src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
     <Project Path="src/Extensions/KeyVault/Extensions.KeyVault.csproj" />

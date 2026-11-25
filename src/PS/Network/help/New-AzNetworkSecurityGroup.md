@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 09/30/2026
+ms.date: 11/24/2026
 PlatyPS schema version: 2024-05-01
 title: New-AzNetworkSecurityGroup
 ---
@@ -13,7 +13,7 @@ title: New-AzNetworkSecurityGroup
 
 ## SYNOPSIS
 
-Create a network security group.
+Creates a network security group.
 
 ## SYNTAX
 
@@ -21,26 +21,35 @@ Create a network security group.
 
 ```
 New-AzNetworkSecurityGroup -Name <string> -ResourceGroupName <string> -Location <string>
- [-SubscriptionId <string>] [-Tag <hashtable>] [-Profile <string>] [-WhatIf] [-Confirm]
+ [-Tag <hashtable>] [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
 ## ALIASES
 
-None.
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
-Creates an Azure network security group in the specified resource group and location.
+The New-AzNetworkSecurityGroup cmdlet creates a network security group in a resource group. The new group has only the default security rules.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Create a network security group
 
-Create `my-nsg` in `my-rg` and apply two tags.
+This command creates a network security group named mynsg.
 
 ```powershell
-New-AzNetworkSecurityGroup -Name my-nsg -ResourceGroupName my-rg -Location eastus -Tag @{ owner = 'network'; env = 'test' }
+New-AzNetworkSecurityGroup -Name mynsg -ResourceGroupName myrg -Location eastus
+```
+
+### Example 2: Create a network security group with tags
+
+This command creates a network security group with a tag.
+
+```powershell
+New-AzNetworkSecurityGroup -Name mynsg -ResourceGroupName myrg -Location eastus -Tag @{env = 'test'} -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS
@@ -69,7 +78,7 @@ HelpMessage: ''
 
 ### -Location
 
-The Azure region in which to create the network security group.
+The location of the resource.
 
 ```yaml
 Type: System.String
@@ -112,7 +121,7 @@ HelpMessage: ''
 
 ### -Profile
 
-The named AzClips connection profile to use instead of the active profile.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -133,7 +142,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-The name of the resource group.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -154,7 +163,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-The Azure subscription ID. Defaults to the active profile's subscription.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -175,7 +184,7 @@ HelpMessage: ''
 
 ### -Tag
 
-Resource tags as a hashtable.
+Key-value pairs in the form of a hash table.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -227,21 +236,22 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String
 
-You can pipe strings by property name to Name, ResourceGroupName, and Location.
+You can pipe an object that has Name, ResourceGroupName, Location, SubscriptionId, or Profile properties to this cmdlet.
 
 ### System.Collections.Hashtable
 
-You can pipe a hashtable by property name to Tag.
+You can pipe an object that has a Tag property to this cmdlet.
 
 ## OUTPUTS
 
 ### Microsoft.Azure.Azclips.Extensions.Network.Models.NetworkSecurityGroup
 
-Returns the created network security group.
+The network security group that was created or updated.
 
 ## NOTES
 
-This preview migrates NSG lifecycle creation only; security-rule authoring remains outside this cmdlet.
-
 ## RELATED LINKS
+
+- [Get-AzNetworkSecurityGroup](./Get-AzNetworkSecurityGroup.md)
+- [Remove-AzNetworkSecurityGroup](./Remove-AzNetworkSecurityGroup.md)
 

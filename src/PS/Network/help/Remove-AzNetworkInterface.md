@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 10/05/2026
+ms.date: 11/24/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-AzNetworkInterface
 ---
@@ -13,32 +13,42 @@ title: Remove-AzNetworkInterface
 
 ## SYNOPSIS
 
-Delete a network interface.
+Removes a network interface.
 
 ## SYNTAX
 
 ### __AllParameterSets
 
 ```
-Remove-AzNetworkInterface -Name <string> -ResourceGroupName <string> [-SubscriptionId <string>]
- [-Force] [-PassThru] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Remove-AzNetworkInterface -Name <string> -ResourceGroupName <string> [-Force] [-PassThru]
+ [-SubscriptionId <string>] [-Profile <string>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
+
 ## DESCRIPTION
 
-Deletes the named network interface from the specified resource group and subscription.
-The delete fails while the network interface is still attached to a virtual machine, so detach it or delete the virtual machine first.
+The Remove-AzNetworkInterface cmdlet deletes a network interface from a resource group. It asks for confirmation unless you specify -Force. Specify -PassThru to write $true to the pipeline after the network interface is removed.
 
 ## EXAMPLES
 
-### Remove a network interface
+### Example 1: Remove a network interface
 
-Delete the network interface `mynic` from resource group `myrg`.
+This command removes the network interface named mynic from the resource group myrg after you confirm.
 
 ```powershell
-Remove-AzNetworkInterface -ResourceGroupName myrg -Name mynic
+Remove-AzNetworkInterface -Name mynic -ResourceGroupName myrg
+```
+
+### Example 2: Remove a network interface without confirmation
+
+This command removes the network interface without a prompt and writes $true when the removal is complete.
+
+```powershell
+Remove-AzNetworkInterface -Name mynic -ResourceGroupName myrg -Force -PassThru
 ```
 
 ## PARAMETERS
@@ -67,7 +77,7 @@ HelpMessage: ''
 
 ### -Force
 
-Deletes the network interface without prompting for confirmation.
+Do not ask for confirmation.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -88,7 +98,7 @@ HelpMessage: ''
 
 ### -Name
 
-Name of the network interface.
+The resource name.
 
 ```yaml
 Type: System.String
@@ -110,7 +120,7 @@ HelpMessage: ''
 
 ### -PassThru
 
-Returns `$true` when the operation succeeds. By default this cmdlet does not emit an object.
+Writes $true after the resource is removed.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -131,7 +141,7 @@ HelpMessage: ''
 
 ### -Profile
 
-Azure profile to target, e.g. `latest`.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -152,7 +162,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-Name of the resource group that contains the network interface.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -173,7 +183,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-ID of the subscription that contains the network interface. Defaults to the subscription of the current context.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -227,8 +237,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.Boolean
 
-Returned only when `-PassThru` is specified: `$true` once the network interface has been deleted.
+When you specify -PassThru, the cmdlet writes $true after the resource is removed. Otherwise, it writes no output.
 
 ## NOTES
 
 ## RELATED LINKS
+
+- [Get-AzNetworkInterface](./Get-AzNetworkInterface.md)
+

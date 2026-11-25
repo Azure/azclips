@@ -44,14 +44,12 @@ public partial class CreateOrUpdatePublicIPAddressesProcessor : ProcessorBase<Pu
     /// <summary>The idle timeout of the public IP address.</summary>
     public int? IdleTimeoutInMinutes { get => Body?.IdleTimeoutInMinutes; set => (Body ??= new PublicIPAddress()).IdleTimeoutInMinutes = value; }
     /// <summary>The service public IP address of the public IP address resource.</summary>
-    // Circular reference: hidden; no command sets it.
-    internal PublicIPAddress? ServicePublicIPAddress { get => Body?.ServicePublicIPAddress; set => (Body ??= new PublicIPAddress()).ServicePublicIPAddress = value; }
+    public PublicIPAddress? ServicePublicIPAddress { get => Body?.ServicePublicIPAddress; set => (Body ??= new PublicIPAddress()).ServicePublicIPAddress = value; }
     /// <summary>Migration phase of Public IP Address.</summary>
     /// <remarks>Known values (extensible enum PublicIPAddressMigrationPhase): "None", "Prepare", "Commit", "Abort", "Committed".</remarks>
     public string? MigrationPhase { get => Body?.MigrationPhase; set => (Body ??= new PublicIPAddress()).MigrationPhase = value; }
     /// <summary>The linked public IP address of the public IP address resource.</summary>
-    // Circular reference: hidden; no command sets it.
-    internal PublicIPAddress? LinkedPublicIPAddress { get => Body?.LinkedPublicIPAddress; set => (Body ??= new PublicIPAddress()).LinkedPublicIPAddress = value; }
+    public PublicIPAddress? LinkedPublicIPAddress { get => Body?.LinkedPublicIPAddress; set => (Body ??= new PublicIPAddress()).LinkedPublicIPAddress = value; }
     /// <summary>Specify what happens to the public IP address when the VM using it is deleted</summary>
     /// <remarks>Known values (extensible enum DeleteOptions): "Delete", "Detach".</remarks>
     public string? DeleteOption { get => Body?.DeleteOption; set => (Body ??= new PublicIPAddress()).DeleteOption = value; }

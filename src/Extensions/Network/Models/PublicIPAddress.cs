@@ -14,7 +14,7 @@ public partial class PublicIPAddress
 
     /// <summary>The name of the public IP Address.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; } = null !;
+    public string Name { get; set; } = null!;
 
     /// <summary>Resource type.</summary>
     [JsonPropertyName("type")]
@@ -79,8 +79,7 @@ public partial class PublicIPAddress
 
     /// <summary>The IP configuration associated with the public IP address.</summary>
     [JsonIgnore]
-    // Circular reference: hidden; Customization flattens it.
-    internal IPConfiguration? IpConfiguration { get => Properties?.IpConfiguration; }
+    public IPConfiguration? IpConfiguration { get => Properties?.IpConfiguration; }
 
     /// <summary>The list of tags associated with the public IP address.</summary>
     [JsonIgnore]
@@ -129,8 +128,7 @@ public partial class PublicIPAddress
 
     /// <summary>The service public IP address of the public IP address resource.</summary>
     [JsonIgnore]
-    // Circular reference: hidden.
-    internal PublicIPAddress? ServicePublicIPAddress
+    public PublicIPAddress? ServicePublicIPAddress
     {
         get => Properties?.ServicePublicIPAddress;
         set
@@ -155,8 +153,7 @@ public partial class PublicIPAddress
 
     /// <summary>The linked public IP address of the public IP address resource.</summary>
     [JsonIgnore]
-    // Circular reference: hidden.
-    internal PublicIPAddress? LinkedPublicIPAddress
+    public PublicIPAddress? LinkedPublicIPAddress
     {
         get => Properties?.LinkedPublicIPAddress;
         set

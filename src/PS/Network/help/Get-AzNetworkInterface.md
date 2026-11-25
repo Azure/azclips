@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Azclips.Cmdlets.Network.dll-Help.xml
 HelpUri: ''
 Locale: en-US
 Module Name: Network
-ms.date: 10/05/2026
+ms.date: 11/24/2026
 PlatyPS schema version: 2024-05-01
 title: Get-AzNetworkInterface
 ---
@@ -13,63 +13,64 @@ title: Get-AzNetworkInterface
 
 ## SYNOPSIS
 
-Get a network interface, or list the network interfaces in a resource group or subscription.
+Gets a network interface or lists network interfaces.
 
 ## SYNTAX
 
 ### List (Default)
 
 ```
-Get-AzNetworkInterface [-SubscriptionId <string>] [-ResourceGroupName <string>] [-Profile <string>]
+Get-AzNetworkInterface [-ResourceGroupName <string>] [-SubscriptionId <string>] [-Profile <string>]
  [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-AzNetworkInterface -ResourceGroupName <string> -Name <string> [-SubscriptionId <string>]
- [-ExpandResource <string>] [-Profile <string>] [<CommonParameters>]
+Get-AzNetworkInterface -ResourceGroupName <string> -Name <string> [-ExpandResource <string>]
+ [-SubscriptionId <string>] [-Profile <string>] [<CommonParameters>]
 ```
 
 ## ALIASES
 
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
+
 ## DESCRIPTION
 
-Gets a network interface by name, or lists the network interfaces in a resource group or, when `-ResourceGroupName` is omitted, in the whole subscription.
+The Get-AzNetworkInterface cmdlet gets one network interface when you specify -ResourceGroupName and -Name. Without -Name, it lists the network interfaces in a resource group, or in the whole subscription when you do not specify -ResourceGroupName.
 
 ## EXAMPLES
 
-### Get a network interface
+### Example 1: List all network interfaces in the subscription
 
-Show the network interface `mynic` in resource group `myrg`.
-
-```powershell
-Get-AzNetworkInterface -ResourceGroupName myrg -Name mynic
-```
-
-### Expand the associated public IP address
+This command lists every network interface in the current subscription.
 
 ```powershell
-Get-AzNetworkInterface -ResourceGroupName myrg -Name mynic -ExpandResource ipConfigurations/publicIPAddress
+Get-AzNetworkInterface
 ```
 
-### List the network interfaces in a resource group
+### Example 2: List network interfaces in a resource group
+
+This command lists the network interfaces in the resource group myrg.
 
 ```powershell
 Get-AzNetworkInterface -ResourceGroupName myrg
 ```
 
-### List every network interface in the subscription
+### Example 3: Get one network interface
+
+This command gets the network interface named mynic in the resource group myrg.
 
 ```powershell
-Get-AzNetworkInterface
+Get-AzNetworkInterface -ResourceGroupName myrg -Name mynic -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS
 
 ### -ExpandResource
 
-Expands referenced resources in the response, e.g. `ipConfigurations/publicIPAddress`.
+Expands referenced resources.
 
 ```yaml
 Type: System.String
@@ -90,7 +91,7 @@ HelpMessage: ''
 
 ### -Name
 
-Name of the network interface.
+The resource name.
 
 ```yaml
 Type: System.String
@@ -112,7 +113,7 @@ HelpMessage: ''
 
 ### -Profile
 
-Azure profile to target, e.g. `latest`.
+Name of a saved profile to use for this call instead of the currently-active one. Manage profiles with `Set-AzProfile` / `Get-AzProfile`.
 
 ```yaml
 Type: System.String
@@ -133,7 +134,7 @@ HelpMessage: ''
 
 ### -ResourceGroupName
 
-Name of the resource group that contains the network interface.
+The resource group name.
 
 ```yaml
 Type: System.String
@@ -160,7 +161,7 @@ HelpMessage: ''
 
 ### -SubscriptionId
 
-ID of the subscription that contains the network interface. Defaults to the subscription of the current context.
+Azure Subscription Id. Defaults to the active profile's subscription.
 
 ```yaml
 Type: System.String
@@ -168,13 +169,7 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
+- Name: (All)
   Position: Named
   IsRequired: false
   ValueFromPipeline: false
@@ -198,8 +193,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### Microsoft.Azure.Azclips.Extensions.Network.Models.NetworkInterface
 
-The requested network interface, or every network interface in the resource group or subscription when `-Name` is omitted.
+The network interface objects that match the query.
 
 ## NOTES
 
 ## RELATED LINKS
+
+- [New-AzNetworkInterface](./New-AzNetworkInterface.md)
+- [Remove-AzNetworkInterface](./Remove-AzNetworkInterface.md)
+
