@@ -27,7 +27,6 @@ jobs:
           dotnet stryker \
             --project "${{ matrix.project }}" \
             --test-case-filter "Category!=LocalOnly" \
-            --coverage-analysis perTest \
             --reporter html --reporter json --reporter progress \
             --break-at 0
       - name: Summarize
