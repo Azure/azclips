@@ -97,6 +97,12 @@ The pilot SHALL reuse pinned upstream `@azure-tools/typespec-bicep` code to inte
 - **AND** upstream provenance alone SHALL NOT authorize changing existing command behavior or suppressing audit diagnostics
 - **AND** generating type definitions or sample code SHALL NOT count as compiling and verifying the command-specific deployment template
 
+#### Scenario: Superseded source-gate implementation is retired
+- **WHEN** upstream-derived generation and independent regression evidence replace an existing source-gate responsibility
+- **THEN** redundant custom discovery/schema interpretation and unused facet/audit machinery SHALL be removed after updating their consumers
+- **AND** canonical command linkage, exact-version/provenance checks, input constraint preservation and eligibility safeguards SHALL remain covered
+- **AND** historical audit reports SHALL remain intact without requiring obsolete implementation-specific tests or a second schema interpreter
+
 ### Requirement: Explicit opt-in and unchanged normal commands
 
 The Bicep execution path SHALL be disabled by default and selected only through an explicit internal pilot host/fixture configuration. Public CLI/PowerShell names, aliases, parameters and default-path behavior SHALL remain unchanged.

@@ -12,7 +12,9 @@
 
 ## 1A. Upstream TypeSpec-to-Bicep correspondence (next, before Section 2)
 
-Task 1.9 remains completed prototype evidence, not the long-term mapping source. Complete 1.10-1.15 in order before Section 2; retain existing completed extraction/audit work and reports.
+Task 1.9 remains completed prototype evidence, not the long-term mapping source. Complete 1.10-1.16 in order before Section 2; retain historical extraction/audit evidence, not redundant implementations.
+
+Task 1.10 is investigated but blocked on the integration approach: the inspected package exports no reusable discovery/generation API or property-correspondence hook, declares newer peers than the locked toolkit, and has no explicit version-selector option. See the evidence and proposed review boundary in [design.md](design.md#upstream-integration-investigation-task-110).
 
 - [ ] 1.10 Pin upstream `@azure-tools/typespec-bicep` source/package and compatible compiler/HTTP/ARM dependencies; verify the reusable API boundary and source-correlation access. Keep it build-only; if a hook is missing, propose a focused upstream integration change rather than copying the emitter or silently using a parallel schema implementation.
 - [ ] 1.11 Run the pinned upstream code against Network source `90e63e5fe2c596e8bd807aad7dd9d62cee1746dd` at exactly `2025-07-01`; prove unambiguous legacy Public IP PUT/resource discovery, writable field/type generation and provenance, or report a concrete blocker without substituting versions or guessed resource associations.
@@ -20,10 +22,11 @@ Task 1.9 remains completed prototype evidence, not the long-term mapping source.
 - [ ] 1.13 Add focused bridge-generation regressions for flattening/aliases, inherited or reused properties in different paths, exact-version selection, scope/name, root versus nested IDs, source constraints/Int32 preservation and explicit unmapped/ambiguous failures; prove disabled/default canonical generation unchanged.
 - [ ] 1.14 Replace the handwritten prototype's structural mapping with the generated bridge in the offline fixture, retaining separate normalization/eligibility policy and existing independent expected-value assertions. Re-run direct-ID, unsupported-input, optional-omission and exact integer deployment-serialization tests without changing public commands.
 - [ ] 1.15 Produce real Public IP correspondence/coverage evidence against upstream-generated types and the independently pinned compiler catalogue; preserve prior raw audit reports and diagnose version, intentional API/Bicep normalization, local integration or upstream-support differences before advancing.
+- [ ] 1.16 After 1.15, retire superseded custom discovery/schema interpretation and redundant facet/audit traversal; remove unused contract fields/readers/tests only after updating all consumers and proving the relevant behavior through the upstream-derived path. Retain canonical input linkage, independent version/provenance/constraint checks, eligibility and historical reports; do not keep a parallel implementation merely to preserve old test counts.
 
 ## 2. Verified single-resource build artifact
 
-- [ ] 2.1 After 1.15, pin an official Bicep CLI and verify its identity/resource type association separately from upstream type generation and the catalogue-only report.
+- [ ] 2.1 After 1.16, pin an official Bicep CLI and verify its identity/resource type association separately from upstream type generation and the catalogue-only report.
 - [ ] 2.2 Generate the single resource-group-scoped Public IP template's field/parameter assignments from the source-aware bridge, preserving normalized body values, omission semantics and resource API `2025-07-01`; do not maintain a second handwritten structural mapping.
 - [ ] 2.3 Build-compile/package immutable ARM JSON with provenance; validate exactly one declared Public IP, no dependencies/resource group, and explicit failure for missing/invalid assets without runtime compilation.
 - [ ] 2.4 Add focused minimal/default and tags/explicit-timeout tests comparing existing canonical request body semantics to template parameters/declaration, including absent optional values.

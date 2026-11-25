@@ -153,6 +153,31 @@ The handwritten fixture's structural mapping will be replaced by the generated b
 
 An upstream/local mismatch is not automatically a local bug: root API `id` versus computed Bicep `id` already demonstrates intentional contract normalization. Check exact source/version/toolchain selection, canonical correlation, intended Bicep semantics and possible upstream limitations or defects. Preserve both raw schema diagnostics and reviewed command-level proof. Upstream-generated types and the CLI's bundled catalogue have independent provenance; their association still needs verification, and upstream samples are not a compiled pilot artifact.
 
+### Upstream integration investigation (task 1.10)
+
+Inspection of upstream commit `754a33f2ddc902afe583acb6e46316afbd59bc5d` confirmed integration requirements, not a working dependency pin. No upstream dependency was added, no compiler was upgraded, and no existing source-gate code was removed.
+
+| Boundary | Verified evidence | Consequence |
+| --- | --- | --- |
+| Package entry point | The [package manifest](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/package.json) declares version `0.1.0` and exports only `"."`; the [entry point](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/index.ts) exports `$lib` and `$onEmit`, not resource discovery or type generation | The reusable source-level functions are not exposed through the package API. Do not bypass its export map with filesystem/deep imports. |
+| Source correlation | Resource definitions retain PUT/GET models, but the [type generator](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/type-generator.ts) returns `BicepType[]`; its property conversion and model/reference caches are internal, with no correspondence hook | Calling the public emitter yields type files, not a verified source-property-to-emitted-field map. Exporting discovery alone would not complete the bridge. |
+| Exact version | The private [version helper](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/resources.ts#L516) selects the last member of a namespace's `Versions` enum; the [options schema](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/lib.ts) accepts no options | An explicit selected-version projection/integration must be proven. Do not assume a selected SDK API automatically constrains this emitter's program or version label. |
+| Legacy source coverage | Resource processing iterates `getArmResources`; HTTP metadata supplements those resources | Successful discovery of the pinned legacy Public IP model is still unproven. Static inspection is not task 1.11 execution evidence. |
+
+The package's declared peer requirements do not accept the currently locked toolkit set:
+
+| Dependency | Upstream peer | Installed toolkit |
+| --- | --- | --- |
+| `@typespec/compiler`, `@typespec/http` | `^1.15.0` | `1.13.0` |
+| `@typespec/rest` | `^0.85.0` | `0.82.0` |
+| `@azure-tools/typespec-azure-core`, `@azure-tools/typespec-azure-resource-manager` | `^0.71.0` | `0.68.0` |
+
+The toolkit's installed TCGC `0.68.4` also peers on ARM/core `^0.68.0`. Therefore this is not a safe dependency-only addition to the current compilation context. Prefer evaluating an isolated upstream build-time toolchain before proposing a broad toolkit upgrade. Separate programs would require verified stable source-origin/context correspondence, not object-identity assumptions.
+
+**Review boundary:** choose between awaiting a supported upstream API and using an explicitly pinned upstream source build with narrowly reviewed integration changes. The latter must preserve the upstream conversion implementation, expose discovery/generation and optional source-correspondence metadata, and establish explicit version selection. It must not become an independently maintained schema converter. Correspondence needs to identify source properties/models and emitted references/fields, including synthesized identity roles; containing resource/version/path context must survive caching and reuse. Normal upstream emitter output should remain unchanged when correspondence is not requested.
+
+Publication of the source-declared `0.1.0` package was not verified: both `npm view` and a system-TLS `curl` request to the public registry failed TLS handshakes. TLS verification was not disabled. GitHub source inspection succeeded at the exact revision. These checks do not constitute an upstream build, successful package installation or source-generation test. Task 1.10 stays unchecked until a reviewed integration route, compatible pinned toolchain and reusable boundary are established.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -183,7 +208,9 @@ The full Network retry and target-boundary review are complete. Add optional `de
 
 ### 1A. Reuse upstream schema interpretation and generate the bridge first
 
-Complete new tasks 1.10-1.15 before Section 2: pin and verify the upstream integration seam, prove exact-version legacy Public IP generation, derive source-aware bindings, add focused correspondence regressions, replace the prototype's structural mapping, and record real coverage against both upstream types and the compiler catalogue. Do not author a second hand-maintained parameter/field map while this prerequisite is unresolved.
+Complete new tasks 1.10-1.16 before Section 2: pin and verify the upstream integration seam, prove exact-version legacy Public IP generation, derive source-aware bindings, add focused correspondence regressions, replace the prototype's structural mapping, record real coverage against both upstream types and the compiler catalogue, and remove superseded source-gate code. Do not author a second hand-maintained parameter/field map while this prerequisite is unresolved.
+
+Keep the guarantees, not every existing implementation. Replace duplicated resource/schema interpretation with upstream-derived output while retaining the canonical operation/parameter linkage that upstream does not know. Reassess supplemental facet extraction and full-graph audit traversal against their actual remaining consumers; remove redundant machinery and its implementation-only tests once replacement evidence exists. Keep independent input-constraint, version, provenance, omission and eligibility checks. Historical reports remain evidence, not an obligation to retain obsolete runtime/build paths or preserve test counts.
 
 ### 2. Preserve the customized request body as the execution input
 
@@ -244,7 +271,7 @@ Live work requires separate authorization of subscription, existing resource gro
 ## Migration Plan
 
 1. Resolve legacy source discovery, produce a complete exact-version contract/audit report and account for every difference with reviewed binding/eligibility evidence.
-2. Pin/reuse upstream TypeSpec-to-Bicep schema generation, prove legacy Public IP/source correspondence and replace the handwritten structural map with the generated bridge.
+2. Pin/reuse upstream TypeSpec-to-Bicep schema generation, prove legacy Public IP/source correspondence, replace the handwritten structural map with the generated bridge and retire superseded source-gate machinery.
 3. Generate the single-resource template from the bridge, verify a separately pinned compiler and package the compiled artifact.
 4. Implement the isolated adapter/opt-in fixture, leaving production defaults untouched.
 5. Prove offline input, transport, error, output and CLI/PowerShell regression gates.
