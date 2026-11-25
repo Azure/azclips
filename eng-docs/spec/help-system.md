@@ -60,7 +60,7 @@ Help resolution in Azclips is **discovery-backed**. The runtime uses the same `D
 
 When a user runs `az --help`:
 
-1. **Run discovery pass** — open a discovery session (`IEngine.OpenDiscoverySession(...).RunAsync()`) to emit `List<DiscoveredExtensionInfo>` for all installed extensions and resolved versions.
+1. **Run discovery pass** — open a discovery session (`IEngine.OpenDiscoverySession(...).RunAsync()`) to emit `List<DiscoveredExtensionInfo>` for all routing-selected packages, using the same installed copies and versions as command execution.
 2. **Collect verbs** — for each discovered extension, use the `Verbs` payload from `DiscoveredExtensionInfo` (e.g., `vm`, `disk`, `group`).
 3. **Render roots** — Build a root help page listing all discovered verbs and their one-line summaries.
 4. **Return to user** — `az --help` displays the collected namespace tree.
@@ -72,13 +72,18 @@ When a user runs `az --help`:
 When a user runs help for a verb or command:
 
 1. **Parse the path** — Extract the canonical command key (e.g., `vm` for root group, `vm create` for a command).
-2. **Run discovery pass** — Enumerate all discovered extensions.
+2. **Run discovery pass** — Use existing routing selection to discover full command metadata only for packages contributing to the requested verb. Retain every contributor to shared verbs, using the same installed copies and versions as command execution.
 3. **Resolve ownership** — Walk the discovered verbs/commands to find which extension owns the requested path:
     - Check each discovered extension's `Verbs` list for the first segment.
     - If found, use the discovered command table (`DiscoveredExtensionInfo.Commands`) for metadata and path ownership.
     - If not found in any discovered extension, fall back to the hint table.
 4. **Load help markdown** — Call `MarkdownCommandHelpProvider.Get(extensionName, commandKey)` to read and render the markdown.
 5. **Return to user** — Display help for the resolved verb or command.
+
+Verb ownership is retained before routing-index construction, so duplicate leaves
+do not prevent scoped help from selecting its contributors. An empty selection
+does not open a discovery session. Root help remains broad; routing may still
+load extension DLLs when sidecars are missing or invalid.
 
 **Example**: User runs `az vm create --help`:
 
@@ -146,7 +151,9 @@ relatedLinks:
     - az logout
 ---
 
-Description: Multi-paragraph explanation in the body.
+Description: First paragraph of the explanation in the body.
+
+Additional paragraphs can follow after a blank line.
 
 ### Login with subscription id (CLI)
 
@@ -160,6 +167,10 @@ az login --subscription-id 00000000-0000-0000-0000-000000000000
 Connect-AzAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
 ````
+
+Description parsing preserves paragraph breaks and joins wrapped lines within each
+paragraph with spaces. The description ends at the next heading, code fence, or
+end of the file.
 
 **Surface differentiation is driven by the code-fence language tag** (`bash`/`sh` → CLI, `powershell`/`pwsh` → PowerShell). The `(CLI)` / `(PowerShell)` H3 suffix is cosmetic — it disambiguates for the human reader; the parser ignores it.
 

@@ -1,0 +1,38 @@
+description: "[read/invalid-value] group-exists-output-typo"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: group-exists-output-typo
+  command_group: group
+  goal: Check whether the named group exists, as JSON.
+  command: group exists --name azclips-eval-rg-404 --output jsn
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az group exists
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-rg-404
+            --output: json
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az group exists
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Check whether the named group exists, as JSON."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

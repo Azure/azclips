@@ -144,9 +144,10 @@ public sealed class ConfigurationService(
     {
         var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
         var configured = Flatten(root);
+        var defaults = BuildDefaultKeyValues();
         var result = new Dictionary<string, ConfigurationValue>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var entry in BuildDefaultKeyValues())
+        foreach (var entry in defaults)
         {
             result[entry.Key] = new ConfigurationValue(entry.Key, entry.Value, "default");
         }
@@ -165,7 +166,27 @@ public sealed class ConfigurationService(
             }
         }
 
+        ApplyDefaultMetadata(result, defaults);
         return result;
+    }
+
+    internal static void ApplyDefaultMetadata(
+        IDictionary<string, ConfigurationValue> values,
+        IReadOnlyDictionary<string, object?> defaults)
+    {
+        foreach (var entry in defaults)
+        {
+            if (values.TryGetValue(entry.Key, out var value))
+            {
+                values[entry.Key] = value with
+                {
+                    DefaultValue = entry.Value,
+                    IsDefaultValue = JsonNode.DeepEquals(
+                        JsonSerializer.SerializeToNode(value.Value),
+                        JsonSerializer.SerializeToNode(entry.Value))
+                };
+            }
+        }
     }
 
     private object? ParseEnvironmentValue(string value)
@@ -355,7 +376,7 @@ public sealed class ConfigurationService(
         return current.Count == 0;
     }
 
-    private Dictionary<string, object?> BuildDefaultKeyValues()
+    internal static Dictionary<string, object?> BuildDefaultKeyValues()
     {
         return ConfigurationSchemaBuilder.BuildDefaultValues(typeof(ConfigurationSectionAttribute).Assembly);
     }

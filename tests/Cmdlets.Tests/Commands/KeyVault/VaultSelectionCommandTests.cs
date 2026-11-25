@@ -4,12 +4,12 @@
 extern alias CmdletsKeyVault;
 
 using System.Management.Automation;
+using CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Engine;
 using Moq;
 using static Cmdlets.Tests.Commands.CommandTestHelpers;
-using GetAzKeyVaultSecretCmdlet = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault.GetAzKeyVaultSecretCmdlet;
 using KeyVaultIndex = Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex;
 
 namespace Cmdlets.Tests.Commands.KeyVault;

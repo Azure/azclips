@@ -1,0 +1,191 @@
+parameters:
+- name: dependency_stage
+  type: object
+  default: VerifySignedDistribution
+- name: amd64_pool
+  type: string
+- name: arm64_pool
+  type: string
+- name: PackagingScriptsRoot
+  type: string
+- name: signed_artifact_name
+  type: string
+  default: Final_Signed_Distribution
+- name: pwsh_base_image
+  type: string
+  default: mcr.microsoft.com/dotnet/runtime:10.0-azurelinux3.0
+- name: pwsh_builder_image
+  type: string
+  default: mcr.microsoft.com/dotnet/sdk:10.0-azurelinux3.0
+
+stages:
+- stage: BuildSignedPowerShellDockerImages
+  displayName: Build PowerShell Docker Images From Signed Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  condition: succeeded()
+  jobs:
+  - job: BuildSignedPowerShellDockerImages
+    displayName: Build Docker Image
+    timeoutInMinutes: 45
+    strategy:
+      matrix:
+        powershell_azurelinux3_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Platform: linux/amd64
+          ImageFlavor: pwsh
+          BaseImage: ${{ parameters.pwsh_base_image }}
+          ReleaseDockerArtifact: Release_Docker_PowerShell_AzureLinux3_Amd64
+        powershell_azurelinux3_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Platform: linux/arm64
+          ImageFlavor: pwsh
+          BaseImage: ${{ parameters.pwsh_base_image }}
+          ReleaseDockerArtifact: Release_Docker_PowerShell_AzureLinux3_Arm64
+    pool:
+      name: $(Pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - script: |
+        set -euo pipefail
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+      displayName: Install Docker
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Distribution
+      inputs:
+        artifact: ${{ parameters.signed_artifact_name }}
+        path: $(Pipeline.Workspace)/signed-docker-input
+
+    - script: |
+        set -euo pipefail
+        signed_root="$(Pipeline.Workspace)/signed-docker-input"
+        mapfile -t archives < <(find "$signed_root" -type f -name 'azps-cmdlets-*.tar.gz' | sort)
+        if [[ ${#archives[@]} -ne 1 ]]; then
+          echo "ERROR: Expected exactly one signed PowerShell archive, found ${#archives[@]}."
+          printf '%s\n' "${archives[@]}"
+          exit 1
+        fi
+
+        archive_name="$(basename "${archives[0]}")"
+        version="${archive_name#azps-cmdlets-}"
+        version="${version%.tar.gz}"
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+          echo "ERROR: Docker image build requires a SemVer-like release version."
+          exit 1
+        fi
+
+        output_root="$(Pipeline.Workspace)/signed-docker-output/$(System.JobName)"
+        rm -rf "$output_root"
+        mkdir -p "$output_root"
+
+        module_repo="$output_root/signed-module-repo"
+        mkdir -p "$module_repo"
+        tar -xzf "${archives[0]}" -C "$module_repo"
+        mapfile -t rollup_packages < <(find "$module_repo" -maxdepth 1 -type f -name 'Az.[0-9]*.nupkg' | sort)
+        if [[ ${#rollup_packages[@]} -ne 1 ]]; then
+          echo "ERROR: Expected exactly one signed Az rollup package, found ${#rollup_packages[@]}."
+          printf '%s\n' "${rollup_packages[@]}"
+          exit 1
+        fi
+        rollup_name="$(basename "${rollup_packages[0]}")"
+        expected_version="${rollup_name#Az.}"
+        expected_version="${expected_version%.nupkg}"
+        if [[ ! "$expected_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+          echo "ERROR: Unable to derive a valid Az module version from '$rollup_name'."
+          exit 1
+        fi
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
+        ARTIFACT_VERSION="$version" \
+        OUT_ROOT="$output_root" \
+        PLATFORM="$(Platform)" \
+        BASE_IMAGE="$(BaseImage)" \
+        POWERSHELL_BUILDER_IMAGE="${{ parameters.pwsh_builder_image }}" \
+        IMAGE_VARIANT=azurelinux3 \
+        DOCKERFILE="${{ parameters.PackagingScriptsRoot }}/linux/docker/Dockerfile.pwsh" \
+        MODULE_REPO_ROOT="$module_repo" \
+        INSTALL_MODULE_SCRIPT="$module_repo/InstallModule.ps1" \
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/build_pwsh_docker_image.sh"
+        printf '%s\n' "$version" > "$output_root/Release/docker/artifact-version.txt"
+        printf '%s\n' "$expected_version" > "$output_root/Release/docker/powershell-version.txt"
+        echo "##vso[task.setvariable variable=ReleaseDockerOutputRoot]$output_root/Release/docker"
+      displayName: Build Docker Image
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Docker Image
+      inputs:
+        targetPath: $(ReleaseDockerOutputRoot)
+        artifact: $(ReleaseDockerArtifact)
+        publishLocation: pipeline
+
+- stage: ValidateSignedPowerShellDockerImages
+  displayName: Validate PowerShell Docker Images From Signed Artifacts
+  dependsOn: BuildSignedPowerShellDockerImages
+  condition: succeeded()
+  jobs:
+  - job: ValidateSignedPowerShellDockerImage
+    displayName: Docker Image Validation
+    timeoutInMinutes: 30
+    strategy:
+      matrix:
+        powershell_azurelinux3_amd64:
+          Pool: ${{ parameters.amd64_pool }}
+          Platform: linux/amd64
+          DockerArtifact: Release_Docker_PowerShell_AzureLinux3_Amd64
+        powershell_azurelinux3_arm64:
+          Pool: ${{ parameters.arm64_pool }}
+          Platform: linux/arm64
+          DockerArtifact: Release_Docker_PowerShell_AzureLinux3_Arm64
+    pool:
+      name: $(Pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - script: |
+        set -euo pipefail
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/install_docker.sh"
+      displayName: Install Docker
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Docker Image Artifact
+      inputs:
+        artifact: $(DockerArtifact)
+        path: $(Pipeline.Workspace)/docker-validation/$(DockerArtifact)
+
+    - script: |
+        set -euo pipefail
+        artifact_dir="$(Pipeline.Workspace)/docker-validation/$(DockerArtifact)"
+        version="$(<"$artifact_dir/artifact-version.txt")"
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+          echo "ERROR: Docker image validation requires a SemVer-like release version."
+          exit 1
+        fi
+        mapfile -t image_archives < <(find "$artifact_dir" -maxdepth 2 -type f -name '*.tar' | sort)
+        if [[ ${#image_archives[@]} -ne 1 ]]; then
+          echo "ERROR: Expected exactly one Docker image archive under $artifact_dir, found ${#image_archives[@]}."
+          printf '%s\n' "${image_archives[@]}"
+          exit 1
+        fi
+        mapfile -t version_files < <(find "$artifact_dir" -maxdepth 2 -type f -name 'powershell-version.txt' | sort)
+        if [[ ${#version_files[@]} -ne 1 ]]; then
+          echo "ERROR: Expected exactly one powershell-version.txt under $artifact_dir, found ${#version_files[@]}."
+          exit 1
+        fi
+
+        docker load --input "${image_archives[0]}"
+        image_tag="azclips-powershell:${version}-azurelinux3-${PLATFORM#linux/}"
+        chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+        IMAGE_TAG="$image_tag" \
+        IMAGE_FLAVOR=pwsh \
+        PLATFORM="$(Platform)" \
+        EXPECTED_VERSION="$(<"${version_files[0]}")" \
+        "${{ parameters.PackagingScriptsRoot }}/linux/docker/test_docker_image.sh"
+      displayName: Load And Validate Docker Image
+      env:
+        PLATFORM: $(Platform)

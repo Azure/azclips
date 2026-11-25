@@ -92,6 +92,16 @@ public abstract class ConfigCommandBase : IProcessor
         }
     }
 
+    protected async Task WriteEntriesAsync(bool includeDefaults)
+    {
+        var entries = (await GetResolvedEntriesAsync(includeDefaults).ConfigureAwait(false))
+            .Values
+            .OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        await WriteOutput(entries, CancellationToken).ConfigureAwait(false);
+    }
+
     protected async Task<Dictionary<string, ConfigEntry>> GetResolvedEntriesAsync(bool includeDefaults)
     {
         var entries = new Dictionary<string, ConfigEntry>(StringComparer.OrdinalIgnoreCase);
@@ -100,7 +110,11 @@ public abstract class ConfigCommandBase : IProcessor
         foreach (var entry in snapshot)
         {
             if (includeDefaults || entry.Value.Source != "default")
-                entries[entry.Key] = new ConfigEntry(entry.Key, entry.Value.Value, entry.Value.Source);
+                entries[entry.Key] = new ConfigEntry(entry.Key, entry.Value.Value, entry.Value.Source)
+                {
+                    DefaultValue = entry.Value.DefaultValue,
+                    IsDefaultValue = entry.Value.IsDefaultValue
+                };
         }
 
         return entries;

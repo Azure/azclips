@@ -13,6 +13,7 @@ namespace Core.Telemetry;
 public sealed class PerformanceTimeline
 {
     private readonly string _enclosingSpanName;
+    private readonly TimeProvider _clock;
     private readonly List<Phase> _roots = new();
     private readonly Stack<Phase> _open = new();
 
@@ -22,16 +23,24 @@ public sealed class PerformanceTimeline
     /// <c>"PowerShell.Performance"</c>. Deliberately has no default: a shared default
     /// would silently mislabel whichever client forgot to override it.
     /// </param>
-    public PerformanceTimeline(string enclosingSpanName)
+    /// <param name="clock">
+    /// Source of every recorded timestamp — <see cref="TimeProvider.System"/> in production.
+    /// Injected so tests can control elapsed time instead of sleeping.
+    /// </param>
+    public PerformanceTimeline(string enclosingSpanName, TimeProvider clock)
     {
         _enclosingSpanName = enclosingSpanName;
+        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        StartedAt = Now;
     }
 
     /// <summary>
     /// When the timeline began. Used to backdate the root activity so the replayed
     /// phases nest beneath it rather than starting before it.
     /// </summary>
-    public DateTime StartedAt { get; } = DateTime.UtcNow;
+    public DateTime StartedAt { get; }
+
+    private DateTime Now => _clock.GetUtcNow().UtcDateTime;
 
     /// <summary>
     /// Times the enclosing block. Nested calls produce nested spans; sequential calls
@@ -93,18 +102,19 @@ public sealed class PerformanceTimeline
         {
             Name = name;
             _timeline = timeline;
+            Start = timeline.Now;
         }
 
         public string Name { get; }
 
-        public DateTime Start { get; } = DateTime.UtcNow;
+        public DateTime Start { get; }
 
         /// <summary>
         /// When the phase closed, or now if the handle was never disposed. A leaked
         /// Measure would otherwise leave this at DateTime.MinValue and emit a span
         /// whose end precedes its start.
         /// </summary>
-        public DateTime End => _end == default ? DateTime.UtcNow : _end;
+        public DateTime End => _end == default ? _timeline.Now : _end;
 
         public List<Phase> Children { get; } = new();
 
@@ -114,7 +124,7 @@ public sealed class PerformanceTimeline
         {
             if (_disposed) return;
             _disposed = true;
-            _end = DateTime.UtcNow;
+            _end = _timeline.Now;
             // Only pop if this phase is actually on top of the stack. If disposed out of order,
             // skip the pop to avoid corrupting the stack and silently nesting under the wrong parent.
             if (_timeline._open.Count > 0 && ReferenceEquals(_timeline._open.Peek(), this))

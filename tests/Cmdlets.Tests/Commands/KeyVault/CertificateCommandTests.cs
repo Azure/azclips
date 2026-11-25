@@ -5,19 +5,13 @@ extern alias CmdletsKeyVault;
 
 using System.Collections;
 using System.Management.Automation;
+using CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Engine;
 using Moq;
 using static Cmdlets.Tests.Commands.CommandTestHelpers;
-using AddAzKeyVaultCertificateCmdlet = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault.AddAzKeyVaultCertificateCmdlet;
-using ExportAzKeyVaultCertificateCmdlet = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault.ExportAzKeyVaultCertificateCmdlet;
-using GetAzKeyVaultCertificateCmdlet = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault.GetAzKeyVaultCertificateCmdlet;
-using ImportAzKeyVaultCertificateCmdlet = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault.ImportAzKeyVaultCertificateCmdlet;
 using KeyVaultIndex = Microsoft.Azure.Azclips.Extensions.KeyVault.ExtensionIndex;
-using RemoveAzKeyVaultCertificateCmdlet = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault.RemoveAzKeyVaultCertificateCmdlet;
-using UndoAzKeyVaultCertificateRemovalCmdlet = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault.UndoAzKeyVaultCertificateRemovalCmdlet;
-using UpdateAzKeyVaultCertificateCmdlet = CmdletsKeyVault::Microsoft.Azure.Azclips.Cmdlets.KeyVault.UpdateAzKeyVaultCertificateCmdlet;
 
 namespace Cmdlets.Tests.Commands.KeyVault;
 

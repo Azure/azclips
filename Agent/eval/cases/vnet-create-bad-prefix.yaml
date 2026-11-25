@@ -1,0 +1,42 @@
+description: "[mutate/invalid-value] vnet-create-bad-prefix"
+metadata:
+  mode: mutate
+  failureType: invalid-value
+vars:
+  case_id: vnet-create-bad-prefix
+  command_group: network
+  goal: Create VNet azclips-eval-vnet2.
+  command: network vnet create --name azclips-eval-vnet2 --resource-group azclips-test-rg --location eastus --address-prefixes 10.0.0.0/33
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network vnet create
+          match: all
+          requiredArguments:
+            - --address-prefixes
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-vnet2
+            --resource-group: azclips-test-rg
+            --location: eastus
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network vnet create
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create VNet azclips-eval-vnet2."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - The prefix /33 is invalid; any valid CIDR is acceptable.

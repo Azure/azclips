@@ -1,0 +1,37 @@
+description: "[read/flag-typo] deployment-list-flag-typo"
+metadata:
+  mode: read
+  failureType: flag-typo
+vars:
+  case_id: deployment-list-flag-typo
+  command_group: deployment
+  goal: List deployments in azclips-test-rg.
+  command: deployment group list --resource-grop azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az deployment group list
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az deployment group list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List deployments in azclips-test-rg."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

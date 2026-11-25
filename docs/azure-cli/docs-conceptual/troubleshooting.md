@@ -53,7 +53,7 @@ Add `--debug` to an ordinary command, help, or version request to include a
 For example:
 
 ```azurecli
-az config list --all --debug
+az config list --debug
 az vm create --help --debug
 ```
 

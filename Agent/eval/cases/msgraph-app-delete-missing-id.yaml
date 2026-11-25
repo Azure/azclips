@@ -1,0 +1,40 @@
+description: "[mutate/missing-param] msgraph-app-delete-missing-id"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: msgraph-app-delete-missing-id
+  command_group: msgraph
+  goal: Delete an app registration; no id was supplied.
+  command: msgraph app delete
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az msgraph app delete
+          match: any
+          requiredArguments:
+            - --id
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az msgraph app delete
+        - az msgraph app list
+        - az msgraph app show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Delete an app registration; no id was supplied."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - The id is unknown; listing apps or a placeholder is acceptable. Must not pick an arbitrary real app to delete.

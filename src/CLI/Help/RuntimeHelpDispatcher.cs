@@ -83,10 +83,10 @@ public sealed class RuntimeHelpDispatcher
     }
 
     /// <summary>
-    /// Supplies the package ids routing selected. When set and non-empty, help discovers only those
-    /// packages, and each loads the copy routing selected, so help shows the commands dispatch runs.
+    /// Supplies the package ids routing selected for a verb, or all selected packages for null
+    /// (root help). Each loads the copy routing selected, so help describes what dispatch runs.
     /// </summary>
-    internal Func<IReadOnlyList<string>>? SelectedPackageIds { get; init; }
+    internal Func<string?, IReadOnlyList<string>>? SelectedPackageIds { get; init; }
     internal CommandTimingRecorder? Performance { get; init; }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
@@ -113,7 +113,7 @@ public sealed class RuntimeHelpDispatcher
         // Command-help hint; branches below still fall back to group help if no command matches.
         var isCommandHelp = path.Count > 1;
 
-        var discovered = DiscoverInstalledExtensions();
+        var discovered = DiscoverInstalledExtensions(verb);
         using var projection = Performance?.MeasureLocal("Help projection/render/output");
         if (!TryResolveExtension(discovered, verb, out _))
         {
@@ -325,7 +325,7 @@ public sealed class RuntimeHelpDispatcher
         }
     }
 
-    private IReadOnlyList<DiscoveredExtensionInfo> DiscoverInstalledExtensions()
+    private IReadOnlyList<DiscoveredExtensionInfo> DiscoverInstalledExtensions(string? verb = null)
     {
         var discoveredInfos = new List<DiscoveredExtensionInfo>();
         var outputStreams = new OutputStreams(
@@ -347,7 +347,7 @@ public sealed class RuntimeHelpDispatcher
         IReadOnlyList<string> selectedPackageIds = [];
         try
         {
-            selectedPackageIds = SelectedPackageIds?.Invoke() ?? [];
+            selectedPackageIds = SelectedPackageIds?.Invoke(verb) ?? [];
         }
         catch (Exception ex)
         {

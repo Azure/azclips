@@ -1,0 +1,44 @@
+description: "[read/missing-param] config-get-missing-key"
+metadata:
+  mode: read
+  failureType: missing-param
+vars:
+  case_id: config-get-missing-key
+  command_group: config
+  goal: Read a configuration setting; no key was supplied.
+  command: config get
+assert:
+  - commandSet:
+      anyOf:
+        - - command: az config list
+            match: any
+            forbiddenArguments:
+              - -n
+              - -g
+        - - command: az config info
+            match: any
+            forbiddenArguments:
+              - -n
+              - -g
+        - - command: az config get
+            match: all
+            forbiddenArguments:
+              - -n
+              - -g
+            placeholders:
+              - --key
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az config list
+        - az config get
+        - az config info
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Read a configuration setting; no key was supplied."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Listing settings or showing the available keys is acceptable.

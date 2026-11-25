@@ -69,13 +69,57 @@ public sealed class DirectReadCommandTests
                 });
 
             using var command = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "env", "show"], fixture.Root));
-            using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli));
-            foreach (var field in new[] { "os", "shell", "sshSession", "browserAvailable", "signedIn", "subscriptionId", "tenantId", "flavor", "azclipsVersion" })
+            using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli, WarmCatalog(fixture, cli, home).ListJsonAsync));
+            Assert.NotEmpty(command.RootElement.GetProperty("commandGroups").EnumerateArray());
+            foreach (var field in new[] { "os", "shell", "sshSession", "browserAvailable", "signedIn", "subscriptionId", "tenantId", "flavor", "azclipsVersion", "commandGroups", "installableGroups" })
                 Assert.True(JsonElement.DeepEquals(command.RootElement.GetProperty(field), direct.RootElement.GetProperty(field)), field);
             Assert.Equal(fixture.Root, command.RootElement.GetProperty("cwd").GetString());
             Assert.Equal(signedIn, command.RootElement.GetProperty("signedIn").GetBoolean());
             Assert.Equal(direct.RootElement.EnumerateObject().Select(p => p.Name), command.RootElement.EnumerateObject().Select(p => p.Name));
         }
+    }
+
+    [Fact]
+    public async Task EnvProcessorReadsTheCatalogWarmedByDocsList()
+    {
+        using var fixture = new HelpCatalogFixture();
+        var home = await CreateChildHomeAsync(fixture);
+        var cli = BuiltCliPath();
+        var profile = new ProfileService(new NullLoggingService(), new FilePersistenceStore(home));
+        await RunCliAsync(cli, home, ["agent", "tool", "docs", "list"], fixture.Root);
+        var index = Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName, HelpCatalogProvider.IndexFileName);
+        var catalog = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(index))!;
+        var groups = catalog["index"]!["groups"]!.AsArray();
+        var marker = groups[0]!.DeepClone();
+        marker["verb"] = "warmcachemarker";
+        groups.Add(marker);
+        await File.WriteAllTextAsync(index, catalog.ToJsonString());
+        var written = File.GetLastWriteTimeUtc(index);
+
+        using var command = JsonDocument.Parse(await RunCliAsync(cli, home, ["agent", "tool", "env", "show"], fixture.Root));
+        using var direct = JsonDocument.Parse(await EnvSnapshotProvider.GetJsonAsync(profile, cli, WarmCatalog(fixture, cli, home).ListJsonAsync));
+
+        Assert.Equal(written, File.GetLastWriteTimeUtc(index));
+        Assert.Contains("warmcachemarker", command.RootElement.GetProperty("commandGroups").EnumerateArray().Select(g => g.GetString()));
+        foreach (var field in new[] { "commandGroups", "installableGroups" })
+            Assert.True(JsonElement.DeepEquals(command.RootElement.GetProperty(field), direct.RootElement.GetProperty(field)), field);
+    }
+
+    [Fact]
+    public async Task EnvProcessorOmitsCommandGroupsWhenTheCatalogCannotBeRead()
+    {
+        using var fixture = new HelpCatalogFixture();
+        var home = await CreateChildHomeAsync(fixture);
+        var cache = Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName);
+        Directory.CreateDirectory(cache);
+        await File.WriteAllTextAsync(Path.Combine(cache, HelpCatalogProvider.IndexFileName), "{broken");
+        fixture.Install("NoIndex", "1.0.0", typeof(AgentOptions).Assembly);
+
+        using var command = JsonDocument.Parse(await RunCliAsync(BuiltCliPath(), home, ["agent", "tool", "env", "show"], fixture.Root));
+
+        Assert.False(command.RootElement.TryGetProperty("commandGroups", out _));
+        Assert.False(command.RootElement.TryGetProperty("installableGroups", out _));
+        Assert.True(command.RootElement.TryGetProperty("os", out _));
     }
 
     [Fact]
@@ -186,6 +230,29 @@ public sealed class DirectReadCommandTests
     }
 
     [Fact]
+    public async Task DocsShow_RendersIndentedUnescapedJson_AndAppliesQueryAndOutput()
+    {
+        using var fixture = new HelpCatalogFixture();
+        var home = await CreateChildHomeAsync(fixture);
+        var cli = BuiltCliPath();
+        string[] show = ["agent", "tool", "docs", "show", "--name", "agent tool docs show"];
+
+        var output = await RunCliAsync(cli, home, show, fixture.Root);
+        Assert.Contains("\n  \"cliName\": \"agent tool docs show\"", output.ReplaceLineEndings("\n"), StringComparison.Ordinal);
+        Assert.Contains("e.g. 'vm create'", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u00", output, StringComparison.Ordinal);
+
+        Assert.Equal("agent tool docs show", (await RunCliAsync(cli, home, [.. show, "--query", "cliName"], fixture.Root)).Trim());
+        Assert.Contains("cliName: agent tool docs show", await RunCliAsync(cli, home, [.. show, "-o", "yaml"], fixture.Root), StringComparison.Ordinal);
+
+        var provider = new HelpCatalogProvider(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName),
+            _ => throw new InvalidOperationException("A warm read must not invoke az."));
+        var toolJson = await provider.GetJsonAsync("agent tool docs show");
+        Assert.DoesNotContain('\n', toolJson);
+        Assert.Contains("e.g. 'vm create'", toolJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AgentProcessorCancellation_IsAvailableToReadAndGeneratePaths()
     {
         foreach (var processor in new AgentProcessorBase[] { new DocsGenerateProcessor(), new DocsListProcessor(), new DocsShowProcessor(), new EnvProcessor() })
@@ -208,6 +275,10 @@ public sealed class DirectReadCommandTests
         }));
         return home;
     }
+
+    private static HelpCatalogProvider WarmCatalog(HelpCatalogFixture fixture, string cli, string home) =>
+        new(cli, fixture.Configuration, Path.Combine(home, HomePaths.AgentDirectoryName, HomePaths.AgentHelpDirectoryName),
+            _ => throw new InvalidOperationException("A warm read must not invoke az."));
 
     private static string BuiltCliPath()
     {

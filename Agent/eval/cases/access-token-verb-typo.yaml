@@ -1,0 +1,35 @@
+description: "[read/group-typo] access-token-verb-typo"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: access-token-verb-typo
+  command_group: account
+  goal: Get an access token for Azure Resource Manager.
+  command: account get-acess-token
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az account get-access-token
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az account get-access-token
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Get an access token for Azure Resource Manager."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

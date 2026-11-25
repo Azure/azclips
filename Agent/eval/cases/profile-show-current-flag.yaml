@@ -1,0 +1,40 @@
+description: "[read/flag-typo] profile-show-current-flag"
+metadata:
+  mode: read
+  failureType: flag-typo
+vars:
+  case_id: profile-show-current-flag
+  command_group: profile
+  goal: Show the active profile.
+  command: profile show --current
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az profile show
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+            - --current
+            - --name
+          booleanArguments:
+            - --active
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az profile show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show the active profile."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Accept --active or the command default that shows the active profile.
