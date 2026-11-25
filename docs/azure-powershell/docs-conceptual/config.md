@@ -111,6 +111,24 @@ Environment overrides win over file settings, which win over built-in defaults.
 `-ConfiguredOnly` removes default-sourced entries, not values equal to defaults.
 `Get-AzConfig` combines single-setting and collection reads.
 
+Each object also exposes `DefaultValue`, the current version's typed built-in
+default, and `IsDefaultValue`, which indicates whether the effective value equals
+that default. An explicitly configured default still has `Source` set to
+`global config` or `environment` and remains visible with `-ConfiguredOnly`.
+Comparison preserves JSON types and is case-sensitive for strings. A known null
+default can match a null value; unknown keys have both properties set to null
+because no built-in default is known.
+
+```powershell
+# Find explicitly configured values that differ from known defaults
+Get-AzConfig -ConfiguredOnly | Where-Object { $_.IsDefaultValue -eq $false }
+
+# Inspect current defaults alongside effective values and sources
+Get-AzConfig | Format-Table Key, Value, Source, DefaultValue, IsDefaultValue
+```
+
+Defaults describe the currently installed version, not historical defaults.
+
 ### Delete a configuration value
 
 ```powershell

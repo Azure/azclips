@@ -1,0 +1,37 @@
+description: "[read/group-typo] aks-list-unsupported"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: aks-list-unsupported
+  command_group: aks
+  goal: List AKS clusters in the subscription.
+  command: aks list
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az rest
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az rest
+        - az extension list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List AKS clusters in the subscription."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - This CLI has no aks group. A GET on Microsoft.ContainerService/managedClusters with the generic REST command is acceptable. Do not invent aks commands.

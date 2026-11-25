@@ -1,0 +1,38 @@
+description: "[mutate/invalid-value] group-create-bad-location"
+metadata:
+  mode: mutate
+  failureType: invalid-value
+vars:
+  case_id: group-create-bad-location
+  command_group: group
+  goal: Create resource group azclips-eval-rg2 in East US.
+  command: group create --name azclips-eval-rg2 --location eastuss
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az group create
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-rg2
+            --location: eastus
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az group create
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create resource group azclips-eval-rg2 in East US."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

@@ -1,0 +1,41 @@
+description: "[mutate/missing-param] identity-create-missing-location"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: identity-create-missing-location
+  command_group: identity
+  goal: Create managed identity azclips-eval-id2.
+  command: identity create --name azclips-eval-id2 --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az identity create
+          match: all
+          requiredArguments:
+            - --location
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-id2
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az identity create
+        - az group show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create managed identity azclips-eval-id2."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

@@ -7,7 +7,9 @@ Runbook for [build/Sync-AzClipsCliDocs.ps1](../../build/Sync-AzClipsCliDocs.ps1)
 Runs a two-stage transform of AzClips CLI content into the shape `MicrosoftDocs/azure-docs-cli` expects:
 
 1. **Exporter** ([`tools/Help/Azclips.Cli.Export`](../../tools/Help/Azclips.Cli.Export/)) — reads AzClips CLI runtime metadata + authored help markdown under `src/CLI/Help/Docs/**` and emits `snake_case` JSON at `artifacts/cli-export/latest/<verb>.json` + `_root_.json`.
-2. **CLI2Yaml** (docs.ms's NuGet-packaged transformer) — reads the JSON + side-car configs (`.docsreference.azclips.json`, `service_name.json`, `index.json`) and emits `YamlMime:AzureCLIGroup` SDP YAML into `docs-ref-autogen/<VersionFolder>/latest/*.yml` in the target docs repo.
+2. **CLI2Yaml** (docs.ms's NuGet-packaged transformer) — reads the JSON + side-car configs (`.docsreference.azclips.json`, `index.json`, and a generated service mapping) and emits `YamlMime:AzureCLIGroup` SDP YAML into `docs-ref-autogen/<VersionFolder>/latest/*.yml` in the target docs repo.
+
+The sync generates `artifacts/cli-yaml/input/service_name.json` from the exported top-level command files because CLI2Yaml requires a service mapping. All entries use the placeholder `azure-cli` service; AzClips does not publish service-grouped navigation. The same generated list selects commands for the edit-link commit map. `-Push` uses its isolated build-artifacts directory instead.
 
 Every emitted `editLink:` points at `https://github.com/Azure/azclips/blob/main/…` — via the `--sourceRepo` / `--editBranch` options landed in [ceapex/CLI2Yaml PR 1213094](https://ceapex.visualstudio.com/Engineering/_git/CLI2Yaml/pullrequest/1213094), packaged as `CLI2Yaml 20260827.1.0` and later.
 
@@ -79,7 +81,6 @@ double-dash aliases in command syntax. Global parameters continue to use
     "exportProject": "tools/Help/Azclips.Cli.Export/Azclips.Cli.Export.csproj",
     "docsReferenceConfig": "src/CLI/Help/.docsreference.azclips.json",
     "extensionIndex": "src/CLI/Help/index.json",
-    "serviceMapping": "src/CLI/Help/service_name.json",
     "cli2yamlPackage": "CLI2Yaml",
     "cli2yamlFeed": "https://apidrop.pkgs.visualstudio.com/_packaging/ReferenceAutomation/nuget/v3/index.json"
 }
@@ -101,7 +102,7 @@ double-dash aliases in command syntax. Global parameters continue to use
 | `-CommitAuthor`      | Inline `user.name` for the target commit. Does NOT persist to the target repo's git config                                                       |
 | `-CommitEmail`       | Inline `user.email` — same                                                                                                                       |
 | `-OutputManifest`    | Write a machine-readable JSON summary to the given path. Feeds CI PR-body generation, artifact upload, downstream steps                          |
-| `-SkipServicePages`  | Drop `service-page/**/*.yml` from CLI2Yaml output before applying to the target, and regenerate `latest/TOC.yml` as an alphabetical command-group tree preserving literal command spelling in navigation labels. Groups with subgroups have a `Commands` entry. Root commands from `reference-index.yml` (such as `az login`) are included alongside the groups; command names and UIDs are unchanged. Defaults to `$true` because our current `service_name.json` produces a single broken page with unresolvable xrefs, and CLI2Yaml's own TOC only points at that page. Pass `-SkipServicePages:$false` once CLI2Yaml supports the AzClips layout natively |
+| `-SkipServicePages`  | Drop `service-page/**/*.yml` from CLI2Yaml output before applying to the target, and regenerate `latest/TOC.yml` as an alphabetical command-group tree preserving literal command spelling in navigation labels. Groups with subgroups have a `Commands` entry. Root commands from `reference-index.yml` (such as `az login`) are included alongside the groups; command names and UIDs are unchanged. Defaults to `$true` because the generated placeholder service page has unresolvable xrefs, and CLI2Yaml's own TOC only points at that page. |
 
 **Two folder concepts, decoupled by design:**
 

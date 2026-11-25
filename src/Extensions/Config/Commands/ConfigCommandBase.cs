@@ -110,7 +110,11 @@ public abstract class ConfigCommandBase : IProcessor
         foreach (var entry in snapshot)
         {
             if (includeDefaults || entry.Value.Source != "default")
-                entries[entry.Key] = new ConfigEntry(entry.Key, entry.Value.Value, entry.Value.Source);
+                entries[entry.Key] = new ConfigEntry(entry.Key, entry.Value.Value, entry.Value.Source)
+                {
+                    DefaultValue = entry.Value.DefaultValue,
+                    IsDefaultValue = entry.Value.IsDefaultValue
+                };
         }
 
         return entries;

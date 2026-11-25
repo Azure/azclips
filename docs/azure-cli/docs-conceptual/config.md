@@ -225,6 +225,25 @@ az config list --output table
 Environment overrides win over file settings, which win over built-in defaults.
 `--configured-only` removes default-sourced entries, not values equal to defaults.
 
+Each entry also includes `defaultValue`, the current version's typed built-in
+default, and `isDefaultValue`, which indicates whether the effective value equals
+that default. Explicitly setting a value to its default keeps `source` as
+`global config`; a matching environment override keeps `source` as `environment`.
+Comparison preserves JSON types and is case-sensitive for strings. A known null
+default can match a null value; for unknown keys accepted with `--force`, both
+fields are null because no built-in default is known.
+
+```bash
+az config set agent.provider builtin
+az config list --configured-only --output json
+# Entry: {"key":"agent.provider","value":"builtin","source":"global config","defaultValue":"builtin","isDefaultValue":true}
+
+# Find explicitly configured values that differ from known defaults
+az config list --configured-only --query '[?isDefaultValue == `false`]'
+```
+
+Defaults describe the currently installed version, not historical defaults.
+
 ### Delete a configuration value
 
 ```bash

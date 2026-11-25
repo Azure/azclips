@@ -1,0 +1,41 @@
+description: "[mutate/missing-param] vm-deallocate-missing-rg"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: vm-deallocate-missing-rg
+  command_group: vm
+  goal: Deallocate the named VM; the resource group was omitted.
+  command: vm deallocate --name azclips-eval-vm-404
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm deallocate
+          match: any
+          requiredArguments:
+            - --resource-group
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-vm-404
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm deallocate
+        - az vm list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Deallocate the named VM; the resource group was omitted."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - A cryptic api-version error masks a missing resource group.

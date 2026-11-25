@@ -7,6 +7,8 @@
 #   2) <DocRoot>/<verb>.md                    (single-leaf-verb form)
 #   3) any .md under <DocRoot>/<verb>/        (last-write-wins fallback)
 #
+# By default, discover verbs from the help directory. Sync can pass its generated
+# service mapping to restrict the map to the commands actually exported.
 # Prerequisites: repo checkout (git required); no build step needed.
 #
 # Usage:
@@ -26,21 +28,30 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
-if (-not $ServiceMappingPath) { $ServiceMappingPath = [System.IO.Path]::Combine($repoRoot, 'src', 'CLI', 'Help', 'service_name.json') }
 if (-not $DocRoot)            { $DocRoot            = [System.IO.Path]::Combine($repoRoot, 'src', 'CLI', 'Help', 'Docs') }
 if (-not $OutputPath)         { $OutputPath         = [System.IO.Path]::Combine($repoRoot, 'artifacts', 'cli-export', 'doc_commit_map.json') }
 
-if (-not (Test-Path $ServiceMappingPath)) {
-    throw "Service mapping not found at $ServiceMappingPath."
-}
 if (-not (Test-Path $DocRoot)) {
     throw "Doc root not found at $DocRoot."
 }
 
-$ServiceMappingPath = (Resolve-Path $ServiceMappingPath).Path
 $DocRoot            = (Resolve-Path $DocRoot).Path
 
-$mapping = Get-Content $ServiceMappingPath -Raw | ConvertFrom-Json
+if ($ServiceMappingPath)
+{
+    if (-not (Test-Path $ServiceMappingPath)) {
+        throw "Service mapping not found at $ServiceMappingPath."
+    }
+    $mapping = Get-Content -LiteralPath $ServiceMappingPath -Raw | ConvertFrom-Json
+    $verbs = @($mapping | ForEach-Object { $_.Command })
+}
+else
+{
+    $verbs = @(Get-ChildItem -LiteralPath $DocRoot |
+        Where-Object { $_.PSIsContainer -or $_.Extension -eq '.md' } |
+        ForEach-Object { if ($_.PSIsContainer) { $_.Name } else { $_.BaseName } } |
+        Sort-Object -Unique)
+}
 
 function Resolve-DocFile
 {
@@ -70,9 +81,8 @@ $missing = @()
 Push-Location $repoRoot
 try
 {
-    foreach ($entry in $mapping)
+    foreach ($verb in $verbs)
     {
-        $verb = $entry.Command
         $file = Resolve-DocFile -Verb $verb
         if (-not $file)
         {

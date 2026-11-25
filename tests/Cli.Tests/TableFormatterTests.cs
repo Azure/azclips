@@ -119,13 +119,91 @@ public class TableFormatterTests
     }
 
     [Fact]
-    public void Format_ShouldConstrainSeparatorsAtMinimumTwoColumnWidth()
+    public void Format_ShouldOverflowRatherThanEraseColumns_WhenTerminalIsTooNarrow()
     {
         var json = """[{"name":"alpha","location":"beta"}]""";
 
         var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 3);
 
-        Assert.All(result.Split('\n'), line => Assert.True(line.Length <= 3, line));
+        Assert.Equal("name  location\n----  --------\na...  beta", result);
+    }
+
+    [Theory]
+    [InlineData(0, "abcdefghij  uvwxyzabcd  x")]
+    [InlineData(17, "abc...  uvw...  x")]
+    [InlineData(18, "abcd...  uvw...  x")]
+    [InlineData(3, "a...  u...  x")]
+    public void FormatRows_ShouldShareShrinkageAndPreserveShortColumns(int terminalWidth, string expected)
+    {
+        var rows = new List<string[]> { new[] { "abcdefghij", "uvwxyzabcd", "x" } };
+
+        var result = Core.Cli.Output.TableFormatter.FormatRows(rows, terminalWidth: terminalWidth);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void FormatRows_ShouldAllocateRemainingSpaceToShrinkableColumns()
+    {
+        var rows = new List<string[]> { new[] { "long-value-1234567890", "abcdefghij", "uvwxyzabcd" } };
+
+        var result = Core.Cli.Output.TableFormatter.FormatRows(rows, ["LongHeader", "B", "C"], terminalWidth: 25);
+        var lines = result.Split('\n');
+
+        Assert.Equal("----------  ------  -----", lines[1]);
+        Assert.Equal(new[] { "long-va...", "abc...", "uv..." }, Columns(lines[2]));
+        Assert.All(lines, line => Assert.True(line.Length <= 25, line));
+    }
+
+    [Theory]
+    [InlineData(260)]
+    [InlineData(200)]
+    [InlineData(151)]
+    [InlineData(150)]
+    [InlineData(149)]
+    [InlineData(120)]
+    [InlineData(80)]
+    [InlineData(40)]
+    public void Format_ShouldPreserveUserHeadersAndPopulatedColumns(int terminalWidth)
+    {
+        var json = """
+            [{"id":"00000000-0000-0000-0000-000000000001",
+              "displayName":"Example User","givenName":"Example","surname":"User",
+              "userPrincipalName":"example.user@example.invalid","mail":"example.user@example.invalid",
+              "jobTitle":null,"mobilePhone":null,"officeLocation":null,"preferredLanguage":null,
+              "businessPhones":[],"deletedDateTime":null,"usageLocation":null,
+              "accountEnabled":null,"mailNickname":null}]
+            """;
+        var expectedHeaders = new[]
+        {
+            "id", "displayName", "givenName", "surname", "userPrincipalName", "mail",
+            "jobTitle", "mobilePhone", "officeLocation", "preferredLanguage",
+            "deletedDateTime", "usageLocation", "accountEnabled", "mailNickname"
+        };
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth);
+        var lines = result.Split('\n');
+        var widths = Columns(lines[1]).Select(column => column.Length).ToArray();
+
+        Assert.Equal(expectedHeaders, Columns(lines[0]));
+        var offset = 0;
+        var populated = new[]
+        {
+            "00000000-0000-0000-0000-000000000001", "Example User", "Example",
+            "User", "example.user@example.invalid", "example.user@example.invalid"
+        };
+        for (var i = 0; i < populated.Length; i++)
+        {
+            var cell = lines[2].Substring(offset, widths[i]).TrimEnd();
+            Assert.StartsWith(populated[i][..1], cell);
+            Assert.True(cell == populated[i] || cell.EndsWith("..."), cell);
+            offset += widths[i] + 2;
+        }
+
+        // Full headers plus the four-character minimum for ID require 182 cells.
+        Assert.All(lines, line => Assert.True(line.Length <= Math.Max(terminalWidth, 182), line));
+        if (terminalWidth == 260)
+            Assert.Equal(Core.Cli.Output.TableFormatter.Format(json), result);
     }
 
     [Fact]
@@ -140,13 +218,38 @@ public class TableFormatterTests
     }
 
     [Fact]
-    public void Format_ShouldConstrainEmojiByDisplayWidth()
+    public void Format_ShouldPreserveFirstEmojiWhenMinimumWidthExceedsTerminal()
     {
         var json = """["😀😀😀😀"]""";
 
         var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 4);
 
-        Assert.All(result.Split('\n'), line => Assert.True(MeasureDisplayCells(line) <= 4, line));
+        Assert.Equal("😀...", result);
+        Assert.Equal(5, MeasureDisplayCells(result));
+    }
+
+    [Theory]
+    [InlineData("""[{"name":"漢字漢","icon":"😀😀😀"}]""")]
+    [InlineData("""[{"name":"abcdef","icon":"abcdef"},{"name":"漢字漢","icon":"😀😀😀"}]""")]
+    public void Format_ShouldPreserveFirstWideRuneInEveryRow_WhenColumnsOverflow(string json)
+    {
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 10);
+        var lines = result.Split('\n');
+
+        Assert.Equal(new[] { "name", "icon" }, Columns(lines[0]));
+        Assert.Equal("-----  -----", lines[1]);
+        Assert.Equal("漢...  😀...", lines[^1]);
+        Assert.Equal(12, MeasureDisplayCells(lines[^1]));
+    }
+
+    [Fact]
+    public void Format_ShouldNotReserveEllipsisSpaceForShortWideValues()
+    {
+        var json = """[{"name":"漢"},{"name":"abcdef"}]""";
+
+        var result = Core.Cli.Output.TableFormatter.Format(json, terminalWidth: 4);
+
+        Assert.Equal("name\n----\n漢\na...", result);
     }
 
     [Fact]

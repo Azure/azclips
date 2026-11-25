@@ -1,0 +1,16 @@
+{
+  "groups": [
+    {
+      "verb": "sample",
+      "summary": "Sample commands."
+    }
+  ],
+  "commands": [
+    {
+      "cliName": "sample item create",
+      "psName": "New-SampleItem",
+      "verb": "sample",
+      "summary": "Create a sample item."
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+description: "[read/group-typo] vm-list-sizes-unsupported"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: vm-list-sizes-unsupported
+  command_group: vm
+  goal: List VM sizes available in eastus.
+  command: vm list-sizes --location eastus
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az rest
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az rest
+        - az vm list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List VM sizes available in eastus."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - This CLI has no vm list-sizes. A GET on Microsoft.Compute/locations/eastus/vmSizes (or resource SKUs) with the generic REST command is acceptable. Keep eastus.

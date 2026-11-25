@@ -1,4 +1,8 @@
 description: profile active-flag typo -> show the active profile
+metadata:
+  mode: read
+  failureType: flag-typo
+  original: true
 vars:
   case_id: profile-show-active
   command_group: profile

@@ -1,4 +1,8 @@
 description: identity create without required --resource-group -> plan adds one
+metadata:
+  mode: mutate
+  failureType: missing-param
+  original: true
 vars:
   case_id: identity-create-missing-rg
   command_group: identity

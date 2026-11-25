@@ -108,6 +108,17 @@ Use Bash or Zsh on Linux/macOS, or PowerShell 7 or later on Windows for the docu
 commands. The separate [PowerShell preview modules](../../azure-powershell/docs-conceptual/getting-started.md)
 require PowerShell 7.6 or later; that module requirement doesn't apply to the CLI executable.
 
+## Table output width
+
+Interactive `--output table` shares available width across long columns and truncates
+values with `...`. It preserves full column headers and enough space for each
+value's first visible character plus the truncation marker, unless the full value
+requires less space. This normally requires four display cells, or five when a
+value starts with a double-width character such as a CJK character or emoji.
+If these minimums cannot fit, the table exceeds the terminal width and may wrap
+rather than silently removing columns. Use `--query` to select fewer columns.
+Redirected table output is not constrained to the terminal width.
+
 ## Automation support
 
 Service principal and managed identity sign-in can be used for non-interactive scenarios when
