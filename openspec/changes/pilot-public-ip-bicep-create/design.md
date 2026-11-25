@@ -103,7 +103,55 @@ Validation on pinned SDK `10.0.404`:
 | `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~PublicIpAddressParameterTests --verbosity quiet` | 59 passed; builds the test project and its existing dependencies; unrelated pre-existing CA1416 warnings remain |
 | `dotnet test toolkit\packages\generator\test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj --no-restore --filter FullyQualifiedName~CompatibilityAuditTests --verbosity minimal` | 31 passed, including open-union and retained strict identity/integer diagnostics |
 
-Only the offline input proof is implemented. Wiring it after normalization and before preflight/submission in the eventual opt-in adapter remains a required gate. The compiled Bicep template must consume this parameter contract with source integer bounds preserved and no root-ID input; compiler association, artifact checks, complete adapter/transport behavior, both-surface playback, existing-resource protection and separately authorized live evidence remain pending. Generated Network code, TypeSpec extraction, public command metadata and the complete audit reports are unchanged.
+Only the offline input proof is implemented. The fixture is a handwritten prototype/regression baseline, not the long-term source of structural mappings; the approved upstream-derived bridge below must replace that part before adapter/template integration. Source integer bounds and root-ID rejection remain required. Compiler association, artifact checks, complete adapter/transport behavior, both-surface playback, existing-resource protection and separately authorized live evidence remain pending. Generated Network code, TypeSpec extraction, public command metadata and the complete audit reports are unchanged.
+
+### Approved upstream-derived mapping direction
+
+Reuse `@azure-tools/typespec-bicep` for TypeSpec-to-Bicep schema interpretation and derive the command-to-resource bridge from the common source. Avoid maintaining our own competing Bicep schema converter or an independent handwritten field-mapping table. This is the next implementation stage, before compiler/template work; it has not yet been integrated.
+
+The inspected upstream reference is commit `754a33f2ddc902afe583acb6e46316afbd59bc5d`, not an already adopted or compatibility-tested dependency pin. Its [resource discovery](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/resources.ts) retains TypeSpec PUT/GET models and the name property in intermediate resource definitions. Its [type generator](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/type-generator.ts) converts those into Bicep type definitions, including standardized read-only root identity fields. These source-level functions are evidence for the approach, not proof of a stable packaged API or successful discovery of Network's legacy models.
+
+```text
+                         pinned TypeSpec source/API
+                            /                \
+               existing command codegen   upstream typespec-bicep
+                          |                    |
+                canonical input IDs,       Bicep resource types,
+                flatten/container paths    source correspondence
+                            \                /
+                         generated input bridge
+                            /                \
+                 parameter-binding code   pilot Bicep template
+                          |                    |
+                   runtime values       pinned Bicep CLI
+                                               |
+                                         packaged ARM JSON
+```
+
+The bridge is derived at build time; runtime values flow through existing command binding and customization before generated parameter binding. The upstream emitter produces resource-type definitions/documentation/examples, not the command-specific parameterized deployment template or its runtime adapter. Keep those responsibilities explicit.
+
+Join canonical operation/property IDs and existing flattening container chains to upstream source correspondence at the same selected version. Reuse shared TypeSpec node identities when possible; if projection or separate compilation changes object identity, establish verified source-origin correspondence rather than matching display names. Include the operation/resource/version and complete containing wire path because inherited/reused properties can occur at multiple locations with different roles. Our [flattening support](../../../toolkit/packages/generator/src/Generation/Generators/FlattenSupport.cs) already resolves canonical properties and their container hops without replacing wire truth.
+
+| Atomic input example | Generated bridge role |
+| --- | --- |
+| Subscription/resource-group inputs | Deployment target scope, not body fields |
+| `PublicIpAddressName` | Required resource `name` |
+| `SkuName` | Writable `sku.name`, resolved through the canonical container chain |
+| `IdleTimeoutInMinutes` | Writable `properties.idleTimeoutInMinutes`, with existing Int32 input semantics |
+| Root body `Id` | Retained API field, excluded by pilot eligibility; no Bicep assignment |
+| Nested reference ID | Separate writable reference path when supported; currently excluded advanced pilot inputs fail rather than disappearing |
+
+Prefer consuming a reusable pinned upstream API with a narrow source-correlation seam. Verify its actual exports/toolchain compatibility first. If the necessary seam or legacy-resource support is unavailable, report the blocker and review a focused upstream contribution or integration adaptation; do not silently fork/copy the emitter or fall back to a parallel handwritten schema implementation. Existing extraction/audit code remains as proven baseline and canonical-link infrastructure; replace overlapping schema interpretation only after upstream reuse and regression evidence establish equivalence.
+
+Keep schema interpretation, structural binding and command policy separate:
+
+- Upstream TypeSpec-to-Bicep code supplies Bicep resource shapes and normalization.
+- The generated bridge supplies canonical input-to-field correspondence and explicit scope/name/computed/excluded roles.
+- Existing command metadata and customization supply aliases, normalization/defaults and reference resolution. Pilot policy rejects non-null root IDs and unsupported inputs; transport/output remain our existing runtime responsibilities.
+
+The handwritten fixture's structural mapping will be replaced by the generated bridge, while independent expected-value assertions and its demonstrated policy behavior remain regression evidence. Do not retain it as an alternative production mapping source or merely test the generator against its own generated expectations.
+
+An upstream/local mismatch is not automatically a local bug: root API `id` versus computed Bicep `id` already demonstrates intentional contract normalization. Check exact source/version/toolchain selection, canonical correlation, intended Bicep semantics and possible upstream limitations or defects. Preserve both raw schema diagnostics and reviewed command-level proof. Upstream-generated types and the CLI's bundled catalogue have independent provenance; their association still needs verification, and upstream samples are not a compiled pilot artifact.
 
 ## Goals / Non-Goals
 
@@ -111,6 +159,7 @@ Only the offline input proof is implemented. Wiring it after normalization and b
 
 - Prove a bounded atomic create backend replacement using the complete selected-version API contract and reviewed command-level eligibility/binding evidence, without claiming schema identity.
 - Reuse existing argument normalization, model serialization, ARM execution and output conventions.
+- Reuse upstream TypeSpec-to-Bicep schema code and generate source-aware structural bindings instead of maintaining parallel Bicep schema rules or handwritten mappings.
 - Make pilot selection explicit and fail before mutation for unsupported pilot inputs or unmet gates.
 - Keep the default codegen/runtime paths and existing public command metadata unchanged.
 
@@ -119,6 +168,7 @@ Only the offline input proof is implemented. Wiring it after normalization and b
 - Replacing the Public IP customization with Bicep, broad Network migration or migration of read/list/delete/update operations.
 - Supporting Basic/IPv6/Global/StandardV2, zones, DNS, IP tags, DDoS, prefix, extended-location or nested-resource creation in the initial pilot.
 - Runtime template compilation, generic declarative orchestration, deployment rollback policies or AVM-provided defaults.
+- Reimplementing/forking the upstream schema emitter or assuming its generated types replace command-specific policy and deployment execution.
 - Declaring production readiness or hiding a full-contract audit mismatch behind a happy-path demonstration.
 
 ## Decisions
@@ -131,6 +181,10 @@ The full Network retry and target-boundary review are complete. Add optional `de
 
 **Alternative rejected:** inventing a Public IP descriptor with empty facets or switching catalogue/source versions to force a pass.
 
+### 1A. Reuse upstream schema interpretation and generate the bridge first
+
+Complete new tasks 1.10-1.15 before Section 2: pin and verify the upstream integration seam, prove exact-version legacy Public IP generation, derive source-aware bindings, add focused correspondence regressions, replace the prototype's structural mapping, and record real coverage against both upstream types and the compiler catalogue. Do not author a second hand-maintained parameter/field map while this prerequisite is unresolved.
+
 ### 2. Preserve the customized request body as the execution input
 
 The pilot consumes the body produced by existing customization, after legacy defaults, tag parsing and argument adaptation. It does not independently derive inputs from command flags or use template defaults to overwrite omission behavior.
@@ -139,11 +193,11 @@ Eligibility is narrow: one standalone Standard/Regional, Static, IPv4 Public IP;
 
 The first fixture compares minimal/default and tags/explicit-timeout bodies. Advanced existing scenarios remain on the direct path and retain their current tests.
 
-The input-binding fixture is the reviewed boundary for root ID and integer differences. It must be consumed by the eventual adapter before preflight or deployment HTTP. Keep the whole raw schema audit; require proof for each bridged/excluded difference instead of changing its result or pruning canonical models. No root `id` parameter is emitted, supplied non-null root IDs are rejected, and only exact normalized Int32 timeout values enter deployment parameters.
+The fixture establishes the reviewed policy boundary for root ID and integer differences. Replace its structural mapping with the generated bridge before the eventual adapter consumes it, and enforce eligibility before preflight or deployment HTTP. Keep the whole raw schema audit; require proof for each bridged/excluded difference instead of changing its result or pruning canonical models. No root `id` parameter is emitted, supplied non-null root IDs are rejected, and only exact normalized Int32 timeout values enter deployment parameters.
 
 ### 3. Build-compile and package one version-fixed template
 
-Author one resource-group-scoped Bicep resource at `2025-07-01`. Compile with a pinned official CLI during build, record executable/version/template provenance and verify the compiler's resource type association separately from the catalogue-only audit. Package the compiled ARM JSON as an immutable pilot asset; do not install or invoke Bicep at command runtime.
+Generate one resource-group-scoped Bicep resource at `2025-07-01` with parameter/field assignments derived from the verified bridge, not a second handwritten structural mapping. Compose only the necessary command/pilot policy around it. Compile with a pinned official CLI during build, record executable/version/template provenance and verify the compiler's resource type association separately from upstream generation and the catalogue-only audit. Package the compiled ARM JSON as an immutable pilot asset; do not install or invoke Bicep at command runtime.
 
 Parameterization must preserve missing versus explicit values. The compiled declaration must contain exactly the selected Public IP, no resource-group or dependency creation, and no additional resource API version. Dynamic object assignment is not permission to bypass typed compiler checks or the contract gate.
 
@@ -178,6 +232,8 @@ Live work requires separate authorization of subscription, existing resource gro
 ## Risks / Trade-offs
 
 - **Legacy ARM metadata differs from modern fixture registrations** -> Fix the shared mechanism with focused evidence and keep all missing associations explicit.
+- **Upstream API/toolchain or legacy-model coverage is incomplete** -> Pin and verify the reuse boundary first; report unsupported cases and review a focused upstream integration change instead of silently copying/forking schema rules.
+- **Flattening, inheritance or repeated source properties obscure correspondence** -> Join canonical IDs with complete containing paths and selected-version provenance; reject missing/ambiguous mappings rather than matching names.
 - **Full contract has enum/constraint/recursive-shape differences** -> Retain `incompatible`/`unsupported` results, extend comparisons only with proof, and block activation for unaccounted differences; reviewed command-level restrictions/bindings never relabel the full API schema compatible.
 - **More ARM permissions and deployment records** -> Confine these changes to explicit opt-in, document required actions and verify least-privilege/failure behavior live.
 - **Existing-resource races** -> Isolated owned names, absence checks and a documented concurrency limit; never claim a conditional create guarantee that transport does not provide.
@@ -188,8 +244,9 @@ Live work requires separate authorization of subscription, existing resource gro
 ## Migration Plan
 
 1. Resolve legacy source discovery, produce a complete exact-version contract/audit report and account for every difference with reviewed binding/eligibility evidence.
-2. Verify a pinned compiler and the compiled single-resource template.
-3. Implement the isolated adapter/opt-in fixture, leaving production defaults untouched.
-4. Prove offline input, transport, error, output and CLI/PowerShell regression gates.
-5. Request live authorization and run bounded owned-resource scenarios.
-6. Report evidence and limitations for review. Disable the fixture override to revert to the current direct backend; any production activation is a subsequent decision, not an automatic outcome.
+2. Pin/reuse upstream TypeSpec-to-Bicep schema generation, prove legacy Public IP/source correspondence and replace the handwritten structural map with the generated bridge.
+3. Generate the single-resource template from the bridge, verify a separately pinned compiler and package the compiled artifact.
+4. Implement the isolated adapter/opt-in fixture, leaving production defaults untouched.
+5. Prove offline input, transport, error, output and CLI/PowerShell regression gates.
+6. Request live authorization and run bounded owned-resource scenarios.
+7. Report evidence and limitations for review. Disable the fixture override to revert to the current direct backend; any production activation is a subsequent decision, not an automatic outcome.

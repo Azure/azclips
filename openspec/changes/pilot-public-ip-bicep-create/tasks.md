@@ -10,10 +10,21 @@
 - [x] 1.8 Obtain review for the remaining writable-root-identity and Int32-preserving binding strategy before authoring/activating the backend; retain full-schema diagnostics separately from the approved, tested command-level eligibility/binding proof.
 - [x] 1.9 Implement the offline pilot input-binding fixture: reject any non-null root ID and unsupported fields, preserve normalized Int32 timeout values and optional omission through the existing deployment serializer, reject nested NAT Gateway input, and prove ordinary direct-ID behavior remains unchanged.
 
+## 1A. Upstream TypeSpec-to-Bicep correspondence (next, before Section 2)
+
+Task 1.9 remains completed prototype evidence, not the long-term mapping source. Complete 1.10-1.15 in order before Section 2; retain existing completed extraction/audit work and reports.
+
+- [ ] 1.10 Pin upstream `@azure-tools/typespec-bicep` source/package and compatible compiler/HTTP/ARM dependencies; verify the reusable API boundary and source-correlation access. Keep it build-only; if a hook is missing, propose a focused upstream integration change rather than copying the emitter or silently using a parallel schema implementation.
+- [ ] 1.11 Run the pinned upstream code against Network source `90e63e5fe2c596e8bd807aad7dd9d62cee1746dd` at exactly `2025-07-01`; prove unambiguous legacy Public IP PUT/resource discovery, writable field/type generation and provenance, or report a concrete blocker without substituting versions or guessed resource associations.
+- [ ] 1.12 Generate source-aware atomic-parameter-to-Bicep-field bindings from canonical operation/property IDs, containing wire paths and existing flattening metadata joined to upstream resource/property correspondence. Classify scope/name/computed identity and excluded/read-only inputs explicitly; fail on missing/ambiguous mappings rather than matching display names.
+- [ ] 1.13 Add focused bridge-generation regressions for flattening/aliases, inherited or reused properties in different paths, exact-version selection, scope/name, root versus nested IDs, source constraints/Int32 preservation and explicit unmapped/ambiguous failures; prove disabled/default canonical generation unchanged.
+- [ ] 1.14 Replace the handwritten prototype's structural mapping with the generated bridge in the offline fixture, retaining separate normalization/eligibility policy and existing independent expected-value assertions. Re-run direct-ID, unsupported-input, optional-omission and exact integer deployment-serialization tests without changing public commands.
+- [ ] 1.15 Produce real Public IP correspondence/coverage evidence against upstream-generated types and the independently pinned compiler catalogue; preserve prior raw audit reports and diagnose version, intentional API/Bicep normalization, local integration or upstream-support differences before advancing.
+
 ## 2. Verified single-resource build artifact
 
-- [ ] 2.1 Pin an official Bicep CLI and verify its identity/resource type association separately from the catalogue-only report.
-- [ ] 2.2 Author the single resource-group-scoped Public IP template from the established contract, preserving normalized body values, omission semantics and resource API `2025-07-01`.
+- [ ] 2.1 After 1.15, pin an official Bicep CLI and verify its identity/resource type association separately from upstream type generation and the catalogue-only report.
+- [ ] 2.2 Generate the single resource-group-scoped Public IP template's field/parameter assignments from the source-aware bridge, preserving normalized body values, omission semantics and resource API `2025-07-01`; do not maintain a second handwritten structural mapping.
 - [ ] 2.3 Build-compile/package immutable ARM JSON with provenance; validate exactly one declared Public IP, no dependencies/resource group, and explicit failure for missing/invalid assets without runtime compilation.
 - [ ] 2.4 Add focused minimal/default and tags/explicit-timeout tests comparing existing canonical request body semantics to template parameters/declaration, including absent optional values.
 
@@ -21,7 +32,7 @@
 
 - [ ] 3.1 Establish the isolated integration fixture referencing Network and Resources, explicitly registering their runtime services and verifying existing factory/visibility seams without new product feature dependencies.
 - [ ] 3.2 Add an internal default-off pilot registration override that preserves public command metadata and routes only explicitly selected fixture invocations to the adapter.
-- [ ] 3.3 Wire the tested input-binding fixture into the eventual pilot adapter after existing customization normalization and before HTTP; reject advanced/different inputs and detected existing targets before deployment submission.
+- [ ] 3.3 Wire the generated bridge and tested eligibility policy into the pilot adapter after existing customization normalization and before HTTP; reject advanced/different inputs and detected existing targets before deployment submission.
 - [ ] 3.4 Compose the existing atomic RG deployment transport in Incremental mode at its separate transport version, retain repository polling/authentication/error helpers, and avoid copying public deployment orchestration.
 - [ ] 3.5 Retrieve the final Public IP through the existing generated GET/output path; surface deployment failure, cancellation and final-GET errors without a fabricated result or direct-backend retry.
 

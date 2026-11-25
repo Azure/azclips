@@ -59,6 +59,44 @@ The pilot SHALL use the complete Public IP deployment contract derived from the 
 - **THEN** read-only fields SHALL remain available in canonical retrieval/output contracts without becoming writable declaration inputs
 - **AND** model traversal SHALL NOT automatically select additional provisioning operations
 
+### Requirement: Upstream schema reuse and source-aware bindings
+
+The pilot SHALL reuse pinned upstream `@azure-tools/typespec-bicep` code to interpret TypeSpec as Bicep resource-type definitions, rather than maintain an independent competing Bicep schema implementation. Build tooling SHALL derive atomic-parameter-to-resource-field bindings through shared selected-version source correspondence, canonical identities and containing property paths. Command normalization, eligibility and execution policy SHALL remain separate responsibilities.
+
+#### Scenario: Reproducible upstream generation
+- **WHEN** upstream resource-type generation is integrated
+- **THEN** its source/package, compatible TypeSpec/HTTP/ARM libraries, input source revision and concrete API selector SHALL be recorded
+- **AND** legacy Public IP discovery at `2025-07-01` SHALL be demonstrated before template generation
+- **AND** no TypeSpec/Bicep compiler or schema emitter SHALL be installed or invoked at command runtime
+
+#### Scenario: Flattened or renamed atomic input
+- **WHEN** an atomic parameter is flattened or renamed relative to its TypeSpec property
+- **THEN** the generated bridge SHALL resolve its canonical property and container chain to the Bicep field
+- **AND** CLI/PowerShell display names, aliases or coincidentally matching generated names SHALL NOT be the source of correspondence
+
+#### Scenario: Reused property or special resource identity
+- **WHEN** one source property is used in multiple resource/property paths or represents scope, resource name or computed identity
+- **THEN** each mapping SHALL include the containing operation/resource/version and usage path
+- **AND** writable body assignments SHALL remain distinct from deployment scope, required resource name, computed root ID and nested reference IDs
+
+#### Scenario: Missing upstream support or correspondence
+- **WHEN** discovery, an upstream correlation seam or an unambiguous source-to-field mapping is unavailable
+- **THEN** the build gate SHALL report the specific unsupported case and block advancement
+- **AND** it SHALL NOT guess by name, silently substitute a handwritten mapping or copy a competing emitter implementation
+- **AND** any necessary focused upstream integration change SHALL require explicit review
+
+#### Scenario: Handwritten prototype is superseded
+- **WHEN** generated Public IP bindings replace the prototype's structural mapping
+- **THEN** independent expected-value and default-path regression assertions SHALL be retained
+- **AND** existing customization, root-ID rejection, Int32 preservation, optional omission and unsupported-input checks SHALL remain effective
+- **AND** the eventual adapter/template SHALL consume the generated correspondence rather than a second manually maintained mapping table
+
+#### Scenario: Upstream output differs from API IR or compiler catalogue
+- **WHEN** an upstream-generated type differs from canonical API IR or the independently pinned Bicep compiler catalogue
+- **THEN** evidence SHALL distinguish source/version selection, intentional API/Bicep normalization, local integration errors and upstream limitations or defects
+- **AND** upstream provenance alone SHALL NOT authorize changing existing command behavior or suppressing audit diagnostics
+- **AND** generating type definitions or sample code SHALL NOT count as compiling and verifying the command-specific deployment template
+
 ### Requirement: Explicit opt-in and unchanged normal commands
 
 The Bicep execution path SHALL be disabled by default and selected only through an explicit internal pilot host/fixture configuration. Public CLI/PowerShell names, aliases, parameters and default-path behavior SHALL remain unchanged.
