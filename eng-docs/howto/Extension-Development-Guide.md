@@ -61,8 +61,8 @@ cd Azclips/src/Extensions/{ExtensionsName}
 node Azclips/toolkit\packages\cli\dist\src\cli.js compile
 ```
 * For extensions that require multiple API spec sources, follow the [Storage Blob](https://github.com/Azure/azclips/tree/main/src/Extensions/Storage/Blob) example. We will support emit multiple source from the aceconfig.yaml soon and update this document accordingly.
-* Add `Azclips/src/Extensions/{ExtensionsName}/Extensions.{ExtensionName}.csproj` to `Azclips/azclips.slnx`
-* Try compiling `dotnet build Azclips/src/Extensions/{ExtensionsName}/Extensions.{ExtensionName}.csproj`, contact Azclips team if any blockers encountered.
+* Add `Azclips/src/Extensions/{ExtensionName}/{project-name}.csproj` to `Azclips/azclips.slnx`, replacing `{project-name}` with the value from `aceconfig.yaml` (for this sample, `Microsoft.Azure.AzClips.Extensions.ContainerService`).
+* Try compiling `dotnet build Azclips/src/Extensions/{ExtensionName}/{project-name}.csproj`, using that same project name; contact the Azclips team if any blockers are encountered.
 
 # Develop [Models](#models)
 * Review the generated model classes under `Azclips/src/Extensions/{ExtensionName}/Models`
@@ -93,7 +93,6 @@ Hooks come in two kinds:
 ### Hook reference
 | Stage | Hook | Kind | Use it to |
 |---|---|---|---|
-| Init | `BeforeInit()` / `AfterInit()` | virtual | Run setup around context wiring, for example replacing `JsonOptions` in `AfterInit()` |
 | Before process | `OverrideBeforeProcessBase()` | partial, on `ProcessorBase<TRequest, TResponse>` | Run setup for every processor, such as auth (see [Customize Auth Flow](#customize-auth-flow)) |
 | Before process | `BeforeProcessAsync()` | virtual | Override before process on single class, usually when `OverrideBeforeProcessBase()` need to be override for some child classes |
 | Request | `Endpoint` | virtual | Redirect the base URL for one processor or the whole extension (Storage's `ResolveUrl()`) |
