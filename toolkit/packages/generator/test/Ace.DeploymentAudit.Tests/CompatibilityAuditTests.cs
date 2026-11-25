@@ -208,17 +208,119 @@ public sealed class CompatibilityAuditTests
         Assert.Contains(Assert.Single(report.Results).Diagnostics, diagnostic => diagnostic.Code == "catalogue-definition-unreadable");
     }
 
-    [Fact]
-    public void Mixed_Open_Union_Is_Unsupported_Not_Incorrectly_Classified_As_Narrowing()
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, true)]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    public void Open_String_Union_Preserves_Enum_Openness_And_Nullability(bool isFixed, bool sourceNullable, bool nativeNullable)
     {
+        var property = new IRPropertyEnum { Id = Id("Widget.status"), Name = "status", WireName = "status", Optional = true,
+            Nullable = sourceNullable, Type = new() { Id = Id("Status") } };
+        var ir = Document(property);
+        ir.Enums = [new() { Id = Id("Status"), Name = "Status", Source = "Service", ValueType = IREnumValueType.String,
+            IsFixed = isFixed, Members = [new() { Name = "Known", Value = "known" }] }];
+        var catalog = new Catalogue();
+        List<ITypeReference> variants = [catalog.Ref(new StringLiteralType("known")), catalog.Ref(new StringType(null, null, null, null))];
+        if (nativeNullable) variants.Add(catalog.Ref(new NullType()));
+        catalog.Resource(new Dictionary<string, ObjectTypeProperty> {
+            ["status"] = new(catalog.Ref(new UnionType(variants)), ObjectTypePropertyFlags.None, null) });
+        AuditResult result = Assert.Single(catalog.Run(ir, Selection).Results);
+        Assert.Equal(!isFixed && sourceNullable == nativeNullable ? "compatible" : "incompatible", result.Status);
+        Assert.Empty(result.Coverage.UnsupportedPaths);
+        if (isFixed) Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "closed-enum-membership");
+        if (sourceNullable != nativeNullable) Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "nullability");
+        if (!isFixed && sourceNullable == nativeNullable) Assert.Empty(result.Diagnostics);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(3, false)]
+    [InlineData(null, true)]
+    public void Open_String_Union_Preserves_Primitive_Constraints_And_Sensitivity(int? minLength, bool sensitive)
+    {
+        var property = Property("value");
+        var ir = Document(property);
+        if (minLength is not null || sensitive)
+            ir.Deployment!.Facets = [new() { Target = property.Id, TypePath = [], MinLength = minLength, Sensitive = sensitive }];
         var catalog = new Catalogue();
         catalog.Resource(new Dictionary<string, ObjectTypeProperty> {
             ["value"] = new(catalog.Ref(new UnionType([
                 catalog.Ref(new StringType(null, null, null, null)), catalog.Ref(new StringLiteralType("known")),
             ])), ObjectTypePropertyFlags.None, null) });
+        AuditResult result = Assert.Single(catalog.Run(ir, Selection).Results);
+        Assert.Equal(minLength is not null || sensitive ? "incompatible" : "compatible", result.Status);
+        if (minLength is not null || sensitive)
+            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == (sensitive ? "sensitivity" : "constraint-minLength"));
+        else Assert.Empty(result.Diagnostics);
+        Assert.Empty(result.Coverage.UnsupportedPaths);
+    }
+
+    [Theory]
+    [InlineData("length")]
+    [InlineData("pattern")]
+    [InlineData("sensitive")]
+    [InlineData("mixed")]
+    public void Nontrivial_String_Unions_Remain_Unsupported(string shape)
+    {
+        var catalog = new Catalogue();
+        TypeBase branch = shape switch {
+            "length" => new StringType(null, 3, 10, null),
+            "pattern" => new StringType(null, null, null, "^[a-z]+$"),
+            "sensitive" => new StringType(true, null, null, null),
+            "mixed" => new IntegerType(null, null),
+            _ => throw new ArgumentOutOfRangeException(nameof(shape)),
+        };
+        catalog.Resource(new Dictionary<string, ObjectTypeProperty> {
+            ["value"] = new(catalog.Ref(new UnionType([
+                catalog.Ref(branch), catalog.Ref(new StringLiteralType("known")),
+            ])), ObjectTypePropertyFlags.None, null) });
         AuditResult result = Assert.Single(catalog.Run(Document(Property("value")), Selection).Results);
         Assert.Equal("unsupported", result.Status);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "catalogue-union-unsupported");
+        Assert.DoesNotContain("$.value", result.Coverage.ComparedPaths);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Writable_Root_Id_Cannot_Be_Silently_Treated_As_Read_Only(bool readOnly)
+    {
+        var property = Property("id");
+        if (readOnly) property.Visibility = [IRVisibility.Read];
+        var catalog = new Catalogue();
+        catalog.Resource([]);
+        AuditResult result = Assert.Single(catalog.Run(Document(property), Selection).Results);
+        Assert.Equal(readOnly ? "compatible" : "unsupported", result.Status);
+        if (readOnly) Assert.Empty(result.Diagnostics);
+        else
+        {
+            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "writable-identity-envelope" && diagnostic.Path == "$.id");
+            Assert.DoesNotContain("$.id", result.Coverage.ComparedPaths);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Int32_Requires_Matching_Catalogue_Range_Not_Implicit_Widening(bool bounded)
+    {
+        var property = Property("value");
+        property.Type = new() { Name = IRTypeRefPrimitiveName.Int32 };
+        var catalog = new Catalogue();
+        catalog.Resource(new Dictionary<string, ObjectTypeProperty> {
+            ["value"] = new(catalog.Ref(new IntegerType(bounded ? int.MinValue : null, bounded ? int.MaxValue : null)),
+                ObjectTypePropertyFlags.None, null) });
+        AuditResult result = Assert.Single(catalog.Run(Document(property), Selection).Results);
+        Assert.Equal(bounded ? "compatible" : "incompatible", result.Status);
+        if (bounded) Assert.Empty(result.Diagnostics);
+        else
+        {
+            AuditDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+            Assert.Equal("integer-range", diagnostic.Code);
+            Assert.Contains("[-2147483648, 2147483647]", diagnostic.Message);
+            Assert.Contains("[-9223372036854775808, 9223372036854775807]", diagnostic.Message);
+        }
     }
 
     [Fact]

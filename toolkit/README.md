@@ -208,8 +208,16 @@ requiredness, nullability, collections/object openness, supported constraints,
 string enum openness and nested model discriminator structures. Recursive
 references are recorded without skipping later siblings. Floating point is
 never narrowed to integer; unsupported unions, lexical formats, numeric literals/
-enums and polymorphic resource envelopes receive explicit diagnostics. Mixed
-open catalogue unions and constrained exact literals also remain unsupported.
+enums and polymorphic resource envelopes receive explicit diagnostics.
+Catalogue unions containing one unconstrained, non-sensitive string type and
+string literals are normalized to that open string after checking nullability.
+Closed source enums, source constraints and sensitivity still receive their
+ordinary comparisons. Constrained, sensitive or mixed-type catalogue unions and
+constrained exact literals remain unsupported rather than being flattened.
+Writable root API identity fields require explicit value-preserving declaration
+bindings; optionality does not make them read-only. Integer comparisons preserve
+source intrinsic widths and explicit/exclusive bounds, using Bicep Int64 limits
+for unspecified catalogue endpoints and reporting both effective ranges.
 
 JSON reports carry deterministic diagnostics, compared/recursive/unsupported
 paths, input/catalogue hashes and source/audit tool provenance. When metadata was

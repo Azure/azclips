@@ -26,7 +26,7 @@ Generic ID references and full embedded resource-shaped models do not select add
 
 Selected pinned extraction succeeded with `Microsoft.Network/publicIPAddresses@2025-07-01`, 1,060 canonical models, 768 operations and four supplemental facets. A separate disabled extraction was deeply equal to the entire selected document after removing only `deployment`. No command/model/output generation input was pruned or changed.
 
-The complete [audit report](public-ip-audit.json) records the exact selection, source/tool/catalogue identities, IR SHA-256, coverage and diagnostics. Its status is **unsupported**, exit code **1**: 102 compared paths, two recursive references and 17 unsupported paths. The 19 diagnostics comprise 16 unsupported catalogue-union comparisons, one writable top-level identity (`$.id`) and two integer-range differences (Public IP and nested NAT Gateway idle timeouts).
+The initial complete [audit report](public-ip-audit.json), preserved unchanged as the baseline, records the exact selection, source/tool/catalogue identities, IR SHA-256, coverage and diagnostics. Its status is **unsupported**, exit code **1**: 102 compared paths, two recursive references and 17 unsupported paths. The 19 diagnostics comprise 16 unsupported catalogue-union comparisons, one writable top-level identity (`$.id`) and two integer-range differences (Public IP and nested NAT Gateway idle timeouts).
 
 The selection boundary is approved; these newly measured contract differences are **not** approved exceptions. Catalogue string-union normalization needs evidence, top-level API identity versus declaration identity needs explicit review, and intrinsic integer-width differences must not be silently widened. The backend/template/compiler/live gates remain blocked; narrowing the runtime case does not turn this report into compatibility.
 
@@ -46,6 +46,26 @@ Validation used the pinned SDK `10.0.404` and existing locked toolchain:
 | `openspec validate pilot-public-ip-bicep-create --strict` and `git diff --check` | Passed |
 
 There are 64 distinct targeted tests across these runs; the final focused run repeats one earlier ambiguity test. No new dependency, public command surface, generated Network processor or live Azure resource was added.
+
+### Audit-gap resolution and remaining binding review
+
+All sixteen failed catalogue unions were inspected through the pinned official loader, not inferred from the SKU example. Each contains one unconstrained, non-sensitive `StringType` plus string literals. All corresponding canonical enums have `isFixed: false`. Their allowed values are exactly those of the string branch, so the auditor now compares them as open strings after the independent nullability check. It still rejects closed-source-enum widening, lost source constraints/sensitivity and constrained, sensitive or mixed-type catalogue unions. No API/model/emitter metadata was changed.
+
+The [post-normalization report](public-ip-audit-after-union-normalization.json) has **118 compared paths**, **two recursive references**, **one unsupported path** and **three diagnostics**, still **unsupported / exit 1**. All sixteen former union paths are compared with no diagnostics. The rerun verified unchanged IR SHA-256, catalogue SHA-256 and complete source provenance against the baseline.
+
+The three remaining diagnostics are evidenced API/declaration differences, not union-walker limitations:
+
+- **Root `$.id`:** canonical input is optional string with no read-only visibility annotation. The generated [create processor](../../../src/Extensions/Network/Processors/CreateOrUpdatePublicIPAddressesProcessor.cs) exposes a writable `Id` forwarded into the body, and [PublicIPAddress](../../../src/Extensions/Network/Models/PublicIPAddress.cs) serializes it as `id`. Existing customization does not normalize the root ID. The exact catalogue entry contains `id` with `ReadOnly, DeployTimeConstant` flags. An optional writable body input cannot be silently removed or reclassified read-only; a source-semantic correction or explicit value-preserving identity binding needs evidence and review.
+- **Both idle timeouts:** canonical primitive is `int32`, and generated processor inputs are `int?`. The Public IP and nested NAT Gateway catalogue integers have no explicit bounds. [Bicep integers are 64-bit](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/data-types#integers), with resource-specific limits applied separately. The auditor retains the source range `[-2147483648, 2147483647]` versus the catalogue's effective `[-9223372036854775808, 9223372036854775807]` and now prints both ranges. A future binding must preserve source bounds rather than accept the catalogue's broader range; typed input/bounded-parameter enforcement is a design candidate, not a completed compatibility proof.
+
+Validation:
+
+| Command / check | Result |
+| --- | --- |
+| `dotnet test toolkit\packages\generator\test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj --no-restore --filter FullyQualifiedName~CompatibilityAuditTests --verbosity minimal` | 31 passed; builds generator, native audit and tests |
+| `node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir <preserved-selected-ir> --catalogue Azure.Bicep.Types.Az@0.2.972 --select Microsoft.Network/publicIPAddresses@2025-07-01` | Completed, exit 1 / unsupported; exact counts, all sixteen resolved paths and unchanged provenance verified |
+
+The baseline strict comparison is not weakened to accommodate a proposed adapter. Remaining identity/integer bindings require review before changing the proof model or authoring the backend. No root product solution build, source re-extraction, compiler or live run was needed or performed for this audit-only change; existing activation gates remain blocked.
 
 ## Goals / Non-Goals
 

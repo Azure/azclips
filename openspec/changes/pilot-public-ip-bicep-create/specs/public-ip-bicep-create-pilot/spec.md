@@ -22,6 +22,22 @@ The pilot SHALL use the complete Public IP deployment contract derived from the 
 - **WHEN** a minimal Public IP example compiles but the complete source/catalogue gate has unresolved differences
 - **THEN** the example SHALL NOT authorize pilot activation or be reported as full-contract compatibility
 
+#### Scenario: Faithfully normalized open catalogue strings
+- **WHEN** a catalogue union contains one unconstrained non-sensitive string type and only string literal alternatives
+- **THEN** the audit SHALL compare it as an open string after checking nullability independently
+- **AND** it SHALL still detect closed source enum widening, source constraint loss and source sensitivity differences
+- **AND** constrained, sensitive or mixed-type unions SHALL NOT be flattened to obtain compatibility
+
+#### Scenario: Optional writable root identity
+- **WHEN** an API body identity field is optional but writable and has no proven value-preserving declaration binding
+- **THEN** the audit SHALL retain an explicit unsupported identity diagnostic
+- **AND** it SHALL NOT silently discard the input or infer read-only visibility from optionality
+
+#### Scenario: Catalogue integer range is broader than the source
+- **WHEN** a source Int32 input is compared with a catalogue integer without explicit bounds
+- **THEN** the audit SHALL report the source and effective Bicep Int64 ranges as different
+- **AND** compatibility SHALL NOT be obtained by widening API input acceptance
+
 #### Scenario: Explicitly selected deployment metadata
 - **WHEN** Public IP is explicitly selected for deployment extraction
 - **THEN** canonical Network IR SHALL remain unchanged apart from the optional deployment section

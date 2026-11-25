@@ -219,7 +219,8 @@ public static class CompatibilityAudit
             }
             var properties = model.Properties.Where(property => property.WireName != "name").ToArray();
             foreach (IRProperty identity in properties.Where(property => property.WireName is "id" or "type" or "apiVersion"))
-                if (Writable(identity)) Unsupported("writable-identity-envelope", $"$.{identity.WireName}", "A writable API identity field cannot be omitted from a declaration contract.");
+                if (Writable(identity)) Unsupported("writable-identity-envelope", $"$.{identity.WireName}",
+                    $"Writable API body identity '{identity.WireName}' requires an explicit value-preserving declaration binding; it cannot be silently omitted.");
             properties = properties.Where(property => property.WireName is not ("id" or "type" or "apiVersion")).ToArray();
             CheckProperties(properties, native.Properties.Where(entry => entry.Key != "name").ToDictionary(), "$");
             CheckAdditional(model.AdditionalProperties, native.AdditionalProperties, model.Id, "$");
@@ -309,6 +310,7 @@ public static class CompatibilityAudit
             {
                 TypeBase[] nonNull = union.Elements.Select(Resolve).Where(type => type is not NullType).ToArray();
                 if (nonNull.Length == 1) native = nonNull[0];
+                else if (OpenStringUnion(nonNull) is { } text) native = text;
             }
             if (native is UnionType && StringValues(native) is null)
             {
@@ -455,8 +457,11 @@ public static class CompatibilityAudit
                     if (facet?.MaxValueExclusive is { } exclusiveMax) max = BigInteger.Min(max, Bound(exclusiveMax)!.Value - 1);
                     min = BigInteger.Max(min, range.Min);
                     max = BigInteger.Min(max, range.Max);
-                    if (min != (integer.MinValue ?? long.MinValue) || max != (integer.MaxValue ?? long.MaxValue))
-                        Difference("integer-range", path, "Integer ranges differ, including intrinsic width and explicit/exclusive bounds.");
+                    BigInteger nativeMin = integer.MinValue ?? long.MinValue;
+                    BigInteger nativeMax = integer.MaxValue ?? long.MaxValue;
+                    if (min != nativeMin || max != nativeMax)
+                        Difference("integer-range", path, FormattableString.Invariant(
+                            $"Source {source.Name} effective range [{min}, {max}] differs from catalogue effective range [{nativeMin}, {nativeMax}]; unspecified catalogue endpoints use Bicep Int64 limits."));
                 }
                 catch (AuditInputException error) { Unsupported(error.Code, path, error.Message); }
             }
@@ -506,6 +511,16 @@ public static class CompatibilityAudit
                 union.Elements.Select(reference => ((StringLiteralType)Resolve(reference)).Value).Distinct(StringComparer.Ordinal).ToArray(),
             _ => null
         };
+
+        private static StringType? OpenStringUnion(IReadOnlyList<TypeBase> variants)
+        {
+            StringType[] strings = variants.OfType<StringType>().ToArray();
+            if (strings.Length != 1 || variants.Any(type => type is not (StringType or StringLiteralType)))
+                return null;
+            StringType text = strings[0];
+            return text.MinLength is null or 0 && text.MaxLength is null && text.Pattern is null && text.Sensitive != true
+                ? text : null;
+        }
 
         private void CheckEnum(IRTypeRefEnum reference, TypeBase native, IRDeploymentFacet? facet, string path)
         {
