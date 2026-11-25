@@ -52,10 +52,7 @@ public sealed class GetConfigCommand : ConfigCommandBase
         }
 
         var sectionEntries = matchingEntries
-            .Select(item => new ConfigEntry(
-                item.Key[(normalizedKey.Length + 1)..],
-                item.Value.Value,
-                item.Value.Source))
+            .Select(item => item.Value with { Key = item.Key[(normalizedKey.Length + 1)..] })
             .ToList();
 
         await WriteOutput(sectionEntries, CancellationToken).ConfigureAwait(false);

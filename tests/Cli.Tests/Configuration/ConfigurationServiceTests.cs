@@ -3,10 +3,13 @@
 
 using System.Text.Json.Nodes;
 using Core.Abstractions;
+using Core.Configuration;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Implementation;
 using Core.Configuration.Options;
 using Core.Configuration.Schema;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace Cli.Tests;
 
@@ -156,6 +159,63 @@ public class ConfigurationServiceTests
         Assert.Equal("global config", values["core.logging.level"].Source);
         Assert.Equal("oneshot", values["agent.recovery.style"].Value);
         Assert.Equal("default", values["agent.recovery.style"].Source);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ListConfigurationWithSourcesAsync_ShouldCompareTypedDefaultsWithoutChangingSources(bool useAdapter)
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        var inner = new Mock<IConfigurationService>();
+        inner.Setup(configuration => configuration.ListConfigurationAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns((bool includeDefaults, CancellationToken token) => service.ListConfigurationAsync(includeDefaults, token));
+        using var services = new ServiceCollection()
+            .RegisterConfigurationServices()
+            .AddSingleton(inner.Object)
+            .BuildServiceProvider();
+        var sourceAware = useAdapter ? services.GetRequiredService<ISourceAwareConfigurationService>() : service;
+
+        await service.SetConfigurationAsync("telemetry.enabled", true);
+        await service.SetConfigurationAsync("agent.provider", "github");
+        await service.SetConfigurationAsync("core.http.maxRetries", 3.0);
+        await service.SetConfigurationAsync("core.logging.level", "debug");
+        await service.SetConfigurationAsync("defaults.group", null);
+        await service.SetConfigurationAsync("defaults.location", "");
+        await service.SetConfigurationAsync("custom.unset", null, force: true);
+
+        var originalLogLevel = Environment.GetEnvironmentVariable("AZCLIPS_LOG_LEVEL");
+        Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", "warn");
+        try
+        {
+            var values = await sourceAware.ListConfigurationWithSourcesAsync();
+
+            Assert.Equal(true, values["telemetry.enabled"].DefaultValue);
+            Assert.True(values["telemetry.enabled"].IsDefaultValue);
+            Assert.Equal("global config", values["telemetry.enabled"].Source);
+            Assert.Equal("builtin", values["agent.provider"].DefaultValue);
+            Assert.False(values["agent.provider"].IsDefaultValue);
+            Assert.Equal("global config", values["agent.provider"].Source);
+            Assert.Equal(3, values["core.http.maxRetries"].DefaultValue);
+            Assert.True(values["core.http.maxRetries"].IsDefaultValue);
+            Assert.Equal("warn", values["core.logging.level"].Value);
+            Assert.Equal("warn", values["core.logging.level"].DefaultValue);
+            Assert.True(values["core.logging.level"].IsDefaultValue);
+            Assert.Equal("environment", values["core.logging.level"].Source);
+            Assert.Null(values["defaults.group"].DefaultValue);
+            Assert.True(values["defaults.group"].IsDefaultValue);
+            Assert.False(values["defaults.location"].IsDefaultValue);
+            Assert.Null(values["custom.unset"].DefaultValue);
+            Assert.Null(values["custom.unset"].IsDefaultValue);
+            Assert.Equal("global config", values["custom.unset"].Source);
+            Assert.True(values["agent.reasoningEffort"].IsDefaultValue);
+            Assert.Equal("default", values["agent.reasoningEffort"].Source);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AZCLIPS_LOG_LEVEL", originalLogLevel);
+        }
     }
 
     [Fact]

@@ -3,4 +3,9 @@
 
 namespace Core.Abstractions;
 
-public sealed record ConfigurationValue(string Key, object? Value, string Source);
+public sealed record ConfigurationValue(string Key, object? Value, string Source)
+{
+    public object? DefaultValue { get; init; }
+
+    public bool? IsDefaultValue { get; init; }
+}
