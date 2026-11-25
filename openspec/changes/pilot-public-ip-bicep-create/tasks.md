@@ -7,7 +7,8 @@
 - [x] 1.5 Obtain review for any required target-selection boundary or remaining contract mismatch before advancing to backend activation; do not synthesize empty-facet metadata or change API versions to force a pass.
 - [x] 1.6 Add validated explicit resource selection and writable-schema facet closure with unchanged canonical IR, exact-version selection provenance and generated reader/schema support.
 - [x] 1.7 Prove scope isolation, selected failure/ambiguity handling, nested/inherited/recursive facets and read-only output preservation, then re-run the selected pinned Public IP source/audit gate.
-- [ ] 1.8 Obtain review for the remaining writable-root-identity and Int32-preserving binding strategy before authoring/activating the backend; the sixteen open-string comparisons are resolved with preserved before/after evidence, but no remaining gap is waived based on the narrow runtime case.
+- [x] 1.8 Obtain review for the remaining writable-root-identity and Int32-preserving binding strategy before authoring/activating the backend; retain full-schema diagnostics separately from the approved, tested command-level eligibility/binding proof.
+- [x] 1.9 Implement the offline pilot input-binding fixture: reject any non-null root ID and unsupported fields, preserve normalized Int32 timeout values and optional omission through the existing deployment serializer, reject nested NAT Gateway input, and prove ordinary direct-ID behavior remains unchanged.
 
 ## 2. Verified single-resource build artifact
 
@@ -20,7 +21,7 @@
 
 - [ ] 3.1 Establish the isolated integration fixture referencing Network and Resources, explicitly registering their runtime services and verifying existing factory/visibility seams without new product feature dependencies.
 - [ ] 3.2 Add an internal default-off pilot registration override that preserves public command metadata and routes only explicitly selected fixture invocations to the adapter.
-- [ ] 3.3 Implement narrow eligibility after existing customization normalization; reject advanced/different inputs and detected existing targets before deployment submission.
+- [ ] 3.3 Wire the tested input-binding fixture into the eventual pilot adapter after existing customization normalization and before HTTP; reject advanced/different inputs and detected existing targets before deployment submission.
 - [ ] 3.4 Compose the existing atomic RG deployment transport in Incremental mode at its separate transport version, retain repository polling/authentication/error helpers, and avoid copying public deployment orchestration.
 - [ ] 3.5 Retrieve the final Public IP through the existing generated GET/output path; surface deployment failure, cancellation and final-GET errors without a fabricated result or direct-backend retry.
 

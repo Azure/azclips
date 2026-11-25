@@ -6,7 +6,7 @@ Establish a deliberately bounded Public IP create pilot that uses Bicep deployme
 
 ### Requirement: Exact-version source and compilation gates
 
-The pilot SHALL use the complete Public IP deployment contract derived from the same pinned TypeSpec source and concrete `2025-07-01` API selector as current codegen. Activation MUST remain blocked until resource identity, scope, ordered inputs, writable contract coverage, catalogue compatibility and template compilation have explicit passing evidence. Catalogue/compiler association MUST be verified separately; version presence alone SHALL NOT constitute a pass.
+The pilot SHALL use the complete Public IP deployment contract derived from the same pinned TypeSpec source and concrete `2025-07-01` API selector as current codegen. Activation MUST remain blocked until resource identity, scope, ordered inputs, writable contract coverage, reviewed command-level handling of every catalogue difference and template compilation have explicit passing evidence. The full-API audit SHALL retain its original incompatible/unsupported diagnostics; command-level proof SHALL NOT be reported as identical API/Bicep schemas. Catalogue/compiler association MUST be verified separately; version presence alone SHALL NOT constitute a pass.
 
 #### Scenario: Real source association is unresolved
 - **WHEN** the selected source cannot provide an unambiguous Public IP resource/operation association
@@ -14,12 +14,12 @@ The pilot SHALL use the complete Public IP deployment contract derived from the 
 - **AND** it SHALL NOT infer an association from a generated class name or handwritten route
 
 #### Scenario: Catalogue is missing, incompatible or unsupported
-- **WHEN** the exact resource/version is missing or any required full-contract comparison is incompatible or unsupported
+- **WHEN** the exact resource/version is missing or any required full-contract difference lacks reviewed binding or eligibility evidence
 - **THEN** activation SHALL remain blocked with the report's coverage and reasons
 - **AND** another API version or a synthetic incomplete contract SHALL NOT be substituted
 
 #### Scenario: Narrow execution case does not conceal contract gaps
-- **WHEN** a minimal Public IP example compiles but the complete source/catalogue gate has unresolved differences
+- **WHEN** a minimal Public IP example compiles but the complete source/catalogue gate has unaccounted differences
 - **THEN** the example SHALL NOT authorize pilot activation or be reported as full-contract compatibility
 
 #### Scenario: Faithfully normalized open catalogue strings
@@ -37,6 +37,12 @@ The pilot SHALL use the complete Public IP deployment contract derived from the 
 - **WHEN** a source Int32 input is compared with a catalogue integer without explicit bounds
 - **THEN** the audit SHALL report the source and effective Bicep Int64 ranges as different
 - **AND** compatibility SHALL NOT be obtained by widening API input acceptance
+
+#### Scenario: Reviewed command-level handling of measured differences
+- **WHEN** pilot input proof accounts for the root ID and both measured integer-range diagnostics
+- **THEN** the complete audit SHALL still report the original three differences
+- **AND** the proof SHALL separately establish rejection of supplied root ID, exact normalized Int32 timeout transmission and rejection of nested NAT Gateway input
+- **AND** compiler, execution-wiring, transport, both-surface playback and live gates SHALL remain independently required
 
 #### Scenario: Explicitly selected deployment metadata
 - **WHEN** Public IP is explicitly selected for deployment extraction
@@ -82,6 +88,28 @@ The initial pilot SHALL accept only one standalone Standard/Regional, Static, IP
 - **WHEN** an explicitly selected pilot supplies zones, DNS, IP tags, DDoS/prefix/extended-location inputs or a different SKU/tier/allocation/IP version
 - **THEN** it SHALL reject that unsupported pilot invocation before submitting the deployment
 - **AND** it SHALL NOT ignore the inputs or silently fall back to direct creation
+
+#### Scenario: Root ID is not a pilot input
+- **WHEN** normalized pilot input contains any non-null root body `id`, including an empty, whitespace, matching or conflicting string
+- **THEN** input binding SHALL fail explicitly before preflight or deployment HTTP requests without removing or changing the value
+- **AND** canonical API IR, the ordinary direct processor and nested reference/output IDs SHALL remain unchanged
+- **AND** root `id` SHALL NOT become a Bicep parameter or declaration assignment
+
+#### Scenario: Existing command surface and normalization
+- **WHEN** current Public IP create command metadata and normalized request bodies are checked
+- **THEN** neither CLI nor PowerShell metadata SHALL bind a root ID or raw request body
+- **AND** existing customization SHALL remain the source of defaults and normalization, including omission of unset root `id`
+
+#### Scenario: Source integer range is preserved
+- **WHEN** the normalized Public IP timeout is bound to deployment parameters
+- **THEN** it SHALL remain the same exact JSON integer as the direct request, including the source Int32 upper boundary
+- **AND** the binding SHALL reject integers outside Int32 instead of accepting Bicep's wider range
+- **AND** existing timeout defaulting SHALL run before binding without independent template defaults or new public input types
+
+#### Scenario: Nested timeout is excluded rather than widened
+- **WHEN** a normalized request contains a NAT Gateway object, including its timeout
+- **THEN** the initial pilot SHALL reject the whole unsupported input explicitly before HTTP
+- **AND** the complete source schema and its integer-range diagnostic SHALL remain preserved
 
 ### Requirement: Single-resource Incremental deployment and resource output
 

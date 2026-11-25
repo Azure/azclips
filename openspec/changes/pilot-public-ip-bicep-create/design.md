@@ -12,7 +12,7 @@ The pinned source was acquired in an isolated sparse checkout without changing t
 - A separate selected-version SDK probe of Public IP found `PublicIPAddress`, `createOrUpdate` lifecycle metadata, the exact resource-group route, a `PublicIPAddress` request body and `ResourceGroup` base scope.
 - The Public IP model's official operation list includes that create operation, but `getArmResource` returns no modern registration. The current extractor requires both and therefore excludes this legacy model. Official association information exists; class/route guessing is not a justified fallback.
 - The actual `Azure.Bicep.Types.Az` assembly identifies itself as `0.2.972+e899dc9a90`, and its index contains `Microsoft.Network/publicIPAddresses@2025-07-01`.
-- **No complete Public IP structural audit has run or passed.** Catalogue presence is only a version-availability check. Compiler association, template compilation and live/runtime parity remain unchecked.
+- **At this initial discovery stage, no complete Public IP structural audit had run or passed.** Later full audit results are preserved below; catalogue presence alone is only a version-availability check. Compiler association, template compilation and live/runtime parity remain unchecked.
 
 ### Source-gate implementation and boundary review
 
@@ -28,7 +28,7 @@ Selected pinned extraction succeeded with `Microsoft.Network/publicIPAddresses@2
 
 The initial complete [audit report](public-ip-audit.json), preserved unchanged as the baseline, records the exact selection, source/tool/catalogue identities, IR SHA-256, coverage and diagnostics. Its status is **unsupported**, exit code **1**: 102 compared paths, two recursive references and 17 unsupported paths. The 19 diagnostics comprise 16 unsupported catalogue-union comparisons, one writable top-level identity (`$.id`) and two integer-range differences (Public IP and nested NAT Gateway idle timeouts).
 
-The selection boundary is approved; these newly measured contract differences are **not** approved exceptions. Catalogue string-union normalization needs evidence, top-level API identity versus declaration identity needs explicit review, and intrinsic integer-width differences must not be silently widened. The backend/template/compiler/live gates remain blocked; narrowing the runtime case does not turn this report into compatibility.
+At this extraction stage, the selection boundary was approved but the newly measured contract differences were **not** approved exceptions. Subsequent normalization and command-level decisions are recorded below. Intrinsic integer widths must not be silently widened, and narrowing the runtime case never turns the full report into schema compatibility.
 
 Validation used the pinned SDK `10.0.404` and existing locked toolchain:
 
@@ -65,11 +65,11 @@ Validation:
 | `dotnet test toolkit\packages\generator\test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj --no-restore --filter FullyQualifiedName~CompatibilityAuditTests --verbosity minimal` | 31 passed; builds generator, native audit and tests |
 | `node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir <preserved-selected-ir> --catalogue Azure.Bicep.Types.Az@0.2.972 --select Microsoft.Network/publicIPAddresses@2025-07-01` | Completed, exit 1 / unsupported; exact counts, all sixteen resolved paths and unchanged provenance verified |
 
-The baseline strict comparison is not weakened to accommodate a proposed adapter. Remaining identity/integer bindings require review before changing the proof model or authoring the backend. No root product solution build, source re-extraction, compiler or live run was needed or performed for this audit-only change; existing activation gates remain blocked.
+The baseline strict comparison was not weakened to accommodate a proposed adapter. At this stage the remaining identity/integer bindings required review before changing the proof model or authoring the backend; the later approved command-level proof is recorded below. No root product solution build, source re-extraction, compiler or live run was needed or performed for this audit-only change.
 
 ### Pinned upstream root-ID investigation
 
-The reviewed next step is authoritative source investigation while retaining the existing exact-schema gate, not adding a separate binding-proof model yet. At source commit `90e63e5fe2c596e8bd807aad7dd9d62cee1746dd`:
+The first reviewed next step was authoritative source investigation while retaining the exact-schema gate, before the later command-level binding decision. At source commit `90e63e5fe2c596e8bd807aad7dd9d62cee1746dd`:
 
 1. [Common Resource](https://github.com/Azure/azure-rest-api-specs/blob/90e63e5fe2c596e8bd807aad7dd9d62cee1746dd/specification/network/resource-manager/Microsoft.Network/Network/Common/main.tsp#L1083) declares `id?: string` without lifecycle visibility, while `name` and `type` explicitly have `@visibility(Lifecycle.Read)`. [PublicIPAddress](https://github.com/Azure/azure-rest-api-specs/blob/90e63e5fe2c596e8bd807aad7dd9d62cee1746dd/specification/network/resource-manager/Microsoft.Network/Network/Common/PublicIPAddress.tsp) inherits that Resource and does not override `id`.
 2. The selected [createOrUpdate operation](https://github.com/Azure/azure-rest-api-specs/blob/90e63e5fe2c596e8bd807aad7dd9d62cee1746dd/specification/network/resource-manager/Microsoft.Network/Network/Network/PublicIPAddress.tsp) uses `LegacyOperations.CreateOrUpdateAsync<PublicIPAddress>` without a request-model override. The locked ARM library `0.68.0` defaults `Request = Resource` and passes it through `@armBodyRoot`; there is no declared root-ID exclusion.
@@ -78,13 +78,38 @@ The reviewed next step is authoritative source investigation while retaining the
 
 The Learn create/update link requested with `view=rest-virtualnetwork-2025-07-01` currently redirects to `2026-03-01`; that rendered page must not be treated as exact-version evidence. No authoritative rule was found establishing whether the pinned service ignores, rejects or requires equality for a caller-supplied root ID that differs from the PUT URI. Generic resource conventions and examples with omitted IDs do not resolve that question.
 
-Consequently, do not modify canonical IR, mark root `id` read-only or silently remove it from the request contract. The unresolved next evidence is service-contract clarification or separately authorized behavioral validation for absent, matching and conflicting root IDs before selecting a value-preserving binding. Nested ID references remain a separate concern and must not be removed by a root-identity rule. No Azure request or live resource was used in this investigation.
+Consequently, do not modify canonical IR, mark root `id` read-only or silently remove it from the request contract. Supporting caller-supplied root IDs would still require service-contract clarification or separately authorized behavioral validation for absent, matching and conflicting values. The approved pilot instead rejects supplied root IDs, as described below. Nested ID references remain a separate concern and must not be removed by a root-identity rule. No Azure request or live resource was used in this investigation.
+
+### Approved command-level input proof
+
+The user approved keeping root API `id` in canonical IR/generated processors without creating a Bicep parameter/assignment, rejecting supplied root IDs in the pilot, and preserving existing Int32 inputs/normalization. This explicitly changes the readiness proof from identical source/catalogue schemas to a complete raw audit plus reviewed, executable command-level handling of each measured difference. The raw report remains **unsupported / exit 1**, not a compatibility pass.
+
+The unregistered [input-binding fixture](../../../tests/Cli.Tests/Fixtures/PublicIpBicepInputBinding.cs) lives only in `Cli.Tests`, which already references Network and Resources. It consumes the JSON body serialized after the real Public IP customization, returns the existing Resources `DeploymentParameter` model, and has no HTTP/host registration or product dependency changes. It is an offline input-binding component for the future adapter, not an execution adapter or a compiled Bicep asset.
+
+| Raw diagnostic | Reviewed pilot treatment | Verified evidence |
+| --- | --- | --- |
+| Writable root `$.id` | Keep API field; no Bicep mapping; reject every non-null supplied root ID before transport | CLI/PS command metadata has no root-ID/raw-body binding; normal direct request omits ID; empty, whitespace, matching and conflicting IDs are rejected without HTTP or value removal; direct processor still sends those values |
+| Public IP timeout Int32 versus Int64 | Preserve the normalized Int32 value as an exact JSON integer, without wider input acceptance or independent defaults | Compare real direct PUT body against parameters serialized by the existing atomic RG deployment processor; omitted/nonpositive values retain existing default 4, positive values through Int32 max retain their value; broader integer inputs are rejected |
+| Nested NAT Gateway timeout Int32 versus Int64 | Entire NAT Gateway input is ineligible for this first pilot | Binding rejects the nested object explicitly without HTTP, including a supplied nested timeout; source schema and raw diagnostic remain unchanged |
+
+The binder validates allowed fields at the envelope, SKU and properties levels. It rejects unsupported fields (including nested ID references), rather than generically deleting any property named `id` or dropping unhandled values. Nested references remain available in the direct processor, and final GET/output IDs are unaffected. SKU/allocation/IP version values and optional Regional tier/tags keep their normalized values; absent tier/tags stay absent from the parameter map.
+
+[Focused tests](../../../tests/Cli.Tests/PublicIpAddressParameterTests.cs) use the existing protected normalization/serialization seam and real `NewResourceGroupDeploymentProcessor` with fake HTTP. The transport checks exercise its actual parameter serialization (and normal final GET), not Bicep compilation or Azure validation. Int32 representation-boundary tests are not claims that the service accepts every Int32 timeout, nor do they relax PowerShell validation.
+
+Validation on pinned SDK `10.0.404`:
+
+| Command | Result |
+| --- | --- |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~PublicIpAddressParameterTests --verbosity quiet` | 59 passed; builds the test project and its existing dependencies; unrelated pre-existing CA1416 warnings remain |
+| `dotnet test toolkit\packages\generator\test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj --no-restore --filter FullyQualifiedName~CompatibilityAuditTests --verbosity minimal` | 31 passed, including open-union and retained strict identity/integer diagnostics |
+
+Only the offline input proof is implemented. Wiring it after normalization and before preflight/submission in the eventual opt-in adapter remains a required gate. The compiled Bicep template must consume this parameter contract with source integer bounds preserved and no root-ID input; compiler association, artifact checks, complete adapter/transport behavior, both-surface playback, existing-resource protection and separately authorized live evidence remain pending. Generated Network code, TypeSpec extraction, public command metadata and the complete audit reports are unchanged.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Prove a bounded atomic create backend replacement using the complete selected-version API contract.
+- Prove a bounded atomic create backend replacement using the complete selected-version API contract and reviewed command-level eligibility/binding evidence, without claiming schema identity.
 - Reuse existing argument normalization, model serialization, ARM execution and output conventions.
 - Make pilot selection explicit and fail before mutation for unsupported pilot inputs or unmet gates.
 - Keep the default codegen/runtime paths and existing public command metadata unchanged.
@@ -113,6 +138,8 @@ The pilot consumes the body produced by existing customization, after legacy def
 Eligibility is narrow: one standalone Standard/Regional, Static, IPv4 Public IP; existing subscription/resource-group/name/location inputs; optional ordinary resource tags and the existing idle timeout. An omitted Regional tier must stay omitted unless the current body explicitly supplies it. Other specified resource fields make the invocation ineligible for the explicit pilot. Normal direct invocations retain all existing combinations.
 
 The first fixture compares minimal/default and tags/explicit-timeout bodies. Advanced existing scenarios remain on the direct path and retain their current tests.
+
+The input-binding fixture is the reviewed boundary for root ID and integer differences. It must be consumed by the eventual adapter before preflight or deployment HTTP. Keep the whole raw schema audit; require proof for each bridged/excluded difference instead of changing its result or pruning canonical models. No root `id` parameter is emitted, supplied non-null root IDs are rejected, and only exact normalized Int32 timeout values enter deployment parameters.
 
 ### 3. Build-compile and package one version-fixed template
 
@@ -151,7 +178,7 @@ Live work requires separate authorization of subscription, existing resource gro
 ## Risks / Trade-offs
 
 - **Legacy ARM metadata differs from modern fixture registrations** -> Fix the shared mechanism with focused evidence and keep all missing associations explicit.
-- **Full contract has enum/constraint/recursive-shape differences** -> Retain `incompatible`/`unsupported` results, extend comparisons only with proof, and block activation pending review; narrow runtime inputs do not erase full-contract gaps.
+- **Full contract has enum/constraint/recursive-shape differences** -> Retain `incompatible`/`unsupported` results, extend comparisons only with proof, and block activation for unaccounted differences; reviewed command-level restrictions/bindings never relabel the full API schema compatible.
 - **More ARM permissions and deployment records** -> Confine these changes to explicit opt-in, document required actions and verify least-privilege/failure behavior live.
 - **Existing-resource races** -> Isolated owned names, absence checks and a documented concurrency limit; never claim a conditional create guarantee that transport does not provide.
 - **Cross-feature coupling** -> Separate integration fixture with explicit feature registration and existing execution helpers; no default product/module dependency.
@@ -160,7 +187,7 @@ Live work requires separate authorization of subscription, existing resource gro
 
 ## Migration Plan
 
-1. Resolve legacy source discovery and produce a complete exact-version contract/audit report.
+1. Resolve legacy source discovery, produce a complete exact-version contract/audit report and account for every difference with reviewed binding/eligibility evidence.
 2. Verify a pinned compiler and the compiled single-resource template.
 3. Implement the isolated adapter/opt-in fixture, leaving production defaults untouched.
 4. Prove offline input, transport, error, output and CLI/PowerShell regression gates.

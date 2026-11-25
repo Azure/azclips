@@ -5,11 +5,15 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using Cli.Tests.Fixtures;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using Microsoft.Azure.Azclips.Extensions.Network.Processors;
+using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using NetworkIndex = Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex;
+using ResourceGroupDeploymentProcessor = Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor;
 using Xunit;
 
 namespace Cli.Tests;
@@ -84,6 +88,7 @@ public class PublicIpAddressParameterTests
         var body = await CaptureCreateBodyAsync(_ => { });
 
         Assert.Equal("Standard", body.GetProperty("sku").GetProperty("name").GetString());
+        Assert.False(body.TryGetProperty("id", out _));
         Assert.False(body.GetProperty("sku").TryGetProperty("tier", out _));
         Assert.False(body.TryGetProperty("tags", out _));
         Assert.False(body.TryGetProperty("zones", out _));
@@ -98,6 +103,212 @@ public class PublicIpAddressParameterTests
         Assert.False(properties.TryGetProperty("ipTags", out _));
         Assert.False(properties.TryGetProperty("publicIPPrefix", out _));
         Assert.False(properties.TryGetProperty("ipAddress", out _));
+    }
+
+    [Theory]
+    [InlineData(ClientType.CLI, "network public-ip create")]
+    [InlineData(ClientType.PowerShell, "New-AzPublicIpAddress")]
+    public void Create_PublicCommands_DoNotBindRootIdOrRawBody(ClientType client, string command)
+    {
+        var metadata = new NetworkIndex().GetCommandMetadata(command, client);
+
+        Assert.DoesNotContain(metadata.Parameters.Values, parameter =>
+            parameter.Name.Equals("Id", StringComparison.OrdinalIgnoreCase) ||
+            parameter.Name.Equals("Body", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("matching")]
+    [InlineData("/subscriptions/other/resourceGroups/other/providers/Microsoft.Network/publicIPAddresses/other")]
+    public async Task Create_DirectProcessor_PreservesExplicitRootId(string supplied)
+    {
+        string id = supplied == "matching" ? new Uri(ResourceUri).AbsolutePath : supplied;
+        var body = await CaptureCreateBodyAsync(processor => processor.Id = id);
+
+        Assert.Equal(id, body.GetProperty("id").GetString());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("matching")]
+    [InlineData("/subscriptions/other/resourceGroups/other/providers/Microsoft.Network/publicIPAddresses/other")]
+    public void BicepBinding_RejectsEverySuppliedRootId_WithoutSendingOrRemovingIt(string supplied)
+    {
+        string id = supplied == "matching" ? new Uri(ResourceUri).AbsolutePath : supplied;
+        var (body, pipeline) = NormalizePilotBody(processor => processor.Id = id);
+
+        var error = Assert.Throws<InvalidInputException>(() => PublicIpBicepInputBinding.Bind(PipName, body));
+
+        Assert.Contains("Root body 'id'", error.Message);
+        Assert.Equal(id, body.GetProperty("id").GetString());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData(null, 4)]
+    [InlineData(int.MinValue, 4)]
+    [InlineData(-1, 4)]
+    [InlineData(0, 4)]
+    [InlineData(1, 1)]
+    [InlineData(30, 30)]
+    [InlineData(int.MaxValue, int.MaxValue)]
+    public async Task BicepBinding_PreservesTheDirectNormalizedTimeoutAsAnExactInteger(int? supplied, int expected)
+    {
+        var directBody = await CaptureCreateBodyAsync(processor => processor.IdleTimeoutInMinutes = supplied);
+        var (body, pipeline) = NormalizePilotBody(processor => processor.IdleTimeoutInMinutes = supplied);
+        var parameters = PublicIpBicepInputBinding.Bind(PipName, body);
+        JsonElement bound = await CaptureDeploymentParametersAsync(parameters);
+        JsonElement boundValue = bound.GetProperty("idleTimeoutInMinutes").GetProperty("value");
+
+        Assert.Equal(expected, directBody.GetProperty("properties").GetProperty("idleTimeoutInMinutes").GetInt32());
+        Assert.Equal((long)expected, boundValue.GetInt64());
+        Assert.Equal(JsonValueKind.Number, boundValue.ValueKind);
+        Assert.False(bound.TryGetProperty("id", out _));
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData(-2147483649L)]
+    [InlineData(2147483648L)]
+    public void BicepBinding_RejectsBroaderBicepIntegersInsteadOfWideningApiInputs(long supplied)
+    {
+        var (body, pipeline) = NormalizePilotBody(_ => { });
+        var modified = JsonNode.Parse(body.GetRawText())!;
+        modified["properties"]!["idleTimeoutInMinutes"] = supplied;
+        JsonElement input = JsonSerializer.SerializeToElement(modified);
+
+        var error = Assert.Throws<InvalidInputException>(() => PublicIpBicepInputBinding.Bind(PipName, input));
+
+        Assert.Contains("Int32", error.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BicepBinding_PreservesNormalizedValuesAndOptionalFieldOmission(bool optional)
+    {
+        var (body, pipeline) = NormalizePilotBody(processor =>
+        {
+            if (optional)
+            {
+                processor.SkuTier = "Regional";
+                processor.TagSpecs = ["Owner=team-A"];
+            }
+        });
+        var parameters = PublicIpBicepInputBinding.Bind(PipName, body);
+        JsonElement bound = await CaptureDeploymentParametersAsync(parameters);
+
+        Assert.False(body.TryGetProperty("id", out _));
+        Assert.Equal(body.GetProperty("location").GetString(), bound.GetProperty("location").GetProperty("value").GetString());
+        Assert.Equal(body.GetProperty("sku").GetProperty("name").GetString(), bound.GetProperty("skuName").GetProperty("value").GetString());
+        foreach (string field in new[] { "publicIPAllocationMethod", "publicIPAddressVersion" })
+            Assert.Equal(body.GetProperty("properties").GetProperty(field).GetString(), bound.GetProperty(field).GetProperty("value").GetString());
+        Assert.Equal(optional, bound.TryGetProperty("skuTier", out _));
+        Assert.Equal(optional, bound.TryGetProperty("tags", out _));
+        if (optional)
+        {
+            Assert.Equal("Regional", bound.GetProperty("skuTier").GetProperty("value").GetString());
+            Assert.Equal("team-A", bound.GetProperty("tags").GetProperty("value").GetProperty("Owner").GetString());
+        }
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData("natGateway", "$.properties.natGateway")]
+    [InlineData("publicIPPrefix", "$.properties.publicIPPrefix")]
+    [InlineData("dnsSettings", "$.properties.dnsSettings")]
+    [InlineData("zones", "$.zones")]
+    public void BicepBinding_RejectsUnsupportedInputsRatherThanDiscardingThem(string field, string path)
+    {
+        var (body, pipeline) = NormalizePilotBody(processor =>
+        {
+            switch (field)
+            {
+                case "natGateway": processor.PropertiesIdleTimeoutInMinutes = int.MaxValue; break;
+                case "publicIPPrefix": processor.PublicIpPrefix = "my-prefix"; break;
+                case "dnsSettings": processor.DnsSettingsDomainNameLabel = "my-dns"; break;
+                case "zones": processor.Zones = []; break;
+            }
+        });
+
+        var error = Assert.Throws<InvalidInputException>(() => PublicIpBicepInputBinding.Bind(PipName, body));
+
+        Assert.Contains(path, error.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData("sku")]
+    [InlineData("allocation")]
+    [InlineData("version")]
+    [InlineData("tier")]
+    public void BicepBinding_RejectsDifferentCreateVariants(string field)
+    {
+        var (body, pipeline) = NormalizePilotBody(processor =>
+        {
+            switch (field)
+            {
+                case "sku": processor.SkuName = "Basic"; break;
+                case "allocation": processor.PublicIPAllocationMethod = "Dynamic"; break;
+                case "version": processor.PublicIPAddressVersion = "IPv6"; break;
+                case "tier": processor.SkuTier = "Global"; break;
+            }
+        });
+
+        Assert.Throws<InvalidInputException>(() => PublicIpBicepInputBinding.Bind(PipName, body));
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    private static async Task<JsonElement> CaptureDeploymentParametersAsync(IDictionary<string, DeploymentParameter> parameters)
+    {
+        string? body = null;
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            body ??= request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Json("""{"name":"pilot","properties":{"provisioningState":"Succeeded"}}""");
+        });
+        var processor = new ResourceGroupDeploymentProcessor
+        {
+            SubscriptionId = TestSubscriptionId,
+            ResourceGroupName = ResourceGroupName,
+            Name = "pilot",
+            Properties = new DeploymentProperties { Mode = "Incremental", Parameters = parameters },
+        };
+        Init(processor, pipeline, new FakeOutputHandler());
+
+        await processor.ProcessAsync();
+
+        Assert.NotNull(body);
+        using var document = JsonDocument.Parse(body);
+        return document.RootElement.GetProperty("properties").GetProperty("parameters").Clone();
+    }
+
+    private static (JsonElement Body, FakeHttpPipeline Pipeline) NormalizePilotBody(Action<NormalizingPublicIpProcessor> configure)
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Input binding must not send HTTP requests."));
+        var processor = new NormalizingPublicIpProcessor
+        {
+            SubscriptionId = TestSubscriptionId,
+            ResourceGroupName = ResourceGroupName,
+            PublicIpAddressName = PipName,
+            Location = "eastus",
+        };
+        configure(processor);
+        Init(processor, pipeline, new FakeOutputHandler());
+        return (processor.Normalize(), pipeline);
+    }
+
+    private sealed class NormalizingPublicIpProcessor : CreateOrUpdatePublicIPAddressesProcessor_Customization
+    {
+        internal JsonElement Normalize()
+        {
+            var body = base.CreateRequestBody() ?? throw new InvalidOperationException("Public IP normalization produced no body.");
+            return JsonSerializer.SerializeToElement(body, JsonOptions);
+        }
     }
 
     /// <summary>Only the Basic SKU supports dynamic allocation; the Standard tiers are static-only.</summary>
