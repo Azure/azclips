@@ -1,10 +1,19 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Ace.Generator.Model;
 using Ace.Generator.Model.Ir;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Moq;
 using Xunit;
+using DiagnosticSeverity = Ace.Generator.Model.DiagnosticSeverity;
+using Match = System.Text.RegularExpressions.Match;
 
 namespace Ace.Generator.Tests;
 
@@ -634,21 +643,212 @@ public sealed class CSharpClientGeneratorTests
         Assert.Empty(result.Diagnostics);
         string source = writer.Files.Source(result, "ListProcessor");
         Assert.Contains(selector, source);
-        Assert.Contains("WriteOutputWithPaginationAsync", source);
+        Assert.Contains("ExecuteAsync() => ExecutePagesAsync<string>(ReadPagesAsync(nextLink), pageItems)", source);
+        Assert.DoesNotContain("override IAsyncEnumerable", source);
+        Assert.DoesNotContain("BeforeWriteOutputAsyncAndReturn", source);
+        CompilePaging(result, writer);
+    }
+
+    [Theory]
+    [InlineData("nextLink", false)]
+    [InlineData("nextLink", true)]
+    [InlineData("queryToken", false)]
+    [InlineData("queryToken", true)]
+    [InlineData("headerToken", false)]
+    [InlineData("headerToken", true)]
+    public async Task Generate_Paging_UsesExtensionLocalHelperForLinksAndTokens(string strategy, bool failLaterPage)
+    {
+        bool nextLink = strategy == "nextLink";
+        TransformedIR ir = PagingIr(strategy);
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
+            scenario: $"{nameof(Generate_Paging_UsesExtensionLocalHelperForLinksAndTokens)}_{strategy}_{failLaterPage}");
+
+        Assert.Empty(result.Diagnostics);
+        string source = writer.Files.Source(result, "ListProcessor");
+        if (nextLink)
+        {
+            Assert.Contains("nextLink(Page body) => body.NextLink;", source);
+            Assert.Contains("ExecuteAsync() => ExecutePagesAsync<string>(ReadPagesAsync(nextLink), pageItems)", source);
+            Assert.DoesNotContain("continuationToken", source);
+        }
+        else
+        {
+            Assert.Contains("continuationToken(Page body) => body.NextMarker;", source);
+            Assert.Contains(
+                "ExecuteAsync() => ExecutePagesAsync<string>(ReadPagesAsync(continuationToken, token => Marker = token), pageItems)",
+                source);
+            Assert.DoesNotContain("nextLink", source);
+        }
+        Assert.DoesNotContain("override IAsyncEnumerable", source);
+        Assert.DoesNotContain("BeforeWriteOutputAsyncAndReturn", source);
+        byte[] assembly = CompilePaging(result, writer);
+        await RunGeneratedPagingAsync(assembly, strategy, failLaterPage);
+        if (!failLaterPage)
+        {
+            await RunGeneratedPagingAsync(assembly, strategy, failLaterPage: false, malformedFirstPage: true);
+            await RunGeneratedPagingAsync(assembly, strategy, failLaterPage: false, stopAfterFirstPage: true);
+            await RunGeneratedPagingAsync(assembly, strategy, failLaterPage: false, singleResponse: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("nextLink", false)]
+    [InlineData("queryToken", false)]
+    [InlineData("headerToken", false)]
+    [InlineData("nextLink", true)]
+    [InlineData("queryToken", true)]
+    [InlineData("headerToken", true)]
+    public async Task Generate_Paging_AvoidsParameterAndResponseModelCollisions(string strategy, bool collidingModel)
+    {
+        string pageName = collidingModel ? "Pagination" : "Page";
+        string helperName = collidingModel ? "Pagination2" : "Pagination";
+        TransformedIR ir = PagingIr(strategy, pageName, markerParameter: "Pagination");
+        if (strategy == "nextLink")
+        {
+            ir.Commands[0].Parameters = [.. ir.Commands[0].Parameters, Commands.Parameter("Pagination",
+                Commands.FromQuery(OperationId("p.pagination")), required: false)];
+        }
+        if (collidingModel)
+        {
+            ir.Commands[0].Parameters = [.. ir.Commands[0].Parameters, Commands.Parameter("Pagination2",
+                Commands.FromQuery(OperationId("p.pagination2")), required: false)];
+        }
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
+            scenario: $"{nameof(Generate_Paging_AvoidsParameterAndResponseModelCollisions)}_{strategy}_{collidingModel}");
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal($"Models/{pageName}.cs", result.GeneratedClasses[pageName]);
+        Assert.Equal($"Processors/{helperName}.cs", result.GeneratedClasses[helperName]);
+        byte[] assembly = CompilePaging(result, writer, helperName);
+        string source = writer.Files.Source(result, "ListProcessor");
+        Assert.Contains($"global::Contoso.Clients.Processors.{helperName}.ReadWith",
+            writer.Files.Source(result, "ProcessorBase"));
+        if (collidingModel)
+        {
+            Assert.Contains("using Pagination = global::Contoso.Clients.Models.Pagination;", source);
+        }
+        Assert.Contains($"global::Contoso.Clients.Processors.{helperName}.CollectItemsAsync(pages, pageItems)",
+            writer.Files.Source(result, "ProcessorBase"));
+        await RunGeneratedPagingAsync(assembly, strategy, failLaterPage: false, pageTypeName: pageName, helperName: helperName);
+    }
+
+    [Theory]
+    [InlineData("nextLink")]
+    [InlineData("queryToken")]
+    [InlineData("headerToken")]
+    public async Task Generate_Paging_AvoidsRequestAndItemModelCollisionsAndOccupiedSuffixes(string strategy)
+    {
+        TransformedIR ir = PagingIr(strategy);
+        IRId itemId = new() { Module = "Test", Name = "Pagination" };
+        var itemType = new IRTypeRefModel { Id = itemId };
+        ir.Models =
+        [
+            .. ir.Models,
+            new IRModel { Name = "Pagination", Source = "Test", Id = itemId, Properties = [] },
+            .. new[] { "pagination2", "pagination3" }.Select(name => new IRModel
+            {
+                Name = name,
+                Source = "Test",
+                Id = new IRId { Module = "Test", Name = name },
+                Properties = [],
+            }),
+        ];
+        ir.Models[0].Properties.OfType<IRPropertyCollection>().Single().Type = new IRTypeRefArray { Element = itemType };
+        ir.Commands[0].Surface.Request = itemType;
+        ir.Commands[0].Steps[0].Pagination!.ItemType = itemType;
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
+            scenario: $"{nameof(Generate_Paging_AvoidsRequestAndItemModelCollisionsAndOccupiedSuffixes)}_{strategy}");
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal("Models/Pagination.cs", result.GeneratedClasses["Pagination"]);
+        Assert.Equal("Models/Pagination2.cs", result.GeneratedClasses["Pagination2"]);
+        Assert.Equal("Models/Pagination3.cs", result.GeneratedClasses["Pagination3"]);
+        Assert.Equal("Processors/Pagination4.cs", result.GeneratedClasses["Pagination4"]);
+        Assert.Contains("internal static class Pagination4", writer.Files.Source(result, "Pagination4"));
+        Assert.Contains("ProcessorBase<Pagination, Page>", writer.Files.Source(result, "ListProcessor"));
+        Assert.Contains("using Pagination = global::Contoso.Clients.Models.Pagination;", writer.Files.Source(result, "ListProcessor"));
+        CompilePaging(result, writer, "Pagination4");
+    }
+
+    [Theory]
+    [InlineData("nextLink", "ExecuteAsync")]
+    [InlineData("nextLink", "ReadPagesAsync")]
+    [InlineData("nextLink", "ReadResponseAsync")]
+    [InlineData("nextLink", "ExecutePagesAsync")]
+    [InlineData("queryToken", "ExecuteAsync")]
+    [InlineData("queryToken", "ReadPagesAsync")]
+    [InlineData("queryToken", "ReadResponseAsync")]
+    [InlineData("queryToken", "ExecutePagesAsync")]
+    [InlineData("headerToken", "ExecuteAsync")]
+    [InlineData("headerToken", "ReadPagesAsync")]
+    [InlineData("headerToken", "ReadResponseAsync")]
+    [InlineData("headerToken", "ExecutePagesAsync")]
+    public async Task Generate_Paging_PreservesParametersNamedAfterExecutionMethods(string strategy, string parameterName)
+    {
+        TransformedIR ir = PagingIr(strategy, markerParameter: parameterName);
+        if (strategy == "nextLink")
+        {
+            ir.Commands[0].Parameters = [Commands.Parameter(parameterName,
+                Commands.FromHeader(OperationId("p.seam")), required: false)];
+            ir.Commands[0].Steps[0].Request!.Headers =
+            [
+                .. ir.Commands[0].Steps[0].Request!.Headers,
+                Commands.Supplied("x-seam", parameterName),
+            ];
+        }
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
+            scenario: $"{nameof(Generate_Paging_PreservesParametersNamedAfterExecutionMethods)}_{strategy}_{parameterName}");
+
+        Assert.Empty(result.Diagnostics);
+        byte[] assembly = CompilePaging(result, writer);
+        await RunGeneratedPagingAsync(assembly, strategy, failLaterPage: false, collidingParameter: parameterName);
+        Assert.Contains($"public string? {parameterName}", writer.Files.Source(result, "ListProcessor"));
+        Assert.Equal(parameterName, Assert.Single(ir.Commands[0].Parameters).Name);
     }
 
     [Fact]
-    public async Task Generate_Paging_WithAContinuationToken_SetsItsParameterAndRebuildsTheRequest()
+    public async Task Generate_Paging_ExecutionNameAvoidsOtherCommandsParametersAndOccupiedSuffixes()
     {
-        IRId pageId = new() { Module = "Test", Name = "Page" };
-        IRId valueId = new() { Module = "Test", Name = "Page.value" };
-        IRId markerId = new() { Module = "Test", Name = "Page.nextMarker" };
+        TransformedIR ir = PagingIr("queryToken");
+        ir.Commands =
+        [
+            .. ir.Commands,
+            Commands.Atomic("Get", ServerId(), OperationId("get"),
+                parameters:
+                [
+                    Commands.Parameter("ExecuteAsync", Commands.FromQuery(OperationId("p.execute"))),
+                    Commands.Parameter("ExecuteAsync2", Commands.FromQuery(OperationId("p.execute2"))),
+                ]),
+        ];
+
+        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir,
+            scenario: nameof(Generate_Paging_ExecutionNameAvoidsOtherCommandsParametersAndOccupiedSuffixes));
+
+        Assert.Empty(result.Diagnostics);
+        byte[] assembly = CompilePaging(result, writer);
+        Assert.Contains("protected override Task ExecuteAsync3()", writer.Files.Source(result, "ListProcessor"));
+        Assert.Contains("protected virtual async Task ExecuteAsync3()", writer.Files.Source(result, "ProcessorBase"));
+        Assert.Contains("await ExecuteAsync3();", writer.Files.Source(result, "ProcessorBase"));
+        await RunGeneratedPagingAsync(assembly, "queryToken", failLaterPage: false);
+    }
+
+    private static TransformedIR PagingIr(string strategy, string pageName = "Page", string markerParameter = "Marker")
+    {
+        bool headerToken = strategy == "headerToken";
+        bool nextLink = strategy == "nextLink";
+        IRId pageId = new() { Module = "Test", Name = pageName };
+        IRId valueId = new() { Module = "Test", Name = $"{pageName}.value" };
+        IRId markerId = new() { Module = "Test", Name = nextLink ? $"{pageName}.nextLink" : $"{pageName}.nextMarker" };
         TransformedIR ir = Ir(operations: ["list"]);
         ir.Models =
         [
             new IRModel
             {
-                Name = "Page",
+                Name = pageName,
                 Source = "Test",
                 Id = pageId,
                 Properties =
@@ -663,8 +863,8 @@ public sealed class CSharpClientGeneratorTests
                     new IRPropertyPrimitive
                     {
                         Id = markerId,
-                        Name = "NextMarker",
-                        WireName = "nextMarker",
+                        Name = nextLink ? "NextLink" : "NextMarker",
+                        WireName = nextLink ? "nextLink" : "nextMarker",
                         Type = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
                     },
                 ],
@@ -676,29 +876,30 @@ public sealed class CSharpClientGeneratorTests
                 "List",
                 ServerId(),
                 OperationId("list"),
-                parameters: [Commands.Parameter("Marker", Commands.FromQuery(OperationId("p.marker")), required: false)],
+                query: headerToken || nextLink
+                    ? [Commands.Pinned("api-version", "v1")]
+                    : [Commands.Pinned("api-version", "v1"), Commands.Supplied("marker", markerParameter)],
+                headers: headerToken
+                    ? [Commands.Pinned("x-test", "retained"), Commands.Supplied("x-marker", markerParameter)]
+                    : [Commands.Pinned("x-test", "retained")],
+                parameters: nextLink ? [] : [Commands.Parameter(markerParameter, headerToken
+                    ? Commands.FromHeader(OperationId("p.marker"))
+                    : Commands.FromQuery(OperationId("p.marker")), required: false)],
                 pagination: new IRCommandPagination
                 {
                     ItemType = new IRTypeRefPrimitive { Name = IRTypeRefPrimitiveName.String },
                     Items = new IRPropertyRef { Property = valueId, Via = [] },
-                    ContinuationToken = new IRCommandContinuationToken
+                    NextLink = nextLink ? new IRPropertyRef { Property = markerId, Via = [] } : null,
+                    ContinuationToken = nextLink ? null : new IRCommandContinuationToken
                     {
                         Response = new IRPropertyRef { Property = markerId, Via = [] },
-                        Parameter = "Marker",
+                        Parameter = markerParameter,
                     },
                 },
                 surface: Commands.Surface(response: new IRTypeRefModel { Id = pageId }, paginated: true)),
         ];
 
-        (GenerationResult result, ArtifactWriter writer) = await RunAsync(ir);
-
-        Assert.Empty(result.Diagnostics);
-        string source = writer.Files.Source(result, "ListProcessor");
-        Assert.Contains("continuationToken(Page body) => body.NextMarker;", source);
-        Assert.Contains(
-            "body.WriteOutputWithPaginationAsync(pageItems, continuationToken, token => Marker = token, CreateRequestMessage, DeserializeResponseAsync, WriteOutput, Publisher, HttpPipeline)",
-            source);
-        Assert.DoesNotContain("nextLink", source);
+        return ir;
     }
 
     [Fact]
@@ -731,6 +932,8 @@ public sealed class CSharpClientGeneratorTests
         string source = writer.Files.Source(result, "ListProcessor");
         Assert.DoesNotContain("Ghost", source);
         Assert.DoesNotContain("WriteOutputWithPaginationAsync", source);
+        Assert.DoesNotContain("ReadPagesAsync", source);
+        Assert.DoesNotContain("ExecutePagesAsync", source);
     }
 
     [Fact]
@@ -819,9 +1022,9 @@ public sealed class CSharpClientGeneratorTests
         Assert.True(result.Success);
         Assert.Empty(result.Diagnostics);
         Assert.Equal(
-            new[] { "GetWidgetByNameProcessor", "GetWidgetProcessor", "ProcessorBase" },
+            new[] { "GetWidgetByNameProcessor", "GetWidgetProcessor", "Pagination", "ProcessorBase" },
             result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
-        Assert.Equal(3, writer.Files.ProcessorSources().Count());
+        Assert.Equal(4, writer.Files.ProcessorSources().Count());
     }
 
     [Fact]
@@ -830,6 +1033,7 @@ public sealed class CSharpClientGeneratorTests
         (GenerationResult result, ArtifactWriter writer) = await RunAsync(Ir(models: ["Widget"]));
 
         Assert.Contains("ProcessorBase", result.GeneratedClasses.Keys);
+        Assert.Contains("Pagination", result.GeneratedClasses.Keys);
         // A .csproj is a platform requirement, not a volatile naming decision.
         Assert.Contains(writer.Files.Keys, k => k.EndsWith(".csproj", StringComparison.Ordinal));
     }
@@ -847,9 +1051,9 @@ public sealed class CSharpClientGeneratorTests
         }
         // ...the project file is not a class...
         Assert.DoesNotContain(result.GeneratedClasses.Values, v => v.EndsWith(".csproj", StringComparison.Ordinal));
-        // ...and coverage is exactly model + operation + the always-on base.
+        // ...and coverage is exactly model + operation + the always-on base and helper.
         Assert.Equal(
-            new[] { "ProcessorBase", "RestoreVolumeProcessor", "Widget" },
+            new[] { "Pagination", "ProcessorBase", "RestoreVolumeProcessor", "Widget" },
             result.GeneratedClasses.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
     }
 
@@ -865,6 +1069,7 @@ public sealed class CSharpClientGeneratorTests
         Assert.Equal("Models/Widget.cs", result.GeneratedClasses["Widget"]);
         Assert.Equal("Processors/RestoreVolumeProcessor.cs", result.GeneratedClasses["RestoreVolumeProcessor"]);
         Assert.Equal("Processors/ProcessorBase.cs", result.GeneratedClasses["ProcessorBase"]);
+        Assert.Equal("Processors/Pagination.cs", result.GeneratedClasses["Pagination"]);
         Assert.Contains("Contoso.Clients.csproj", writer.Files.Keys);
     }
 
@@ -896,8 +1101,8 @@ public sealed class CSharpClientGeneratorTests
         (GenerationResult result, _) = await RunAsync(Ir(models: [""]));
 
         Assert.Contains(result.Diagnostics, d => d.Code == "ace-generator/empty-model-name");
-        // The empty-named model is skipped, not emitted — only the always-on base remains.
-        Assert.Equal("ProcessorBase", Assert.Single(result.GeneratedClasses.Keys));
+        // The empty-named model is skipped; only the always-on scaffolding remains.
+        Assert.Equal(["Pagination", "ProcessorBase"], result.GeneratedClasses.Keys.OrderBy(name => name));
     }
 
     [Fact]
@@ -984,6 +1189,226 @@ public sealed class CSharpClientGeneratorTests
         Assert.Contains("CommonTypesErrorResponse? Error", holder);
         // The id's name must not leak through as a type reference.
         Assert.DoesNotContain("ErrorResponse? Error", holder.Replace("CommonTypesErrorResponse? Error", ""));
+    }
+
+    private static byte[] CompilePaging(GenerationResult result, ArtifactWriter writer, string helperName = "Pagination")
+    {
+        string platformAssemblies = Assert.IsType<string>(AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"));
+        string[] dependencies =
+        [
+            .. platformAssemblies.Split(Path.PathSeparator),
+            typeof(Microsoft.Azure.Azclips.ExtensionRuntime.Pagination).Assembly.Location,
+            typeof(Core.Abstractions.IProcessor).Assembly.Location,
+        ];
+        var compilation = CSharpCompilation.Create(
+            "GeneratedPaging",
+            writer.Files.CSharpSources().Select(file => CSharpSyntaxTree.ParseText(file.Value)),
+            dependencies.Distinct(StringComparer.OrdinalIgnoreCase).Select(path => MetadataReference.CreateFromFile(path)),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        Assert.Equal($"Processors/{helperName}.cs", result.GeneratedClasses[helperName]);
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+
+        Assert.True(emitted.Success, string.Join(Environment.NewLine,
+            emitted.Diagnostics.Where(diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error)));
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var semanticModel = compilation.GetSemanticModel(tree);
+            foreach (var invocation in tree.GetRoot().DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>())
+            {
+                if (semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+                    && method.Name is "ReadWithTokenAsync" or "ReadWithNextLinkAsync" or "CollectItemsAsync")
+                {
+                    Assert.Equal($"Contoso.Clients.Processors.{helperName}", method.ContainingType.ToDisplayString());
+                    Assert.Equal(compilation.Assembly, method.ContainingAssembly);
+                }
+            }
+        }
+        return output.ToArray();
+    }
+
+    private static async Task RunGeneratedPagingAsync(byte[] assemblyBytes, string strategy, bool failLaterPage, bool malformedFirstPage = false, bool stopAfterFirstPage = false, string pageTypeName = "Page", string helperName = "Pagination", bool singleResponse = false, string? collidingParameter = null)
+    {
+        bool headerToken = strategy == "headerToken";
+        bool nextLink = strategy == "nextLink";
+        var loadContext = new AssemblyLoadContext("GeneratedPagingExecution", isCollectible: true);
+        try
+        {
+            using var stream = new MemoryStream(assemblyBytes);
+            var assembly = loadContext.LoadFromStream(stream);
+            var helper = Assert.Single(assembly.GetTypes(), type => type.Name == helperName && type.Namespace == "Contoso.Clients.Processors");
+            Assert.False(helper.IsPublic);
+            Assert.Equal("Contoso.Clients.Processors", helper.Namespace);
+            var processorType = Assert.Single(assembly.GetTypes(), type => type.Name == "ListProcessor");
+            var processor = Assert.IsAssignableFrom<IProcessor>(Activator.CreateInstance(processorType));
+            const string seamHeader = "retained +/&=";
+            if (nextLink && collidingParameter is not null)
+            {
+                var property = processorType.GetProperty(collidingParameter);
+                Assert.NotNull(property);
+                property.SetValue(processor, seamHeader);
+            }
+            var pageReaders = processorType.GetMethods(
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Where(method => method.Name == "ReadPagesAsync").ToArray();
+            Assert.Equal([1, 2], pageReaders.Select(method => method.GetParameters().Length).Order());
+            Assert.All(pageReaders, method =>
+            {
+                Assert.False(method.IsVirtual);
+                Assert.All(method.GetParameters(), parameter => Assert.False(parameter.IsOptional));
+            });
+            string?[] markers = [null, "second +/&=", "third?="];
+            string[] names = ["first", "second", "third"];
+            var requests = new List<string>();
+            var responses = new List<TrackedContent>();
+            var written = new List<object>();
+            var publisher = new Mock<IEventPublisher>();
+            publisher.SetReturnsDefault(Task.CompletedTask);
+            var pipeline = new Mock<IRuntimeHttpPipeline>();
+            pipeline.Setup(value => value.SendAsync(It.IsAny<HttpRequestMessage>(), publisher.Object))
+                .Returns((HttpRequestMessage request, IEventPublisher _) =>
+                {
+                    int index = requests.Count;
+                    Assert.InRange(index, 0, 2);
+                    Assert.Empty(written);
+                    Assert.Equal(HttpMethod.Get, request.Method);
+                    string expectedUri = "https://example.com/widgets?api-version=v1";
+                    if (nextLink && index > 0)
+                    {
+                        expectedUri = $"https://example.com/widgets?continuation=page{index + 1}";
+                    }
+                    else if (!headerToken && !nextLink && markers[index] is { } marker)
+                    {
+                        expectedUri += $"&marker={Uri.EscapeDataString(marker)}";
+                    }
+                    Assert.Equal(expectedUri, request.RequestUri!.AbsoluteUri);
+                    Assert.Equal("retained", Assert.Single(request.Headers.GetValues("x-test")));
+                    if (nextLink && collidingParameter is not null)
+                    {
+                        Assert.Equal(seamHeader, Assert.Single(request.Headers.GetValues("x-seam")));
+                    }
+                    string? sentToken = request.Headers.TryGetValues("x-marker", out var values)
+                        ? Assert.Single(values)
+                        : null;
+                    Assert.Equal(headerToken ? markers[index] : null, sentToken);
+                    requests.Add(request.RequestUri.AbsoluteUri);
+                    bool failed = failLaterPage && index == 1;
+                    string rawBody = failed
+                        ? """{"error":{"code":"Denied","message":"Access denied."}}"""
+                        : nextLink ? JsonSerializer.Serialize(new
+                        {
+                            value = new[] { names[index] },
+                            nextLink = index + 1 < names.Length ? $"https://example.com/widgets?continuation=page{index + 2}" : null,
+                        })
+                        : JsonSerializer.Serialize(new
+                        {
+                            value = new[] { names[index] },
+                            nextMarker = index + 1 < markers.Length ? markers[index + 1] : null,
+                        });
+                    if (malformedFirstPage) rawBody = "{invalid-json";
+                    var content = new TrackedContent(rawBody);
+                    responses.Add(content);
+                    return Task.FromResult(new HttpResponseMessage(failed ? HttpStatusCode.Forbidden : HttpStatusCode.OK)
+                    {
+                        RequestMessage = request,
+                        Content = content,
+                    });
+                });
+            var output = new Mock<IOutputHandler>();
+            output.SetupProperty(value => value.WriteOutput, (value, _) =>
+            {
+                written.Add(value);
+                return Task.CompletedTask;
+            });
+            processor.Init(new ProcessorContext(pipeline.Object, publisher.Object, Mock.Of<IAuthHandler>(), output.Object));
+
+            Assert.Empty(requests);
+            Assert.Empty(written);
+            if (singleResponse)
+            {
+                var readResponse = processorType.GetMethods(
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Single(method => method.Name == "ReadResponseAsync" && method.GetParameters().Length == 0);
+                var task = Assert.IsAssignableFrom<Task>(readResponse.Invoke(processor, null));
+                await task;
+                Assert.NotNull(task.GetType().GetProperty("Result")!.GetValue(task));
+                Assert.Single(requests);
+                Assert.Empty(written);
+            }
+            else if (stopAfterFirstPage)
+            {
+                var readPages = pageReaders.Single(method => method.GetParameters().Length == (nextLink ? 1 : 2));
+                var selector = processorType.GetMethod(nextLink ? "nextLink" : "continuationToken",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Assert.NotNull(selector);
+                Delegate getContinuation = selector.CreateDelegate(readPages.GetParameters()[0].ParameterType, processor);
+                object[] arguments = nextLink ? [getContinuation]
+                    : [getContinuation, (Action<string>)(_ => throw new InvalidOperationException("Early disposal must not set a continuation token."))];
+                var pages = Assert.IsAssignableFrom<IAsyncEnumerable<object>>(readPages.Invoke(processor, arguments));
+                Assert.Empty(requests);
+                await using (var iterator = pages.GetAsyncEnumerator())
+                {
+                    Assert.Empty(requests);
+                    Assert.True(await iterator.MoveNextAsync());
+                    var items = iterator.Current.GetType().GetProperty("Value");
+                    Assert.NotNull(items);
+                    Assert.Equal(["first"], Assert.IsAssignableFrom<IEnumerable<string>>(items.GetValue(iterator.Current)));
+                    Assert.Single(requests);
+                    Assert.All(responses, response => Assert.True(response.Disposed));
+                }
+                Assert.Empty(written);
+            }
+            else if (malformedFirstPage)
+            {
+                var error = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+                Assert.Equal($"Failed to deserialize response body into {pageTypeName}. Raw body: {{invalid-json", error.Message);
+                Assert.IsType<JsonException>(error.InnerException);
+                publisher.Verify(value => value.Publish(Events.ResponseInvalidJson,
+                    "response could not be deserialized for https://example.com/widgets?api-version=v1"), Times.Once);
+                Assert.Empty(written);
+            }
+            else if (failLaterPage)
+            {
+                var error = await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync());
+                Assert.Equal(HttpStatusCode.Forbidden, error.StatusCode);
+                Assert.Empty(written);
+            }
+            else
+            {
+                await processor.ProcessAsync();
+                Assert.Equal(names, Assert.IsType<List<string>>(Assert.Single(written)));
+                if (!nextLink && collidingParameter is not null)
+                {
+                    var property = processorType.GetProperty(collidingParameter);
+                    Assert.NotNull(property);
+                    Assert.Equal(markers[^1], property.GetValue(processor));
+                }
+            }
+
+            int count = malformedFirstPage || stopAfterFirstPage || singleResponse ? 1 : failLaterPage ? 2 : 3;
+            int creates = nextLink && !malformedFirstPage && !singleResponse ? 2 : count;
+            Assert.Equal(count, requests.Count);
+            Assert.All(responses, response => Assert.True(response.Disposed));
+            publisher.Verify(value => value.Publish(Events.ProcessorBeforeHttpRequestCreate), Times.Exactly(creates));
+            publisher.Verify(value => value.Publish(Events.ProcessorAfterHttpRequestCreate), Times.Exactly(creates));
+            publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncStart), Times.Exactly(stopAfterFirstPage || singleResponse ? 0 : 1));
+            publisher.Verify(value => value.Publish(Events.ProcessorProcessAsyncEnd), Times.Exactly(stopAfterFirstPage || singleResponse ? 0 : 1));
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    private sealed class TrackedContent(string content) : StringContent(content)
+    {
+        public bool Disposed { get; private set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            Disposed = true;
+            base.Dispose(disposing);
+        }
     }
 
     [Fact]

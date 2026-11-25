@@ -39,6 +39,8 @@
     <Compile Remove="test/**/*.cs" />
     <Compile Remove="tools/**/*.cs" />
     <Compile Remove="host/**/*.cs" />
+    <Compile Remove="src/Templates/**/*.cs" />
+    <EmbeddedResource Include="src/Templates/Pagination.cs" LogicalName="Ace.Generator.Templates.Pagination.cs" />
   </ItemGroup>
 
 </Project>

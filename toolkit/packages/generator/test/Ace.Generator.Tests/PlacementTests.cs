@@ -68,6 +68,9 @@ public sealed class PlacementTests
 
         // Namespaces follow the folders, as C# projects conventionally do.
         Assert.Contains("namespace Contoso.Widgets.Models;", files.Files["Models/Widget.cs"]);
+        Assert.Equal("Processors/Pagination.cs", result.GeneratedClasses["Pagination"]);
+        Assert.Contains("namespace Contoso.Widgets.Processors;", files.Files["Processors/Pagination.cs"]);
+        Assert.Contains("internal static class Pagination", files.Files["Processors/Pagination.cs"]);
 
         // The project name may differ from the namespace, and does here.
         string csproj = files.Files.First(entry => entry.Key.EndsWith(".csproj", StringComparison.Ordinal)).Value;
