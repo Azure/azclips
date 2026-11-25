@@ -4,14 +4,13 @@
 extern alias CmdletsMsGraph;
 
 using System.Management.Automation;
+using CmdletsMsGraph::Microsoft.Azure.Azclips.Cmdlets.MsGraph;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Engine;
 using Moq;
 using static Cmdlets.Tests.Commands.CommandTestHelpers;
-using GetAzMsGraphGroupCmdlet = CmdletsMsGraph::Microsoft.Azure.Azclips.Cmdlets.MsGraph.GetAzMsGraphGroupCmdlet;
-using GetAzMsGraphGroupMemberCmdlet = CmdletsMsGraph::Microsoft.Azure.Azclips.Cmdlets.MsGraph.GetAzMsGraphGroupMemberCmdlet;
 using MsGraphIndex = Microsoft.Azure.Azclips.Extensions.MsGraph.ExtensionIndex;
 
 namespace Cmdlets.Tests.Commands.MsGraph;

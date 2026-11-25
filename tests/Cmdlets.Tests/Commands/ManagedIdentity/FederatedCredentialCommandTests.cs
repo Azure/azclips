@@ -6,11 +6,10 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Engine;
+using Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity;
 using Moq;
 using static Cmdlets.Tests.Commands.CommandTestHelpers;
 using ManagedServiceIdentityIndex = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex;
-using NewAzFederatedIdentityCredentialCmdlet = Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity.NewAzFederatedIdentityCredentialCmdlet;
-using UpdateAzFederatedIdentityCredentialCmdlet = Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity.UpdateAzFederatedIdentityCredentialCmdlet;
 
 namespace Cmdlets.Tests.Commands.ManagedIdentity;
 

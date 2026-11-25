@@ -5,10 +5,10 @@ using System.Management.Automation;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Engine;
+using Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity;
 using Moq;
 using static Cmdlets.Tests.Commands.CommandTestHelpers;
 using ManagedServiceIdentityIndex = Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.ExtensionIndex;
-using NewAzUserAssignedIdentityCmdlet = Microsoft.Azure.Azclips.Cmdlets.ManagedServiceIdentity.NewAzUserAssignedIdentityCmdlet;
 
 namespace Cmdlets.Tests.Commands.ManagedIdentity;
 
