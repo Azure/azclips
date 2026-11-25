@@ -15,7 +15,8 @@ public sealed record AuditCoverage(IReadOnlyList<string> ComparedPaths, IReadOnl
 public sealed record AuditResult(string Selection, string Status, IRId? Operation, IReadOnlyList<AuditDiagnostic> Diagnostics, AuditCoverage Coverage);
 public sealed record AuditToolIdentity(string Name, string Version, string AssemblySha256);
 public sealed record AuditReport(string SchemaVersion, string Catalogue, string CatalogueSha256, string IrSha256,
-    IRDeploymentProvenance? Source, IReadOnlyList<AuditToolIdentity> Tools, string CompilerAssociation, IReadOnlyList<string> Limitations, IReadOnlyList<AuditResult> Results)
+    IRDeploymentProvenance? Source, IReadOnlyList<AuditToolIdentity> Tools, string CompilerAssociation, IReadOnlyList<string> Limitations,
+    IReadOnlyList<AuditResult> Results, IReadOnlyList<string>? ExtractionSelection = null)
 {
     public int ExitCode => Results.Count > 0 && Results.All(result => result.Status == "compatible") ? 0 : 1;
 }
@@ -41,6 +42,11 @@ public static class CompatibilityAudit
                 IRDeploymentContract contract = ir.Deployment
                     ?? throw new AuditInputException("metadata-disabled", "Generate IR with deploymentContract enabled.");
                 if (contract.SchemaVersion != "1.0.0") throw new AuditInputException("metadata-version", "Unsupported deployment contract schema version.");
+                if (contract.Selection is { } extracted &&
+                    (extracted.Count == 0 ||
+                     extracted.Any(value => contract.Resources.Count(resource => Matches(value, resource.ResourceType, resource.ApiVersion)) != 1) ||
+                     contract.Resources.Any(resource => extracted.Count(value => Matches(value, resource.ResourceType, resource.ApiVersion)) != 1)))
+                    throw new AuditInputException("extraction-selection-invalid", "Explicit extraction selection must match deployment descriptors exactly and unambiguously.");
                 var descriptors = contract.Resources.Where(resource => Matches(selection, resource.ResourceType, resource.ApiVersion)).ToArray();
                 if (descriptors.Length != 1) throw new AuditInputException("selection-unresolved", $"'{selection}' resolves to {descriptors.Length} descriptors; select an existing unambiguous descriptor.");
                 IRDeploymentResource descriptor = descriptors[0];
@@ -70,7 +76,8 @@ public static class CompatibilityAudit
         return new("1.0.0", catalogue, catalogueSha256, irSha256, ir.Deployment?.Provenance,
             [Identity(typeof(CompatibilityAudit).Assembly), Identity(typeof(TypeLoader).Assembly)], "unverified",
             ["No template compilation or runtime equivalence was checked.",
-             "Permissions, deployment transport, query/header behavior, outputs, existing resources and live regression gates remain unchecked."], results);
+             "Permissions, deployment transport, query/header behavior, outputs, existing resources and live regression gates remain unchecked."],
+            results, ir.Deployment?.Selection);
     }
 
     private static bool Matches(string selection, string resourceType, string version)

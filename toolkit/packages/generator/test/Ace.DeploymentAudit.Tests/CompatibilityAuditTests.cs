@@ -63,6 +63,7 @@ public sealed class CompatibilityAuditTests
     public void Compatible_Envelope_Preserves_Constraints_And_Explicitly_Unverified_Association()
     {
         var ir = Document(Property("secret"));
+        ir.Deployment!.Selection = [Selection];
         ir.Deployment!.Facets = [new() { Target = Id("Widget.secret"), TypePath = [], MinLength = 8, MaxLength = 128, Sensitive = true }];
         var catalog = new Catalogue();
         var text = catalog.Ref(new StringType(true, 8, 128, null));
@@ -74,11 +75,28 @@ public sealed class CompatibilityAuditTests
         Assert.Contains("$.secret", result.Coverage.ComparedPaths);
         Assert.Empty(result.Diagnostics);
         Assert.Equal("unverified", report.CompilerAssociation);
+        Assert.Equal(Selection, Assert.Single(report.ExtractionSelection!));
         Assert.All(report.Tools, tool => Assert.Matches("^[a-f0-9]{64}$", tool.AssemblySha256));
         using JsonDocument json = JsonDocument.Parse(JsonSerializer.Serialize(report, new JsonSerializerOptions(IrJson.Options) { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         Assert.Equal("compatible", json.RootElement.GetProperty("results")[0].GetProperty("status").GetString());
         Assert.Equal(0, json.RootElement.GetProperty("exitCode").GetInt32());
+        Assert.Equal(Selection, json.RootElement.GetProperty("extractionSelection")[0].GetString());
         Assert.NotEmpty(json.RootElement.GetProperty("limitations").EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Rejects_Empty_Or_Stale_Extraction_Selection(bool stale)
+    {
+        var ir = Document(Property("value"));
+        ir.Deployment!.Selection = stale ? ["Service/other@2024-01-01"] : [];
+        var catalog = new Catalogue();
+        AuditReport report = catalog.Run(ir, Selection);
+        AuditResult result = Assert.Single(report.Results);
+        Assert.Equal("unsupported", result.Status);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "extraction-selection-invalid");
+        Assert.Equal(1, report.ExitCode);
     }
 
     [Theory]

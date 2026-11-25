@@ -34,6 +34,10 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
     sourceId: { type: "string", nullable: true },
     "api-version": { type: "string", nullable: true },
     deploymentContract: { type: "boolean", nullable: true },
+    deploymentResources: {
+      type: "array", nullable: true, minItems: 1, uniqueItems: true,
+      items: { type: "string", pattern: "^[\\w.-]+(?:/[\\w.-]+)+$" },
+    },
     sourceCommit: { type: "string", pattern: "^[a-f0-9]{40}$", nullable: true },
     diagnosticsAsErrors: { type: "boolean", nullable: true },
   },

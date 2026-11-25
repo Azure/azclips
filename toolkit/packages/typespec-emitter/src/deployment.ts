@@ -10,14 +10,14 @@ import {
   type Numeric, type Type,
 } from "@typespec/compiler";
 import {
-  getArmResource, getArmResourceOperationData, getArmResourceOperationList,
+  getArmResourceOperationData, getArmResourceOperationList,
   getResourceBaseType, getResourcePathElements, ResourceBaseType,
 } from "@azure-tools/typespec-azure-resource-manager";
 import type { SdkClientType, SdkHttpOperation, SdkType } from "@azure-tools/typespec-client-generator-core";
 import { isApiVersion } from "@azure-tools/typespec-client-generator-core";
 import {
-  idKey, type IR, type IRDeploymentBinding, type IRDeploymentContract,
-  type IRDeploymentFacet, type IRDeploymentResource, type IRId,
+  idKey, indexIR, type IR, type IRDeploymentBinding, type IRDeploymentContract,
+  type IRDeploymentFacet, type IRDeploymentResource, type IRId, type IRTypeRef,
 } from "@azure-client-engine/ir";
 import type { BuildContext } from "./context.js";
 import { operationIdFor } from "./operation-id.js";
@@ -93,9 +93,60 @@ function sourceFacet(ctx: BuildContext, target: IRId, typePath: IRDeploymentFace
   };
 }
 
-function collectFacets(ctx: BuildContext): IRDeploymentFacet[] {
+function writableInputs(ir: IR, resources: IRDeploymentResource[]): { inputs: Set<string>; enums: Set<string> } {
+  const index = indexIR(ir);
+  const inputs = new Set<string>();
+  const enums = new Set<string>();
+  const seen = new Set<string>();
+  const visit = (type: IRTypeRef): void => {
+    if (type.kind === "primitive") return;
+    if (type.kind === "array") return visit(type.element);
+    if (type.kind === "dictionary") return visit(type.value);
+    if (type.kind === "union") {
+      type.variants.forEach(visit);
+      return;
+    }
+    const key = idKey(type.id);
+    if (seen.has(`${type.kind}:${key}`)) return;
+    seen.add(`${type.kind}:${key}`);
+    if (type.kind === "enum") {
+      enums.add(key);
+    } else if (type.kind === "model") {
+      const model = index.model(type.id);
+      if (!model) fail(`Unresolved selected deployment model: ${key}`);
+      inputs.add(key);
+      for (const property of model.properties) {
+        if (property.visibility !== undefined &&
+            !property.visibility.includes("create") && !property.visibility.includes("update")) continue;
+        inputs.add(idKey(property.id));
+        visit(property.type);
+      }
+      if (model.additionalProperties) visit(model.additionalProperties);
+      if (model.parent) visit({ kind: "model", id: model.parent });
+      model.polymorphism?.subtypes.forEach((subtype) => visit({ kind: "model", id: subtype.type }));
+    } else {
+      const union = index.discriminatedUnion(type.id);
+      if (!union) fail(`Unresolved selected deployment union: ${key}`);
+      union.variants.forEach((variant) => { if (variant.type) visit(variant.type); });
+    }
+  };
+  for (const resource of resources) {
+    const operation = index.operation(resource.operation);
+    if (!operation?.requestBody?.type) fail(`Unresolved selected deployment operation: ${idKey(resource.operation)}`);
+    visit(operation.requestBody.type);
+    for (const parameter of [...operation.pathParameters, ...operation.queryParameters, ...operation.headerParameters]) {
+      inputs.add(idKey(parameter.id));
+      visit(parameter.type);
+    }
+  }
+  return { inputs, enums };
+}
+
+function collectFacets(ctx: BuildContext, scope?: ReturnType<typeof writableInputs>): IRDeploymentFacet[] {
   const facets = new Map<string, IRDeploymentFacet>();
   for (const enumeration of ctx.enums) {
+    const id = ctx.idCache.get(enumeration);
+    if (scope && (!id || !scope.enums.has(idKey(id)))) continue;
     if (enumeration.values.some((value) => typeof value.value === "number" &&
         Number.isInteger(value.value) && !Number.isSafeInteger(value.value))) {
       fail(`Non-representable numeric enum member in ${enumeration.name}`);
@@ -135,10 +186,14 @@ function collectFacets(ctx: BuildContext): IRDeploymentFacet[] {
       }
     }
   };
-  for (const [property, id] of ctx.propertyIdCache) collect(id, property.type, property.__raw, []);
+  for (const [property, id] of ctx.propertyIdCache) {
+    if (!scope || scope.inputs.has(idKey(id))) collect(id, property.type, property.__raw, []);
+  }
   for (const model of ctx.models) {
     const id = ctx.idCache.get(model);
-    if (id && model.additionalProperties) collect(id, model.additionalProperties, undefined, ["additionalProperties"]);
+    if (id && model.additionalProperties && (!scope || scope.inputs.has(idKey(id)))) {
+      collect(id, model.additionalProperties, undefined, ["additionalProperties"]);
+    }
   }
   const visit = (client: SdkClientType<SdkHttpOperation>): void => {
     for (const method of client.methods) {
@@ -147,7 +202,7 @@ function collectFacets(ctx: BuildContext): IRDeploymentFacet[] {
         if ((parameter.kind === "path" || parameter.kind === "query" || parameter.kind === "header") &&
             !(parameter.__raw && isApiVersion(ctx.sdkContext, parameter.__raw))) {
           const id = parameterIdFor(operation, parameter);
-          collect(id, parameter.type, parameter.__raw, []);
+          if (!scope || scope.inputs.has(idKey(id))) collect(id, parameter.type, parameter.__raw, []);
         }
       }
     }
@@ -158,25 +213,30 @@ function collectFacets(ctx: BuildContext): IRDeploymentFacet[] {
     compareText(`${idKey(left.target)}:${left.typePath.join("/")}`, `${idKey(right.target)}:${right.typePath.join("/")}`));
 }
 
-function resourcesFrom(ctx: BuildContext, ir: IR): IRDeploymentResource[] {
+function resourcesFrom(ctx: BuildContext, ir: IR, selection?: string[]): IRDeploymentResource[] {
+  const selected = selection === undefined ? undefined : new Set(selection.map((value) => value.toLowerCase()));
+  if (selected && (selected.size === 0 || selected.size !== selection!.length)) {
+    fail("Deployment resource selection must be nonempty and unique (case-insensitive)");
+  }
   const resources: IRDeploymentResource[] = [];
   const visit = (client: SdkClientType<SdkHttpOperation>): void => {
     for (const method of client.methods) {
       const raw = method.__raw ?? method.operation.__raw.operation;
       if (getArmResourceOperationData(ctx.program, raw)?.kind !== "createOrUpdate") continue;
+      const resolved = getResourcePathElements(method.operation.path, "createOrUpdate");
+      if (!resolved) fail(`ARM resource path is unresolved: ${method.operation.path}`);
+      const { provider, types } = resolved.resourceType;
+      const resourceType = `${provider}/${types.join("/")}`;
+      if (selected && !selected.has(resourceType.toLowerCase())) continue;
       const id = operationIdFor(ctx, raw);
       const operation = ir.operations.find((candidate) => idKey(candidate.id) === idKey(id));
       if (!operation || operation.method !== "PUT" || operation.requestBody?.type?.kind !== "model") {
         fail(`ARM create-or-update operation has no faithful PUT/model representation: ${idKey(id)}`);
       }
       const matches = [...ctx.models].filter((model) => model.__raw?.kind === "Model" &&
-        getArmResource(ctx.program, model.__raw) &&
         [...getArmResourceOperationList(ctx.program, model.__raw)].some((entry) => entry.operation === raw));
       const model = matches[0]?.__raw;
       if (matches.length !== 1 || model?.kind !== "Model") fail(`ARM resource association is unresolved or ambiguous: ${idKey(id)}`);
-      const resolved = getResourcePathElements(method.operation.path, "createOrUpdate");
-      if (!resolved) fail(`ARM resource path is unresolved: ${method.operation.path}`);
-      const { provider, types } = resolved.resourceType;
       const marker = `/providers/${provider}/`;
       const boundary = resolved.resourceInstancePath.lastIndexOf(marker);
       if (boundary < 0) fail(`ARM scope/name boundary is unresolved: ${resolved.resourceInstancePath}`);
@@ -213,13 +273,17 @@ function resourcesFrom(ctx: BuildContext, ir: IR): IRDeploymentResource[] {
       const expected = { tenant: 0, subscription: 1, resourceGroup: 2, resource: 1, managementGroup: 1 }[writableScope];
       if (scopeParameters.length !== expected) fail(`Unresolved ${writableScope} scope bindings in ${idKey(id)}`);
       resources.push({
-        operation: id, resourceType: `${provider}/${types.join("/")}`,
+        operation: id, resourceType,
         apiVersion: operation.apiVersion.value, writableScope, name, scopeParameters,
       });
     }
     client.children?.forEach(visit);
   };
   ctx.sdkContext.sdkPackage.clients.forEach(visit);
+  for (const type of selected ?? []) {
+    const count = resources.filter((resource) => resource.resourceType.toLowerCase() === type).length;
+    if (count !== 1) fail(`Deployment selection '${type}' resolves to ${count} create operations; exactly one is required`);
+  }
   return resources.sort((left, right) => compareText(idKey(left.operation), idKey(right.operation)));
 }
 
@@ -247,15 +311,15 @@ async function toolVersion(name: string): Promise<{ name: string; version: strin
   }
 }
 
-export async function deploymentFrom(ctx: BuildContext, ir: IR, sourceCommit?: string): Promise<IRDeploymentContract> {
-  const resources = resourcesFrom(ctx, ir);
+export async function deploymentFrom(ctx: BuildContext, ir: IR, sourceCommit?: string, selection?: string[]): Promise<IRDeploymentContract> {
+  const resources = resourcesFrom(ctx, ir, selection);
   const inputIds = new Set([
     ...ir.models.map((model) => idKey(model.id)),
     ...ir.models.flatMap((model) => model.properties.map((property) => idKey(property.id))),
     ...ir.operations.flatMap((operation) =>
       [...operation.pathParameters, ...operation.queryParameters, ...operation.headerParameters].map((parameter) => idKey(parameter.id))),
   ]);
-  const facets = collectFacets(ctx);
+  const facets = collectFacets(ctx, selection === undefined ? undefined : writableInputs(ir, resources));
   for (const facet of facets) {
     if (!inputIds.has(idKey(facet.target))) fail(`Source facet has no canonical input: ${idKey(facet.target)}`);
   }
@@ -271,6 +335,7 @@ export async function deploymentFrom(ctx: BuildContext, ir: IR, sourceCommit?: s
   ].map(toolVersion));
   return {
     schemaVersion: "1.0.0", resources, facets,
+    ...(selection !== undefined ? { selection: resources.map((resource) => `${resource.resourceType}@${resource.apiVersion}`).sort(compareText) } : {}),
     provenance: {
       sourceHash: createHash("sha256").update(JSON.stringify(files)).digest("hex"),
       ...(sourceCommit !== undefined ? { sourceCommit } : {}),

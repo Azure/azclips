@@ -1147,6 +1147,9 @@ public partial class IRDeploymentContract
     [JsonPropertyName("resources")]
     public IReadOnlyList<IRDeploymentResource> Resources { get; set; } = [];
 
+    [JsonPropertyName("selection")]
+    public IReadOnlyList<string>? Selection { get; set; }
+
     [JsonPropertyName("facets")]
     public IReadOnlyList<IRDeploymentFacet> Facets { get; set; } = [];
 

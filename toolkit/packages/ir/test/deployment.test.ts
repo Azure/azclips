@@ -47,9 +47,22 @@ describe("deployment metadata", () => {
 
   it("round-trips descriptors and nested facets through both IR boundaries", () => {
     const ir = document();
+    ir.deployment!.selection = ["Service/widgets@2024-01-01"];
     expect(parseIR(JSON.parse(JSON.stringify(ir)))).toEqual(ir);
     const transformed = { ...ir, commands: [], target: { rootNamespace: ["Service"], projectName: "Service" } };
     expect(parseTransformedIR(JSON.parse(JSON.stringify(transformed))).deployment).toEqual(ir.deployment);
+  });
+
+  it.each(["missing", "duplicate", "unselected"] as const)("rejects %s explicit selection", (kind) => {
+    const ir = document();
+    ir.deployment!.selection = kind === "missing" ? ["Service/missing@2024-01-01"]
+      : kind === "duplicate" ? ["Service/widgets@2024-01-01", "service/WIDGETS@2024-01-01"]
+      : ["Service/widgets@2024-01-01"];
+    if (kind === "unselected") {
+      ir.operations.push({ ...ir.operations[0]!, id: id("another") });
+      ir.deployment!.resources.push({ ...ir.deployment!.resources[0]!, operation: id("another"), resourceType: "Service/others" });
+    }
+    expect(() => parseIR(ir)).toThrow(/Deployment|deployment/);
   });
 
   it.each(["operation", "parameter", "model", "facet", "typePath", "version", "ambiguous"] as const)(

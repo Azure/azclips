@@ -21,6 +21,7 @@ public sealed class IrModelDeserializationTests
             {
               "deployment": {
                 "schemaVersion": "1.0.0",
+                "selection": ["Service/widgets/children@2024-01-01"],
                 "resources": [{
                   "operation": { "module": "M", "namespace": ["Service"], "name": "create" },
                   "resourceType": "Service/widgets/children",
@@ -48,6 +49,7 @@ public sealed class IrModelDeserializationTests
             """);
         TransformedIR roundTripped = IrJson.Deserialize(JsonSerializer.Serialize(document, IrJson.Options));
         IRDeploymentContract contract = Assert.IsType<IRDeploymentContract>(roundTripped.Deployment);
+        Assert.Equal("Service/widgets/children@2024-01-01", Assert.Single(contract.Selection!));
         IRDeploymentResource resource = Assert.Single(contract.Resources);
         Assert.Equal(IRDeploymentResourceWritableScope.ResourceGroup, resource.WritableScope);
         Assert.Equal("create.parent", Assert.IsType<IRDeploymentBindingParameter>(resource.Name[0]).Parameter.Name);
@@ -64,6 +66,9 @@ public sealed class IrModelDeserializationTests
         Assert.False(metadataJson.RootElement.GetProperty("provenance").TryGetProperty("sourceCommit", out _));
         Assert.False(metadataJson.RootElement.GetProperty("facets")[0].TryGetProperty("maxLength", out _));
         contract.Resources = [];
+        contract.Selection = null;
+        using JsonDocument unselected = JsonDocument.Parse(JsonSerializer.Serialize(contract, IrJson.Options));
+        Assert.False(unselected.RootElement.TryGetProperty("selection", out _));
         Assert.Empty(IrJson.Deserialize(JsonSerializer.Serialize(roundTripped, IrJson.Options)).Deployment!.Resources);
     }
 

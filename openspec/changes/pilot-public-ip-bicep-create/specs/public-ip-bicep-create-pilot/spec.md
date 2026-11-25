@@ -22,6 +22,21 @@ The pilot SHALL use the complete Public IP deployment contract derived from the 
 - **WHEN** a minimal Public IP example compiles but the complete source/catalogue gate has unresolved differences
 - **THEN** the example SHALL NOT authorize pilot activation or be reported as full-contract compatibility
 
+#### Scenario: Explicitly selected deployment metadata
+- **WHEN** Public IP is explicitly selected for deployment extraction
+- **THEN** canonical Network IR SHALL remain unchanged apart from the optional deployment section
+- **AND** metadata SHALL record the selected exact-version root and preserve its complete writable schema/facets with recursion guards
+- **AND** unrelated operations SHALL remain outside the selected audit rather than being declared compatible
+
+#### Scenario: Invalid root or unsupported selected dependency
+- **WHEN** a requested root is missing/ambiguous or its writable schema/scope cannot be faithfully represented
+- **THEN** extraction SHALL fail explicitly and emit no partial selected contract
+
+#### Scenario: Read-only or resource-shaped dependencies
+- **WHEN** a selected resource has read-only fields, generic ID references or embedded resource-shaped models
+- **THEN** read-only fields SHALL remain available in canonical retrieval/output contracts without becoming writable declaration inputs
+- **AND** model traversal SHALL NOT automatically select additional provisioning operations
+
 ### Requirement: Explicit opt-in and unchanged normal commands
 
 The Bicep execution path SHALL be disabled by default and selected only through an explicit internal pilot host/fixture configuration. Public CLI/PowerShell names, aliases, parameters and default-path behavior SHALL remain unchanged.

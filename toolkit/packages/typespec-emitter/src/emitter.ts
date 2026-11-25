@@ -44,6 +44,10 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
   const selector = context.options["api-version"];
   const deploymentError = (detail: string): void =>
     reportDiagnostic(context.program, { code: "deployment-contract-invalid", format: { detail }, target: NoTarget });
+  if (options.deploymentResources !== undefined && !options.deploymentContract) {
+    deploymentError("deploymentResources requires deploymentContract to be enabled");
+    return;
+  }
   if (options.deploymentContract &&
       (!selector || !selector.trim() || ["latest", "all", "unknown"].includes(selector.toLowerCase()))) {
     deploymentError("deploymentContract requires an explicit, concrete api-version; latest/all/default selection is not supported");
@@ -121,7 +125,7 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
       return;
     }
     try {
-      ir.deployment = await deploymentFrom(buildCtx, ir, options.sourceCommit);
+      ir.deployment = await deploymentFrom(buildCtx, ir, options.sourceCommit, options.deploymentResources);
     } catch (error) {
       if (!(error instanceof DeploymentContractError)) throw error;
       deploymentError(error.message);

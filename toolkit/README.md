@@ -149,6 +149,22 @@ canonical path parameters. Supplemental facets preserve constraints, sensitivity
 and exact literals separately from defaults. See
 [`deployment.ts`](packages/ir/src/deployment.ts).
 
+For a bounded audit, add `deploymentResources: [Microsoft.Network/publicIPAddresses]`
+beside `deploymentContract: true` in emitter options. Each resource type must resolve
+to exactly one official ARM create operation at the existing concrete API selector.
+Modern registration is not required when legacy official operation/model association
+is unambiguous. Empty, duplicate, missing or ambiguous selections fail; selecting
+resources while metadata is disabled is an error.
+
+Selection leaves canonical models, operations and command/output generation intact.
+The optional contract `selection` records exact `resourceType@apiVersion` roots;
+facets follow only their complete writable schema, including inherited/nested types,
+collections, polymorphism and cycles. Read-only response properties are retained,
+not converted into create inputs. Nested resource-shaped models and ID references
+do not automatically select additional provisioning operations. Without selection,
+whole-service discovery remains strict; unselected operations are outside a scoped
+audit, not compatible by omission. Genuine compiler/projection errors still fail.
+
 Provenance contains a deterministic SHA-256 of loaded TypeSpec source contents
 and file identities plus resolved toolchain versions. Remote primary sources
 also record the commit acquired by the CLI; local primary sources do not borrow
@@ -196,7 +212,10 @@ enums and polymorphic resource envelopes receive explicit diagnostics. Mixed
 open catalogue unions and constrained exact literals also remain unsupported.
 
 JSON reports carry deterministic diagnostics, compared/recursive/unsupported
-paths, input/catalogue hashes and source/audit tool provenance. Exit zero means
+paths, input/catalogue hashes and source/audit tool provenance. When metadata was
+explicitly scoped, `extractionSelection` records those exact roots independently
+of the requested audit selections. It must match the emitted descriptors;
+unselected resources are outside the report's compatibility claim. Exit zero means
 **every selection is structurally compatible within the reported coverage**;
 incompatible or unsupported results return nonzero. Input/invocation failures
 also produce structured diagnostics and a nonzero exit. Unsupported paths are

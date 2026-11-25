@@ -185,6 +185,23 @@ function checkDeployment(ir: IR, ctx: z.RefinementCtx): void {
     resource.scopeParameters.forEach((id, bindingIndex) =>
       checkInput(id, [...path, "scopeParameters", bindingIndex]));
   });
+  if (ir.deployment.selection) {
+    const selection = new Set<string>();
+    ir.deployment.selection.forEach((value, index) => {
+      const separator = value.lastIndexOf("@");
+      const key = value.slice(0, separator).toLowerCase() + value.slice(separator);
+      if (selection.has(key)) issue(["selection", index], "Duplicate deployment selection");
+      selection.add(key);
+      const matches = ir.deployment!.resources.filter((resource) =>
+        `${resource.resourceType.toLowerCase()}@${resource.apiVersion}` === key);
+      if (matches.length !== 1) issue(["selection", index], "Deployment selection must resolve to exactly one descriptor");
+    });
+    ir.deployment.resources.forEach((resource, index) => {
+      if (!selection.has(`${resource.resourceType.toLowerCase()}@${resource.apiVersion}`)) {
+        issue(["resources", index], "Deployment descriptor is outside the explicit selection");
+      }
+    });
+  }
   const facets = new Set<string>();
   ir.deployment.facets.forEach((facet, index) => {
     const key = `${idKey(facet.target)}:${facet.typePath.join("/")}`;

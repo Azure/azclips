@@ -35,6 +35,8 @@ export interface EmitterOptions {
   "api-version"?: string;
   /** Emit opt-in deployment contracts. Requires a concrete api-version. */
   deploymentContract?: boolean;
+  /** Limit deployment metadata to these resource types at the existing api-version. */
+  deploymentResources?: string[];
   /** Resolved source commit supplied by the host, when the source was fetched. */
   sourceCommit?: string;
   /** If true, any warning-severity diagnostic causes a non-zero exit code. Default `false`. */
@@ -57,7 +59,7 @@ export const EMITTER_OPTION_DEFAULTS = {
  * optional pass-throughs the emitter never reads from here (`api-version` flows
  * through the raw `context.options` to TCGC's `createSdkContext`).
  */
-export function resolveOptions(opts: EmitterOptions | undefined): Required<Omit<EmitterOptions, "sourceId" | "sourceCommit" | "api-version">> & { sourceId?: string; sourceCommit?: string } {
+export function resolveOptions(opts: EmitterOptions | undefined): Required<Omit<EmitterOptions, "sourceId" | "sourceCommit" | "api-version" | "deploymentResources">> & { sourceId?: string; sourceCommit?: string; deploymentResources?: string[] } {
   const o = opts ?? {};
   return {
     outputFile: o.outputFile ?? EMITTER_OPTION_DEFAULTS.outputFile,
@@ -68,5 +70,6 @@ export function resolveOptions(opts: EmitterOptions | undefined): Required<Omit<
     deploymentContract: o.deploymentContract ?? EMITTER_OPTION_DEFAULTS.deploymentContract,
     ...(o.sourceId !== undefined ? { sourceId: o.sourceId } : {}),
     ...(o.sourceCommit !== undefined ? { sourceCommit: o.sourceCommit } : {}),
+    ...(o.deploymentResources !== undefined ? { deploymentResources: o.deploymentResources } : {}),
   };
 }

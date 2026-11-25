@@ -48,6 +48,7 @@ export const IRDeploymentProvenanceSchema = z.object({
 export const IRDeploymentContractSchema = z.object({
   schemaVersion: z.literal("1.0.0"),
   resources: z.array(IRDeploymentResourceSchema),
+  selection: z.array(z.string().regex(/^[\w.-]+(?:\/[\w.-]+)+@[^@\s]+$/)).min(1).optional(),
   facets: z.array(IRDeploymentFacetSchema),
   provenance: IRDeploymentProvenanceSchema,
 }).strict();

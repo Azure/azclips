@@ -1,10 +1,13 @@
 ## 1. Real selected-version source and catalogue gate
 
-- [ ] 1.1 Add a focused legacy ARM fixture reproducing the official operation association with absent modern resource registration, including an ambiguous association rejection case.
-- [ ] 1.2 Fix deployment discovery using supported selected-version ARM lifecycle/operation-list and model identities; preserve modern fixtures, source scope/name binding validation and disabled IR equality.
-- [ ] 1.3 Re-run extraction from the exact pinned Network source at `2025-07-01`; record complete Public IP graph/provenance or explicit remaining blockers, without silently skipping failed resources.
+- [x] 1.1 Add a focused legacy ARM fixture reproducing the official operation association with absent modern resource registration, including an ambiguous association rejection case.
+- [x] 1.2 Fix deployment discovery using supported selected-version ARM lifecycle/operation-list and model identities; preserve modern fixtures, source scope/name binding validation and disabled IR equality.
+- [x] 1.3 Re-run extraction from the exact pinned Network source at `2025-07-01`; record complete Public IP graph/provenance or explicit remaining blockers, without silently skipping failed resources.
 - [ ] 1.4 Run the full Public IP catalogue audit at the same resource/API version, resolve narrowly evidenced comparison gaps with focused tests, and retain incompatible/unsupported cases as activation blockers.
-- [ ] 1.5 Obtain review for any required target-selection boundary or remaining contract mismatch before advancing to backend activation; do not synthesize empty-facet metadata or change API versions to force a pass.
+- [x] 1.5 Obtain review for any required target-selection boundary or remaining contract mismatch before advancing to backend activation; do not synthesize empty-facet metadata or change API versions to force a pass.
+- [x] 1.6 Add validated explicit resource selection and writable-schema facet closure with unchanged canonical IR, exact-version selection provenance and generated reader/schema support.
+- [x] 1.7 Prove scope isolation, selected failure/ambiguity handling, nested/inherited/recursive facets and read-only output preservation, then re-run the selected pinned Public IP source/audit gate.
+- [ ] 1.8 Review the measured unsupported string unions, writable root identity and integer-width differences in the preserved full audit before authoring/activating the backend; do not waive gaps based on the narrow runtime case.
 
 ## 2. Verified single-resource build artifact
 

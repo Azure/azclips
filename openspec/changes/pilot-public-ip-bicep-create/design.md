@@ -14,6 +14,39 @@ The pinned source was acquired in an isolated sparse checkout without changing t
 - The actual `Azure.Bicep.Types.Az` assembly identifies itself as `0.2.972+e899dc9a90`, and its index contains `Microsoft.Network/publicIPAddresses@2025-07-01`.
 - **No complete Public IP structural audit has run or passed.** Catalogue presence is only a version-availability check. Compiler association, template compilation and live/runtime parity remain unchecked.
 
+### Source-gate implementation and boundary review
+
+The legacy association fix passed 16 deployment-contract tests and advanced full pinned Network extraction past Application Gateway. Extraction then stopped at `SwapResources.create` with unresolved resource-group scope bindings. That operation is a legacy VIP-swap extension beneath a cloud service; interpreting its scope requires more than changing the expected parameter count.
+
+The user approved explicitly scoped Public IP metadata after reviewing schema dependencies versus resources to provision. The normal canonical Network IR remains complete. Deployment metadata records its selected resource/version roots, and supplemental facets follow their complete writable type graph: inherited properties, nested models, arrays/dictionaries, unions/discriminators and recursive references. Read-only fields remain in canonical retrieval/output models but do not contribute writable facets solely through read-only edges.
+
+Generic ID references and full embedded resource-shaped models do not select additional create operations. A future multi-resource workflow must explicitly select its provisioning roots. Unselected operations, including the unsupported VIP-swap scope, are visibly outside this deployment audit. Missing/ambiguous selected roots, selected scope/facet failures and genuine source/compiler errors still fail; no partial Public IP contract is accepted.
+
+### Selected-source and full audit evidence
+
+Selected pinned extraction succeeded with `Microsoft.Network/publicIPAddresses@2025-07-01`, 1,060 canonical models, 768 operations and four supplemental facets. A separate disabled extraction was deeply equal to the entire selected document after removing only `deployment`. No command/model/output generation input was pruned or changed.
+
+The complete [audit report](public-ip-audit.json) records the exact selection, source/tool/catalogue identities, IR SHA-256, coverage and diagnostics. Its status is **unsupported**, exit code **1**: 102 compared paths, two recursive references and 17 unsupported paths. The 19 diagnostics comprise 16 unsupported catalogue-union comparisons, one writable top-level identity (`$.id`) and two integer-range differences (Public IP and nested NAT Gateway idle timeouts).
+
+The selection boundary is approved; these newly measured contract differences are **not** approved exceptions. Catalogue string-union normalization needs evidence, top-level API identity versus declaration identity needs explicit review, and intrinsic integer-width differences must not be silently widened. The backend/template/compiler/live gates remain blocked; narrowing the runtime case does not turn this report into compatibility.
+
+Validation used the pinned SDK `10.0.404` and existing locked toolchain:
+
+| Command / check | Result |
+| --- | --- |
+| `npm run build` from `toolkit` | Passed |
+| `npm exec -- vitest run packages\ir\test\deployment.test.ts packages\typespec-emitter\test\deployment.e2e.test.ts` from `toolkit` | 34 passed before the final embedded-resource case |
+| `npm exec -- vitest run packages\typespec-emitter\test\deployment.e2e.test.ts -t 'conflicting legacy\|embedded resource'` from `toolkit` | 2 passed, including selected ambiguity and the added embedded-resource case |
+| `npm run schema --workspace=@azure-client-engine/ir` and `npm run schema:check` from `toolkit` | Generated; drift check passed |
+| `dotnet run --project tools\AceIrModelGen --no-restore -- --out src\Model\Ir\Ir.Generated.cs --namespace Ace.Generator.Model.Ir` from `toolkit\packages\generator` | Generated reader |
+| `dotnet test toolkit\packages\generator\test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj --no-restore --filter FullyQualifiedName~CompatibilityAuditTests --verbosity minimal` | 17 passed |
+| `dotnet test toolkit\packages\generator\test\Ace.Generator.Tests\Ace.Generator.Tests.csproj --no-restore --filter 'FullyQualifiedName~IrModelDeserializationTests\|FullyQualifiedName~IrFidelityTests' --verbosity minimal` | 12 passed |
+| Real host-runtime selected and disabled Network extraction at the pinned source/API | Passed; complete canonical IR equality |
+| `node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir <selected-ir> --catalogue Azure.Bicep.Types.Az@0.2.972 --select Microsoft.Network/publicIPAddresses@2025-07-01` | Completed, exit 1 / unsupported; report preserved |
+| `openspec validate pilot-public-ip-bicep-create --strict` and `git diff --check` | Passed |
+
+There are 64 distinct targeted tests across these runs; the final focused run repeats one earlier ambiguity test. No new dependency, public command surface, generated Network processor or live Azure resource was added.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -36,7 +69,7 @@ The pinned source was acquired in an isolated sparse checkout without changing t
 
 Reproduce the legacy association gap with a focused fixture, then use official lifecycle/operation-list association and selected SDK model identity to establish eligibility. Preserve unambiguous request/response resource identity, scope, names and API version. A missing modern registration is not sufficient to reject a model whose supported metadata provides those identities; conversely, a guessed class name or route is not sufficient to accept it.
 
-Run full Network extraction after the narrow fix. Any next unrelated blocker must remain explicit. If resource-targeted extraction is needed, obtain review for that boundary rather than silently skipping failed resources or weakening the source projection. The full Public IP request graph must be covered even though initial runtime activation is narrower.
+The full Network retry and target-boundary review are complete. Add optional `deploymentResources` emitter configuration using resource types at the existing concrete API selector. With no selection, existing whole-service extraction remains strict; with explicit selection, record exact `resourceType@apiVersion` roots in optional contract `selection` and require one create descriptor per root. The full Public IP writable request graph must be covered even though initial runtime activation is narrower. Do not trim the canonical command/output schema to achieve a pass.
 
 **Alternative rejected:** inventing a Public IP descriptor with empty facets or switching catalogue/source versions to force a pass.
 
