@@ -7,7 +7,7 @@ using System.Collections;
 using System.Text.Json;
 using VmCmdletArgumentConverter = CmdletsCompute::Microsoft.Azure.Azclips.Cmdlets.Compute.VmCmdletArgumentConverter;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Compute.Tests;
 
 public class VmCmdletArgumentConverterTests
 {
