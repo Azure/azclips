@@ -70,7 +70,7 @@ Migrate existing legacy clips commands to AzClips extensions while following the
 	- No need to compile at this stage
 
 5. **Learn extension basic**
-	- Learn extension development instruction: `<project-root>\eng-docs\howto\Extension-Development-For-Private-Preview.md`
+	- Learn extension development instruction: `<project-root>\eng-docs\howto\Extension-Development-Guide.md`
 	- reference `<project-root>/src/Extensions/`, everything under except `Customization` should be considered as generated content
 	
 6. **Analyze API interfaces**
