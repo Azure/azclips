@@ -201,6 +201,7 @@ public class SessionConfigTests
                 "view", "rg", "web_fetch",
             },
             config.AvailableTools);
+        Assert.Equal(256 * 1024, config.LargeOutput?.MaxSizeBytes);
         Assert.NotNull(config.SystemMessage);
         Assert.Equal(SystemMessageMode.Customize, config.SystemMessage.Mode);
         var sections = config.SystemMessage.Sections!;
