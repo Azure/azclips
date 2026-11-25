@@ -24,7 +24,8 @@ All test projects are members of the solution `azclips.slnx` and split across th
 | Project                      | Location (slnx)      | What it covers                                                                                                                                       |
 | ---------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Cli.Tests`                  | `azclips.slnx:35`    | CLI integration — structured command dispatch, agent fallback, typo correction, extension add/pin/remove, profile CLI, REST processor URL validation |
-| `Cmdlets.Tests`              | `azclips.slnx:37`    | PowerShell cmdlet behavior                                                                                                                           |
+| `Cmdlets.Tests`              | `azclips.slnx:37`    | PowerShell host behavior and end-to-end cmdlet tests across modules                                                                                  |
+| `Cmdlets.Accounts.Tests`, `Cmdlets.ManagedServiceIdentity.Tests`, `Cmdlets.Resources.Tests` | `azclips.slnx:37` | Module-specific cmdlet unit tests |
 | `Core.Extensions.Tests`      | `azclips.slnx:39`    | Extension resolution / compatibility guard / leaf index                                                                                              |
 | `Core.Telemetry.Tests`       | `azclips.slnx:40`    | Telemetry senders, filters, activity naming                                                                                                          |
 | `Tests.Common`               | `azclips.slnx:38`    | Shared stubs & utilities (not a test project — `IsPackable=false`, referenced by others)                                                             |
