@@ -161,6 +161,7 @@ public sealed class MandatoryParameterTests
         ("Get-AzAccessToken", "Resource", ["ResourceUrl"]),
         ("Get-AzAccessToken", "ResourceType", []),
         ("Get-AzAccessToken", "Scope", ["Scope"]),
+        ("Get-AzProfile", "List", []),
         ("Get-AzProfile", "Show", ["Name"]),
         ("Get-AzProfile", "ShowActive", ["Active"]),
         ("Open-AzSurvey", AllSets, []),
@@ -209,13 +210,17 @@ public sealed class MandatoryParameterTests
     private static IEnumerable<PropertyInfo> Parameters(Type cmdlet) =>
         cmdlet.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.IsDefined(typeof(ParameterAttribute)));
 
-    // The named parameter sets, or AllSets when the cmdlet names none.
+    // The named parameter sets, including a default set that no parameter declares (such as a parameterless list
+    // set), or AllSets when the cmdlet names none.
     private static string[] ParameterSets(Type cmdlet)
     {
+        string? defaultSet = cmdlet.GetCustomAttribute<CmdletAttribute>()?.DefaultParameterSetName;
         string[] named = Parameters(cmdlet)
             .SelectMany(p => p.GetCustomAttributes<ParameterAttribute>())
             .Select(a => a.ParameterSetName)
-            .Where(s => s != AllSets)
+            .Append(defaultSet)
+            .Where(s => !string.IsNullOrEmpty(s) && s != AllSets)
+            .Select(s => s!)
             .Distinct()
             .ToArray();
         return named.Length > 0 ? named : [AllSets];
