@@ -1,0 +1,52 @@
+name: Stryker Agent Experiment
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/stryker-agent-experiment.yml
+  workflow_dispatch:
+
+jobs:
+  mutate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [Core.Agent.csproj, Agent.Commands.csproj]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Install Stryker.NET
+        run: dotnet tool install -g dotnet-stryker --version 5.1.0
+      - name: Run mutation testing
+        working-directory: Agent/tests/Core.Agent.Tests
+        run: |
+          dotnet stryker \
+            --project "${{ matrix.project }}" \
+            --test-case-filter "Category!=LocalOnly" \
+            --coverage-analysis perTest \
+            --reporter html --reporter json --reporter progress \
+            --break-at 0
+      - name: Summarize
+        if: always()
+        working-directory: Agent/tests/Core.Agent.Tests
+        run: |
+          f=$(find StrykerOutput -name mutation-report.json | head -1)
+          [ -n "$f" ] || exit 0
+          python3 - "$f" >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          import json, sys, collections
+          r = json.load(open(sys.argv[1]))
+          c = collections.Counter(m["status"] for f in r["files"].values() for m in f["mutants"])
+          killed = c["Killed"] + c["Timeout"]
+          valid = killed + c["Survived"] + c["NoCoverage"]
+          print(f"## ${{ matrix.project }}")
+          print(f"Score: {100 * killed / max(valid, 1):.1f}%  ({dict(c)})")
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stryker-${{ matrix.project }}
+          path: Agent/tests/Core.Agent.Tests/StrykerOutput
