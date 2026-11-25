@@ -4,7 +4,7 @@
 using System.Reflection;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Accounts.Tests;
 
 internal static class LoginProcessorTestHelpers
 {

@@ -17,7 +17,7 @@ using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Accounts.Tests;
 
 [Collection("Azclips Service Provider Tests")]
 public class ConnectAccountCmdletTests

@@ -22,10 +22,12 @@
     <ItemGroup Condition="'$(Configuration)' == 'Release'">
         <InternalsVisibleTo Include="Extensions.Accounts.Tests" Key="$(MSSharedLibPublicKey)" />
         <InternalsVisibleTo Include="Cmdlets.Tests" Key="$(MSSharedLibPublicKey)" />
+        <InternalsVisibleTo Include="Cmdlets.Accounts.Tests" Key="$(MSSharedLibPublicKey)" />
     </ItemGroup>
     <ItemGroup Condition="'$(Configuration)' != 'Release'">
         <InternalsVisibleTo Include="Extensions.Accounts.Tests" />
         <InternalsVisibleTo Include="Cmdlets.Tests" />
+        <InternalsVisibleTo Include="Cmdlets.Accounts.Tests" />
     </ItemGroup>
 
     <ItemGroup>

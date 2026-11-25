@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Accounts.Processors;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Accounts.Tests;
 
 /// <summary>
 /// PowerShell binding tests for <c>Get-AzAccessToken</c>. The shared <see cref="GetAccessTokenProcessor"/>
