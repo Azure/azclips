@@ -18,7 +18,7 @@ using Tests.Common.Stubs;
 using GetAzConfigCmdlet = CmdletsConfig::Microsoft.Azure.Azclips.Cmdlets.Config.GetAzConfigCmdlet;
 using GetAzConfigInfoCmdlet = CmdletsConfig::Microsoft.Azure.Azclips.Cmdlets.Config.GetAzConfigInfoCmdlet;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Config.Tests;
 
 [Collection("Azclips Service Provider Tests")]
 public class ConfigCmdletOutputTests
