@@ -67,6 +67,38 @@ public class ConfigCmdletOutputTests
         Assert.Equal("environment", entry.Properties["Source"].Value);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("core.logging.level")]
+    [InlineData("core.logging")]
+    public void GetConfig_ShouldPreserveDefaultMetadata(string? key)
+    {
+        using var fixture = new ConfigRunspace();
+        fixture.Shell.AddCommand("Get-AzConfig");
+        if (key is null)
+        {
+            fixture.Shell.AddParameter("ConfiguredOnly");
+        }
+        else
+        {
+            fixture.Shell.AddParameter("Key", key);
+        }
+
+        var output = fixture.Shell.Invoke();
+        var entry = Assert.Single(output, item => Equals(item.Properties["Source"].Value, "environment"));
+
+        Assert.Empty(fixture.Shell.Streams.Error);
+        Assert.Equal("warn", entry.Properties["DefaultValue"].Value);
+        Assert.Equal(false, entry.Properties["IsDefaultValue"].Value);
+        if (key is null)
+        {
+            var configuredDefault = Assert.Single(output, item => Equals(item.Properties["Key"].Value, "telemetry.enabled"));
+            Assert.Equal(true, configuredDefault.Properties["DefaultValue"].Value);
+            Assert.Equal(true, configuredDefault.Properties["IsDefaultValue"].Value);
+            Assert.Equal("global config", configuredDefault.Properties["Source"].Value);
+        }
+    }
+
     [Fact]
     public void GetConfig_ShouldRejectCombiningKeyAndConfiguredOnly()
     {
@@ -126,9 +158,9 @@ public class ConfigCmdletOutputTests
             source.Setup(service => service.ListConfigurationWithSourcesAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new Dictionary<string, ConfigurationValue>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["telemetry.enabled"] = new("telemetry.enabled", true, "global config"),
-                    ["core.logging.level"] = new("core.logging.level", "error", "environment"),
-                    ["core.http.maxRetries"] = new("core.http.maxRetries", 3, "default")
+                    ["telemetry.enabled"] = new("telemetry.enabled", true, "global config") { DefaultValue = true, IsDefaultValue = true },
+                    ["core.logging.level"] = new("core.logging.level", "error", "environment") { DefaultValue = "warn", IsDefaultValue = false },
+                    ["core.http.maxRetries"] = new("core.http.maxRetries", 3, "default") { DefaultValue = 3, IsDefaultValue = true }
                 });
             var provider = new Mock<IConfigurationProvider>();
             provider.Setup(service => service.GetConfigFilePath())
