@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "1.0.0",
+  "status": "blocked",
+  "sourceCommit": "90e63e5fe2c596e8bd807aad7dd9d62cee1746dd",
+  "entrypoint": "specification/network/resource-manager/Microsoft.Network/Network/Network/main.tsp",
+  "requestedSelection": "Microsoft.Network/publicIPAddresses@2025-07-01",
+  "upstream": {
+    "repository": "https://github.com/Azure/bicep-types-az.git",
+    "revision": "754a33f2ddc902afe583acb6e46316afbd59bc5d"
+  },
+  "toolchainLockSha256": "9226f003f99e2eb9b46f00479ceabdb8014ed1f58e553507db07ff0f9f1ad5ae",
+  "compilerVersion": "1.17.0",
+  "programProjection": "none; selected-version projection has not been established",
+  "sourceVersions": [
+    {
+      "namespace": "Microsoft.Network",
+      "values": [
+        "2025-05-01",
+        "2025-07-01",
+        "2025-09-01",
+        "2026-01-01",
+        "2026-03-01"
+      ]
+    }
+  ],
+  "publicIpModels": [
+    {
+      "namespace": "Common",
+      "registeredArmResource": false,
+      "associatedOperations": [
+        {
+          "name": "getCloudServicePublicIPAddress",
+          "kind": "read"
+        },
+        {
+          "name": "listCloudServiceRoleInstancePublicIPAddresses",
+          "kind": "list"
+        },
+        {
+          "name": "get",
+          "kind": "read"
+        },
+        {
+          "name": "createOrUpdate",
+          "kind": "createOrUpdate"
+        },
+        {
+          "name": "updateTags",
+          "kind": "update"
+        },
+        {
+          "name": "delete",
+          "kind": "delete"
+        },
+        {
+          "name": "list",
+          "kind": "list"
+        },
+        {
+          "name": "listAll",
+          "kind": "list"
+        },
+        {
+          "name": "ddosProtectionStatus",
+          "kind": "action"
+        },
+        {
+          "name": "reserveCloudServicePublicIpAddress",
+          "kind": "action"
+        },
+        {
+          "name": "disassociateCloudServiceReservedPublicIp",
+          "kind": "action"
+        },
+        {
+          "name": "listCloudServicePublicIPAddresses",
+          "kind": "list"
+        }
+      ]
+    }
+  ],
+  "providerCount": 1,
+  "publicIpDefinitions": [],
+  "diagnostics": [
+    {
+      "code": "@azure-tools/typespec-bicep/missing-api-version",
+      "severity": "warning",
+      "message": "Skipping ARM resource 'ManagementGroup': could not determine its API version. Ensure the resource's namespace declares a 'Versions' enum."
+    }
+  ],
+  "limitations": [
+    "This is an unprojected real-source discovery probe, not successful selected-version generation, a schema audit or runtime proof.",
+    "No Public IP Bicep schema, command binding, template, existing code removal or Azure resources were produced."
+  ],
+  "integrationPatchSha256": "12c5206b56ea28270899b1e0fb3b3a138e3589d34b1240f1c8d0851caf65b24f"
+}

@@ -107,9 +107,9 @@ Only the offline input proof is implemented. The fixture is a handwritten protot
 
 ### Approved upstream-derived mapping direction
 
-Reuse `@azure-tools/typespec-bicep` for TypeSpec-to-Bicep schema interpretation and derive the command-to-resource bridge from the common source. Avoid maintaining our own competing Bicep schema converter or an independent handwritten field-mapping table. This is the next implementation stage, before compiler/template work; it has not yet been integrated.
+Reuse `@azure-tools/typespec-bicep` for TypeSpec-to-Bicep schema interpretation and derive the command-to-resource bridge from the common source. Avoid maintaining our own competing Bicep schema converter or an independent handwritten field-mapping table. The pinned-source reuse seam is now built/tested below; real selected-version Public IP generation and command bindings remain unimplemented.
 
-The inspected upstream reference is commit `754a33f2ddc902afe583acb6e46316afbd59bc5d`, not an already adopted or compatibility-tested dependency pin. Its [resource discovery](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/resources.ts) retains TypeSpec PUT/GET models and the name property in intermediate resource definitions. Its [type generator](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/type-generator.ts) converts those into Bicep type definitions, including standardized read-only root identity fields. These source-level functions are evidence for the approach, not proof of a stable packaged API or successful discovery of Network's legacy models.
+The initially inspected upstream reference, now pinned for the isolated source build, is commit `754a33f2ddc902afe583acb6e46316afbd59bc5d`. Its [resource discovery](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/resources.ts) retains TypeSpec PUT/GET models and the name property in intermediate resource definitions. Its [type generator](https://github.com/Azure/bicep-types-az/blob/754a33f2ddc902afe583acb6e46316afbd59bc5d/src/typespec-bicep/src/type-generator.ts) converts those into Bicep type definitions, including standardized read-only root identity fields. The original source-level exports do not constitute a stable packaged API; our explicitly reviewed integration patch is described below.
 
 ```text
                          pinned TypeSpec source/API
@@ -155,7 +155,7 @@ An upstream/local mismatch is not automatically a local bug: root API `id` versu
 
 ### Upstream integration investigation (task 1.10)
 
-Inspection of upstream commit `754a33f2ddc902afe583acb6e46316afbd59bc5d` confirmed integration requirements, not a working dependency pin. No upstream dependency was added, no compiler was upgraded, and no existing source-gate code was removed.
+Initial inspection of upstream commit `754a33f2ddc902afe583acb6e46316afbd59bc5d` confirmed integration requirements, not a working dependency pin. At that investigation stage no upstream dependency was added, compiler upgraded or existing source-gate code removed.
 
 | Boundary | Verified evidence | Consequence |
 | --- | --- | --- |
@@ -176,7 +176,36 @@ The toolkit's installed TCGC `0.68.4` also peers on ARM/core `^0.68.0`. Therefor
 
 **Review boundary:** choose between awaiting a supported upstream API and using an explicitly pinned upstream source build with narrowly reviewed integration changes. The latter must preserve the upstream conversion implementation, expose discovery/generation and optional source-correspondence metadata, and establish explicit version selection. It must not become an independently maintained schema converter. Correspondence needs to identify source properties/models and emitted references/fields, including synthesized identity roles; containing resource/version/path context must survive caching and reuse. Normal upstream emitter output should remain unchanged when correspondence is not requested.
 
-Publication of the source-declared `0.1.0` package was not verified: both `npm view` and a system-TLS `curl` request to the public registry failed TLS handshakes. TLS verification was not disabled. GitHub source inspection succeeded at the exact revision. These checks do not constitute an upstream build, successful package installation or source-generation test. Task 1.10 stays unchecked until a reviewed integration route, compatible pinned toolchain and reusable boundary are established.
+Publication of the source-declared `0.1.0` package was not verified: both `npm view` and a system-TLS `curl` request to the public registry failed TLS handshakes. TLS verification was not disabled. GitHub source inspection succeeded at the exact revision. Those initial checks did not constitute an upstream build, successful package installation or source-generation test; task 1.10 remained unchecked until the subsequent approved integration below.
+
+### Approved pinned-source integration (task 1.10)
+
+The user approved pinned upstream source with minimal integration patches and an isolated compatible build-time toolchain. The standalone [tool package](../../../toolkit/tools/typespec-bicep/package.json) is deliberately outside the toolkit workspaces and product dependencies:
+
+- [upstream.json](../../../toolkit/tools/typespec-bicep/upstream.json) pins the original repository and full revision. [prepare.mjs](../../../toolkit/tools/typespec-bicep/prepare.mjs) fetches only that source package into an ignored build checkout, rejects unexpected HEAD/source changes, and applies the exact reviewed [integration patch](../../../toolkit/tools/typespec-bicep/integration.patch).
+- The patch exports discovery/generation through the upstream package root and adds an optional property observer to the original converter. Records contain actual PUT/GET generation-source properties, emitted property/container references and ordinary/name/computed-identity/discriminator roles. Container references preserve shared/recursive graph context; they are not yet canonical command bindings.
+- The package's own [lockfile](../../../toolkit/tools/typespec-bicep/package-lock.json) pins the required build closure without pulling unrelated upstream lint/test tools. It uses compiler `1.17.0`, HTTP/OpenAPI `1.15.0`, ARM/core/TCGC `0.71.0`, REST/versioning/streams/events/SSE/XML `0.85.0`, Bicep types `0.6.129` and TypeScript `6.0.3`. These are separate from the unchanged default toolkit's compiler `1.13.0` and ARM/core/TCGC `0.68.x`.
+- Patched sources are staged below the tool's ignored build output and compiled against only its dependency closure; the original MIT license is retained. The [entry point](../../../toolkit/tools/typespec-bicep/index.mjs) resolves the built upstream public package export rather than bypassing internal export paths. Version-label checking rejects missing/mismatched versions; it deliberately does not pretend to project the source program.
+- Real source imports SDK decorators from TCGC. Omitting that dependency initially fell through to the parent toolkit and produced incompatible-library warnings; the isolated lock now includes its compatible peer closure. Tests reject mixed-library diagnostics.
+
+Validation on Node `24.22.2`:
+
+| Command / check | Result |
+| --- | --- |
+| `npm --prefix toolkit\tools\typespec-bicep run setup` | Passed; restores the isolated lock with install scripts disabled and type-checks/builds upstream conversion |
+| `npm --prefix toolkit\tools\typespec-bicep run build` from a new upstream checkout | Passed; exact source fetch, patch application and compilation without dependency restoration |
+| `npm --prefix toolkit\tools\typespec-bicep test` | 6 passed: original upstream golden output, observational correspondence, reused/recursive PUT/GET context and discriminator provenance, root/nested identity distinction, version mismatch, empty discovery and rejection of unreviewed source additions |
+| `npm exec -- vitest run packages\typespec-emitter\test\deployment.e2e.test.ts` from `toolkit` | 23 passed, including disabled canonical equality and legacy/selection/constraint regressions |
+
+Dependency acquisition used Microsoft's public Azure SDK feed and the upstream lock's public feed for `@azure/bicep-types`; direct public npm TLS remained unavailable. An initial attempt to restore all upstream development dependencies encountered an unavailable lint-package feed. The final isolated lock contains only the required build closure; no credentials, TLS weakening or global/toolkit dependency changes were introduced.
+
+### Real-source preflight and task 1.11 blocker
+
+The [real-source probe](public-ip-upstream-probe.json) uses the exact pinned Network commit and the isolated toolchain. It compiles the original Network entry point with **zero errors and no mixed-library diagnostics**. Public IP's `Common.PublicIPAddress` has official lifecycle associations, including `createOrUpdate`, but still has no modern ARM registration. Upstream discovery returns **no Public IP definition**. No class-name/route guess or synthetic descriptor was substituted.
+
+The source also declares versions through `2026-03-01`; upstream's last-enum-member helper is not the requested `2025-07-01` selector. This probe is explicitly **unprojected**, reports **blocked**, and exits **1**. It is not successful selected-version generation or evidence that the whole API is incompatible.
+
+Task 1.11 remains unchecked pending reviewed legacy discovery integration and a verified selected-version program. The existing canonical association infrastructure may still be necessary to supply upstream's missing legacy-resource linkage; its Bicep schema conversion must not be reimplemented. Do not remove the earlier extractor/audit or handwritten fixture until their replacements actually work. Tasks 1.12-1.16, template/compiler/runtime gates and live validation remain pending.
 
 ## Goals / Non-Goals
 

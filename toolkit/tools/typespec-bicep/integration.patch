@@ -1,0 +1,94 @@
+diff --git a/src/typespec-bicep/src/index.ts b/src/typespec-bicep/src/index.ts
+index 298864e..c7f7072 100644
+--- a/src/typespec-bicep/src/index.ts
++++ b/src/typespec-bicep/src/index.ts
+@@ -9,6 +9,9 @@ import { generateTypes } from "./type-generator.js";
+ import { join } from "path";
+ 
+ export { $lib } from "./lib.js";
++export { getProviderDefinitions, generateTypes };
++export type { ProviderDefinition, ResourceDefinition, ResourceDescriptor } from "./resources.js";
++export type { PropertySource } from "./type-generator.js";
+ 
+ /**
+  * TypeSpec emitter entry point.
+diff --git a/src/typespec-bicep/src/type-generator.ts b/src/typespec-bicep/src/type-generator.ts
+index 95eff77..64537e7 100644
+--- a/src/typespec-bicep/src/type-generator.ts
++++ b/src/typespec-bicep/src/type-generator.ts
+@@ -89,13 +89,26 @@ function resolvePropertyNumericConstraints(program: Program, prop: ModelProperty
+   };
+ }
+ 
++/**
++ * An emitted property and its source nodes. A containing type reference, rather
++ * than a property name alone, preserves shared/recursive usage in the type graph.
++ */
++export interface PropertySource {
++  container: TypeReference;
++  name: string;
++  property: ObjectTypeProperty;
++  putProperty?: ModelProperty;
++  getProperty?: ModelProperty;
++  role: "property" | "resourceName" | "computedIdentity" | "discriminator";
++}
++
+ /**
+  * Generate Bicep type definitions for all resources within a provider definition.
+  *
+  * This is the TypeSpec equivalent of autorest.bicep's type-generator.ts.
+  * It converts TypeSpec model types into Bicep-types TypeFactory entries.
+  */
+-export function generateTypes(program: Program, definition: ProviderDefinition): BicepType[] {
++export function generateTypes(program: Program, definition: ProviderDefinition, onProperty?: (source: PropertySource) => void): BicepType[] {
+   const factory = new TypeFactory();
+   const modelDefinitions = new Map<Model, Map<Model, TypeReference>>();
+   const mergedModelNames = new Map<Model, Map<Model, string>>();
+@@ -171,6 +184,18 @@ export function generateTypes(program: Program, definition: ProviderDefinition):
+         resourceDefinition = factory.addObjectType(getFullyQualifiedType(descriptor), resourceProperties);
+       }
+ 
++      if (onProperty) {
++        const putProperties = new Map(putModel ? getAllProperties(putModel) : []);
++        const getProperties = new Map(getModel ? getAllProperties(getModel) : []);
++        for (const [name, property] of Object.entries(resourceProperties)) {
++          onProperty({
++            container: resourceDefinition, name, property,
++            putProperty: putProperties.get(name), getProperty: getProperties.get(name),
++            role: name === "name" ? "resourceName" : "computedIdentity",
++          });
++        }
++      }
++
+       // Add properties from the model (including inherited ARM envelope properties)
+       for (const { propName, putProp, getProp } of getObjectProperties(bodyModel, getModel ?? bodyModel)) {
+         if (resourceProperties[propName]) {
+@@ -180,6 +205,7 @@ export function generateTypes(program: Program, definition: ProviderDefinition):
+         const property = parseObjectProperty(putProp, getProp);
+         if (property) {
+           resourceProperties[propName] = property;
++          onProperty?.({ container: resourceDefinition, name: propName, property, putProperty: putProp, getProperty: getProp, role: "property" });
+         }
+       }
+ 
+@@ -426,6 +452,7 @@ export function generateTypes(program: Program, definition: ProviderDefinition):
+       const property = parseObjectProperty(putProp, getProp);
+       if (property) {
+         properties[propName] = property;
++        onProperty?.({ container: definition, name: propName, property, putProperty: putProp, getProperty: getProp, role: "property" });
+       }
+     }
+ 
+@@ -612,6 +639,12 @@ export function generateTypes(program: Program, definition: ProviderDefinition):
+       const baseDiscriminatorProperty = model.properties.get(discriminatorName);
+       const description = objectType.properties[discriminatorName]?.description ?? (baseDiscriminatorProperty ? getPropertyDescription(baseDiscriminatorProperty) : undefined);
+       objectType.properties[discriminatorName] = createObjectTypeProperty(factory.addStringLiteralType(discriminatorValue), ObjectTypePropertyFlags.Required, description);
++      onProperty?.({
++        container: objectTypeRef, name: discriminatorName, property: objectType.properties[discriminatorName],
++        putProperty: new Map(getAllProperties(derived)).get(discriminatorName),
++        getProperty: new Map(getAllProperties(getDiscriminatedUnion.variants.get(discriminatorValue) ?? derived)).get(discriminatorName),
++        role: "discriminator",
++      });
+     }
+   }
+ 
