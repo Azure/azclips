@@ -1,0 +1,39 @@
+description: "[mutate/invalid-value] storage-create-bad-name"
+metadata:
+  mode: mutate
+  failureType: invalid-value
+vars:
+  case_id: storage-create-bad-name
+  command_group: storage
+  goal: Create a storage account; the name breaks naming rules.
+  command: storage account create --name AzclipsEval_SA --resource-group azclips-test-rg --location eastus
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az storage account create
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --resource-group: azclips-test-rg
+            --location: eastus
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az storage account create
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create a storage account; the name breaks naming rules."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - The error is a policy denial; a valid lowercase alphanumeric name of 3-24 characters and explaining the policy are expected. Do not claim the policy can be bypassed.

@@ -1,9 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Runtime.Loader;
 using System.Text.Json;
 using Azclips.Cli.Export;
+using Azclips.Help.Tool.Validation;
+using Core.Abstractions;
 using Core.Cli.Help;
+using Core.Cli.Parser;
+using Core.Runtime;
 
 namespace Azclips.Help.Tool.Tests;
 
@@ -58,6 +63,11 @@ public sealed class CliExportFixture : IDisposable
 
     public string OutputLatest { get; }
 
+    public IExtensionIndex GetExtensionIndex(string extensionName) =>
+        AssemblyLoadContext.Default.Assemblies
+            .Single(assembly => assembly.GetName().Name == $"Microsoft.Azure.Azclips.Extensions.{extensionName}")
+            .GetExtensionIndex();
+
     public void Dispose() => _temp.Dispose();
 }
 
@@ -99,6 +109,80 @@ public class CliExportTests : IClassFixture<CliExportFixture>
     }
 
     [Theory]
+    [InlineData("Accounts", "login")]
+    [InlineData("Compute", "vm")]
+    public void CommandExport_PreservesCommandAndGroupMembership(string extensionName, string verb)
+    {
+        var commandNames = _fixture.GetExtensionIndex(extensionName).GetCommandTable(ClientType.CLI).Keys
+            .Where(name => name == verb || name.StartsWith(verb + " ", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.NotEmpty(commandNames);
+        var groupNames = commandNames.SelectMany(HelpCommandKey.EnumerateGroupPrefixes)
+            .Append(verb)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name.Count(character => character == ' '))
+            .ThenBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(_fixture.OutputLatest, $"{verb}.json")));
+        var entries = document.RootElement.EnumerateArray().ToArray();
+        Assert.Equal(commandNames.Length + groupNames.Length, entries.Length);
+        Assert.Equal(commandNames, entries.Where(entry => entry.GetProperty("type").GetString() == "command")
+            .Select(entry => entry.GetProperty("command").GetString()));
+        Assert.Equal(groupNames, entries.Where(entry => entry.GetProperty("type").GetString() == "group")
+            .Select(entry => entry.GetProperty("command").GetString()));
+    }
+
+    [Theory]
+    [InlineData("Accounts", "login")]
+    [InlineData("Compute", "vm")]
+    public void CommandExport_PreservesParameterMetadataAndGlobals(string extensionName, string verb)
+    {
+        var commandTable = _fixture.GetExtensionIndex(extensionName).GetCommandTable(ClientType.CLI)
+            .Where(entry => entry.Key == verb || entry.Key.StartsWith(verb + " ", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(commandTable);
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(_fixture.OutputLatest, $"{verb}.json")));
+        var entries = document.RootElement.EnumerateArray().ToArray();
+
+        foreach (var (commandName, metadata) in commandTable)
+        {
+            var command = Assert.Single(entries, entry => entry.GetProperty("type").GetString() == "command"
+                && entry.GetProperty("command").GetString() == commandName);
+            var parameters = command.GetProperty("parameters").EnumerateArray().ToArray();
+            var expectedNames = metadata.Parameters.Select(parameter =>
+                    string.Join(' ', new[] { $"--{parameter.Key}" }.Concat(parameter.Value.Aliases.Select(alias => $"-{alias}"))))
+                .Concat(KnownGlobalFlags.All.Select(flag => string.Join(' ', new[] { flag.Name }.Concat(flag.Aliases))))
+                .Order(StringComparer.Ordinal);
+            Assert.Equal(expectedNames, parameters.Select(parameter => parameter.GetProperty("name").GetString())
+                .Order(StringComparer.Ordinal));
+
+            foreach (var (name, parameterMetadata) in metadata.Parameters)
+            {
+                var parameter = Assert.Single(parameters, entry =>
+                    entry.GetProperty("name").GetString()!.Split(' ')[0] == $"--{name}");
+                Assert.Equal(parameterMetadata.IsRequired, parameter.GetProperty("required").GetBoolean());
+                Assert.Equal(parameterMetadata.Description, parameter.GetProperty("short_summary").GetString());
+                Assert.Equal("", parameter.GetProperty("long_summary").GetString());
+                AssertOptionalString(parameter, "choices", parameterMetadata.AllowedValues.Length == 0
+                    ? null : string.Join(", ", parameterMetadata.AllowedValues));
+            }
+
+            foreach (var flag in KnownGlobalFlags.All)
+            {
+                var parameter = Assert.Single(parameters, entry =>
+                    entry.GetProperty("name").GetString()!.Split(' ')[0] == flag.Name);
+                Assert.False(parameter.GetProperty("required").GetBoolean());
+                Assert.Equal(flag.Summary, parameter.GetProperty("short_summary").GetString());
+                Assert.Equal("Global Arguments", parameter.GetProperty("group_name").GetString());
+                AssertOptionalString(parameter, "default", flag.Default);
+                AssertOptionalString(parameter, "choices", flag.Choices);
+            }
+        }
+    }
+
+    [Theory]
     [InlineData("login", "login", "--subscription-id")]
     [InlineData("vm", "vm create", "--name")]
     public void CommandExport_PreservesAuthoredHelpAndParameters(string verb, string commandName, string parameterName)
@@ -135,6 +219,14 @@ public class CliExportTests : IClassFixture<CliExportFixture>
             Assert.Equal(JsonValueKind.String, parameter.GetProperty("short_summary").ValueKind);
             Assert.True(parameter.GetProperty("required").ValueKind is JsonValueKind.True or JsonValueKind.False);
         });
+    }
+
+    private static void AssertOptionalString(JsonElement element, string propertyName, string? expected)
+    {
+        if (expected is null)
+            Assert.False(element.TryGetProperty(propertyName, out _));
+        else
+            Assert.Equal(expected, element.GetProperty(propertyName).GetString());
     }
 }
 

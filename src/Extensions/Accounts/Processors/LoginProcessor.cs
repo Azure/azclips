@@ -368,25 +368,40 @@ namespace Microsoft.Azure.Azclips.Extensions.Accounts.Processors
                         federatedToken: FederatedToken,
                         tenantId: TenantId);
                 case ParamSet.ProfileReauth:
-                    Debug.Assert(!string.IsNullOrEmpty(Profile), "Profile must not be null or empty");
-                    var ProfileData = await ProfileService.GetProfileAsync(Profile);
-                    if (null == ProfileData)
-                        throw AzclipsErrorException.ProfileNotFound($"Profile '{Profile}' does not exist.");
-                    if (ProfileData.AuthMethod == AuthMethod.Federated)
-                    {
-                        if (string.IsNullOrEmpty(FederatedToken))
-                            throw AzclipsErrorException.InvalidInput(
-                                $"Profile '{Profile}' requires a newly issued token in '{FormatParameterName(nameof(FederatedToken), ClientType)}'.");
-                        if (string.IsNullOrWhiteSpace(ProfileData.ClientId))
-                            throw AzclipsErrorException.InvalidInput($"Profile '{Profile}' is missing its service principal client ID.");
-                        return AuthRequestFactory.CreateFederatedIdentity(
-                            ProfileData.ClientId, FederatedToken, ProfileData.TenantId);
-                    }
-                    return await AuthRequestFactory.CreateFromProfile(ProfileData, AzclipsServiceProvider.GetRequiredService<IServicePrincipalSecretStore>());
+                    return await CreateLoginRequestForProfileReauthAsync();
                 default:
                     throw AzclipsErrorException.InvalidInput(
                         $"usage error: Unsupported parameter set '{parameterSet}'.");
             }
+        }
+
+        private async Task<LoginRequest> CreateLoginRequestForProfileReauthAsync()
+        {
+            Debug.Assert(!string.IsNullOrEmpty(Profile), "Profile must not be null or empty");
+            var profileData = await ProfileService.GetProfileAsync(Profile);
+
+            if (null == profileData)
+                throw AzclipsErrorException.ProfileNotFound($"Profile '{Profile}' does not exist.");
+
+            if (!string.IsNullOrEmpty(FederatedToken) && profileData.AuthMethod != AuthMethod.Federated)
+                throw AzclipsErrorException.InvalidInput(
+                    $"Profile '{Profile}' uses '{profileData.AuthMethod}' authentication and does not accept '{FormatParameterName(nameof(FederatedToken), ClientType)}'.");
+
+            if (profileData.AuthMethod == AuthMethod.Federated)
+            {
+                if (string.IsNullOrEmpty(FederatedToken))
+                    throw AzclipsErrorException.InvalidInput(
+                        $"Profile '{Profile}' requires a newly issued token in '{FormatParameterName(nameof(FederatedToken), ClientType)}'.");
+
+                if (string.IsNullOrWhiteSpace(profileData.ClientId))
+                    throw AzclipsErrorException.InvalidInput($"Profile '{Profile}' is missing client ID for authentication with federated credentials.");
+
+                return AuthRequestFactory.CreateFederatedIdentity(profileData.ClientId, FederatedToken, profileData.TenantId);
+            }
+
+            return await AuthRequestFactory.CreateFromProfile(
+                profileData,
+                AzclipsServiceProvider.GetRequiredService<IServicePrincipalSecretStore>());
         }
 
         /// <summary>Validates and normalizes individual values before parameter-set resolution.</summary>

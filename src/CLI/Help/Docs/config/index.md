@@ -7,6 +7,8 @@ online version:
 
 Description: View, set, update, or delete configuration values used by the Azure CLI. Configuration keys are organized in dot notation (e.g., core.logging.level, clients.cli.output.format). Configuration settings persist across CLI invocations and are stored in your local configuration file.
 
+Run `az config info` to explore valid configuration keys, descriptions, defaults, and allowed values.
+
 ### Get a configuration value
 
 ```bash

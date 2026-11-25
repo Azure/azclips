@@ -134,6 +134,32 @@ public sealed class HelpFileMapperTests
                 new HelpFileExample("Create and inspect", "az storage account create --name other\naz storage account show --name other"), example));
     }
 
+    [Fact]
+    public void SyntheticManifest_EmitsUniqueSubgroupsInDepthThenNameOrder()
+    {
+        var manifest = Manifest();
+        var command = manifest.Commands[0];
+        manifest = manifest with
+        {
+            Commands =
+            [
+                command with { CliName = "storage account network rule add" },
+                command with { CliName = "storage blob service show" },
+                command with { CliName = "storage account network rule remove" }
+            ]
+        };
+
+        var entries = HelpFileMapper.Map(manifest).ToArray();
+
+        Assert.Equal(
+            new[] { "storage", "storage account", "storage blob", "storage account network",
+                "storage blob service", "storage account network rule" },
+            entries.Where(entry => entry.Type == "group").Select(entry => entry.Command));
+        Assert.Equal(manifest.Commands.Select(command => command.CliName),
+            entries.Where(entry => entry.Type == "command").Select(entry => entry.Command));
+        Assert.All(entries.Take(6), entry => Assert.Equal("group", entry.Type));
+    }
+
     private static HelpManifest Manifest(params HelpTag[] tags) => new(
         Verb: "storage",
         Version: "1.0",

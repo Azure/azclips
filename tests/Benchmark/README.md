@@ -19,10 +19,10 @@ dotnet build azclips.slnx -c Release
 ### Run Benchmarks
 
 ```bash
-# Run all benchmarks (CLI + PS) - uploads results to App Insights
+# Run all benchmarks (CLI + PS) - saves results and charts locally
 dotnet run --project tests/Benchmark/Benchmark.csproj
 
-# Run in local mode (skip App Insights upload)
+# Compatibility flag: results are always saved locally
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local
 
 # Run a specific product only (CLI or PS)
@@ -32,7 +32,7 @@ dotnet run --project tests/Benchmark/Benchmark.csproj -- --product PS
 # Combine options
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product CLI
 
-# CI mode (implies --local, writes to a stable artifacts path)
+# CI mode (writes to a stable artifacts path)
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --ci --product CLI
 ```
 
@@ -69,7 +69,7 @@ When `--sidecar-out` is passed (CI does this; a plain local run does not), aggre
 ### Technology Stack
 
 - **[BenchmarkDotNet](https://benchmarkdotnet.org/)** - .NET micro-benchmarking framework
-- **Application Insights** - Metrics export for Grafana dashboards
+- **Local HTML/JSON artifacts** - Charts and summaries for performance analysis
 
 ### Test Configuration
 
@@ -110,7 +110,6 @@ tests/Benchmark/
 ├── BenchmarkEventListener.cs   # BenchmarkEventPublisher: no-op IEventPublisher stub
 ├── BenchmarkExtensionAttribute.cs  # [BenchmarkExtension("Name")] discovery marker
 ├── ChartGenerator.cs           # HTML/JSON chart generation
-├── AppInsightsExporter.cs      # Benchmark metrics upload to App Insights
 ├── CLI/
 │   ├── CLIBenchmarkBase.cs                       # BDN attributes, extension staging + DI overrides
 │   ├── BenchmarkAssemblyConfigurationService.cs  # Points extension loaders at the staged home
@@ -130,9 +129,9 @@ tests/Benchmark/
 
 | Option | Description | Example |
 |--------|-------------|---------|
-| `--local`, `-l` | Skip App Insights upload | `-- --local` |
+| `--local`, `-l` | Compatibility flags with no effect; results are always local artifacts | `-- --local` |
 | `--product <name>` | Run a specific product only (`CLI`, `PS`, or `ALL`) | `-- --product CLI` |
-| `--ci` | CI mode: implies `--local` and writes to a stable `artifacts/Benchmark/ci/<EXTENSION>/<PRODUCT>/` path | `-- --ci --product CLI` |
+| `--ci` | CI mode: writes to a stable `artifacts/Benchmark/ci/<EXTENSION>/<PRODUCT>/` path | `-- --ci --product CLI` |
 | `--extension <name>` | Run a specific extension only (for example `Compute`, `ManagedServiceIdentity`, `Resources`, or `ALL`) | `-- --extension Compute` |
 | `--list` | Print the discovered benchmark classes (extension / product / name) and exit | `-- --list` |
 
@@ -179,16 +178,16 @@ Azure user-assigned managed identity operations, run against the resource-aware 
 ## Telemetry & Feedback Loop
 
 ```
-Benchmark Runner ──▶ App Insights ──▶ Grafana ──▶ Analysis ──▶ New Test Cases
+Benchmark Runner ──▶ Local HTML/JSON artifacts ──▶ Analysis ──▶ New Test Cases
        ▲                                                              │
        └──────────────────────────────────────────────────────────────┘
 ```
 
-Unless `--local`/`--ci` is set, each run uploads aggregated benchmark metrics to App Insights via `AppInsightsExporter`:
-1. **`BenchmarkDuration`** custom metric - mean duration per result
-2. **`BenchmarkResult`** custom event - duration (s/ms) plus `Product`, `Operation`, `Resource`, and `Timestamp` dimensions for Grafana filtering
-
-Aggregated benchmark results are what get exported to App Insights. Command-level telemetry is stubbed out for PS benchmarks (`StubTelemetryService`), but CLI benchmarks emit real spans to `artifacts/Benchmark/<timestamp>/telemetry/` so a slow benchmark can be broken down by phase locally. Those files are never uploaded. Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
+Every run writes aggregated benchmark results to local HTML/JSON artifacts. Command-level
+telemetry is stubbed out for PS benchmarks (`StubTelemetryService`), but CLI benchmarks emit
+real spans to `artifacts/Benchmark/<timestamp>/telemetry/` so a slow benchmark can be broken
+down by phase locally. Benchmark summaries and sampled trace files are never uploaded.
+Analyze them to spot bottlenecks → add new benchmark cases → validate fixes.
 
 ---
 

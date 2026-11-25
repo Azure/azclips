@@ -443,10 +443,20 @@ public class AgentFallbackSkipTelemetryTests
     {
         using var harness = new Harness();
         harness.Options.Recovery.Trigger = "auto";
-
-        var exitCode = await harness.InvokeAsync(
-            ["vm", "show"], ErrorText,
-            runAgent: _ => throw new InvalidOperationException("fake spawn failure"));
+        using var stderr = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(stderr);
+        int? exitCode;
+        try
+        {
+            exitCode = await harness.InvokeAsync(
+                ["vm", "show"], ErrorText,
+                runAgent: _ => throw new InvalidOperationException("fake spawn failure"));
+        }
+        finally
+        {
+            Console.SetError(previousError);
+        }
 
         Assert.Null(exitCode);
         var record = Assert.Single(harness.Exported);

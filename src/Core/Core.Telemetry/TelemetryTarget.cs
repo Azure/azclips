@@ -13,6 +13,6 @@ internal enum TelemetryTarget
     /// <summary>Local dev stack (OTLP → Jaeger).</summary>
     Local,
 
-    /// <summary>Remote Azure Monitor / Application Insights.</summary>
+    /// <summary>Remote Aria / OneCollector.</summary>
     Remote,
 }

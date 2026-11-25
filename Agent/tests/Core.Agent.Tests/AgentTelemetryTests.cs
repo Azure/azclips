@@ -8,6 +8,7 @@ using Core.Agent.Telemetry;
 using Core.Telemetry;
 using GitHub.Copilot;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -120,7 +121,7 @@ public sealed class AgentTelemetryProviderTests
             Assert.False(pending.IsCompleted);
             Assert.Throws<InvalidOperationException>(() => host.Scope);
             profile.SetResult(new Profile { Name = "injected", TenantId = "injected-tenant" });
-            await using var scope = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+            await using var scope = await pending.WaitAsync(AgentTestTimeouts.HangGuard);
 
             Assert.Same(scope, host.Scope);
             Assert.Same(scope, await host.GetScopeAsync());
@@ -222,7 +223,7 @@ public sealed class AgentTelemetryProviderTests
                     "sdk-other" => throw new AgentSessionFailedException("unlisted-private-type", "test-only private failure"),
                     _ => Task.CompletedTask,
                 };
-            }, () => { ambientAtServiceDisposal = Activity.Current; disposed++; });
+            }, () => { ambientAtServiceDisposal = Activity.Current; disposed++; }, harness.Clock);
 
             Assert.NotNull(observedSession);
             Assert.Same(observedSession, observedCurrent);
@@ -265,7 +266,7 @@ public sealed class AgentTelemetryProviderTests
                     1 => throw new InvalidOperationException("expected offline failure"),
                     _ => Task.CompletedTask,
                 };
-            }, () => { });
+            }, () => { }, harness.Clock);
             Assert.Equal(expected, code);
             Assert.True(cleanup);
             Assert.Null(scope.FileSession.PublishedPath);
@@ -276,9 +277,9 @@ public sealed class AgentTelemetryProviderTests
     public async Task RunSessionAsync_StillHandlesTelemetryStartupFailure()
     {
         var disposed = false;
-        var code = await AgentModeEntry.RunSessionAsync(
+        var code = await AgentLayerTestHarness.WithCapturedConsoleAsync(() => AgentModeEntry.RunSessionAsync(
             () => throw new InvalidOperationException("offline registration failure"),
-            (_, _) => throw new InvalidOperationException("must not run"), () => disposed = true);
+            (_, _) => throw new InvalidOperationException("must not run"), () => disposed = true));
         Assert.Equal(1, code);
         Assert.True(disposed);
     }

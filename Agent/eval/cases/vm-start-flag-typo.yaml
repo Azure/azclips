@@ -1,0 +1,38 @@
+description: "[mutate/flag-typo] vm-start-flag-typo"
+metadata:
+  mode: mutate
+  failureType: flag-typo
+vars:
+  case_id: vm-start-flag-typo
+  command_group: vm
+  goal: Start the named VM.
+  command: vm start --name azclips-eval-vm-404 --resource-grop azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm start
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-vm-404
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm start
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Start the named VM."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

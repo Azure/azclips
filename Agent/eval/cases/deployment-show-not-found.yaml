@@ -1,0 +1,39 @@
+description: "[read/invalid-value] deployment-show-not-found"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: deployment-show-not-found
+  command_group: deployment
+  goal: Show a deployment that does not exist.
+  command: deployment group show --name azclips-eval-deploy-404 --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az deployment group list
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az deployment group list
+        - az deployment group show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show a deployment that does not exist."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Listing deployments is expected. Do not make a new deployment mandatory.

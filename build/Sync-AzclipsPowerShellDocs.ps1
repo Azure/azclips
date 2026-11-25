@@ -1,19 +1,28 @@
 # Syncs AzClips PowerShell PlatyPS markdown into the destination docs repo
 # (MicrosoftDocs/azure-docs-powershell). Three-stage escape hatch: dry-run (default; no flag)
-# / -Force (write to local target) / -Push (deferred until docs.ms bot-auth is decided).
+# / -Force (write to local target) / -Push (open a PR using a temporary target clone).
 #
 # Usage:
 #   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1               # dry-run against sibling clone (default)
 #   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1 -Force         # writes to local target; no push
-#   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1 -Push          # WILL FAIL — deferred until auth-pattern decided
+#   pwsh -File build/Sync-AzclipsPowerShellDocs.ps1 -Push -TargetBranch <branch> -HeadRepository <owner/repo>
+#   Add -ReleaseTag <tag> for a verified release checkout.
 
 [CmdletBinding()]
 param(
     [string]$ConfigPath,
     [string]$Moniker,
     [string]$TargetRepoPath,
+    [string]$TargetBranch,
+    [string]$TargetRepository = 'MicrosoftDocs/azure-docs-powershell',
+    [string]$HeadRepository,
+    [Parameter(DontShow)]
+    [switch]$ReleaseCheckout,
     [string[]]$Module,
+    [string]$ReleaseTag,
     [string]$Timestamp,
+    [string]$CommitAuthor,
+    [string]$CommitEmail,
     [switch]$Force,
     [switch]$Push
 )
@@ -21,6 +30,10 @@ param(
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'Get-AzPackageName.ps1')
+. (Join-Path $PSScriptRoot 'Test-DocsReleaseTag.ps1')
+. (Join-Path $PSScriptRoot 'Set-DocsTargetBranch.ps1')
+. (Join-Path $PSScriptRoot 'Invoke-DocsPullRequest.ps1')
+. (Join-Path $PSScriptRoot 'Invoke-DocsReleaseCheckout.ps1')
 
 # Load-only mode: tests set this to $env:AZCLIPS_PS_SYNC_LOAD_ONLY=1 to dot-source the
 # functions without running config-load or the main body.
@@ -213,10 +226,57 @@ function New-ModuleIndexContent
 
 # ── Plan ────────────────────────────────────────────────────────────────────────
 
+function ConvertTo-LearnParameterSetHeading
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Body
+    )
+
+    # PlatyPS exposes PowerShell's internal unnamed-set name as a heading on Learn.
+    # Relabel only the published copy; source help and local help generation stay unchanged.
+    # Keep the heading itself: removing it pulled Description text into an empty
+    # Aliases section. Use "Default (Default)" as the Learn-only name/default label;
+    # this does not change runtime metadata or explicitly named parameter sets.
+    # (Daniel) this is a workaround introduced until a more "native" solution
+    # can be introduced
+    $output = [System.Text.StringBuilder]::new()
+    $inSyntax = $false
+    $fence = ''
+    # Preserve line endings and skip fenced examples; only touch the exact name in SYNTAX.
+    foreach ($match in [regex]::Matches($Body, '[^\r\n]*(?:\r\n|\n|\r|$)'))
+    {
+        $line = $match.Value.TrimEnd("`r", "`n")
+        if ($line -match '^[ \t]*(`{3,}|~{3,})')
+        {
+            $marker = $Matches[1]
+            if (-not $fence) { $fence = $marker }
+            elseif ($marker[0] -eq $fence[0] -and $marker.Length -ge $fence.Length -and
+                $line.Trim() -eq $marker)
+            {
+                $fence = ''
+            }
+        }
+        elseif (-not $fence)
+        {
+            if ($line -cmatch '^##[ \t]+SYNTAX[ \t]*$') { $inSyntax = $true }
+            elseif ($line -match '^#{1,2}[ \t]+') { $inSyntax = $false }
+            elseif ($inSyntax -and $line -cmatch '^###[ \t]+__AllParameterSets[ \t]*$')
+            {
+                [void]$output.Append(($match.Value -creplace '__AllParameterSets', 'Default (Default)'))
+                continue
+            }
+        }
+        [void]$output.Append($match.Value)
+    }
+    return $output.ToString()
+}
+
 # Copies a cmdlet PlatyPS .md file, rewriting the frontmatter `Module Name:` from the
 # source module name (bare, e.g. 'Config') to the packaged name ('Az.Config'). Docs.ms's
 # PSMD2Yaml prebuild requires the module name in the frontmatter to match the folder;
 # leaving it bare fails with PSMD2Yaml_FileProcessFailed.
+# Only the Learn copy relabels internal unnamed syntax headings; PlatyPS source stays intact.
 function Copy-CmdletMarkdownWithRewrite
 {
     [CmdletBinding()]
@@ -234,8 +294,9 @@ function Copy-CmdletMarkdownWithRewrite
         throw "Expected YAML frontmatter with exactly one 'Module Name:' field in '$SourcePath'."
     }
 
+    $body = ConvertTo-LearnParameterSetHeading -Body $content.Substring($frontmatter.Length)
     $rewritten = $moduleNamePattern.Replace($frontmatter.Value, { "Module Name: $TargetModuleName" }, 1) +
-        $content.Substring($frontmatter.Length)
+        $body
     Set-Content -LiteralPath $TargetPath -Value $rewritten -NoNewline
 }
 
@@ -531,6 +592,8 @@ function Invoke-SyncApply
         [Parameter(Mandatory)][string]$TargetRepoPath,
         [Parameter(Mandatory)][string]$Moniker,
         [Parameter(Mandatory)][string]$Timestamp,
+        [string]$CommitAuthor,
+        [string]$CommitEmail,
         [PSCustomObject]$Config,
         [string[]]$ScopeTargetModules
     )
@@ -597,7 +660,11 @@ function Invoke-SyncApply
             }
         }
 
-        git -C $TargetRepoPath commit -m $commitMessage 2>&1 | Out-Null
+        $commitArgs = @('-C', $TargetRepoPath)
+        if ($CommitAuthor) { $commitArgs += @('-c', "user.name=$CommitAuthor") }
+        if ($CommitEmail) { $commitArgs += @('-c', "user.email=$CommitEmail") }
+        $commitArgs += @('commit', '-m', $commitMessage)
+        git @commitArgs 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "git commit failed." }
 
         $commitSha = git -C $TargetRepoPath rev-parse HEAD 2>$null
@@ -685,12 +752,43 @@ function Write-DryRunReport
     }
 
     Write-Host ''
-    Write-Host '(No files written. Pass -Force to write to the local target repo. Pass -Push to also open a PR — currently DEFERRED, will fail.)' -ForegroundColor DarkGray
+    Write-Host '(No files written. Pass -Force to write locally, or -Push to open a PR.)' -ForegroundColor DarkGray
 }
 
 # ── Main ────────────────────────────────────────────────────────────────────────
 
 if ($__loadOnly) { return }
+
+if ($PSBoundParameters.ContainsKey('ReleaseTag'))
+{
+    if (-not $ReleaseCheckout)
+    {
+        $releaseArgs = @{} + $PSBoundParameters
+        $releaseArgs.Remove('ReleaseCheckout')
+        if (-not $Push) { $releaseArgs.TargetRepoPath = $effectiveTargetRepoPath }
+        Invoke-DocsReleaseCheckout -SourceRoot $repoRoot -ReleaseTag $ReleaseTag -ScriptName 'Sync-AzclipsPowerShellDocs.ps1' -ScriptArguments $releaseArgs
+        return
+    }
+    $sourceCommit = Test-DocsReleaseTag -RepoRoot $repoRoot -ReleaseTag $ReleaseTag
+    Write-Host "Release source  : $ReleaseTag ($sourceCommit)"
+}
+
+if ($Push)
+{
+    if (-not $TargetBranch -or -not $HeadRepository) { throw '-Push requires -TargetBranch and -HeadRepository.' }
+    if ($PSBoundParameters.ContainsKey('TargetRepoPath')) { throw '-TargetRepoPath cannot be combined with -Push; a temporary docs clone is used.' }
+    $syncPath = $PSCommandPath
+    $syncParams = @{} + $PSBoundParameters
+    foreach ($key in @('Push', 'Force', 'TargetRepoPath', 'TargetBranch', 'TargetRepository', 'HeadRepository', 'Timestamp')) { $syncParams.Remove($key) }
+    $sync = {
+        param($path, $stamp)
+        & $syncPath @syncParams -TargetRepoPath $path -Timestamp $stamp -Force
+    }.GetNewClosure()
+    Invoke-DocsPullRequest -TargetRepository $TargetRepository -HeadRepository $HeadRepository -TargetBranch $TargetBranch `
+        -SourceRoot $repoRoot -ReleaseTag $ReleaseTag -BranchPrefix 'azclips-ps-sync-' `
+        -Title "AzClips PowerShell documentation sync" -Sync $sync -Timestamp $Timestamp
+    return
+}
 
 $modules = @(Get-PublishableModule -PsRoot $sourcePsRoot)
 
@@ -709,13 +807,12 @@ $plan = @(New-SyncPlan -Modules $modules -Moniker $effectiveMoniker -TargetRepoP
 # A -Module subset only reconciles its own Az.* folders; a full sync owns every Az.* folder.
 $scopeTargetModules = if ($Module) { @($modules | ForEach-Object { Get-AzPackageName -SourceModule $_.Name }) } else { $null }
 
-if ($Push)
-{
-    throw "-Push is not yet implemented. docs.ms bot-auth pattern is still pending decision. Use -Force to write to the local target repo only, then hand off to your normal PR flow."
-}
-
 if ($Force)
 {
+    if ($PSBoundParameters.ContainsKey('TargetBranch'))
+    {
+        Set-DocsTargetBranch -TargetRepoPath $effectiveTargetRepoPath -TargetBranch $TargetBranch
+    }
     $problems = @(Test-TargetReady -TargetRepoPath $effectiveTargetRepoPath -Moniker $effectiveMoniker)
     if ($problems.Count -gt 0) {
         foreach ($p in $problems) { Write-Host "  ✗ $p" -ForegroundColor Red }
@@ -726,7 +823,7 @@ if ($Force)
     Write-Host ""
     Write-Host "Applying $($plan.Count) file(s) to $effectiveTargetRepoPath ..." -ForegroundColor Cyan
     $result = Invoke-SyncApply -Plan $plan -TargetRepoPath $effectiveTargetRepoPath -Moniker $effectiveMoniker -Timestamp $effectiveTimestamp `
-        -Config $config -ScopeTargetModules $scopeTargetModules
+        -CommitAuthor $CommitAuthor -CommitEmail $CommitEmail -Config $config -ScopeTargetModules $scopeTargetModules
 
     Write-Host ""
     if ($result.NoChanges)
@@ -747,6 +844,11 @@ if ($Force)
     Write-Host ""
     Write-Host "(Nothing pushed. Inspect with: git -C '$effectiveTargetRepoPath' log $($result.Branch) --stat)" -ForegroundColor DarkGray
     return
+}
+
+if ($PSBoundParameters.ContainsKey('TargetBranch'))
+{
+    Write-Host "Dry-run: target branch '$TargetBranch' will not be checked out without -Force; target comparisons use the current checkout."
 }
 
 Write-DryRunReport -Modules $modules -Plan $plan -Moniker $effectiveMoniker -TargetRepoPath $effectiveTargetRepoPath -ScopeTargetModules $scopeTargetModules

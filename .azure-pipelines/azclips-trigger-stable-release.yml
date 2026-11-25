@@ -301,13 +301,12 @@ stages:
         output_directory: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
         update_root_notice: true
 
-    - task: PublishPipelineArtifact@1
-      displayName: Publish Stable Release NOTICE Evidence
-      condition: and(succeededOrFailed(), eq(variables['PrepareNoticeResults.Ready'], 'true'))
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
-        artifact: Compliance_Results_StableReleaseNotice
-        publishLocation: pipeline
+    - template: templates/dist/steps/publish-artifact.yml
+      parameters:
+        display_name: Publish Stable Release NOTICE Evidence
+        condition: and(succeededOrFailed(), eq(variables['PrepareNoticeResults.Ready'], 'true'))
+        target_path: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
+        artifact_name: Compliance_Results_StableReleaseNotice
 
     - bash: |
         set -euo pipefail
@@ -475,7 +474,7 @@ stages:
           fi
         done <<< "$changed_files"
 
-        if ! printf '%s\n' "$changed_files" | grep -qx 'src/CLI/Core.Cli.csproj'; then
+        if ! grep -qx 'src/CLI/Core.Cli.csproj' <<<"$changed_files"; then
           echo "Commit did not change src/CLI/Core.Cli.csproj. Skipping stable tag creation."
           exit 0
         fi
@@ -532,7 +531,7 @@ stages:
         tag_name="v$target_version.$release_timestamp"
         tag_ref="refs/tags/$tag_name"
 
-        latest_stable_tag="$(git tag --merged "$source_commit" --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$' | sort -Vr | head -n 1 || true)"
+        latest_stable_tag="$(git tag --merged "$source_commit" --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$' | sort -Vr | sed -n '1p' || true)"
         if [[ -n "$latest_stable_tag" ]]; then
           latest_version="${latest_stable_tag#v}"
 

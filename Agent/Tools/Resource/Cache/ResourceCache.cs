@@ -216,8 +216,7 @@ public sealed class ResourceCache
 
     /// <summary>
     /// find_resources backing impl. Always returns at most <paramref name="top"/>
-    /// rows. If <paramref name="namePattern"/> is null/empty, returns the first
-    /// <paramref name="top"/> rows that match the type/scope filter.
+    /// rows whose name is similar to <paramref name="namePattern"/>.
     /// </summary>
     public IReadOnlyList<MatchResult> FindResources(
         string? namePattern,
@@ -227,23 +226,8 @@ public sealed class ResourceCache
     {
         EnsureLoaded();
 
-        // Dispatch on kind via the central registry. When kind is null/empty
-        // we search every registered kind and merge by score; when it's
-        // provided but unknown we deliberately return empty so the tool
-        // wrapper can surface a structured error listing valid kinds.
-        IEnumerable<KindSpec> kindsToSearch;
-        if (string.IsNullOrWhiteSpace(kind))
-        {
-            kindsToSearch = CacheKinds.Registry.Values;
-        }
-        else if (CacheKinds.TryResolve(kind, out var spec))
-        {
-            kindsToSearch = new[] { spec };
-        }
-        else
-        {
-            return Array.Empty<MatchResult>();
-        }
+        var kindsToSearch = KindsToSearch(kind);
+        if (kindsToSearch is null) return Array.Empty<MatchResult>();
 
         var perKind = new List<IReadOnlyList<MatchResult>>();
         foreach (var spec in kindsToSearch)
@@ -256,61 +240,51 @@ public sealed class ResourceCache
         // Single-kind path: already correctly capped, return as-is.
         if (perKind.Count == 1) return perKind[0];
 
-        // Multi-kind: re-merge across kinds and re-cap to `top`.
-        return perKind
-            .SelectMany(x => x)
+        // Multi-kind: re-sort the merged rows by the same order and re-cap to `top`.
+        return perKind.SelectMany(x => x)
             .OrderByDescending(m => m.Score)
+            .ThenBy(m => m.Resource.Name, StringComparer.OrdinalIgnoreCase)
             .Take(top)
             .ToList();
     }
 
+    // Kinds to search: every registered kind when kind is null/empty, the resolved
+    // kind otherwise, and null when kind is unknown so callers can return no rows.
+    private static IEnumerable<KindSpec>? KindsToSearch(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind)) return CacheKinds.Registry.Values;
+        return CacheKinds.TryResolve(kind, out var spec) ? new[] { spec } : null;
+    }
+
+    private const double MinSimilarity = 0.75;
+
+    // Similarity = 1 - Levenshtein / max(len), case-insensitive. Keeps rows at or above
+    // MinSimilarity, ordered by similarity then name. 1.0 means identical.
     private static IReadOnlyList<MatchResult> RankByName(
         IEnumerable<CachedResource> candidates,
         string? namePattern,
         int top)
     {
-        var pat = namePattern?.Trim();
-        var materialized = candidates as IList<CachedResource> ?? candidates.ToList();
+        var pat = namePattern?.Trim() ?? string.Empty;
 
-        if (string.IsNullOrEmpty(pat))
-        {
-            return materialized
-                .Take(top)
-                .Select(c => new MatchResult(c, "scope-only", 1.0))
-                .ToList();
-        }
-
-        var patLower = pat.ToLowerInvariant();
-
-        var exact = materialized.Where(c => string.Equals(c.Name, pat, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (exact.Count > 0)
-        {
-            return exact.Take(top).Select(c => new MatchResult(c, "exact", 1.0)).ToList();
-        }
-
-        var substr = materialized
-            .Where(c => c.Name.Contains(pat, StringComparison.OrdinalIgnoreCase))
-            .Select(c => new MatchResult(c, "substring", SubstringScore(c.Name, patLower)))
-            .OrderByDescending(m => m.Score)
+        return candidates
+            .Select(c => (Resource: c, Score: Similarity(c.Name, pat)))
+            .Where(x => x.Score >= MinSimilarity)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Resource.Name, StringComparer.OrdinalIgnoreCase)
             .Take(top)
-            .ToList();
-        if (substr.Count > 0) return substr;
-
-        return materialized
-            .Select(c => new MatchResult(c, "fuzzy",
-                1.0 - (Lev(c.Name.ToLowerInvariant(), patLower) /
-                       (double)Math.Max(c.Name.Length, patLower.Length))))
-            .Where(m => m.Score >= 0.55)
-            .OrderByDescending(m => m.Score)
-            .Take(top)
+            .Select(x => new MatchResult(x.Resource, x.Score))
             .ToList();
     }
 
+    private static double Similarity(string a, string b) =>
+        1.0 - (Lev(a.ToLowerInvariant(), b.ToLowerInvariant()) / (double)Math.Max(a.Length, b.Length));
+
     /// <summary>
     /// Resolves an identifier to a single resource. <paramref name="nameOrId"/>
-    /// can be a full ARM id, an exact name, or a unique substring. Throws
-    /// <see cref="AmbiguousMatchException"/> when multiple resources match;
-    /// returns null when none match.
+    /// can be a full ARM id or a name. Only a name equal to the resource name
+    /// (case-insensitive) matches; throws <see cref="AmbiguousMatchException"/>
+    /// when several resources share it. Returns null otherwise.
     /// </summary>
     public CachedResource? ResolveResource(string nameOrId, string? kind, ScopeFilter? scope)
     {
@@ -324,22 +298,19 @@ public sealed class ResourceCache
             if (_rgByIdCi.TryGetValue(nameOrId, out var byRgId)) return CacheKinds.ProjectResourceGroup(byRgId);
         }
 
-        // 2) Single FindResources call — RankByName short-circuits to exact /
-        // substring / fuzzy in that order, so the Match field on the first
-        // row tells us which tier we landed in.
-        var matches = FindResources(nameOrId, kind, scope, top: 25);
-        if (matches.Count == 0) return null;
-
-        if (matches[0].Match == "exact")
+        // 2) Names equal to nameOrId (case-insensitive) in the requested kinds and scope.
+        var kindsToSearch = KindsToSearch(kind);
+        if (kindsToSearch is null) return null;
+        var exact = new List<CachedResource>();
+        foreach (var spec in kindsToSearch)
         {
-            var exact = matches.Where(m => m.Match == "exact").ToList();
-            if (exact.Count == 1) return exact[0].Resource;
-            throw new AmbiguousMatchException(exact.Select(m => m.Resource.Id).ToList());
+            var candidates = spec.AllItems(this);
+            if (scope is not null) candidates = ApplyScope(candidates, scope);
+            exact.AddRange(candidates.Where(c => string.Equals(c.Name, nameOrId, StringComparison.OrdinalIgnoreCase)));
         }
-
-        // 3) Substring/fuzzy fallback — already capped by FindResources.
-        if (matches.Count == 1) return matches[0].Resource;
-        throw new AmbiguousMatchException(matches.Select(m => m.Resource.Id).ToList());
+        if (exact.Count == 0) return null;
+        if (exact.Count == 1) return exact[0];
+        throw new AmbiguousMatchException(exact.Select(r => r.Id).ToList());
     }
 
     public CachedResourceGroup? ResolveResourceGroup(string nameOrId, ScopeFilter? scope)
@@ -460,17 +431,6 @@ public sealed class ResourceCache
         return false;
     }
 
-    private static double SubstringScore(string name, string patLower)
-    {
-        var nameLower = name.ToLowerInvariant();
-        var idx = nameLower.IndexOf(patLower, StringComparison.Ordinal);
-        if (idx < 0) return 0;
-        // Higher score for prefix and shorter name.
-        var prefixBonus = idx == 0 ? 0.3 : 0.0;
-        var lengthRatio = patLower.Length / (double)Math.Max(name.Length, 1);
-        return Math.Min(0.99, 0.5 + prefixBonus + 0.2 * lengthRatio);
-    }
-
     private static int Lev(string a, string b)
     {
         if (a.Length == 0) return b.Length;
@@ -495,7 +455,7 @@ public sealed class ResourceCache
 public sealed record CacheStats(
     int Tenants, int Subscriptions, int ResourceGroups, int Resources, DateTime? LoadedAtUtc);
 
-public sealed record MatchResult(CachedResource Resource, string Match, double Score);
+public sealed record MatchResult(CachedResource Resource, double Score);
 
 public sealed class TreeNode
 {

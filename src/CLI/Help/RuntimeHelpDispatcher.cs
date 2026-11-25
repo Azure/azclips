@@ -24,7 +24,7 @@ namespace Core.Cli.Help;
 /// multi-verb extensions like Compute surface as both <c>vm</c> and <c>disk</c> roots.
 /// </para>
 /// <para>
-/// <see cref="RenderExtensionHelp"/> resolves verb ownership from discovered extension metadata;
+/// <see cref="RenderExtensionHelp"/> combines verb contributions from discovered extension metadata;
 /// on a miss it consults <see cref="ExtensionHintTable.Default"/> so <c>az vm --help</c>
 /// (when Compute is uninstalled) yields a precise "install it with: az extension add --name Compute"
 /// hint instead of a bare <see cref="KeyNotFoundException"/>.
@@ -83,10 +83,10 @@ public sealed class RuntimeHelpDispatcher
     }
 
     /// <summary>
-    /// Supplies the package ids routing selected. When set and non-empty, help discovers only those
-    /// packages, and each loads the copy routing selected, so help shows the commands dispatch runs.
+    /// Supplies the package ids routing selected for a verb, or all selected packages for null
+    /// (root help). Each loads the copy routing selected, so help describes what dispatch runs.
     /// </summary>
-    internal Func<IReadOnlyList<string>>? SelectedPackageIds { get; init; }
+    internal Func<string?, IReadOnlyList<string>>? SelectedPackageIds { get; init; }
     internal CommandTimingRecorder? Performance { get; init; }
 
     /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
@@ -113,9 +113,9 @@ public sealed class RuntimeHelpDispatcher
         // Command-help hint; branches below still fall back to group help if no command matches.
         var isCommandHelp = path.Count > 1;
 
-        var discovered = DiscoverInstalledExtensions();
+        var discovered = DiscoverInstalledExtensions(verb);
         using var projection = Performance?.MeasureLocal("Help projection/render/output");
-        if (!TryResolveExtension(discovered, verb, out var extensionInfo))
+        if (!TryResolveExtension(discovered, verb, out _))
         {
             // Intrinsic host verbs (e.g. `version`) are not owned by any installed extension, but
             // their help still lives in the markdown corpus so `az <verb> --help` keeps working.
@@ -125,9 +125,13 @@ public sealed class RuntimeHelpDispatcher
             }
 
             // Matches the execute-path UX in ExtensionDispatcher.Parse.
-            if (_hintTable.TryGetPackageId(verb, out var hintedPackage))
+            for (var length = path.Count - 1; length >= 0; length--)
             {
-                throw new ExtensionNotInstalledException(verb, hintedPackage);
+                var commandPath = string.Join(" ", path.Skip(1).Take(length));
+                if (_hintTable.TryGetPackageId(verb, commandPath, out var hintedPackage))
+                {
+                    throw new ExtensionNotInstalledException(verb, hintedPackage);
+                }
             }
 
             // Truly unknown verb (no install hint either). Surface as a known error so the
@@ -139,7 +143,28 @@ public sealed class RuntimeHelpDispatcher
                 details: new Dictionary<string, object?> { ["verb"] = verb });
         }
 
-        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, verb);
+        var contributors = discovered
+            .Where(info => OwnsVerb(info, verb))
+            .OrderByDescending(info => OwnsRootLeaf(info, verb))
+            .ThenBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
+        var commands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+        foreach (var contributor in contributors)
+        {
+            foreach (var (key, metadata) in contributor.Commands)
+            {
+                if (!key.Equals(verb, StringComparison.OrdinalIgnoreCase) &&
+                    !key.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!commands.TryAdd(key, metadata))
+                {
+                    TryWriteDebug($"RuntimeHelpDispatcher: duplicate help command '{key}' from '{contributor.PackageId}' ignored; retaining the earlier root-owner/package-id entry.");
+                }
+            }
+        }
+        var helpProvider = new ExtensionIndexHelpAdapter(commands, verb);
 
         Func<IEnumerable<string>> render;
         if (isCommandHelp)
@@ -300,7 +325,7 @@ public sealed class RuntimeHelpDispatcher
         }
     }
 
-    private IReadOnlyList<DiscoveredExtensionInfo> DiscoverInstalledExtensions()
+    private IReadOnlyList<DiscoveredExtensionInfo> DiscoverInstalledExtensions(string? verb = null)
     {
         var discoveredInfos = new List<DiscoveredExtensionInfo>();
         var outputStreams = new OutputStreams(
@@ -322,7 +347,7 @@ public sealed class RuntimeHelpDispatcher
         IReadOnlyList<string> selectedPackageIds = [];
         try
         {
-            selectedPackageIds = SelectedPackageIds?.Invoke() ?? [];
+            selectedPackageIds = SelectedPackageIds?.Invoke(verb) ?? [];
         }
         catch (Exception ex)
         {

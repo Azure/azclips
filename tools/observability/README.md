@@ -1,7 +1,7 @@
 # Local Observability Stack
 
 A one-command local trace backend (Jaeger) for viewing traces/spans from
-Debug-build `az` and PowerShell runs in real time, instead of remote App Insights.
+Debug-build `az` and PowerShell runs in real time, instead of remote Aria.
 
 ## Start / stop
 
@@ -18,8 +18,8 @@ Open the UI at http://localhost:16686.
 Telemetry direction is chosen by a hidden, developer-only switch:
 
 - **Debug builds** default to **both** Local and Remote (traces go to Jaeger on
-  `localhost:4317` **and** Azure Monitor simultaneously).
-- **Release builds** default to **Remote only** (Azure Monitor / App Insights).
+  `localhost:4317` **and** Aria simultaneously).
+- **Release builds** default to **Remote only** (Aria / OneCollector).
 - Override a Debug build with the environment variable `AZCLIPS_TELEMETRY_TARGET`,
   which accepts `local`, `remote`, or `both`. **Release builds ignore this variable
   entirely** — the suppression is deliberate and cannot be overridden at runtime.

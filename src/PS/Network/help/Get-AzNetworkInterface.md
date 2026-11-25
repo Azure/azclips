@@ -202,10 +202,4 @@ The requested network interface, or every network interface in the resource grou
 
 ## NOTES
 
-Generated help for network.
-
 ## RELATED LINKS
-
-
-- [Online Version]()
-

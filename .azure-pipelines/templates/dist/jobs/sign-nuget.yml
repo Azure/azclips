@@ -131,7 +131,7 @@ jobs:
           Write-Host "NuGet total bytes to sign: $totalBytes"
     - task: EsrpCodeSigning@6
       displayName: Sign NuGet Packages [NuGetSign]
-      condition: eq(variables['HasNupkg'], 'true')
+      condition: and(succeeded(), eq(variables['HasNupkg'], 'true'))
       inputs:
         ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
         AppRegistrationClientId: '$(ESRPAppClientId)'
@@ -161,7 +161,7 @@ jobs:
     - ${{ if eq(parameters.esrp_enable_nuget_verify, true) }}:
       - task: EsrpCodeSigning@6
         displayName: Verify NuGet Packages In ESRP [NuGetVerify]
-        condition: eq(variables['HasNupkg'], 'true')
+        condition: and(succeeded(), eq(variables['HasNupkg'], 'true'))
         inputs:
           ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
           AppRegistrationClientId: '$(ESRPAppClientId)'

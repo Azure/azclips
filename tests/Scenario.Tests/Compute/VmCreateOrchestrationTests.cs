@@ -62,7 +62,6 @@ public class VmCreateOrchestrationTests
         "--image", Image,
         "--admin-username", "azadmin",
         "--admin-password", Password,
-        "--network-interface-name", "scenario-vm-nic",
         "--virtual-network-name", "scenario-vm-vnet",
         "--subnet-names", "default",
         "--subnet-address-prefixes", "10.0.0.0/24",
@@ -84,7 +83,6 @@ public class VmCreateOrchestrationTests
         ["Image"] = Image,
         ["AdminUsername"] = "azadmin",
         ["AdminPassword"] = Password,
-        ["NetworkInterfaceName"] = "scenario-vm-nic",
         ["VirtualNetworkName"] = "scenario-vm-vnet",
         ["SecurityGroupName"] = "scenario-vm-nsg",
         ["SubnetNames"] = new List<string> { "default" },
@@ -155,6 +153,40 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void PowerShellSshKeyValues_CanOmitAdminPassword()
+    {
+        var parameters = PsParameters();
+        parameters["Image"] = LinuxImage;
+        parameters.Remove("AdminPassword");
+        parameters["SshKeyValues"] = new List<string> { PublicKey };
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+
+        Assert.Contains("\"linuxConfiguration\"", vmBody);
+        Assert.Contains("\"disablePasswordAuthentication\":true", vmBody);
+        Assert.Contains("\"path\":\"/home/azadmin/.ssh/authorized_keys\"", vmBody);
+        Assert.Contains($"\"keyData\":\"{PublicKey}\"", vmBody);
+        Assert.DoesNotContain("adminPassword", vmBody);
+        Assert.DoesNotContain("windowsConfiguration", vmBody);
+    }
+
+    [Fact]
+    public void PowerShellSshKeyValues_WithAdminPassword_KeepPasswordAuthenticationEnabled()
+    {
+        var parameters = PsParameters();
+        parameters["Image"] = LinuxImage;
+        parameters["SshKeyValues"] = new List<string> { PublicKey };
+
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+        var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
+
+        Assert.Contains("\"adminPassword\"", vmBody);
+        Assert.Contains("\"disablePasswordAuthentication\":false", vmBody);
+        Assert.Contains($"\"keyData\":\"{PublicKey}\"", vmBody);
+    }
+
+    [Fact]
     public void Create_RequiresPasswordOrSshKey_BeforeCreatingNetworkResources()
     {
         var record = new SessionRecord();
@@ -172,7 +204,7 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
-    public void Create_RequiresAdminPasswordForPowerShell_BeforeCreatingNetworkResources()
+    public void Create_RequiresPasswordOrSshKeyForPowerShell_BeforeCreatingNetworkResources()
     {
         var record = new SessionRecord();
         var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
@@ -201,6 +233,26 @@ public class VmCreateOrchestrationTests
         var error = Assert.Throws<UsageErrorException>(() => host.RunCli([.. s_cliArgs, "--ssh-key-values", PublicKey]));
 
         Assert.Contains("SSH public keys require a Linux marketplace image.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
+        Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/"));
+    }
+
+    [Fact]
+    public void PowerShellSshKeyValues_RequireLinuxImage_BeforeCreatingNetworkResources()
+    {
+        var record = new SessionRecord();
+        var recorder = new RecordPlaybackInterceptor(RecorderMode.Record, record);
+        using var host = new ScenarioHost(ClientType.PowerShell, recorder, new FakeVmArmBackend(SubscriptionId), extensions: [ExtensionUnderTest.Resources, ExtensionUnderTest.Compute]);
+
+        host.RunPowerShell("New-AzResourceGroup", PsGroupParameters(), extension: "Resources");
+        var parameters = PsParameters();
+        parameters["SshKeyValues"] = new List<string> { PublicKey };
+        var error = Assert.Throws<UsageErrorException>(() => host.RunPowerShell("New-AzVM", parameters, extension: "Compute"));
+
+        Assert.Contains("SSH public keys require a Linux marketplace image.", error.Message);
+        Assert.DoesNotContain("--image", error.Message);
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualNetworks/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkSecurityGroups/"));
         Assert.DoesNotContain(record.Entries, e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/networkInterfaces/"));
@@ -586,7 +638,7 @@ public class VmCreateOrchestrationTests
         var uris = record.Entries.Select(e => e.Request.Uri).ToList();
         Assert.Contains(uris, u => u.Contains("/virtualNetworks/scenario-vm-vnet"));
         Assert.Contains(uris, u => u.Contains("/networkSecurityGroups/scenario-vm-nsg"));
-        Assert.Contains(uris, u => u.Contains("/networkInterfaces/scenario-vm-nic"));
+        Assert.Contains(uris, u => u.Contains("/networkInterfaces/scenario-vmVMNic"));
         Assert.Contains(uris, u => u.Contains("/virtualMachines/scenario-vm"));
         Assert.Contains(uris, u => u.Contains("/operations/vm-create"));
 
@@ -595,7 +647,7 @@ public class VmCreateOrchestrationTests
         Assert.Contains("/subnets/default", nicBody);
         Assert.Contains("/networkSecurityGroups/scenario-vm-nsg", nicBody);
         var vmBody = record.Entries.First(e => e.Request.Method == "PUT" && e.Request.Uri.Contains("/virtualMachines/")).Request.Body!;
-        Assert.Contains("/networkInterfaces/scenario-vm-nic", vmBody);
+        Assert.Contains("/networkInterfaces/scenario-vmVMNic", vmBody);
 
         // Sanitised: the password really went over the wire, but never into the record.
         Assert.Contains(recorder.Sent, r => r.Body is not null && r.Body.Contains(Password));
@@ -1234,6 +1286,34 @@ public class VmCreateOrchestrationTests
     }
 
     [Fact]
+    public void StorageSku_OsForm_WritesOsDiskStorageAccountType()
+    {
+        var record = RecordCli(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--storage-sku", "os=Premium_LRS"]);
+
+        Assert.Equal("Premium_LRS", OsDiskStorageAccountType(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
+    public void StorageSku_DataDiskLun_FailsBeforeAnyAzureWrite()
+    {
+        var (record, error) = RecordCliFailure(new FakeVmArmBackend(SubscriptionId), [.. s_cliArgs, "--storage-sku", "0=Premium_LRS"]);
+
+        Assert.IsType<UsageErrorException>(error);
+        Assert.Equal("Data-disk SKU assignments are not supported. Specify a SKU or os=SKU.", error.Message);
+        Assert.DoesNotContain(record.Entries, e => IsRequest(e, "PUT", "/providers/"));
+    }
+
+    [Fact]
+    public void StorageSku_PowerShell_OsForm_WritesOsDiskStorageAccountType()
+    {
+        var parameters = PsParameters();
+        parameters["StorageSku"] = "os=Premium_LRS";
+        var record = RecordPowerShell(new FakeVmArmBackend(SubscriptionId), parameters);
+
+        Assert.Equal("Premium_LRS", OsDiskStorageAccountType(PutBody(record, "/virtualMachines/")));
+    }
+
+    [Fact]
     public void StorageSku_PowerShell_WritesOsDiskStorageAccountType()
     {
         var parameters = PsParameters();
@@ -1316,11 +1396,13 @@ public class VmCreateOrchestrationTests
         Assert.False(osDisk.TryGetProperty("deleteOption", out _));
     }
 
-    [Fact]
-    public void OsDiskDeleteOption_CombinesWithStorageSkuAndConfidentialVmDiskSecurity()
+    [Theory]
+    [InlineData("Premium_LRS")]
+    [InlineData("os=Premium_LRS")]
+    public void OsDiskDeleteOption_CombinesWithStorageSkuAndConfidentialVmDiskSecurity(string storageSku)
     {
         var record = RecordCli(new FakeVmArmBackend(SubscriptionId),
-            [.. s_cliArgs, "--os-disk-delete-option", "Delete", "--storage-sku", "Premium_LRS",
+            [.. s_cliArgs, "--os-disk-delete-option", "Delete", "--storage-sku", storageSku,
                 "--security-type", "ConfidentialVM", "--os-disk-security-encryption-type", "DiskWithVMGuestState",
                 "--os-disk-secure-vm-disk-encryption-set", "mydes"]);
 
@@ -1438,7 +1520,6 @@ public class VmCreateOrchestrationTests
     {
         foreach (string name in new[]
         {
-            "NetworkInterfaceName",
             "VirtualNetworkName",
             "SecurityGroupName",
             "SubnetNames",

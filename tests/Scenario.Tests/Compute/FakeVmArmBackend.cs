@@ -210,7 +210,7 @@ internal sealed class FakeVmArmBackend : HttpMessageHandler
                     hardwareProfile = new { vmSize = "Standard_D2s_v3" },
                     storageProfile = new { imageReference = new { publisher = "MicrosoftWindowsServer", offer = "WindowsServer", sku = "2022-datacenter-azure-edition", version = "latest" } },
                     osProfile = new { computerName = name, adminUsername = "azadmin", windowsConfiguration = new { } },
-                    networkProfile = new { networkInterfaces = new[] { new { id = Id("Microsoft.Network/networkInterfaces", "scenario-vm-nic") } } },
+                    networkProfile = new { networkInterfaces = new[] { new { id = Id("Microsoft.Network/networkInterfaces", "scenario-vmVMNic") } } },
                 },
             }, HttpStatusCode.OK));
         }

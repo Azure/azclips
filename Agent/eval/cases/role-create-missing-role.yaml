@@ -1,0 +1,42 @@
+description: "[mutate/missing-param] role-create-missing-role"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: role-create-missing-role
+  command_group: role
+  goal: Assign a role to the principal on the group; no role was supplied.
+  command: role assignment create --assignee-object-id 00000000-0000-0000-0000-000000000000 --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az role assignment create
+          match: all
+          requiredArguments:
+            - --role
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --assignee-object-id: 00000000-0000-0000-0000-000000000000
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az role assignment create
+        - az rest
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Assign a role to the principal on the group; no role was supplied."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - The role is unknown; a placeholder role definition id is acceptable. Must not pick a privileged role like Owner as mandatory.

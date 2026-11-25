@@ -284,9 +284,8 @@ echo "  PASS: idempotent, guarded, and forced uninstall behavior succeeded"
 printf '#!/usr/bin/env sh\necho classic az sentinel\n' >"$SIM_ROOT/classic-bin/az"
 chmod +x "$SIM_ROOT/classic-bin/az"
 
-HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-install.sh" \
-  --package "$PACKAGE_PROFILE" \
-  --archive "$CLI_TAR_PATH"
+HOME="$SIM_ROOT/home" AZCLIPS_HOME="$SIM_ROOT/home/.azclips" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" AZCLI_PACKAGE="$PACKAGE_PROFILE" \
+  bash "$PACKAGING_ROOT/common/validate_cli_download.sh" "$REPO_ROOT" "$CLI_TAR_PATH" "$EXT_PACK_DIR"
 
 AZ="$SIM_ROOT/install/az"
 if [[ ! -x "$AZ" ]]; then
@@ -333,6 +332,31 @@ fi
 echo "PASS: Bundled extension folders are present"
 echo "PASS: Bundled Copilot CLI is present at the agent resolver path"
 echo "PASS: NOTICE, LICENSE, and completion scripts are present"
+
+# `az agent tool ...` loads through the CLI extension loader, which resolves
+# dependencies from the extension directory, then the CLI root. It does not
+# probe deps/ (that layout is for the azclips-agent subprocess only).
+AGENT_EXT_DIR="$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Agent"
+if ! python3 - "$AGENT_EXT_DIR" "$SIM_ROOT/install" <<'PY'
+import json, os, sys
+
+ext_dir, install_root = sys.argv[1:3]
+deps = json.load(open(os.path.join(ext_dir, 'Microsoft.Azure.Azclips.Extensions.Agent.deps.json')))
+missing = []
+for target in deps['targets'].values():
+    for lib_id, lib in target.items():
+        for asset in lib.get('runtime', {}):
+            name = os.path.basename(asset)
+            if not os.path.isfile(os.path.join(ext_dir, name)) and not os.path.isfile(os.path.join(install_root, name)):
+                missing.append(f'{name} ({lib_id})')
+if missing:
+    print('FAIL: Agent extension dependencies not resolvable from the extension directory or the CLI root: ' + ', '.join(missing))
+    sys.exit(1)
+PY
+then
+  exit 1
+fi
+echo "PASS: every Agent extension runtime dependency is resolvable by the CLI extension loader"
 
 echo ""
 echo "[2/17] Verify bundled extension sidecars are present"
@@ -593,7 +617,7 @@ fi
 
 echo ""
 echo "[17/17] Uninstall isolated azcli and preserve classic az"
-HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" "$REPO_ROOT/install/azcli-uninstall.sh"
+HOME="$SIM_ROOT/home" AZCLI_INSTALL_ROOT="$SIM_ROOT/install" bash < "$REPO_ROOT/install/azcli-uninstall.sh"
 if [[ -e "$SIM_ROOT/install" ]]; then
   echo "  FAIL: azcli install root remains after uninstall"
   exit 1

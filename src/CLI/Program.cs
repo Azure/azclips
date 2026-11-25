@@ -59,7 +59,7 @@ public class Program
 
     private static async Task<int> RunCliAsync(string[] args, CommandTimingRecorder debugTiming, Action<Action<string>> setTimingWriter)
     {
-        var performance = new PerformanceTimeline("AzureCLI.Startup");
+        var performance = new PerformanceTimeline("AzureCLI.Startup", TimeProvider.System);
         using var startup = debugTiming.MeasureLocal("Init/startup");
         bool isBareInvocation = args.Length == 0;
 
@@ -68,6 +68,9 @@ public class Program
             new TelemetryUpload(new Core.Runtime.Persistence.FilePersistenceStore()).RunPending();
             return 0;
         }
+
+        var supportsColor = WindowsConsole.Initialize();
+        ColorPolicy.Initialize(ColorMode.Auto, supportsColor);
 
         // Developer UI-print probe. Renders a sample block for triaging terminal
         // wrap / encoding / alignment. Runs before DI so it stays independent.
@@ -160,7 +163,7 @@ public class Program
                 var clientsOptions = _configurationService.GetConfiguration<ClientsOptions>();
                 sessionSettings = SessionPolicyResolver.Resolve(coreOptions, clientsOptions, globalArgs);
                 _sessionDebug = sessionSettings.LogLevel == LogLevel.Debug;
-                ColorPolicy.Initialize(sessionSettings.Color);
+                ColorPolicy.Initialize(sessionSettings.Color, supportsColor);
                 streams = BuildStreams(sessionSettings.LogLevel, sessionSettings.Format, sessionSettings.SimpleFormat, globalArgs.Query, debugTiming);
                 if (LoggingPolicy.IsEnabled(sessionSettings.LogLevel, LogSeverity.Debug))
                 {
@@ -486,9 +489,9 @@ public class Program
             var renderer = new RuntimeHelpDispatcher(engine, streams, output)
             {
                 Performance = debugTiming,
-                SelectedPackageIds = () => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+                SelectedPackageIds = verb => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
                     AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>(),
-                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>()),
+                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>(), verb),
             };
             if (help.Path.Count == 0)
             {
@@ -704,7 +707,7 @@ public class Program
 
 
     /// <summary>
-    /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.
+    /// Spawns a detached background process to upload buffered telemetry to Aria.
     /// Fire-and-forget: the CLI exits immediately without waiting for the upload.
     /// </summary>
     private static void SpawnTelemetryUploader(ProcessStartInfo? startInfo)

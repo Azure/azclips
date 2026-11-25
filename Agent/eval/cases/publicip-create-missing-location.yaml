@@ -1,0 +1,41 @@
+description: "[mutate/missing-param] publicip-create-missing-location"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: publicip-create-missing-location
+  command_group: network
+  goal: Create public IP azclips-eval-pip.
+  command: network public-ip create --name azclips-eval-pip --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network public-ip create
+          match: all
+          requiredArguments:
+            - --location
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-pip
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network public-ip create
+        - az group show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create public IP azclips-eval-pip."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

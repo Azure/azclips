@@ -1,0 +1,37 @@
+description: "[read/invalid-value] vnet-show-not-found"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: vnet-show-not-found
+  command_group: network
+  goal: Show the named VNet, which does not exist.
+  command: network vnet show --name azclips-eval-vnet-404 --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network vnet list
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network vnet list
+        - az network vnet show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show the named VNet, which does not exist."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Listing VNets is expected. Do not make creation mandatory.

@@ -192,17 +192,38 @@ public class SessionConfigTests
             HomePaths.GetDefaultHomeRoot(), HomePaths.AgentDirectoryName, HomePaths.AgentCopilotDirectoryName);
         Assert.Equal(expectedCopilot, config.ConfigDirectory);
         Assert.True(config.Streaming);
-        Assert.Null(config.AvailableTools);
+        Assert.Equal(
+            new[]
+            {
+                "custom:*",
+                "powershell", "read_powershell", "stop_powershell", "list_powershell",
+                "bash", "read_bash", "stop_bash", "list_bash",
+                "view", "rg", "web_fetch",
+            },
+            config.AvailableTools);
         Assert.NotNull(config.SystemMessage);
         Assert.Equal(SystemMessageMode.Customize, config.SystemMessage.Mode);
         var sections = config.SystemMessage.Sections!;
         Assert.Equal(SectionOverrideAction.Replace, sections[SystemMessageSection.Identity].Action);
         Assert.Equal("test system prompt", sections[SystemMessageSection.Identity].Content);
-        Assert.Equal(SectionOverrideAction.Remove, sections[SystemMessageSection.Tone].Action);
-        Assert.Equal(SectionOverrideAction.Remove, sections[SystemMessageSection.CodeChangeRules].Action);
-        Assert.Equal(SectionOverrideAction.Remove, sections[SystemMessageSection.CustomInstructions].Action);
-        Assert.Equal(oneShot, sections.ContainsKey(SystemMessageSection.ToolInstructions));
-        Assert.Equal(oneShot, sections.ContainsKey(SystemMessageSection.RuntimeInstructions));
+        var removed = new List<string>
+        {
+            SystemMessageSection.Tone.Value,
+            SystemMessageSection.CodeChangeRules.Value,
+            SystemMessageSection.CustomInstructions.Value,
+            SystemMessageSection.RuntimeInstructions.Value,
+            SystemMessageSection.LastInstructions.Value,
+        };
+        if (oneShot)
+        {
+            removed.Add(SystemMessageSection.ToolInstructions.Value);
+            removed.Add(SystemMessageSection.Guidelines.Value);
+            removed.Add(SystemMessageSection.EnvironmentContext.Value);
+        }
+        Assert.Equal(
+            removed.Order(),
+            sections.Where(s => s.Value.Action == SectionOverrideAction.Remove).Select(s => s.Key.Value).Order());
+        Assert.Equal(removed.Count + 1, sections.Count);
         Assert.Contains(config.Tools!, tool => tool.Name == "get_command");
         Assert.Contains(config.Tools!, tool => tool.Name == "propose_plan");
         Assert.Contains(config.Tools!, tool => tool.Name == "submit_response");
@@ -228,6 +249,25 @@ public class SessionConfigTests
     }
 
     [Fact]
+    public void SdkSectionList_IsPinned()
+    {
+        var sections = typeof(SystemMessageSection)
+            .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(p => p.PropertyType == typeof(SystemMessageSection))
+            .Select(p => ((SystemMessageSection)p.GetValue(null)!).Value)
+            .Order();
+
+        Assert.Equal(
+            new[]
+            {
+                "code_change_rules", "custom_instructions", "environment_context", "guidelines", "identity",
+                "last_instructions", "preamble", "runtime_instructions", "safety", "tone", "tool_efficiency",
+                "tool_instructions",
+            },
+            sections);
+    }
+
+    [Fact]
     public async Task ReadOfAFileThatTheFailedCommandNames_IsApprovedWithoutPrompting()
     {
         var directory = Directory.CreateTempSubdirectory("azclips-session-files-").FullName;
@@ -247,9 +287,8 @@ public class SessionConfigTests
 #pragma warning disable GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             var pending = config.OnPermissionRequest!(
                 new PermissionRequestRead { Path = template, Intention = "Read the template" }, default!);
-            // A read that went to the approval prompt would wait there until the session ends.
-            Assert.True(pending == await Task.WhenAny(pending, Task.Delay(TimeSpan.FromSeconds(10))),
-                "The read of the named file went to the approval prompt.");
+            // The handler approves the named file synchronously; a read sent to the approval prompt stays pending.
+            Assert.True(pending.IsCompletedSuccessfully, "The read of the named file went to the approval prompt.");
             Assert.Equal(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce().Kind, (await pending).Kind);
 #pragma warning restore GHCP001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
@@ -315,7 +354,7 @@ public class SessionConfigTests
 
     private static readonly ConfigurationFixture s_configuration = new();
 
-    private static Task<SessionConfig> BuildAsync(
+    internal static Task<SessionConfig> BuildAsync(
         AgentOptions options, IAuthService auth, EventRenderer? renderer = null, CancellationToken ct = default,
         SessionState? state = null)
     {

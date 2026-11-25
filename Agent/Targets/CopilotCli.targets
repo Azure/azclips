@@ -1,0 +1,214 @@
+<Project>
+  <!--
+    Fetches the Copilot CLI bundle that GitHub.Copilot.SDK needs from the Microsoft package feed
+    proxy (CFS) instead of GitHub Releases. The same npm package (@github/copilot-<platform>) is
+    mirrored there, and the files the SDK copies are identical to the GitHub release archive.
+    CFS is already the NuGet source in nuget.config, so every machine that can restore can reach it.
+
+    How it works: before the SDK's _DownloadCopilotCli target runs, this unpacks the package into
+    the folder the SDK reads ($(IntermediateOutputPath)copilot-cli/<version>/<platform>) and writes
+    the SDK's completion marker. The SDK then finds a complete bundle and does not download.
+
+    This depends on SDK internals: the _DownloadCopilotCli target name, the _CopilotPlatform property,
+    the folder layout and the .copilot-runtime-complete marker. If an SDK upgrade changes them, the
+    SDK would download from GitHub again; FailIfCopilotCliDownloadedFromGitHub turns that into a build
+    error so this file gets updated.
+  -->
+  <PropertyGroup>
+    <CopilotCliFeedUrl Condition="'$(CopilotCliFeedUrl)' == ''">https://packagefeedproxy.microsoft.io/npm</CopilotCliFeedUrl>
+  </PropertyGroup>
+
+  <UsingTask
+    TaskName="VerifyNpmPackageShasum"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <MetadataFile ParameterType="System.String" Required="true" />
+      <PackageFile ParameterType="System.String" Required="true" />
+      <Version ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Security.Cryptography" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        // Inline tasks cannot reference System.Text.Json, so read the version's "dist" object with a regex.
+        string expected = null;
+        var tarball = new Regex("\"tarball\"\\s*:\\s*\"[^\"]*-" + Regex.Escape(Version) + "\\.tgz\"");
+        foreach (Match dist in Regex.Matches(File.ReadAllText(MetadataFile), "\"dist\"\\s*:\\s*\\{([^{}]*)\\}"))
+        {
+          if (!tarball.IsMatch(dist.Groups[1].Value))
+            continue;
+          var shasum = Regex.Match(dist.Groups[1].Value, "\"shasum\"\\s*:\\s*\"([0-9a-fA-F]{40})\"");
+          if (shasum.Success)
+            expected = shasum.Groups[1].Value;
+          break;
+        }
+        if (expected == null)
+        {
+          Log.LogError("No shasum for version {0} in {1}.", Version, MetadataFile);
+          return false;
+        }
+        // The feed publishes only the npm SHA-1 shasum, and GetFileHash does not support SHA-1.
+        string actual;
+        using (var sha1 = SHA1.Create())
+        using (var stream = File.OpenRead(PackageFile))
+        {
+          actual = BitConverter.ToString(sha1.ComputeHash(stream)).Replace("-", "");
+        }
+        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+        {
+          Log.LogError("Checksum mismatch for {0}: expected {1}, got {2}.", PackageFile, expected, actual);
+          return false;
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <!--
+    MSBuild's DownloadFile does not retry HTTP 503/504, which is the failure this file exists to avoid.
+    Modeled on dotnet/arcade src/Microsoft.DotNet.Arcade.Sdk/src/DownloadFile.cs: 404 fails at once;
+    HTTP errors, transient I/O errors and timeouts are retried; retries are logged as messages, not
+    warnings. Cancellation (Ctrl+C) stops the download, as in MSBuild's DownloadFile. Inline tasks
+    compile against netstandard, so ReadAsStreamAsync takes no token; CopyToAsync does.
+  -->
+  <UsingTask
+    TaskName="DownloadCopilotCliFile"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <SourceUrl ParameterType="System.String" Required="true" />
+      <DestinationFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Class" Language="cs"><![CDATA[
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Build.Framework;
+
+public class DownloadCopilotCliFile : Microsoft.Build.Utilities.Task, ICancelableTask
+{
+    private const int Attempts = 6;
+    private const int RetryDelayMilliseconds = 10000;
+    private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
+
+    [Required]
+    public string SourceUrl { get; set; }
+
+    [Required]
+    public string DestinationFile { get; set; }
+
+    public void Cancel() => _cancellation.Cancel();
+
+    public override bool Execute()
+    {
+        try
+        {
+            return DownloadAsync(_cancellation.Token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException) when (_cancellation.IsCancellationRequested)
+        {
+            Log.LogMessage(MessageImportance.High, "Download of {0} was cancelled.", SourceUrl);
+            return false;
+        }
+    }
+
+    private async Task<bool> DownloadAsync(CancellationToken token)
+    {
+        using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    using (var response = await client.GetAsync(SourceUrl, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
+                    {
+                        if (response.StatusCode == HttpStatusCode.NotFound)
+                        {
+                            Log.LogError("Download of {0} failed: {1} {2}.", SourceUrl, (int)response.StatusCode, response.ReasonPhrase);
+                            return false;
+                        }
+
+                        response.EnsureSuccessStatusCode();
+                        try
+                        {
+                            using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                            using (var file = File.Create(DestinationFile))
+                            {
+                                await stream.CopyToAsync(file, 81920, token).ConfigureAwait(false);
+                            }
+                        }
+                        catch
+                        {
+                            File.Delete(DestinationFile);
+                            throw;
+                        }
+                    }
+                    return true;
+                }
+                catch (Exception ex) when (IsRetriable(ex, token))
+                {
+                    if (attempt == Attempts)
+                    {
+                        Log.LogError("Download of {0} failed after {1} attempts: {2}", SourceUrl, Attempts, ex.Message);
+                        return false;
+                    }
+                    Log.LogMessage(MessageImportance.High, "Download of {0} failed (attempt {1} of {2}): {3} Retrying.", SourceUrl, attempt, Attempts, ex.Message);
+                    await Task.Delay(RetryDelayMilliseconds, token).ConfigureAwait(false);
+                }
+            }
+        }
+    }
+
+    // Same filter as Arcade's DownloadFile: HTTP errors, I/O errors that are not about the path,
+    // and HttpClient timeouts (a TaskCanceledException that is not our cancellation).
+    private static bool IsRetriable(Exception ex, CancellationToken token) =>
+        ex is HttpRequestException ||
+        (ex is IOException && !(ex is DirectoryNotFoundException || ex is PathTooLongException)) ||
+        (ex is TaskCanceledException && !token.IsCancellationRequested);
+}
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="FetchCopilotCliFromFeed"
+          BeforeTargets="_DownloadCopilotCli"
+          Condition="'$(TargetFramework)' != '' And '$(CopilotCliBinaryPath)' == '' And '$(CopilotSkipCliDownload)' != 'true' And '$(_CopilotPlatform)' != ''">
+    <PropertyGroup>
+      <_CopilotFeedDir>$(IntermediateOutputPath)copilot-cli\$(CopilotCliVersion)\$(_CopilotPlatform)</_CopilotFeedDir>
+      <_CopilotFeedMarker>$(_CopilotFeedDir)\.copilot-runtime-complete</_CopilotFeedMarker>
+      <_CopilotFeedArchive>$(_CopilotFeedDir)\copilot.tgz</_CopilotFeedArchive>
+      <_CopilotFeedMetadata>$(_CopilotFeedDir)\metadata.json</_CopilotFeedMetadata>
+      <_CopilotFeedPackage>copilot-$(_CopilotPlatform)</_CopilotFeedPackage>
+      <_CopilotFeedMetadataUrl>$(CopilotCliFeedUrl)/@github%252f$(_CopilotFeedPackage)</_CopilotFeedMetadataUrl>
+      <_CopilotFeedPackageUrl>$(CopilotCliFeedUrl)/@github/$(_CopilotFeedPackage)/-/$(_CopilotFeedPackage)-$(CopilotCliVersion).tgz</_CopilotFeedPackageUrl>
+      <_CopilotFeedTar Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(SystemRoot)\System32\tar.exe</_CopilotFeedTar>
+      <_CopilotFeedTar Condition="'$(_CopilotFeedTar)' == ''">tar</_CopilotFeedTar>
+    </PropertyGroup>
+
+    <RemoveDir Directories="$(_CopilotFeedDir)" Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <MakeDir Directories="$(_CopilotFeedDir)" Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <Message Importance="high" Text="Downloading Copilot CLI $(CopilotCliVersion) for $(_CopilotPlatform) from $(CopilotCliFeedUrl)..." Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <DownloadCopilotCliFile SourceUrl="$(_CopilotFeedMetadataUrl)" DestinationFile="$(_CopilotFeedMetadata)"
+                            Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <DownloadCopilotCliFile SourceUrl="$(_CopilotFeedPackageUrl)" DestinationFile="$(_CopilotFeedArchive)"
+                            Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <VerifyNpmPackageShasum MetadataFile="$(_CopilotFeedMetadata)" PackageFile="$(_CopilotFeedArchive)" Version="$(CopilotCliVersion)"
+                            Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <Exec Command="&quot;$(_CopilotFeedTar)&quot; -xzf &quot;$(_CopilotFeedArchive)&quot; --strip-components=1 -C &quot;$(_CopilotFeedDir)&quot;"
+          Condition="!Exists('$(_CopilotFeedMarker)')" />
+    <Delete Files="$(_CopilotFeedArchive);$(_CopilotFeedMetadata)" />
+    <WriteLinesToFile File="$(_CopilotFeedMarker)" Lines="$(CopilotCliVersion)" Overwrite="true" Condition="!Exists('$(_CopilotFeedMarker)')" />
+  </Target>
+
+  <!-- The SDK sets _CopilotRuntimeBundleMissing only when it is about to download from GitHub. -->
+  <Target Name="FailIfCopilotCliDownloadedFromGitHub" AfterTargets="_DownloadCopilotCli">
+    <Error Condition="'$(_CopilotRuntimeBundleMissing)' == 'true'"
+           Text="GitHub.Copilot.SDK downloaded the Copilot CLI from GitHub instead of using the copy from $(CopilotCliFeedUrl). The SDK layout no longer matches Agent/Targets/CopilotCli.targets; update that file." />
+  </Target>
+</Project>

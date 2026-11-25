@@ -16,7 +16,8 @@ namespace Microsoft.Azure.Azclips.Extensions.Agent.Processors
 
             var profileService = AzclipsServiceProvider.GetRequiredService<IProfileService>();
             await WriteOutput(await EnvSnapshotProvider.GetJsonAsync(
-                profileService, Path.Combine(AppContext.BaseDirectory, "az.dll"), Token));
+                profileService, Path.Combine(AppContext.BaseDirectory, "az.dll"),
+                DocsProcessorBase.CreateHelpCatalogProvider().ListJsonAsync, Token));
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }

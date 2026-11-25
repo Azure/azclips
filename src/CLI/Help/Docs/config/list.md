@@ -5,7 +5,7 @@ schema: 1.0.0
 online version:
 ---
 
-Description: Display all current configuration values. By default, only explicitly-set values are shown. Use --all to include default values. Standard output formats such as JSON, table, TSV, and YAML are supported.
+Description: Display all effective configuration values, including built-in defaults for unset keys. Environment variables override the configuration file, which overrides defaults. Use --configured-only to omit entries whose source is default; values configured in either the file or environment are retained, even when equal to their default. Standard output formats such as JSON, table, TSV, and YAML are supported.
 
 ### List current configuration values
 
@@ -13,10 +13,10 @@ Description: Display all current configuration values. By default, only explicit
 az config list
 ```
 
-### List all configuration including defaults
+### List only explicitly configured values
 
 ```bash
-az config list --all
+az config list --configured-only
 ```
 
 ### List configuration as JSON

@@ -7,6 +7,8 @@ online version:
 
 Description: Set a configuration value using dot notation keys. If the key already exists, it will be updated. Unknown keys are rejected unless --force is specified.
 
+Before setting a value, run `az config info` to see valid keys, descriptions, defaults, and allowed values.
+
 ### Set output format to JSON
 
 ```bash

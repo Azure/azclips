@@ -14,7 +14,7 @@ public partial class ResourceGroup
 
     /// <summary>The name of the resource group to get. The name is case insensitive.</summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = null !;
 
     /// <summary>The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"</summary>
     [JsonPropertyName("type")]
@@ -31,7 +31,7 @@ public partial class ResourceGroup
 
     /// <summary>The geo-location where the resource lives</summary>
     [JsonPropertyName("location")]
-    public string Location { get; set; }
+    public string Location { get; set; } = null !;
 
     /// <summary>The resource group properties.</summary>
     [JsonPropertyName("properties")]

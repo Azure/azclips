@@ -1,0 +1,38 @@
+description: "[read/invalid-value] nsg-list-output-typo"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: nsg-list-output-typo
+  command_group: network
+  goal: List NSGs in azclips-test-rg as YAML.
+  command: network nsg list --resource-group azclips-test-rg --output yml
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network nsg list
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --resource-group: azclips-test-rg
+            --output: yaml
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network nsg list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List NSGs in azclips-test-rg as YAML."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

@@ -57,11 +57,13 @@ public static class CliExtensionServiceRegistration
     /// <summary>
     /// Returns the package ids routing selected, building the routing index first if this process
     /// hasn't yet. Help and completions use this so they show the same copies dispatch executes.
-    /// Returns an empty list when routing discovery selected nothing.
+    /// An optional verb limits the result to its contributors. Returns an empty list when
+    /// routing discovery selected nothing.
     /// </summary>
     internal static IReadOnlyList<string> GetRoutingSelectedPackageIds(
         ExtensionDispatcher dispatcher,
-        SelectedExtensionLocations selectedLocations)
+        SelectedExtensionLocations selectedLocations,
+        string? verb = null)
     {
         try
         {
@@ -73,7 +75,7 @@ public static class CliExtensionServiceRegistration
             // leaves the selected packages available.
         }
 
-        return selectedLocations.PackageIds;
+        return selectedLocations.GetPackageIds(verb);
     }
 
     private sealed class NoOpLoggingService : ILoggingService
@@ -142,11 +144,12 @@ public static class CliExtensionServiceRegistration
         selectedLocations?.Clear();
         foreach (var info in SelectInstalledCandidates(infos, currentRegistry, loggingService))
         {
-            // Remember the exact copy behind this routing entry so execution, help and
-            // completions use the same one.
-            selectedLocations?.Record(info.PackageId, info.ResolvedVersion, info.Location);
-
             var projection = BuildContributionProjection(info);
+            // Remember the exact copy behind this routing entry so execution, help and
+            // completions use the same one, even if index construction later fails.
+            selectedLocations?.Record(info.PackageId, info.ResolvedVersion, info.Location,
+                info.Verbs.Concat(projection.Namespaces));
+
             discovered.Extensions[info.PackageId] = new ExtensionRegistryEntry
             {
                 Version = info.ResolvedVersion,

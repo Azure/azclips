@@ -85,6 +85,44 @@ Describe 'Get-Cli2YamlDllPath' {
     }
 }
 
+Describe 'Invoke-CliExporter' {
+    It 'passes the selected configuration artifacts directory to the exporter' -ForEach @(
+        @{ Configuration = 'Debug' }
+        @{ Configuration = 'Release' }
+    ) {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $project = Join-Path $root 'export.csproj'
+        New-Item -ItemType Directory -Path (Join-Path $root 'artifacts/cli-export/latest') -Force | Out-Null
+        Set-Content -LiteralPath $project -Value 'fixture'
+        Mock dotnet { $global:LASTEXITCODE = 0; 'exported' }
+
+        Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration $Configuration | Out-Null
+
+        Should -Invoke dotnet -Times 1 -Exactly -ParameterFilter {
+            $args -contains '--artifacts-root' -and
+            $args -contains (Join-Path (Join-Path $root 'artifacts') $Configuration) -and
+            $args -contains $Configuration
+        }
+    }
+
+    It 'requires freshly produced root and command-group files for release output' {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $output = Join-Path $root 'release-output'
+        $latest = Join-Path $output 'latest'
+        New-Item -ItemType Directory -Path $latest -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 'export.csproj') -Value 'fixture'
+        Mock dotnet { $global:LASTEXITCODE = 0 }
+
+        { Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration Release -OutputFolder $output -RequireOutput } |
+            Should -Throw '*did not produce the root and command-group JSON*'
+        Set-Content -LiteralPath (Join-Path $latest '_root_.json') -Value '[]'
+        Set-Content -LiteralPath (Join-Path $latest 'group.json') -Value '[]'
+        Invoke-CliExporter -RepoRoot $root -ExportProject 'export.csproj' -Configuration Release -OutputFolder $output -RequireOutput |
+            Should -Be $latest
+        Should -Invoke dotnet -ParameterFilter { $args -contains '--output-folder' -and $args -contains $output }
+    }
+}
+
 Describe 'Get-TargetVersionFolder' {
     It 'composes docs-ref-autogen/<VersionFolder>' {
         $result = Get-TargetVersionFolder -TargetRepoPath 'fake-target' -VersionFolder 'preview-version'
@@ -188,7 +226,8 @@ Describe 'New-Cli2YamlWorkspace' {
         # Stub Get-DocCommitMap.ps1 that just writes a minimal commit map.
         $stubScript = @'
 [CmdletBinding()]
-param([string]$OutputPath)
+param([string]$OutputPath, [string]$ServiceMappingPath)
+Copy-Item -LiteralPath $ServiceMappingPath -Destination "$OutputPath.mapping"
 Set-Content -Path $OutputPath -Value '{}' -NoNewline
 Write-Host "Wrote 0 verb entries to $OutputPath"
 '@
@@ -198,6 +237,7 @@ Write-Host "Wrote 0 verb entries to $OutputPath"
         $script:ExporterOutput = Join-Path $script:RepoRoot 'artifacts/cli-export/latest'
         New-Item -ItemType Directory -Path $script:ExporterOutput -Force | Out-Null
         Set-Content -Path (Join-Path $script:ExporterOutput '_root_.json') -Value '[]'
+        Set-Content -Path (Join-Path $script:ExporterOutput 'login.json') -Value '[{}]'
         Set-Content -Path (Join-Path $script:ExporterOutput 'vm.json') -Value '[{}]'
     }
 
@@ -215,7 +255,32 @@ Write-Host "Wrote 0 verb entries to $OutputPath"
     It 'copies exporter JSON into input/latest' {
         $ws = New-Cli2YamlWorkspace -RepoRoot $script:RepoRoot -ExporterOutput $script:ExporterOutput
         $copied = @(Get-ChildItem (Join-Path $ws 'input/latest') -Filter '*.json' -File)
-        $copied.Name | Sort-Object | Should -Be @('_root_.json', 'vm.json')
+        $copied.Name | Sort-Object | Should -Be @('_root_.json', 'login.json', 'vm.json')
+    }
+
+    It 'generates a service mapping for exported commands and uses it for the commit map' {
+        $ws = New-Cli2YamlWorkspace -RepoRoot $script:RepoRoot -ExporterOutput $script:ExporterOutput
+        $mappingPath = Join-Path $ws 'input/service_name.json'
+        $mapping = @(Get-Content -LiteralPath $mappingPath -Raw | ConvertFrom-Json)
+        $mapping.Command | Should -Be @('login', 'vm')
+        $mapping.AzureServiceName | Should -Be @('azure-cli', 'azure-cli')
+        (Get-Content -LiteralPath "$ws/input/doc_commit_map.json.mapping" -Raw) |
+            Should -Be (Get-Content -LiteralPath $mappingPath -Raw)
+    }
+
+    It 'writes a JSON array when only one command is exported' {
+        Remove-Item -LiteralPath (Join-Path $script:ExporterOutput 'login.json')
+        $ws = New-Cli2YamlWorkspace -RepoRoot $script:RepoRoot -ExporterOutput $script:ExporterOutput
+        $mapping = Get-Content -LiteralPath (Join-Path $ws 'input/service_name.json') -Raw | ConvertFrom-Json -NoEnumerate
+        ($mapping -is [array]) | Should -BeTrue
+        $mapping.Count | Should -Be 1
+        $mapping[0].Command | Should -Be 'vm'
+    }
+
+    It 'rejects exporter output without command files' {
+        Remove-Item -LiteralPath (Join-Path $script:ExporterOutput 'login.json'), (Join-Path $script:ExporterOutput 'vm.json')
+        { New-Cli2YamlWorkspace -RepoRoot $script:RepoRoot -ExporterOutput $script:ExporterOutput } |
+            Should -Throw '*No command-group JSON files*'
     }
 
     It 'wipes any stale workspace from a previous run' {
@@ -224,6 +289,30 @@ Write-Host "Wrote 0 verb entries to $OutputPath"
 
         $null = New-Cli2YamlWorkspace -RepoRoot $script:RepoRoot -ExporterOutput $script:ExporterOutput
         Test-Path (Join-Path $ws 'input/latest/stale.json') | Should -BeFalse
+    }
+}
+
+Describe 'Get-DocCommitMap' {
+    BeforeAll {
+        $script:CommitMapScript = Join-Path $PSScriptRoot '../../build/Get-DocCommitMap.ps1'
+    }
+
+    It 'discovers help verbs without a service mapping' {
+        $output = Join-Path $TestDrive 'commit-map.json'
+        & $script:CommitMapScript -OutputPath $output
+        $map = Get-Content -LiteralPath $output -Raw | ConvertFrom-Json
+        $map.config.file | Should -Be 'src/CLI/Help/Docs/config/index.md'
+        $map.account.file | Should -Be 'src/CLI/Help/Docs/account/index.md'
+    }
+
+    It 'uses the generated mapping to select exported verbs' {
+        $mapping = Join-Path $TestDrive 'service-mapping.json'
+        $output = Join-Path $TestDrive 'filtered-commit-map.json'
+        Set-Content -LiteralPath $mapping -Value '[{"Command":"config","AzureServiceName":"azure-cli"}]'
+        & $script:CommitMapScript -ServiceMappingPath $mapping -OutputPath $output
+        $map = Get-Content -LiteralPath $output -Raw | ConvertFrom-Json
+        @($map.PSObject.Properties.Name) | Should -Be @('config')
+        $map.config.file | Should -Be 'src/CLI/Help/Docs/config/index.md'
     }
 }
 

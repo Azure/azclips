@@ -10,7 +10,7 @@ Description: Remove a configuration setting by key. Once deleted, the setting re
 ### Delete a configuration setting
 
 ```bash
-az config delete --key custom.mykey
+az config delete --key clients.cli.output.format
 ```
 
 ### Force delete without validation

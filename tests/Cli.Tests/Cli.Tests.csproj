@@ -17,6 +17,9 @@
     <ProjectReference Include="../Fixtures/FailureHistoryWorker/FailureHistory.TestWorker.csproj"
                       ReferenceOutputAssembly="false"
                       Private="false" />
+    <ProjectReference Include="../Fixtures/WindowsConsoleWorker/WindowsConsole.TestWorker.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
     <ProjectReference Include="../Fixtures/FakeAgent/FakeAgent.csproj"
                       ReferenceOutputAssembly="false"
                       Private="false" />

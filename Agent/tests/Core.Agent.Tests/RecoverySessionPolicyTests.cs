@@ -14,6 +14,7 @@ using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
 using Tests.Common.Stubs;
 using Xunit;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -30,8 +31,8 @@ public class RecoverySessionPolicyTests
         var automatic = CreateConfig(RecoveryTrigger.Automatic, style, new(), http, CancellationToken.None);
         var manual = CreateConfig(RecoveryTrigger.Manual, style, new(), http, CancellationToken.None);
 
-        Assert.Null(automatic.AvailableTools);
-        Assert.Null(manual.AvailableTools);
+        Assert.NotNull(automatic.AvailableTools);
+        Assert.Equal(automatic.AvailableTools, manual.AvailableTools);
         Assert.Equal(automatic.Tools!.Select(t => t.Name), manual.Tools!.Select(t => t.Name));
         Assert.Contains(manual.Tools!, t => t.Name == "get_command");
         Assert.Contains(manual.Tools!, t => t.Name == "find_resources");
@@ -47,7 +48,7 @@ public class RecoverySessionPolicyTests
     public async Task SessionConfig_UsesExistingReadOnlyAndUserApprovalPolicy(RecoveryTrigger trigger, string style)
     {
         using var http = new HttpClient();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var timeout = new CancellationTokenSource(AgentTestTimeouts.HangGuard);
         var approval = new ConsoleApprovalPrompt();
         var config = CreateConfig(trigger, style, approval, http, timeout.Token);
         var context = new PermissionInvocation { SessionId = "offline-policy-test" };

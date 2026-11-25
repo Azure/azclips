@@ -9,6 +9,14 @@ Azure CLI private preview stores user-scope configuration in a global JSON file.
 
 Configuration follows strict precedence: **command args > environment variables > global config > defaults**.
 
+On Windows, the CLI enables ANSI processing for console stdout and stderr so that
+help headings and colored output render in standalone Windows consoles as well as
+Windows Terminal. This does not change the color policy or enable styling for
+redirected output: `core.output.color`, `NO_COLOR`, and `FORCE_COLOR` still control
+whether styling is emitted. If Windows rejects console initialization on either
+stream, the CLI writes a warning to stderr and uses plain output for that
+invocation, even if `core.output.color=always` or `FORCE_COLOR` requests styling.
+
 ## Valid Configuration Keys
 
 | Key                                           | Type   | Default            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -203,16 +211,19 @@ Run `az config info` to discover configuration keys and their constraints.
 ### List all configuration
 
 ```bash
-# List user config only
+# List all effective values, including defaults for unset keys
 az config list
 
-# List with defaults (shows all keys with their current values)
-az config list --all
+# List only values configured in the file or environment
+az config list --configured-only
 
 # Select a standard output format
-az config list --all --output json
-az config list --all --output table
+az config list --output json
+az config list --output table
 ```
+
+Environment overrides win over file settings, which win over built-in defaults.
+`--configured-only` removes default-sourced entries, not values equal to defaults.
 
 ### Delete a configuration value
 
@@ -283,14 +294,16 @@ az config get --key core.logging.level
 ### Workflow: Check all settings with defaults
 
 ```bash
-az config list --all
+az config list
 ```
 
 ### Workflow: Reset to defaults
 
 ```bash
-# Delete all user-set config
-az config list --query "[].key" --output tsv | while IFS= read -r key; do
+# Delete file settings that are not shadowed by environment overrides
+az config list --configured-only --query "[?source == 'global config'].key" --output tsv | while IFS= read -r key; do
   az config delete --key "$key" --force
 done
 ```
+
+Unset mapped environment variables first to also reset file settings they shadow.

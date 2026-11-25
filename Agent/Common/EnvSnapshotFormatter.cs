@@ -50,6 +50,32 @@ internal static class EnvSnapshotFormatter
             sb.Append("  version: ").Append(GetString(root, "azclipsVersion", "unknown")).Append('\n');
             sb.Append("  flavor: ").Append(GetString(root, "flavor", "unknown")).Append('\n');
 
+            // An absent or non-array commandGroups means the help catalog could not be read;
+            // an empty array means it was read and lists no groups.
+            if (!root.TryGetProperty("commandGroups", out var groupsElement)
+                || groupsElement.ValueKind != JsonValueKind.Array)
+            {
+                sb.Append("command-groups: unknown (help catalog could not be read; use get_command to check whether a command exists)\n");
+                sb.Append("installable-command-groups: unknown\n");
+                sb.Append("</environment>");
+                return sb.ToString();
+            }
+
+            var groups = GetStrings(root, "commandGroups");
+            if (groups.Count > 0)
+            {
+                sb.Append("command-groups (installed root commands and groups; confirm with get_command)\n");
+                sb.Append("  ").Append(string.Join(", ", groups)).Append('\n');
+            }
+
+            if (root.TryGetProperty("installableGroups", out var installableElement)
+                && installableElement.ValueKind == JsonValueKind.Array)
+            {
+                var installable = GetInstallableGroups(root);
+                sb.Append("installable-command-groups (not installed; install with `az extension add --name <package>`)\n");
+                sb.Append("  ").Append(installable.Count > 0 ? string.Join(", ", installable) : "none").Append('\n');
+            }
+
             sb.Append("</environment>");
             return sb.ToString();
         }
@@ -84,6 +110,29 @@ internal static class EnvSnapshotFormatter
         if (!root.TryGetProperty(name, out var el)) return fallback;
         if (el.ValueKind == JsonValueKind.Null) return fallback;
         return el.ValueKind == JsonValueKind.String ? (el.GetString() ?? fallback) : fallback;
+    }
+
+    private static List<string> GetStrings(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Array) return [];
+        return el.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.String)
+            .Select(e => e.GetString())
+            .OfType<string>()
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+    }
+
+    // Entries of installableGroups as "group: packageId".
+    private static List<string> GetInstallableGroups(JsonElement root)
+    {
+        if (!root.TryGetProperty("installableGroups", out var el) || el.ValueKind != JsonValueKind.Array) return [];
+        return el.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.Object)
+            .Select(e => (Group: GetString(e, "group", ""), Package: GetString(e, "packageId", "")))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Group) && !string.IsNullOrWhiteSpace(x.Package))
+            .Select(x => $"{x.Group}: {x.Package}")
+            .ToList();
     }
 
     private static bool GetBool(JsonElement root, string name) =>

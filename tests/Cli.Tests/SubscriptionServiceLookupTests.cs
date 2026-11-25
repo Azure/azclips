@@ -26,6 +26,8 @@ public class SubscriptionServiceLookupTests
                 request.RequestUri!.AbsoluteUri);
             Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
             Assert.Equal("unit-test-token", request.Headers.Authorization?.Parameter);
+            Assert.True(Guid.TryParse(
+                Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName)), out _));
             return JsonResponse($$"""
                 {"subscriptionId":"{{SubscriptionId}}","displayName":"Test subscription","state":"Enabled"}
                 """);
@@ -36,6 +38,43 @@ public class SubscriptionServiceLookupTests
 
         Assert.Equal(new SubscriptionInfo(SubscriptionId, "Test subscription", "Enabled"), result);
         Assert.Equal(1, requests);
+    }
+
+    [Fact]
+    public async Task ListSubscriptionsAsync_Pagination_SendsDistinctClientRequestIds()
+    {
+        const string nextLink = "https://management.azure.com/subscriptions?api-version=2022-12-01&$skiptoken=next";
+        var requestIds = new List<string>();
+        using var http = new HttpClient(new StubHandler(request =>
+        {
+            var requestId = Assert.Single(request.Headers.GetValues(RequestCorrelation.ClientRequestIdHeaderName));
+            Assert.True(Guid.TryParse(requestId, out _));
+            requestIds.Add(requestId);
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            Assert.Equal("unit-test-token", request.Headers.Authorization?.Parameter);
+            Assert.InRange(requestIds.Count, 1, 2);
+            Assert.Equal(
+                requestIds.Count == 1
+                    ? "https://management.azure.com/subscriptions?api-version=2022-12-01"
+                    : nextLink,
+                request.RequestUri!.AbsoluteUri);
+            return JsonResponse(requestIds.Count == 1
+                ? $$"""{"value":[{"subscriptionId":"{{SubscriptionId}}","displayName":"First","state":"Enabled"}],"nextLink":"{{nextLink}}"}"""
+                : """{"value":[{"subscriptionId":"bbbbbbbb-2222-2222-2222-222222222222","displayName":"Second","state":"Enabled"}]}""");
+        }));
+        var service = new SubscriptionService(http, Mock.Of<ILoggingService>());
+
+        var result = await service.ListSubscriptionsAsync("unit-test-token");
+
+        Assert.Equal(
+            [
+                new SubscriptionInfo(SubscriptionId, "First", "Enabled"),
+                new SubscriptionInfo("bbbbbbbb-2222-2222-2222-222222222222", "Second", "Enabled"),
+            ],
+            result);
+        Assert.Equal(2, requestIds.Count);
+        Assert.NotEqual(requestIds[0], requestIds[1]);
     }
 
     [Fact]

@@ -15,6 +15,7 @@ using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Time.Testing;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 
 namespace Core.Agent.Tests;
 
@@ -42,7 +43,7 @@ public sealed class AgentRuntimeLifecycleTests
                     session = activity;
                     return Task.CompletedTask;
                 },
-                () => { });
+                () => { }, harness.Clock);
 
             Assert.Equal(0, exitCode);
             Assert.NotNull(session);
@@ -66,7 +67,7 @@ public sealed class AgentRuntimeLifecycleTests
         await AgentLayerTestHarness.RunAsync(new AgentLayerTestHarness(), async harness =>
         {
             var scope = harness.CreateScope();
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             using var context = new AgentInvocationContext(null, scope.Telemetry, lifetime);
             var entered = Signal();
             var cancelled = Signal();
@@ -123,13 +124,13 @@ public sealed class AgentRuntimeLifecycleTests
                 "permission" => config.OnPermissionRequest!(null!, null!),
                 _ => Task.Run(() => config.OnEvent!(new SessionIdleEvent { Data = new SessionIdleData() })),
             };
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.True(enteredWithoutActivity);
 
             using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
             var root = rootScope?.Activity;
             var completion = lifetime.CompleteAsync(root, terminalStatus: ActivityStatusCode.Ok);
-            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await cancelled.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.Equal(TelemetryLayerState.Running, scope.State);
             Assert.False(completion.IsCompleted);
             Assert.False(exited);
@@ -153,7 +154,7 @@ public sealed class AgentRuntimeLifecycleTests
             var scope = harness.CreateScope();
             using var rootScope = scope.Telemetry.StartIndependentRootActivity("Agent.Session");
             var root = rootScope?.Activity;
-            var lifetime = new AgentRuntimeLifetime(scope);
+            var lifetime = new AgentRuntimeLifetime(scope, harness.Clock);
             var context = new AgentInvocationContext(root, scope.Telemetry, lifetime);
             var resource = new AgentSdkLifetime(context);
             var nestedResult = "";
@@ -217,17 +218,17 @@ public sealed class AgentRuntimeLifecycleTests
                 lifetime.RegisterCleanup(resource.DisposeAsync);
                 throw new InvalidOperationException("original offline create failure");
             }, () => { }, timeProvider: clock);
-            await cleanupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await cleanupEntered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.False(running.IsCompleted);
 
             clock.Advance(TimeSpan.FromSeconds(10));
-            Assert.Equal(1, await running.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal(1, await running.WaitAsync(AgentTestTimeouts.HangGuard));
             Assert.False(actualCleanupFinished);
             Assert.Null(scope.FileSession.PublishedPath);
 
             Assert.Null(scope.Telemetry.StartActivity("Agent.Send"));
             releaseClient.SetResult();
-            await resource!.DisposeAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            await resource!.DisposeAsync().WaitAsync(AgentTestTimeouts.HangGuard);
             Assert.True(actualCleanupFinished);
             Assert.Throws<ObjectDisposedException>(() => context!.StartOperation("Agent.Send"));
             Assert.Null(scope.FileSession.PublishedPath);
@@ -264,7 +265,7 @@ public sealed class AgentRuntimeLifecycleTests
                     original = ex;
                     throw;
                 }
-            }, () => { });
+            }, () => { }, harness.Clock);
 
             Assert.Equal(1, code);
             Assert.Equal(1, server.CreateCount);
@@ -307,7 +308,7 @@ public sealed class AgentRuntimeLifecycleTests
                 if (startup.Auth is not null)
                     Assert.Equal(startup.Auth.AccessToken,
                         BuiltinProviderConfig.Build(new BuiltinProviderOptions(), BuiltinEndpointResolver.Choose(boundary: null).Url, startup.Auth.AccessToken).BearerToken);
-            }, () => { });
+            }, () => { }, harness.Clock);
 
             Assert.Equal(expectedCode, code);
             Assert.Equal(acquisitions, auth.AcquireCount);
@@ -340,21 +341,21 @@ public sealed class AgentRuntimeLifecycleTests
                 release.Wait();
             });
             var cancelling = lifetime.CancelAsync(userCancellation);
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await entered.Task.WaitAsync(AgentTestTimeouts.HangGuard);
             var completion = lifetime.CompleteAsync(root,
                 new Dictionary<string, object?> { [TelemetryTags.RecoveryOutcome] = "cancelled" }, ActivityStatusCode.Unset);
             try
             {
                 clock.Advance(TimeSpan.FromSeconds(10));
                 Assert.Equal(TelemetryLayerCompletion.NotPublished,
-                    await completion.WaitAsync(TimeSpan.FromSeconds(5)));
+                    await completion.WaitAsync(AgentTestTimeouts.HangGuard));
                 Assert.False(cancelling.IsCompleted);
                 Assert.Null(scope.FileSession.PublishedPath);
             }
             finally
             {
                 release.Set();
-                await cancelling.WaitAsync(TimeSpan.FromSeconds(5));
+                await cancelling.WaitAsync(AgentTestTimeouts.HangGuard);
             }
         });
     }

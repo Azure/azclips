@@ -5,18 +5,22 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
 using Core.Cli;
 using Core.Runtime;
 using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Moq;
 
 namespace Cli.Tests;
 
 public class GroupUpdateTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
+
+    private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
 
     [Fact]
     public void CliMetadata_ExposesLegacyVisibleSurfaceOnly()
@@ -172,12 +176,60 @@ public class GroupUpdateTests
 
         InvalidInputException missingAddress = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
-        Assert.Contains("exactly one", missingAddress.Message);
+        Assert.Equal("Specify exactly one of resource group name or resource group id.", missingAddress.Message);
 
         processor.ResourceGroupName = "test-rg";
         InvalidInputException missingTags = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
-        Assert.Contains("Tag parameter is required", missingTags.Message);
+        Assert.Equal("The Tag parameter is required.", missingTags.Message);
+    }
+
+    [Fact]
+    public async Task PowerShellProcessAsync_NameAndId_ThrowsInvalidInput()
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
+        {
+            ResourceGroupName = "test-rg",
+            Id = "/subscriptions/sub-1/resourceGroups/test-rg",
+            Tags = new Dictionary<string, string> { ["Owner"] = "team-b" },
+        }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("Specify exactly one of resource group name or resource group id.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    // A blank Id counts as "no address", so ResourceGroupIdResolver's own empty-id message is never reached here.
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task PowerShellProcessAsync_BlankId_ThrowsInvalidInput(string id)
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
+        {
+            Id = id,
+            Tags = new Dictionary<string, string> { ["Owner"] = "team-b" },
+        }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal("Specify exactly one of resource group name or resource group id.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Fact]
+    public async Task PowerShellProcessAsync_MalformedId_ThrowsInvalidInput()
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
+        {
+            Id = "not-a-resource-id",
+            Tags = new Dictionary<string, string> { ["Owner"] = "team-b" },
+        }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal(
+            "Invalid resource group id 'not-a-resource-id'. Expected /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}.",
+            Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     [Fact]
@@ -242,7 +294,33 @@ public class GroupUpdateTests
         InvalidInputException exception = await Assert.ThrowsAsync<InvalidInputException>(
             () => processor.ProcessAsync());
 
-        Assert.Contains("Supported roots", exception.Message);
+        Assert.Equal(
+            "The --set path 'location' cannot be updated by the resource group PATCH API. Supported roots are name, managedBy, and tags.",
+            exception.Message);
+    }
+
+    [Theory]
+    [InlineData("=value")]
+    [InlineData("   =value")]
+    public async Task ProcessAsync_EmptyTagKey_ThrowsInvalidInput(string entry)
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(new UpdateResourceGroupProcessor_Orchestrator { ResourceGroupName = "test-rg", TagsInput = [entry] }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal($"Invalid tag '{entry}'. Tag keys cannot be empty.", Assert.IsType<InvalidInputException>(exception).Message);
+    }
+
+    [Theory]
+    [InlineData("location")]
+    [InlineData("=westus")]
+    public async Task ProcessAsync_MalformedSetExpression_ThrowsInvalidInput(string expression)
+    {
+        var processor = ResourcesProcessorMockHelpers.Initialize(new UpdateResourceGroupProcessor_Orchestrator { ResourceGroupName = "test-rg", Set = [expression] }, _mockPipeline);
+
+        Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
+
+        Assert.Equal($"Invalid --set expression '{expression}'. Expected PATH=VALUE.", Assert.IsType<InvalidInputException>(exception).Message);
     }
 
     private static HttpResponseMessage Json(string body) =>

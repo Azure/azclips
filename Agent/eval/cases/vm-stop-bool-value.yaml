@@ -1,0 +1,38 @@
+description: "[mutate/invalid-value] vm-stop-bool-value"
+metadata:
+  mode: mutate
+  failureType: invalid-value
+vars:
+  case_id: vm-stop-bool-value
+  command_group: vm
+  goal: Stop the named VM.
+  command: vm stop --name azclips-eval-vm-404 --resource-group azclips-test-rg --skip-shutdown maybe
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm stop
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-vm-404
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm stop
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Stop the named VM."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

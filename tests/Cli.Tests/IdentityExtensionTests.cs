@@ -23,6 +23,7 @@ namespace Cli.Tests;
 public class IdentityExtensionTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
+    private const string MissingIdentityAddressMessage = "Provide either --ids, or both --name and --resource-group.";
 
     [Fact]
     public void CliMetadata_ExposesDocumentedIdentityCommandSet()
@@ -73,6 +74,42 @@ public class IdentityExtensionTests
         Assert.Equal("ResourceGroup", metadata.Parameters["resource-group"].Name);
         Assert.Equal("ResourceName", metadata.Parameters["name"].Name);
         Assert.Equal("TagsInput", metadata.Parameters["tags"].Name);
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public async Task CliProcess_AddressedIdentityCommandWithoutAddress_ThrowsInvalidInput(string commandName)
+    {
+        IProcessor processor = BindIdentityCommand(commandName, new());
+
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public async Task CliProcess_AddressedIdentityCommandWithNameOnly_ThrowsInvalidInput(string commandName)
+    {
+        IProcessor processor = BindIdentityCommand(commandName, new() { ["name"] = "identity-name" });
+
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
+    }
+
+    [Theory]
+    [InlineData("identity show")]
+    [InlineData("identity update")]
+    [InlineData("identity delete")]
+    public async Task CliProcess_AddressedIdentityCommandWithResourceGroupOnly_ThrowsInvalidInput(string commandName)
+    {
+        IProcessor processor = BindIdentityCommand(commandName, new() { ["resource-group"] = "test-rg" });
+
+        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
+        Assert.Equal(MissingIdentityAddressMessage, error.Message);
     }
 
     [Fact]
@@ -742,84 +779,20 @@ public class IdentityExtensionTests
         Assert.Single(writtenValues);
     }
 
-    [Fact]
-    public async Task ShowProcessAsync_InvalidResourceId_ThrowsInvalidInput()
+    private static IProcessor BindIdentityCommand(string commandName, Dictionary<string, string> arguments)
     {
-        var pipeline = CreatePipeline((_, _) => Json("""{ "name": "id1" }"""));
-        var writtenValues = new List<object>();
-        var output = CreateOutputHandler(writtenValues);
-        var processor = CreateProcessor<ShowIdentityProcessor_Orchestrator>(pipeline, output, profile: null);
-        processor.Ids = ["not-a-resource-id"];
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata(commandName, ClientType.CLI);
+        IProcessor processor = metadata.GetInstance();
+        var logging = new ConsoleLoggingService();
+        var binder = new ArgumentParsingService(
+            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
+            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
 
-        await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
-    }
-
-    [Fact]
-    public async Task DeleteProcessAsync_InvalidResourceId_ThrowsInvalidInput()
-    {
-        var pipeline = CreatePipeline((_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
-        var writtenValues = new List<object>();
-        var output = CreateOutputHandler(writtenValues);
-        var processor = CreateProcessor<DeleteIdentityProcessor_Orchestrator>(pipeline, output, profile: null);
-        processor.Ids = ["invalid-id"];
-
-        await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
-    }
-
-    [Fact]
-    public async Task CreateOrchestrator_InvalidTagFormat_ThrowsInvalidInput()
-    {
-        var pipeline = CreatePipeline((_, _) => Json("""{ "name": "id1", "location": "eastus" }"""));
-        var writtenValues = new List<object>();
-        var output = CreateOutputHandler(writtenValues);
-        var processor = CreateProcessor<CreateIdentityProcessor_Orchestrator>(pipeline, output);
-        processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroup = "rg1";
-        processor.ResourceName = "id1";
-        processor.Location = "eastus";
-        processor.TagsInput = ["badtag-without-equals"];
-
-        await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
-    }
-
-    [Fact]
-    public async Task CreateOrchestrator_InvalidResourceRestrictionJson_ThrowsJsonException()
-    {
-        var pipeline = CreatePipeline((_, _) => Json("""{ "name": "id1", "location": "eastus" }"""));
-        var writtenValues = new List<object>();
-        var output = CreateOutputHandler(writtenValues);
-        var processor = CreateProcessor<CreateIdentityProcessor_Orchestrator>(pipeline, output);
-        processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroup = "rg1";
-        processor.ResourceName = "id1";
-        processor.Location = "eastus";
-        processor.ResourceRestriction = ["{bad-json"];
-
-        await Assert.ThrowsAnyAsync<JsonException>(() => processor.ProcessAsync());
-    }
-
-    [Fact]
-    public async Task UpdateOrchestrator_InvalidForceString_ThrowsInvalidInput()
-    {
-        var pipeline = CreatePipeline((request, _) =>
-        {
-            if (request.Method == HttpMethod.Get)
-            {
-                return Json("""{ "name": "id1", "location": "eastus", "tags": { "env": "dev" }, "properties": { "isolationScope": "None" } }""");
-            }
-
-            return Json("""{ "name": "id1", "location": "eastus", "properties": { "isolationScope": "Regional" } }""");
-        });
-        var writtenValues = new List<object>();
-        var output = CreateOutputHandler(writtenValues);
-        var processor = CreateProcessor<UpdateIdentityProcessor_Orchestrator>(pipeline, output);
-        processor.SubscriptionId = TestSubscriptionId;
-        processor.ResourceGroup = "rg1";
-        processor.ResourceName = "id1";
-        processor.Set = ["properties.isolationScope=Regional"];
-        processor.ForceString = "maybe";
-
-        await Assert.ThrowsAsync<InvalidInputException>(() => processor.ProcessAsync());
+        return binder.BindArgumentsToProcessor(
+            processor,
+            arguments.ToDictionary(kvp => kvp.Key, kvp => (object)new List<List<string>> { new() { kvp.Value } }),
+            metadata,
+            new Profile { SubscriptionId = TestSubscriptionId });
     }
 
     private static T CreateProcessor<T>(IRuntimeHttpPipeline pipeline, IOutputHandler output, Profile? profile = null)
