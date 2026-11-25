@@ -17,7 +17,7 @@ using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.ManagedServiceIdentity.Tests;
 
 /// <summary>
 /// PowerShell-surface coverage for managed identity cmdlets: parameter-set selection and
