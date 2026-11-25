@@ -108,7 +108,7 @@ public class NetworkInterfaceLifecycleScenarioTests
         var ipConfiguration = Assert.Single(nic.IpConfigurations ?? []);
         Assert.Equal("ipconfig1", ipConfiguration.Name);
         Assert.Equal("Dynamic", ipConfiguration.PrivateIPAllocationMethod);
-        Assert.Null(ipConfiguration.PublicIPAddress);
+        Assert.Null(ipConfiguration.PublicIpAddressId);
     }
 
     private static void AssertShown(NetworkInterface nic)

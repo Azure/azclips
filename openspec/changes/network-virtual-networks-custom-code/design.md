@@ -2,7 +2,7 @@
 
 ## Context
 
-The Network extension is being built in the codegen output folder before it moves to `src/Extensions/Network` (migration skill step 12). The generated atomic processors for VirtualNetworks are `NewVirtualNetworkProcessor`, `GetVirtualNetworkProcessor`, `ListVirtualNetworkProcessor`, `ListAllVirtualNetworkProcessor`, and `DeleteVirtualNetworkProcessor`. They are read-only. There is no `ExtensionIndex.cs` and no PowerShell module yet. See proposal.md for motivation and the spec for required behavior.
+The Network extension is being built in the codegen output folder before it moves to `src/Extensions/Network` (migration skill step 12). The generated atomic processors for VirtualNetworks are `CreateOrUpdateVirtualNetworksProcessor`, `GetVirtualNetworksProcessor`, `ListVirtualNetworksProcessor`, `ListAllVirtualNetworksProcessor`, and `DeleteVirtualNetworksProcessor`. They are read-only. There is no `ExtensionIndex.cs` and no PowerShell module yet. See proposal.md for motivation and the spec for required behavior.
 
 ## Goals / Non-Goals
 
@@ -17,12 +17,12 @@ The Network extension is being built in the codegen output folder before it move
 
 ## Decisions
 
-- **Create customization inherits the create processor.** A `Customization` class for VirtualNetworks create inherits `NewVirtualNetworkProcessor` (its interface covers every parent input) and adjusts the body in the smallest request-construction entry that the private-preview guide allows (body construction, not `ProcessAsync`). Alternative: compose with `CreateExtendedProcessor<T>`; rejected because only one REST call is made.
+- **Create customization inherits the create processor.** A `Customization` class for VirtualNetworks create inherits `CreateOrUpdateVirtualNetworksProcessor` (its interface covers every parent input) and adjusts the body in the smallest request-construction entry that the private-preview guide allows (body construction, not `ProcessAsync`). Alternative: compose with `CreateExtendedProcessor<T>`; rejected because only one REST call is made.
   - F1/F2: when IPAM allocations are present, clear address prefixes; else when address prefixes are empty, set `["10.0.0.0/16"]`.
   - F3: when the edge zone name is present, set the extended location type to `EdgeZone`; else send no extended location.
   - F4/F5: subnet definitions build `Subnets`; a subnet name plus prefixes builds one subnet with `addressPrefix` (one prefix) or `addressPrefixes` (several).
   - F22: IP allocation IDs map to `SubResource { Id }` entries.
-- **List customization routes between both list processors.** A `Customization` list class inherits `ListVirtualNetworkProcessor` (the resource group becomes optional) and keeps the inherited route when a resource group is given; without one it composes `ListAllVirtualNetworkProcessor` with `CreateExtendedProcessor<T>`, following the inheritance and composition style of `src/Extensions/Compute/Customization/ListVMProcessor_Orchestrator.cs`. Paging stays in the processor base. Alternative: a class not inheriting either processor; rejected because the customer-facing command must be a class inheriting or implementing a processor (migration skill step 10).
+- **List customization routes between both list processors.** A `Customization` list class inherits `ListVirtualNetworksProcessor` (the resource group becomes optional) and keeps the inherited route when a resource group is given; without one it composes `ListAllVirtualNetworksProcessor` with `CreateExtendedProcessor<T>`, following the inheritance and composition style of `src/Extensions/Compute/Customization/ListVMProcessor_Orchestrator.cs`. Paging stays in the processor base. Alternative: a class not inheriting either processor; rejected because the customer-facing command must be a class inheriting or implementing a processor (migration skill step 10).
 - **F18 lives in the PowerShell wrapper.** Confirmation (`ShouldProcess`/`-Force`) and `-PassThru` are PowerShell-only, so they go into the `Remove-AzVirtualNetwork` wrapper under `src/PS/Network/Cmdlets`, following existing wrappers such as `src/PS/Resources/Cmdlets/RemoveSubDeploymentCmdlet.cs`. Putting them in the shared customization would leak PowerShell behavior into the CLI.
 
 ## Risks / Trade-offs

@@ -26,6 +26,6 @@ Non-goals (not selected for this change): clearing address prefixes when IPAM al
 
 ## Impact
 
-- New handwritten code under the Network extension's `Customization` folder for subnet create, built on the generated `NewSubnetProcessor` without changing it.
+- New handwritten code under the Network extension's `Customization` folder for subnet create, built on the generated `CreateOrUpdateSubnetsProcessor` without changing it.
 - No PowerShell code: Subnets has no PowerShell cmdlet.
 - No generated model or atomic processor changes; no new REST operations.

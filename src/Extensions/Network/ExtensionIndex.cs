@@ -9,16 +9,16 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
     public class ExtensionIndex : IExtensionIndex
     {
         // Only commands in the dispatch tables are exposed. Atomic New*/List*/ListAll* processors that
-        // have a customization, and the external GetResourceGroupProcessor, are not registered.
+        // have a customization, and the external GetResourceGroupsProcessor, are not registered.
 
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_PS = new(
-            Name: "NewVirtualNetworkProcessor_Orchestrator",
+            Name: "CreateOrUpdateVirtualNetworksProcessor_Orchestrator",
             InvocationName: "New-AzVirtualNetwork",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewVirtualNetworkProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdateVirtualNetworksProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewVirtualNetworkProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdateVirtualNetworksProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]                   = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -52,12 +52,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getVirtualNetwork_PS = new(
-            Name: "GetVirtualNetworkProcessor",
+            Name: "GetVirtualNetworksProcessor",
             InvocationName: "Get-AzVirtualNetwork_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetVirtualNetworkProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetVirtualNetworksProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetVirtualNetworkProcessor),
+            ProcessorType: typeof(Processors.GetVirtualNetworksProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -71,12 +71,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listVirtualNetwork_PS = new(
-            Name: "ListVirtualNetworkProcessor_Orchestrator",
+            Name: "ListVirtualNetworksProcessor_Orchestrator",
             InvocationName: "Get-AzVirtualNetwork_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListVirtualNetworkProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListVirtualNetworksProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListVirtualNetworkProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.ListVirtualNetworksProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -85,12 +85,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deleteVirtualNetwork_PS = new(
-            Name: "DeleteVirtualNetworkProcessor",
+            Name: "DeleteVirtualNetworksProcessor",
             InvocationName: "Remove-AzVirtualNetwork",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteVirtualNetworkProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteVirtualNetworksProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeleteVirtualNetworkProcessor),
+            ProcessorType: typeof(Processors.DeleteVirtualNetworksProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -103,12 +103,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_newNetworkSecurityGroup_PS = new(
-            Name: "NewNetworkSecurityGroupProcessor_Orchestrator",
+            Name: "CreateOrUpdateNetworkSecurityGroupsProcessor_Orchestrator",
             InvocationName: "New-AzNetworkSecurityGroup",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkSecurityGroupProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdateNetworkSecurityGroupsProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewNetworkSecurityGroupProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdateNetworkSecurityGroupsProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -123,12 +123,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getNetworkSecurityGroup_PS = new(
-            Name: "GetNetworkSecurityGroupProcessor",
+            Name: "GetNetworkSecurityGroupsProcessor",
             InvocationName: "Get-AzNetworkSecurityGroup_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkSecurityGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkSecurityGroupsProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetNetworkSecurityGroupProcessor),
+            ProcessorType: typeof(Processors.GetNetworkSecurityGroupsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -142,12 +142,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listNetworkSecurityGroup_PS = new(
-            Name: "ListNetworkSecurityGroupProcessor_Orchestrator",
+            Name: "ListNetworkSecurityGroupsProcessor_Orchestrator",
             InvocationName: "Get-AzNetworkSecurityGroup_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkSecurityGroupProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkSecurityGroupsProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListNetworkSecurityGroupProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.ListNetworkSecurityGroupsProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -156,12 +156,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deleteNetworkSecurityGroup_PS = new(
-            Name: "DeleteNetworkSecurityGroupProcessor",
+            Name: "DeleteNetworkSecurityGroupsProcessor",
             InvocationName: "Remove-AzNetworkSecurityGroup",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkSecurityGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkSecurityGroupsProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeleteNetworkSecurityGroupProcessor),
+            ProcessorType: typeof(Processors.DeleteNetworkSecurityGroupsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -174,12 +174,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_newPublicIPAddress_PS = new(
-            Name: "NewPublicIPAddressProcessor_Orchestrator",
+            Name: "CreateOrUpdatePublicIPAddressesProcessor_Orchestrator",
             InvocationName: "New-AzPublicIpAddress",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewPublicIPAddressProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdatePublicIPAddressesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewPublicIPAddressProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdatePublicIPAddressesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]       = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -213,12 +213,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getPublicIPAddress_PS = new(
-            Name: "GetPublicIPAddressProcessor",
+            Name: "GetPublicIPAddressesProcessor",
             InvocationName: "Get-AzPublicIpAddress_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetPublicIPAddressProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetPublicIPAddressesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetPublicIPAddressProcessor),
+            ProcessorType: typeof(Processors.GetPublicIPAddressesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -232,12 +232,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listPublicIPAddress_PS = new(
-            Name: "ListPublicIPAddressProcessor_Orchestrator",
+            Name: "ListPublicIPAddressesProcessor_Orchestrator",
             InvocationName: "Get-AzPublicIpAddress_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListPublicIPAddressProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListPublicIPAddressesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListPublicIPAddressProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.ListPublicIPAddressesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -246,12 +246,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deletePublicIPAddress_PS = new(
-            Name: "DeletePublicIPAddressProcessor",
+            Name: "DeletePublicIPAddressesProcessor",
             InvocationName: "Remove-AzPublicIpAddress",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeletePublicIPAddressProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeletePublicIPAddressesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeletePublicIPAddressProcessor),
+            ProcessorType: typeof(Processors.DeletePublicIPAddressesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -264,12 +264,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_newNetworkInterface_PS = new(
-            Name: "NewNetworkInterfaceProcessor_Orchestrator",
+            Name: "CreateOrUpdateNetworkInterfacesProcessor_Orchestrator",
             InvocationName: "New-AzNetworkInterface",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkInterfaceProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdateNetworkInterfacesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdateNetworkInterfacesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]              = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -296,12 +296,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getNetworkInterface_PS = new(
-            Name: "GetNetworkInterfaceProcessor",
+            Name: "GetNetworkInterfacesProcessor",
             InvocationName: "Get-AzNetworkInterface_Get",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkInterfaceProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkInterfacesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetNetworkInterfaceProcessor),
+            ProcessorType: typeof(Processors.GetNetworkInterfacesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -315,12 +315,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listNetworkInterface_PS = new(
-            Name: "ListNetworkInterfaceProcessor_Orchestrator",
+            Name: "ListNetworkInterfacesProcessor_Orchestrator",
             InvocationName: "Get-AzNetworkInterface_List",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkInterfaceProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkInterfacesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListNetworkInterfaceProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.ListNetworkInterfacesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -329,12 +329,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_deleteNetworkInterface_PS = new(
-            Name: "DeleteNetworkInterfaceProcessor",
+            Name: "DeleteNetworkInterfacesProcessor",
             InvocationName: "Remove-AzNetworkInterface",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkInterfaceProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkInterfacesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeleteNetworkInterfaceProcessor),
+            ProcessorType: typeof(Processors.DeleteNetworkInterfacesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -349,12 +349,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
 
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_CLI = new(
-            Name: "NewVirtualNetworkProcessor_Orchestrator",
+            Name: "CreateOrUpdateVirtualNetworksProcessor_Orchestrator",
             InvocationName: "network vnet create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewVirtualNetworkProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdateVirtualNetworksProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewVirtualNetworkProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdateVirtualNetworksProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]         = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -391,12 +391,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getVirtualNetwork_CLI = new(
-            Name: "GetVirtualNetworkProcessor",
+            Name: "GetVirtualNetworksProcessor",
             InvocationName: "network vnet show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetVirtualNetworkProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetVirtualNetworksProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetVirtualNetworkProcessor),
+            ProcessorType: typeof(Processors.GetVirtualNetworksProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -411,12 +411,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listVirtualNetwork_CLI = new(
-            Name: "ListVirtualNetworkProcessor_Orchestrator",
+            Name: "ListVirtualNetworksProcessor_Orchestrator",
             InvocationName: "network vnet list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListVirtualNetworkProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListVirtualNetworksProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListVirtualNetworkProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.ListVirtualNetworksProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -428,12 +428,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_deleteVirtualNetwork_CLI = new(
-            Name: "DeleteVirtualNetworkProcessor",
+            Name: "DeleteVirtualNetworksProcessor",
             InvocationName: "network vnet delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteVirtualNetworkProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteVirtualNetworksProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeleteVirtualNetworkProcessor),
+            ProcessorType: typeof(Processors.DeleteVirtualNetworksProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -447,12 +447,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_newSubnet_CLI = new(
-            Name: "NewSubnetProcessor_Orchestrator",
+            Name: "CreateOrUpdateSubnetsProcessor_Orchestrator",
             InvocationName: "network vnet subnet create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewSubnetProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdateSubnetsProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewSubnetProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdateSubnetsProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]                               = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -490,12 +490,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getSubnet_CLI = new(
-            Name: "GetSubnetProcessor",
+            Name: "GetSubnetsProcessor",
             InvocationName: "network vnet subnet show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetSubnetProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetSubnetsProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetSubnetProcessor),
+            ProcessorType: typeof(Processors.GetSubnetsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -511,12 +511,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listSubnet_CLI = new(
-            Name: "ListSubnetProcessor",
+            Name: "ListSubnetsProcessor",
             InvocationName: "network vnet subnet list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListSubnetProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListSubnetsProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListSubnetProcessor),
+            ProcessorType: typeof(Processors.ListSubnetsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -529,12 +529,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_deleteSubnet_CLI = new(
-            Name: "DeleteSubnetProcessor",
+            Name: "DeleteSubnetsProcessor",
             InvocationName: "network vnet subnet delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteSubnetProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteSubnetsProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeleteSubnetProcessor),
+            ProcessorType: typeof(Processors.DeleteSubnetsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -549,12 +549,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_newNetworkSecurityGroup_CLI = new(
-            Name: "NewNetworkSecurityGroupProcessor_Orchestrator",
+            Name: "CreateOrUpdateNetworkSecurityGroupsProcessor_Orchestrator",
             InvocationName: "network nsg create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkSecurityGroupProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdateNetworkSecurityGroupsProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewNetworkSecurityGroupProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdateNetworkSecurityGroupsProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -571,12 +571,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getNetworkSecurityGroup_CLI = new(
-            Name: "GetNetworkSecurityGroupProcessor",
+            Name: "GetNetworkSecurityGroupsProcessor",
             InvocationName: "network nsg show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkSecurityGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkSecurityGroupsProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetNetworkSecurityGroupProcessor),
+            ProcessorType: typeof(Processors.GetNetworkSecurityGroupsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -591,12 +591,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listNetworkSecurityGroup_CLI = new(
-            Name: "ListNetworkSecurityGroupProcessor_Orchestrator",
+            Name: "ListNetworkSecurityGroupsProcessor_Orchestrator",
             InvocationName: "network nsg list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkSecurityGroupProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkSecurityGroupsProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListNetworkSecurityGroupProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.ListNetworkSecurityGroupsProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -608,12 +608,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_deleteNetworkSecurityGroup_CLI = new(
-            Name: "DeleteNetworkSecurityGroupProcessor",
+            Name: "DeleteNetworkSecurityGroupsProcessor",
             InvocationName: "network nsg delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkSecurityGroupProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkSecurityGroupsProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeleteNetworkSecurityGroupProcessor),
+            ProcessorType: typeof(Processors.DeleteNetworkSecurityGroupsProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -627,12 +627,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_newPublicIPAddress_CLI = new(
-            Name: "NewPublicIPAddressProcessor_Orchestrator",
+            Name: "CreateOrUpdatePublicIPAddressesProcessor_Orchestrator",
             InvocationName: "network public-ip create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewPublicIPAddressProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdatePublicIPAddressesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewPublicIPAddressProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdatePublicIPAddressesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]      = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -667,12 +667,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getPublicIPAddress_CLI = new(
-            Name: "GetPublicIPAddressProcessor",
+            Name: "GetPublicIPAddressesProcessor",
             InvocationName: "network public-ip show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetPublicIPAddressProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetPublicIPAddressesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetPublicIPAddressProcessor),
+            ProcessorType: typeof(Processors.GetPublicIPAddressesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -687,12 +687,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listPublicIPAddress_CLI = new(
-            Name: "ListPublicIPAddressProcessor_Orchestrator",
+            Name: "ListPublicIPAddressesProcessor_Orchestrator",
             InvocationName: "network public-ip list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListPublicIPAddressProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListPublicIPAddressesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListPublicIPAddressProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.ListPublicIPAddressesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -704,12 +704,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_deletePublicIPAddress_CLI = new(
-            Name: "DeletePublicIPAddressProcessor",
+            Name: "DeletePublicIPAddressesProcessor",
             InvocationName: "network public-ip delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeletePublicIPAddressProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeletePublicIPAddressesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeletePublicIPAddressProcessor),
+            ProcessorType: typeof(Processors.DeletePublicIPAddressesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -723,12 +723,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_newNetworkInterface_CLI = new(
-            Name: "NewNetworkInterfaceProcessor_Orchestrator",
+            Name: "CreateOrUpdateNetworkInterfacesProcessor_Orchestrator",
             InvocationName: "network nic create",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.NewNetworkInterfaceProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.CreateOrUpdateNetworkInterfacesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.CreateOrUpdateNetworkInterfacesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]            = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -756,12 +756,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_getNetworkInterface_CLI = new(
-            Name: "GetNetworkInterfaceProcessor",
+            Name: "GetNetworkInterfacesProcessor",
             InvocationName: "network nic show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkInterfaceProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.GetNetworkInterfacesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.GetNetworkInterfaceProcessor),
+            ProcessorType: typeof(Processors.GetNetworkInterfacesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -776,12 +776,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_listNetworkInterface_CLI = new(
-            Name: "ListNetworkInterfaceProcessor_Orchestrator",
+            Name: "ListNetworkInterfacesProcessor_Orchestrator",
             InvocationName: "network nic list",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkInterfaceProcessor_Orchestrator",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.ListNetworkInterfacesProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.ListNetworkInterfaceProcessor_Orchestrator),
+            ProcessorType: typeof(Processors.ListNetworkInterfacesProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -793,12 +793,12 @@ namespace Microsoft.Azure.Azclips.Extensions.Network
             }
         );
         private static readonly CommandMetadata s_deleteNetworkInterface_CLI = new(
-            Name: "DeleteNetworkInterfaceProcessor",
+            Name: "DeleteNetworkInterfacesProcessor",
             InvocationName: "network nic delete",
             Aliases: [],
-            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkInterfaceProcessor",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Network.Processors.DeleteNetworkInterfacesProcessor",
             AssemblyName: "Microsoft.Azure.Azclips.Extensions.Network",
-            ProcessorType: typeof(Processors.DeleteNetworkInterfaceProcessor),
+            ProcessorType: typeof(Processors.DeleteNetworkInterfacesProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id. Defaults to the active profile's subscription.", IsRequired: false, Aliases: [], AllowedValues: []),

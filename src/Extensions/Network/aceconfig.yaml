@@ -2,7 +2,7 @@ schema-version: 1
 
 # Run inputs: the CLI copies the spec; tsp-emit compiles each entrypoint.
 output-dir: .                            # default: this file's folder
-tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/main/specification/network/resource-manager/Microsoft.Network/Network
+tsp-location: https://github.com/Azure/azure-rest-api-specs/tree/ba0bcd333ac5118f534f610fd69b861f77c44da7/specification/network/resource-manager/Microsoft.Network/Network
 # additional-directories:                # folders the compile needs, not under tsp-location
 #   - ../Shared                          # relative to tsp-location, or absolute
 entrypoints:                             # relative to tsp-location
@@ -14,3 +14,10 @@ service-name: Network
 root-namespace: Microsoft.Azure.Azclips.Extensions.Network
 project-name: Microsoft.Azure.Azclips.Extensions.Network
 description: Network extension for AzClips
+
+
+stages:
+  flatten-model:
+    options:
+      noInline:
+        - IPConfiguration

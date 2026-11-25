@@ -96,7 +96,7 @@ public class NetworkInterfaceReferencesScenarioTests
                     ["PublicIpAddressId"] = pip.Id!,
                 }));
                 AssertRecreated(PutBody(run, sent)["properties"]!, second);
-                Assert.Equal(pip.Id, second.IpConfigurations![0].PublicIPAddress!.Id, ignoreCase: true);
+                Assert.Equal(pip.Id, second.IpConfigurations![0].PublicIpAddressId, ignoreCase: true);
                 Assert.Equal(nsg.Id, second.NetworkSecurityGroupId, ignoreCase: true);
 
                 PsGroupDelete(run);
@@ -109,7 +109,7 @@ public class NetworkInterfaceReferencesScenarioTests
         Assert.Null(properties["enableIPForwarding"]);
         Assert.False(nic.EnableIPForwarding);
         Assert.EndsWith($"/networkSecurityGroups/{NsgName}", nic.NetworkSecurityGroupId, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith($"/publicIPAddresses/{PipName}", nic.IpConfigurations![0].PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith($"/publicIPAddresses/{PipName}", nic.IpConfigurations![0].PublicIpAddressId, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Dynamic", nic.IpConfigurations[0].PrivateIPAllocationMethod);
     }
 }

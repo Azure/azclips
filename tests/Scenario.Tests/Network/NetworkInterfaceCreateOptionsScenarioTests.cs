@@ -38,7 +38,7 @@ public class NetworkInterfaceCreateOptionsScenarioTests
                     "--ip-forwarding", "true", "--accelerated-networking", "true", "--internal-dns-name", "test",
                     "--dns-servers", "100.1.2.3", "--tags", "foo=doo"));
                 AssertCreated(created);
-                Assert.EndsWith($"/publicIPAddresses/{PipName}", created.IpConfigurations![0].PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
+                Assert.EndsWith($"/publicIPAddresses/{PipName}", created.IpConfigurations![0].PublicIpAddressId, StringComparison.OrdinalIgnoreCase);
                 Assert.EndsWith(NetworkResourceIdSuffix(run, "publicIPAddresses", PipName),
                     PutBody(run, sent)["properties"]!["ipConfigurations"]![0]!["properties"]!["publicIPAddress"]!["id"]!.GetValue<string>(),
                     StringComparison.OrdinalIgnoreCase);
@@ -87,7 +87,7 @@ public class NetworkInterfaceCreateOptionsScenarioTests
                 // IP configuration name is checked on the request this cmdlet sent.
                 Assert.Equal("createipconf", PutBody(run, sent)["properties"]!["ipConfigurations"]![0]!["name"]!.GetValue<string>());
                 AssertCreated(created);
-                Assert.Equal(pip.Id, created.IpConfigurations![0].PublicIPAddress!.Id, ignoreCase: true);
+                Assert.Equal(pip.Id, created.IpConfigurations![0].PublicIpAddressId, ignoreCase: true);
 
                 AssertShown(PsShow(run));
 
@@ -115,12 +115,12 @@ public class NetworkInterfaceCreateOptionsScenarioTests
     {
         Assert.Equal(PrivateIp, nic.IpConfigurations![0].PrivateIPAddress);
         Assert.Equal("test", nic.DnsSettingsInternalDnsNameLabel);
-        Assert.Null(nic.IpConfigurations[0].PublicIPAddress!.Name);
+        Assert.Null(nic.IpConfigurations[0].PublicIpAddressName);
     }
 
     private static void AssertExpanded(NetworkInterfaceRun run, int sentBefore, NetworkInterface nic, string expand)
     {
         Assert.Equal(expand, HttpUtility.ParseQueryString(FirstGetUri(run, sentBefore).Query)["$expand"]);
-        Assert.Equal(PipName, nic.IpConfigurations![0].PublicIPAddress!.Name);
+        Assert.Equal(PipName, nic.IpConfigurations![0].PublicIpAddressName);
     }
 }

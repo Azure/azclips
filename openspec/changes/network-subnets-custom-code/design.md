@@ -2,12 +2,12 @@
 
 ## Context
 
-The Network extension is being built in the codegen output folder before it moves to `src/Extensions/Network` (migration skill step 12). The generated atomic processors for Subnets are `NewSubnetProcessor`, `GetSubnetProcessor`, `ListSubnetProcessor`, and `DeleteSubnetProcessor`. They are read-only. `NewSubnetProcessor` exposes flat body inputs such as `AddressPrefix`, `AddressPrefixes`, `ServiceEndpoints`, `ServiceEndpointPolicies`, `Delegations`, `IpamPoolPrefixAllocations`, `NetworkSecurityGroupId`, `RouteTableId`, `NatGatewayId`, `PrivateEndpointNetworkPolicies`, and `PrivateLinkServiceNetworkPolicies`. There is no `ExtensionIndex.cs` yet, and Subnets has no PowerShell cmdlet. See proposal.md for motivation and the spec for required behavior.
+The Network extension is being built in the codegen output folder before it moves to `src/Extensions/Network` (migration skill step 12). The generated atomic processors for Subnets are `CreateOrUpdateSubnetsProcessor`, `GetSubnetsProcessor`, `ListSubnetsProcessor`, and `DeleteSubnetsProcessor`. They are read-only. `CreateOrUpdateSubnetsProcessor` exposes flat body inputs such as `AddressPrefix`, `AddressPrefixes`, `ServiceEndpoints`, `ServiceEndpointPolicies`, `Delegations`, `IpamPoolPrefixAllocations`, `NetworkSecurityGroupId`, `RouteTableId`, `NatGatewayId`, `PrivateEndpointNetworkPolicies`, and `PrivateLinkServiceNetworkPolicies`. There is no `ExtensionIndex.cs` yet, and Subnets has no PowerShell cmdlet. See proposal.md for motivation and the spec for required behavior.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Add create request shaping (F1, F3, F4, F5, F6, F7, F8, F9) as handwritten customization on top of `NewSubnetProcessor`.
+- Add create request shaping (F1, F3, F4, F5, F6, F7, F8, F9) as handwritten customization on top of `CreateOrUpdateSubnetsProcessor`.
 
 **Non-Goals:**
 - No customization for show, list, or delete; they stay atomic.
@@ -17,7 +17,7 @@ The Network extension is being built in the codegen output folder before it move
 
 ## Decisions
 
-- **One create customization inherits the create processor.** A `Customization` class for subnet create inherits `NewSubnetProcessor` (its interface covers every parent input; it may add user-facing inputs) and fills the body in the smallest request-construction entry that `eng-docs/howto/Extension-Development-For-Private-Preview.md` allows, not `ProcessAsync`. Alternative: compose with `CreateExtendedProcessor<T>`; rejected because only one REST call is made.
+- **One create customization inherits the create processor.** A `Customization` class for subnet create inherits `CreateOrUpdateSubnetsProcessor` (its interface covers every parent input; it may add user-facing inputs) and fills the body in the smallest request-construction entry that `eng-docs/howto/Extension-Development-For-Private-Preview.md` allows, not `ProcessAsync`. Alternative: compose with `CreateExtendedProcessor<T>`; rejected because only one REST call is made.
   - F1: a list of address prefixes goes to `AddressPrefix` when it has one item, to `AddressPrefixes` when it has more, and to neither when empty.
   - F3: IPAM allocation strings are parsed into `IpamPoolPrefixAllocation` entries (`id=`, `number-of-ip-addresses=`, or a bare pool ID).
   - F4: service names map to `ServiceEndpointPropertiesFormat { Service }`.

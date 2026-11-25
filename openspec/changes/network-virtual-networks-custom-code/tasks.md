@@ -4,7 +4,7 @@ These tasks change product code only. Scenario tests come later in a separate ch
 
 ## 1. Create request shaping (shared customization)
 
-- [x] 1.1 Add a VirtualNetworks create customization class under `<extension root>/Customization` that inherits `NewVirtualNetworkProcessor` and adjusts the request body through the smallest request-construction entry in `eng-docs/howto/Extension-Development-For-Private-Preview.md`, with no `Method`, `CreateRequestUri()`, api-version, or URL; verify by review that the file exists, inherits the processor, and no file under `Processors/` or `Models/` changed
+- [x] 1.1 Add a VirtualNetworks create customization class under `<extension root>/Customization` that inherits `CreateOrUpdateVirtualNetworksProcessor` and adjusts the request body through the smallest request-construction entry in `eng-docs/howto/Extension-Development-For-Private-Preview.md`, with no `Method`, `CreateRequestUri()`, api-version, or URL; verify by review that the file exists, inherits the processor, and no file under `Processors/` or `Models/` changed
 - [x] 1.2 Implement F1 and F2 (default `10.0.0.0/16` only when neither address prefixes nor IPAM allocations are given; IPAM allocations sent one entry per allocation and clear address prefixes); verify by review against the scenarios of "Default virtual network address prefix" and "IPAM pool allocations replace address prefixes"
 - [x] 1.3 Implement F3 (edge zone name -> extended location `{ name, type: "EdgeZone" }`, none when absent); verify by review against "Edge zone maps to extended location"
 - [x] 1.4 Implement F4 and F5 (subnet definitions -> `properties.subnets`, one entry each; a subnet name with one prefix -> `addressPrefix`, with several -> `addressPrefixes`; no `subnets` when none given); verify by review against "Inline subnet definitions" and "Subnet from a name plus prefixes"
@@ -12,7 +12,7 @@ These tasks change product code only. Scenario tests come later in a separate ch
 
 ## 2. List routing (shared customization)
 
-- [x] 2.1 Add a VirtualNetworks list customization class under `<extension root>/Customization` that inherits `ListVirtualNetworkProcessor`, keeps its route when a resource group is given, and composes `ListAllVirtualNetworkProcessor` with `CreateExtendedProcessor<T>` when it is not (F10), leaving paging to the processor base; verify by review against "List scope by resource group presence" and that no route, method, or api-version is declared in the class
+- [x] 2.1 Add a VirtualNetworks list customization class under `<extension root>/Customization` that inherits `ListVirtualNetworksProcessor`, keeps its route when a resource group is given, and composes `ListAllVirtualNetworksProcessor` with `CreateExtendedProcessor<T>` when it is not (F10), leaving paging to the processor base; verify by review against "List scope by resource group presence" and that no route, method, or api-version is declared in the class
 
 ## 3. PowerShell remove (PowerShell-only)
 
