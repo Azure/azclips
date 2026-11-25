@@ -4,7 +4,7 @@
 using System.Management.Automation;
 using Microsoft.Azure.Azclips.Cmdlets.Resources;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Resources.Tests;
 
 /// <summary>
 /// Tests for <see cref="ValidateRoleAssignmentNameAttribute"/>, which validates

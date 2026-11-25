@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using AccountsModuleInitializer = Microsoft.Azure.Azclips.Cmdlets.Accounts.ModuleInitializer;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Resources.Tests;
 
 [Collection("Azclips Service Provider Tests")]
 public class TenantDeploymentCmdletPathTests

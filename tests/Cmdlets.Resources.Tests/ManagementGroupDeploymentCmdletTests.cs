@@ -11,7 +11,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Resources.Tests;
 
 [Collection("Azclips Service Provider Tests")]
 public class ManagementGroupDeploymentCmdletTests

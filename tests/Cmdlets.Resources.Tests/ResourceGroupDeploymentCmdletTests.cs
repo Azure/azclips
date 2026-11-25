@@ -13,7 +13,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Resources.Tests;
 
 /// <summary>
 /// Legacy Az.Resources parameter names on the resource-group deployment cmdlets. PowerShell resolves

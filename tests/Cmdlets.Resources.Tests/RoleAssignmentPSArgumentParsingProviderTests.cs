@@ -6,7 +6,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Resources.Tests;
 
 /// <summary>
 /// Regression test closing out a review comment that assumed PowerShell binds through

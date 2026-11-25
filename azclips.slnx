@@ -44,6 +44,7 @@
     <Project Path="tests/Cmdlets.Tests/Cmdlets.Tests.csproj" />
     <Project Path="tests/Cmdlets.Accounts.Tests/Cmdlets.Accounts.Tests.csproj" />
     <Project Path="tests/Cmdlets.ManagedServiceIdentity.Tests/Cmdlets.ManagedServiceIdentity.Tests.csproj" />
+    <Project Path="tests/Cmdlets.Resources.Tests/Cmdlets.Resources.Tests.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
