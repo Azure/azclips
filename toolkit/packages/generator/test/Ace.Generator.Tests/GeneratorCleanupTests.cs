@@ -16,7 +16,7 @@ public sealed class GeneratorCleanupTests
     private static TransformedIR Ir() => new()
     {
 
-        SchemaVersion = "0.8.0",
+        SchemaVersion = "0.18.0",
         Target = Targets.For("Contoso"),
         Models = [new IRModel { Name = "Widget", Source = "T", Id = new IRId { Module = "T", Name = "Widget" } }],
         Servers =
@@ -28,6 +28,7 @@ public sealed class GeneratorCleanupTests
             },
         ],
         Operations = [new IROperation { Name = "get", Server = new IRId { Module = "T", Name = "server" } }],
+        Commands = [],
     };
 
     [Fact]

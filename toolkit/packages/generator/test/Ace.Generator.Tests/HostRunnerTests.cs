@@ -17,12 +17,13 @@ public sealed class HostRunnerTests
 {
     private static TransformedIR Ir() => new()
     {
-        SchemaVersion = "0.8.0",
+        SchemaVersion = "0.18.0",
         Target = Targets.For("Contoso.Clients"),
         Models =
         [
             new IRModel { Name = "Widget", Source = "Test", Id = new IRId { Module = "Test", Name = "Widget" } },
         ],
+        Commands = [],
     };
 
     /// <summary>Serialize a request, run the host, and split stdout into frames.</summary>

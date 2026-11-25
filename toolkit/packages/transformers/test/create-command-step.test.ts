@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  IR_SCHEMA_VERSION,
   commandActionKey,
   parseIR,
   parseTransformedIR,
@@ -65,7 +66,7 @@ const operation = (over: Record<string, unknown> = {}): Record<string, unknown> 
 
 function document(operations: Record<string, unknown>[], models: unknown[] = []): IR {
   return parseIR({
-    schemaVersion: "0.12.0",
+    schemaVersion: IR_SCHEMA_VERSION,
     sources: [
       {
         id: MODULE,

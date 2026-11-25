@@ -20,8 +20,8 @@
  *     or regroup commands, but must never re-derive a name — the same rule that
  *     keeps `ModelHints.flattened` authoritative for flattening.
  *
- * Commands live flat at the IR root. **Array order is not meaningful**; group with
- * `id.subject` / `id.action`, not with position.
+ * Commands live flat in `TransformedIR.commands`. **Array order is not meaningful**;
+ * group with `id.subject` / `id.action`, not with position.
  *
  * The name is deliberate: `Core.Abstractions` — the client-neutral runtime layer both
  * the CLI and the PowerShell modules sit on — already calls this a command
@@ -539,12 +539,11 @@ export const IRCommandSurfaceSchema: z.ZodType<IRCommandSurface> = z
  * in `dialect.ts`, which is the contract projected into the generator's POCOs and
  * into the generated extension's runtime metadata.
  *
- * Dialects live on commands and their parameters, and nowhere else. Models are
- * client-neutral: they are output shapes that serialize themselves, so no client
- * dialect belongs on them. Hints on models and properties shape the emitted **C#
- * type** (`flatten`, `flattened`); dialects shape the **client surface**. Keeping the
- * two apart bounds growth at `clients x {command, parameter}` rather than
- * `clients x node kinds`.
+ * Command and parameter dialects live here; module-wide dialect metadata lives on
+ * `IRTarget`. Models stay client-neutral: they are output shapes that serialize
+ * themselves, so no client dialect belongs on them. Hints on models and properties
+ * shape the emitted **C# type** (`flatten`, `flattened`); dialects shape the **client
+ * surface**.
  *
  * Client attributes are emitted on processors only — never projected back onto a
  * model member, which would drag client concerns into model generation.
@@ -719,29 +718,6 @@ export const IRCommandSchema: z.ZodType<IRCommand> = z
         ]);
       }
     });
-
-    // A parameter set exists because parameters declare membership in it, so a
-    // default naming one nothing declares would leave PowerShell with no set to
-    // fall back to.
-    const defaultSet = command.dialect?.ps?.defaultParameterSet;
-    if (defaultSet !== undefined) {
-      const declaredSets = new Set(
-        command.parameters.flatMap((parameter) =>
-          (parameter.dialect?.ps?.parameterSets ?? []).flatMap((membership) =>
-            membership.set !== undefined ? [membership.set] : [],
-          ),
-        ),
-      );
-      if (!declaredSets.has(defaultSet)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            `Command '${command.name}' names default parameter set '${defaultSet}', ` +
-            "which none of its parameters declares membership in.",
-          path: ["dialect", "ps", "defaultParameterSet"],
-        });
-      }
-    }
 
     // The surface says the processor pages; some step has to say how.
     if (command.surface.paginated && !command.steps.some((step) => step.pagination !== undefined)) {
