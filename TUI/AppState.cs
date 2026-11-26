@@ -41,6 +41,7 @@ class AppState
     private readonly object _historyLock = new();
     public List<Suggestion> Suggestions { get; private set; } = new();
     public int SelectedSuggestion { get; set; } = -1;
+    internal string TypedInputText { get; set; } = "";
     public int OutputScrollOffset { get; set; }
     public string Prompt { get; private set; } = "/ > ";
     public bool ShowHelp { get; set; }

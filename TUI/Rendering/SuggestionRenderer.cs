@@ -41,13 +41,25 @@ static class SuggestionRenderer
 
             var wrapLines = Program.ComputeWordWrapLines(state.InputText, inputWidth);
             var editor = inner.TextBox().State(state.EditorState)
-                .Predict((text, _) => Task.FromResult(state.GetPrediction(text)))
                 .WordWrap().Height(wrapLines)
                 .OnTextChanged(e =>
                 {
+                    state.TypedInputText = state.InputText;
                     state.UpdateSuggestions();
                     app.Invalidate();
                 });
+            // Hex1b only refreshes predictions on typed input. After programmatic
+            // edits (submit, history, completion) omit the predictor for one frame,
+            // which makes the TextBox discard any stale ghost text.
+            if (state.TypedInputText == state.InputText)
+            {
+                editor = editor.Predict((text, _) => Task.FromResult(state.GetPrediction(text)));
+            }
+            else
+            {
+                state.TypedInputText = state.InputText;
+                app.Invalidate();
+            }
             // Hex1b predictions are single-line only; retain multiline editing
             // when the command contains a newline or wraps across rows.
             if (state.InputText.Contains('\n') || wrapLines > 1)
@@ -57,7 +69,7 @@ static class SuggestionRenderer
             [
                 TuiTheme.WithForeground(h, TuiTheme.ToHex1bColor(state.Theme.ChevronColor),
                     h.Text("> ")).ContentWidth(),
-                editor,
+                editor.FillWidth(),
             ]));
             return widgets.ToArray();
         }).Height(SizeHint.Content);
