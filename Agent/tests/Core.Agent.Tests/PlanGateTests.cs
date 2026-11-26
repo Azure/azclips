@@ -107,6 +107,56 @@ public class PlanGateTests
         Assert.Null(result);
     }
 
+    [Theory]
+    [InlineData("bash")]
+    [InlineData("powershell")]
+    public async Task Rewrites_bare_az_to_the_launching_binary_once_plan_approved(string tool)
+    {
+        var state = new SessionState { PlanApproved = true };
+        var approval = new ConsoleApprovalPrompt();
+        var prevIn = Console.In;
+        var prevOut = Console.Out;
+        Console.SetIn(new StringReader("y" + Environment.NewLine));
+        Console.SetOut(TextWriter.Null);
+        PreToolUseHookOutput? result;
+        try
+        {
+            var hookTask = PreToolUseHook.HandleAsync(
+                Input(tool, new { command = "az vm show -n x" }), az, approval, state, CancellationToken.None);
+            // Stop pumping if the hook returns without asking for approval.
+            using var hookDone = new CancellationTokenSource();
+            _ = hookTask.ContinueWith(_ => hookDone.Cancel(), TaskScheduler.Default);
+            try
+            {
+                await approval.PumpOneAsync(hookDone.Token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            result = await hookTask;
+        }
+        finally
+        {
+            Console.SetIn(prevIn);
+            Console.SetOut(prevOut);
+        }
+
+        Assert.NotNull(result);
+        Assert.Equal("allow", result!.PermissionDecision);
+        var args = Assert.IsType<Dictionary<string, object?>>(result.ModifiedArgs);
+        Assert.Equal($"{az} vm show -n x", args["command"]);
+    }
+
+    [Fact]
+    public async Task Does_not_rewrite_az_for_non_shell_tools()
+    {
+        var state = new SessionState { PlanApproved = true };
+
+        var result = await RunHookAsync(Input("view", new { command = "az vm show" }), state, new ConsoleApprovalPrompt());
+
+        Assert.Null(result);
+    }
+
     [Fact]
     public async Task Submit_response_renders_and_allows()
     {
