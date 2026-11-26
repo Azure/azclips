@@ -1,0 +1,38 @@
+name: docs-feed-identity-read-test-$(Date:yyyyMMdd)$(Rev:.r)
+trigger: none
+pr: none
+
+jobs:
+- job: CheckFeedRead
+  displayName: Check CLI2Yaml feed read access
+  pool:
+    name: pool-ubuntu-2404
+  steps:
+  - checkout: none
+  - task: AzureCLI@2
+    displayName: Read CLI2Yaml package metadata with existing workload identity
+    inputs:
+      azureSubscription: DocsReference_WIF
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        $ErrorActionPreference = 'Stop'
+        if ($env:SYSTEM_TEAMPROJECT -ne 'release') {
+          throw 'This test must run in the release project.'
+        }
+        $token = az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken --output tsv
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
+          throw 'Could not obtain an Azure DevOps access token for the workload identity.'
+        }
+        $uri = 'https://feeds.dev.azure.com/apidrop/_apis/packaging/feeds/ReferenceAutomation/packages?packageNameQuery=CLI2Yaml&protocolType=NuGet&includeAllVersions=false&api-version=7.1'
+        try {
+          $result = Invoke-RestMethod -Uri $uri -Headers @{ Authorization = "Bearer $token" } -TimeoutSec 30
+          $packages = @($result.value | Where-Object { $_.name -eq 'CLI2Yaml' })
+          if ($packages.Count -ne 1) {
+            throw 'The feed did not return the CLI2Yaml package.'
+          }
+          Write-Host 'The workload identity can read CLI2Yaml package metadata from the ReferenceAutomation feed.'
+        }
+        finally {
+          $token = $null
+        }
