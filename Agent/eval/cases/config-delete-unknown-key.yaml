@@ -1,0 +1,45 @@
+description: "[mutate/invalid-value] config-delete-unknown-key"
+metadata:
+  mode: mutate
+  failureType: invalid-value
+vars:
+  case_id: config-delete-unknown-key
+  command_group: config
+  goal: Remove a configuration key that does not exist.
+  command: config delete --key agent.nonexistent
+assert:
+  - commandSet:
+      anyOf:
+        - - command: az config list
+            match: any
+            forbiddenArguments:
+              - -n
+              - -g
+        - - command: az config info
+            match: any
+            forbiddenArguments:
+              - -n
+              - -g
+        - - command: az config delete
+            match: all
+            forbiddenArguments:
+              - -n
+              - -g
+            placeholders:
+              - --key
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az config list
+        - az config info
+        - az config get
+        - az config delete
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Remove a configuration key that does not exist."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Inspecting settings is expected; --force only as a clearly conditional option.

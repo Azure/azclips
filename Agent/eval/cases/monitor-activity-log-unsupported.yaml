@@ -1,0 +1,37 @@
+description: "[read/group-typo] monitor-activity-log-unsupported"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: monitor-activity-log-unsupported
+  command_group: monitor
+  goal: List recent activity-log events for azclips-test-rg.
+  command: monitor activity-log list --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az rest
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az rest
+        - az extension list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List recent activity-log events for azclips-test-rg."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - This CLI has no monitor group. A GET on Microsoft.Insights/eventtypes/management/values with a filter for the group via the generic REST command is acceptable. Do not invent monitor commands.

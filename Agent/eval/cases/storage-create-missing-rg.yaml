@@ -1,0 +1,43 @@
+description: "[mutate/missing-param] storage-create-missing-rg"
+metadata:
+  mode: mutate
+  failureType: missing-param
+vars:
+  case_id: storage-create-missing-rg
+  command_group: storage
+  goal: Create the named storage account; the resource group was omitted.
+  command: storage account create --name azclipsevalsa998 --location eastus
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az storage account create
+          match: all
+          requiredArguments:
+            - --resource-group
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclipsevalsa998
+            --location: eastus
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az storage account create
+        - az group create
+        - az group list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create the named storage account; the resource group was omitted."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Creating the same group first is a legitimate prerequisite.

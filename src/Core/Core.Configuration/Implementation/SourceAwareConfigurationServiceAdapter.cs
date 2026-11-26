@@ -33,6 +33,7 @@ internal sealed class SourceAwareConfigurationServiceAdapter(IConfigurationServi
             }
         }
 
+        ConfigurationService.ApplyDefaultMetadata(result, ConfigurationService.BuildDefaultKeyValues());
         return result;
     }
 

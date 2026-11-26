@@ -98,4 +98,71 @@ public class EnvSnapshotFormatterTests
         var block = EnvSnapshotFormatter.Format("[1, 2, 3]");
         Assert.Equal(string.Empty, block);
     }
+
+    [Fact]
+    public void CommandGroups_AppearInEnvironmentBlock()
+    {
+        const string json = """
+            { "signedIn": true, "commandGroups": ["group", "network", "vm"] }
+            """;
+
+        var block = EnvSnapshotFormatter.Format(json);
+
+        Assert.Contains("command-groups", block);
+        Assert.Contains("command-groups (installed root commands and groups; confirm with get_command)", block);
+        Assert.Contains("group, network, vm", block);
+        Assert.True(block.IndexOf("group, network, vm", StringComparison.Ordinal)
+                    < block.IndexOf("</environment>", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CommandGroups_Empty_OmitsSection()
+    {
+        var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": [] }""");
+
+        Assert.Contains("<environment>", block);
+        Assert.DoesNotContain("command-groups", block);
+    }
+
+    [Theory]
+    [InlineData("""{ "signedIn": true }""")]
+    [InlineData("""{ "signedIn": true, "commandGroups": null, "installableGroups": null }""")]
+    public void CommandGroups_Missing_ShowsUnknown(string json)
+    {
+        var block = EnvSnapshotFormatter.Format(json);
+
+        Assert.Contains("command-groups: unknown (help catalog could not be read; use get_command to check whether a command exists)\n", block);
+        Assert.Contains("installable-command-groups: unknown\n", block);
+        Assert.EndsWith("</environment>", block);
+    }
+
+    [Fact]
+    public void InstallableGroups_ShowFullPackageIds()
+    {
+        const string json = """
+            { "signedIn": true, "commandGroups": ["vm"],
+              "installableGroups": [ { "group": "vm", "packageId": "Microsoft.Azure.Azclips.Extensions.Compute" }, { "group": "network", "packageId": "Microsoft.Azure.Azclips.Extensions.Network" }, { "group": "foo", "packageId": "Contoso.Foo" } ] }
+            """;
+
+        var block = EnvSnapshotFormatter.Format(json);
+
+        Assert.Contains("installable-command-groups (not installed; install with `az extension add --name <package>`)\n  vm: Microsoft.Azure.Azclips.Extensions.Compute, network: Microsoft.Azure.Azclips.Extensions.Network, foo: Contoso.Foo\n", block);
+    }
+
+    [Fact]
+    public void InstallableGroups_Empty_ShowsNone()
+    {
+        var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": ["vm"], "installableGroups": [] }""");
+
+        Assert.Contains("installable-command-groups (not installed; install with `az extension add --name <package>`)\n  none\n", block);
+    }
+
+    [Fact]
+    public void InstallableGroups_Missing_OmitsLine()
+    {
+        var block = EnvSnapshotFormatter.Format("""{ "signedIn": true, "commandGroups": ["vm"] }""");
+
+        Assert.Contains("command-groups (installed root commands and groups; confirm with get_command)\n  vm\n", block);
+        Assert.DoesNotContain("installable-command-groups", block);
+    }
 }

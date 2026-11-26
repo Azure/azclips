@@ -1,0 +1,41 @@
+description: "[read/missing-param] vnet-show-missing-rg"
+metadata:
+  mode: read
+  failureType: missing-param
+vars:
+  case_id: vnet-show-missing-rg
+  command_group: network
+  goal: Show the named virtual network; the resource group was omitted.
+  command: network vnet show --name azclips-eval-vnet
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network vnet show
+          match: any
+          requiredArguments:
+            - --resource-group
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --name: azclips-eval-vnet
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network vnet show
+        - az network vnet list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show the named virtual network; the resource group was omitted."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - A cryptic api-version error masks a missing resource group. Keep the VNet name and supply or request a group.

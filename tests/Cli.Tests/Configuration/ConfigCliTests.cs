@@ -186,6 +186,59 @@ public class ConfigCliTests
         Assert.Equal(keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase), keys);
     }
 
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(null, true)]
+    [InlineData("core", false)]
+    [InlineData("core.logging", false)]
+    [InlineData("core.logging.level", false)]
+    public void ConfigReads_ShouldExposeDefaultMetadataForExplicitOverrides(string? key, bool configuredOnly)
+    {
+        using var fixture = new ConfigCommandFixture();
+        string[] args = key is null
+            ? configuredOnly ? ["config", "list", "--configured-only"] : ["config", "list"]
+            : ["config", "get", "--key", key];
+        var outputKey = key switch
+        {
+            "core" => "logging.level",
+            "core.logging" => "level",
+            _ => "core.logging.level"
+        };
+
+        fixture.ExecuteCli(["config", "set", "core.logging.level", "warn"]);
+        var sameAsDefault = AssertConfigEntry(fixture.ExecuteCli(args), outputKey, "warn", "global config");
+        Assert.Equal("warn", sameAsDefault["defaultValue"]!.GetValue<string>());
+        Assert.True(sameAsDefault["isDefaultValue"]!.GetValue<bool>());
+
+        fixture.ExecuteCli(["config", "set", "core.logging.level", "debug"]);
+        var changed = AssertConfigEntry(fixture.ExecuteCli(args), outputKey, "debug", "global config");
+        Assert.Equal("warn", changed["defaultValue"]!.GetValue<string>());
+        Assert.False(changed["isDefaultValue"]!.GetValue<bool>());
+
+        if (key is null)
+        {
+            fixture.ExecuteCli(["config", "set", "custom.unset", "null", "--force"]);
+            var unknown = AssertConfigEntry(fixture.ExecuteCli(args), "custom.unset", null, "global config");
+            Assert.True(unknown.AsObject().ContainsKey("defaultValue"));
+            Assert.True(unknown.AsObject().ContainsKey("isDefaultValue"));
+            Assert.Null(unknown["defaultValue"]);
+            Assert.Null(unknown["isDefaultValue"]);
+        }
+    }
+
+    [Fact]
+    public void ConfigList_ShouldExposeDefaultMetadataInTableOutput()
+    {
+        using var fixture = new ConfigCommandFixture();
+        fixture.ExecuteCli(["config", "set", "telemetry.enabled", "true"]);
+
+        var output = fixture.ExecuteCli(["config", "list", "--configured-only", "--output", "table"]).Single();
+
+        Assert.Contains("defaultValue", output);
+        Assert.Contains("isDefaultValue", output);
+        Assert.Matches(@"(?m)^telemetry\.enabled\s+True\s+global config\s+True\s+True\s*$", output);
+    }
+
     [Fact]
     public void ConfigCommands_ShouldSetGetListDeleteAndInfo()
     {
@@ -365,16 +418,28 @@ public class ConfigCliTests
         Assert.Contains("core.logging.level", infoOutput);
     }
 
-    [Fact]
-    public void CliInvocation_ShouldConstrainConfigTableToTerminalWidth()
+    [Theory]
+    [InlineData(60)]
+    [InlineData(120)]
+    public void CliInvocation_ShouldPreserveConfigTableColumnsWithinReadableWidth(int terminalWidth)
     {
         using var fixture = new ConfigCommandFixture();
 
-        var output = fixture.ExecuteCli(["config", "info", "--output", "table"], terminalWidth: 60).Single();
+        var output = fixture.ExecuteCli(["config", "info", "--output", "table"], terminalWidth: terminalWidth).Single();
+        var lines = output.Split('\n');
+        var expectedHeaders = new[]
+        {
+            "key", "description", "defaultValue", "valueType", "allowedValues",
+            "minimum", "maximum", "validationPattern", "isUri"
+        };
+        var minimumWidth = expectedHeaders.Sum(header => Math.Max(header.Length, 4))
+            + 2 * (expectedHeaders.Length - 1);
 
+        Assert.Equal(expectedHeaders, lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(Math.Max(terminalWidth, minimumWidth), lines[1].Length);
         Assert.All(
-            output.Split('\n'),
-            line => Assert.True(line.Length <= 60, $"Expected line at most 60 characters, but got {line.Length}: {line}"));
+            lines,
+            line => Assert.True(line.Length <= Math.Max(terminalWidth, minimumWidth), line));
     }
 
     [Fact]
@@ -597,10 +662,10 @@ public class ConfigCliTests
         Assert.Contains("Unable to find parameter: json", exception.Message);
     }
 
-    private static void AssertConfigEntry(
+    private static JsonNode AssertConfigEntry(
         IReadOnlyList<string> output,
         string key,
-        object expectedValue,
+        object? expectedValue,
         string expectedSource)
     {
         var result = JsonNode.Parse(output.Single());
@@ -611,11 +676,12 @@ public class ConfigCliTests
             _ => null
         };
 
-        Assert.NotNull(entry);
+        var matchedEntry = Assert.IsAssignableFrom<JsonNode>(entry);
         Assert.True(
-            JsonNode.DeepEquals(JsonValue.Create(expectedValue), entry?["value"]),
-            $"Expected value '{expectedValue}', but got '{entry?["value"]}'.");
-        Assert.Equal(expectedSource, entry?["source"]?.GetValue<string>());
+            JsonNode.DeepEquals(JsonValue.Create(expectedValue), matchedEntry["value"]),
+            $"Expected value '{expectedValue}', but got '{matchedEntry["value"]}'.");
+        Assert.Equal(expectedSource, matchedEntry["source"]?.GetValue<string>());
+        return matchedEntry;
     }
 
     private sealed class ConfigCommandFixture : IDisposable
