@@ -21,9 +21,9 @@ parameters:
   - dry-run
   - create-pr
 - name: cli2yaml_feed_service_connection
-  displayName: CLI2Yaml feed service connection (dry-run and PR modes)
+  displayName: CLI2Yaml workload identity service connection
   type: string
-  default: CONFIGURE_CLI2YAML_FEED_CONNECTION
+  default: DocsReference_WIF
 
 variables:
 - template: templates/variables.yml

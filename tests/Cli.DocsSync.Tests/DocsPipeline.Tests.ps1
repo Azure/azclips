@@ -15,7 +15,10 @@ BeforeAll {
     $jobScript = [regex]::Replace($jobMatch.Groups['body'].Value, '(?m)^ {8}', '')
     $jobScript = $jobScript.Replace('"$(Build.SourcesDirectory)/build"', '$env:FAKE_BUILD_DIR')
     $script:RunSync = [scriptblock]::Create($jobScript)
-    $script:EnvironmentNames = @('RELEASE_TAG', 'EXPECTED_COMMIT', 'DOCS_COMMIT', 'SYNC_MODE', 'FETCH_CLI2YAML', 'SYNC_SCRIPT', 'AGENT_TEMPDIRECTORY', 'FAKE_BUILD_DIR')
+    $restoreMatch = [regex]::Match($jobYaml, '(?m)^        inlineScript: \|\r?\n(?<body>(?: {10}[^\r\n]*\r?\n)+?)      env:')
+    if (-not $restoreMatch.Success) { throw 'Cannot find CLI2Yaml restore script' }
+    $script:RestoreCli2Yaml = [scriptblock]::Create([regex]::Replace($restoreMatch.Groups['body'].Value, '(?m)^ {10}', ''))
+    $script:EnvironmentNames = @('RELEASE_TAG', 'EXPECTED_COMMIT', 'DOCS_COMMIT', 'SYNC_MODE', 'FETCH_CLI2YAML', 'SYNC_SCRIPT', 'AGENT_TEMPDIRECTORY', 'FAKE_BUILD_DIR', 'BUILD_SOURCESDIRECTORY', 'ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS', 'VSS_NUGET_EXTERNAL_FEED_ENDPOINTS', 'ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'AZCLIPS_CLI_SYNC_LOAD_ONLY')
 }
 
 Describe 'Standalone docs pipeline orchestration' {
@@ -99,5 +102,56 @@ $global:CapturedSyncArgs = $PSBoundParameters
             Pop-Location
             Remove-Variable -Name CapturedSyncArgs -Scope Global -ErrorAction SilentlyContinue
         }
+    }
+
+    It 'restores CLI2Yaml using process-scoped workload identity credentials' {
+        $fake = Join-Path $script:Repo 'build/Sync-AzClipsCliDocs.ps1'
+        $dll = Join-Path $TestDrive 'CLI2Yaml.dll'
+        Set-Content -LiteralPath $dll -Value 'fixture'
+        Set-Content -LiteralPath $fake -Value @'
+function Get-Cli2YamlDllPath {
+    param($PackageName, $Feed, [switch]$FetchIfMissing)
+    $global:CapturedFeedCredentials = $env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS
+    $global:CapturedFetch = @{ PackageName = $PackageName; Feed = $Feed; FetchIfMissing = $FetchIfMissing }
+    return $env:FAKE_DLL
+}
+'@
+        $previousDll = $env:FAKE_DLL
+        $env:FAKE_DLL = $dll
+        $env:BUILD_SOURCESDIRECTORY = $script:Repo
+        $env:DOCS_COMMIT = $script:Commit
+        Mock git {
+            $global:LASTEXITCODE = 0
+            '{"cli2yamlFeed":"https://apidrop.pkgs.visualstudio.com/_packaging/ReferenceAutomation/nuget/v3/index.json","cli2yamlPackage":"CLI2Yaml"}'
+        }
+        Mock az {
+            $global:LASTEXITCODE = 0
+            'test-token'
+        }
+        try {
+            $output = & $script:RestoreCli2Yaml 6>&1
+            ($output -join "`n") | Should -Not -Match 'test-token'
+            $credential = ($global:CapturedFeedCredentials | ConvertFrom-Json).endpointCredentials[0]
+            $credential.password | Should -Be 'test-token'
+            $credential.endpoint | Should -Be $global:CapturedFetch.Feed
+            $global:CapturedFetch.PackageName | Should -Be 'CLI2Yaml'
+            $global:CapturedFetch.FetchIfMissing | Should -BeTrue
+            $env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS | Should -BeNullOrEmpty
+            $env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS | Should -BeNullOrEmpty
+        } finally {
+            $env:FAKE_DLL = $previousDll
+            Remove-Variable -Name CapturedFeedCredentials, CapturedFetch -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'rejects a tagged config pointing at a different feed before acquiring credentials' {
+        $env:DOCS_COMMIT = $script:Commit
+        Mock git {
+            $global:LASTEXITCODE = 0
+            '{"cli2yamlFeed":"https://example.invalid/feed","cli2yamlPackage":"CLI2Yaml"}'
+        }
+        Mock az { throw 'Unexpected token request' }
+        { & $script:RestoreCli2Yaml } | Should -Throw '*does not use the approved CLI2Yaml feed*'
+        Should -Invoke az -Times 0 -Exactly
     }
 }

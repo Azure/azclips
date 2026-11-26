@@ -28,13 +28,17 @@ guide in the same PR so it stays accurate.
 - The standalone pipeline defaults to `validate` and has no automatic trigger.
   Manual runs select a tag via `release_tag`; the optional `expected_commit`
   detects an unexpected tag target.
-  Its `dry-run` mode requires an authorized CLI2Yaml feed service connection;
-  it does not push, open PRs, or email. CLI generates scratch output; PowerShell
+  Its `dry-run` mode requires authorization to the `DocsReference_WIF` Azure
+  service connection, whose workload identity reads the CLI2Yaml feed. The CLI
+  job uses `NuGetAuthenticate` to install the credential provider and restores
+  the tagged configuration's approved package into a job-specific cache using a
+  short-lived, process-scoped Azure DevOps token; it does not persist the token.
+  The run does not push, open PRs, or email. CLI generates scratch output; PowerShell
   reports a copy plan against an absent target, not a comparison with live docs.
   Runs require the selected tag to contain the tag-aware sync scripts.
   `create-pr` mode is not operational: `templates/dist/stages/sync-preview-docs.yml`
-  deliberately fails its setup job before sync. PAT vault/secret, default feed
-  connection, and reviewer variables are placeholders; notification, structured
+  deliberately fails its setup job before sync. PAT vault/secret and reviewer
+  variables are placeholders; notification, structured
   results, and safe reruns are not implemented. Do not remove the setup stop
   until approved configuration and those behaviors are implemented and validated.
   No promotion to `live` or manual-merge gate is implemented.

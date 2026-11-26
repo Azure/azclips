@@ -48,9 +48,47 @@ jobs:
 
   - ${{ if eq(parameters.fetch_cli2yaml, true) }}:
     - task: NuGetAuthenticate@1
-      displayName: Authenticate To CLI2Yaml Feed
+      displayName: Install NuGet Credential Provider
+
+    - task: AzureCLI@2
+      displayName: Restore CLI2Yaml With Workload Identity
       inputs:
-        nuGetServiceConnections: ${{ parameters.cli2yaml_feed_service_connection }}
+        azureSubscription: ${{ parameters.cli2yaml_feed_service_connection }}
+        scriptType: pscore
+        scriptLocation: inlineScript
+        inlineScript: |
+          $ErrorActionPreference = 'Stop'
+          $feed = 'https://apidrop.pkgs.visualstudio.com/_packaging/ReferenceAutomation/nuget/v3/index.json'
+          $configJson = & git show "${env:DOCS_COMMIT}:build/cli-docs-sync.config.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the CLI docs configuration from the validated tag.' }
+          $config = $configJson | ConvertFrom-Json
+          if ($config.cli2yamlFeed -ne $feed -or $config.cli2yamlPackage -ne 'CLI2Yaml') {
+            throw 'The tagged CLI docs configuration does not use the approved CLI2Yaml feed and package.'
+          }
+          $token = az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken --output tsv
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
+            throw 'Could not obtain an Azure DevOps access token for the workload identity.'
+          }
+          try {
+            $credentials = @{ endpointCredentials = @(@{ endpoint = $feed; username = 'workload-identity'; password = $token }) } | ConvertTo-Json -Depth 4 -Compress
+            $env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS = $credentials
+            $env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS = $credentials
+            $env:ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED = 'false'
+            $env:NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED = 'false'
+            $env:AZCLIPS_CLI_SYNC_LOAD_ONLY = '1'
+            . (Join-Path $env:BUILD_SOURCESDIRECTORY 'build/Sync-AzClipsCliDocs.ps1')
+            $dll = Get-Cli2YamlDllPath -PackageName $config.cli2yamlPackage -Feed $feed -FetchIfMissing
+            if (-not (Test-Path -LiteralPath $dll)) { throw 'Restored CLI2Yaml DLL was not found.' }
+          }
+          finally {
+            $token = $null
+            $credentials = $null
+            Remove-Item Env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS, Env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS, Env:AZCLIPS_CLI_SYNC_LOAD_ONLY -ErrorAction SilentlyContinue
+          }
+      env:
+        DOCS_COMMIT: $(DocsCommit)
+        NUGET_PACKAGES: $(Agent.TempDirectory)/azclips-docs-nuget-$(System.JobId)
+        NUGET_HTTP_CACHE_PATH: $(Agent.TempDirectory)/azclips-docs-http-$(System.JobId)
 
   - task: PowerShell@2
     displayName: Run Tagged Docs Sync
@@ -90,6 +128,8 @@ jobs:
         GIT_CONFIG_COUNT: '1'
         GIT_CONFIG_KEY_0: credential.https://github.com.helper
         GIT_CONFIG_VALUE_0: '!gh auth git-credential'
+      ${{ if eq(parameters.fetch_cli2yaml, true) }}:
+        NUGET_PACKAGES: $(Agent.TempDirectory)/azclips-docs-nuget-$(System.JobId)
       RELEASE_TAG: ${{ parameters.release_tag }}
       DOCS_COMMIT: $(DocsCommit)
       SYNC_MODE: ${{ parameters.sync_mode }}
