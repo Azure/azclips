@@ -176,7 +176,12 @@ public class TuiSuggestionEditorTests
 
                     await Sequence().WaitUntil(_ =>
                     {
-                        if (app.FocusedNode is not TextBoxNode editor) return false;
+                        // Panel swaps move focus for one frame; BuildUI restores it on the next rebuild.
+                        if (app.FocusedNode is not TextBoxNode editor)
+                        {
+                            app.Invalidate();
+                            return false;
+                        }
                         var group = Assert.IsType<VStackNode>(editor.Parent!.Parent);
                         return group.Children.OfType<ListNode<Suggestion>>().Single().Bounds.Height
                             == Math.Min(8, count) && editor.Text == text
