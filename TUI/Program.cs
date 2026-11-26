@@ -80,15 +80,21 @@ public static class Program
         }
     }
 
-    private static Hex1bWidget BuildUI<TParent>(WidgetContext<TParent> ctx, Hex1bApp app, AppState state)
+    internal static Hex1bWidget BuildUI<TParent>(WidgetContext<TParent> ctx, Hex1bApp app, AppState state,
+        int? width = null)
         where TParent : Hex1bWidget
     {
-        // Always request focus on the hidden TextBox so character input works.
-        // This ensures focus is restored even if widget-type changes at other
-        // indices cause the FocusRing to lose track of the previously focused node.
-        app.RequestFocus(n => n is TextBoxNode);
+        if (state.IsSuggestionSelected())
+        {
+            if (app.FocusedNode is not ListNode<Suggestion>)
+                app.RequestFocus(n => n is ListNode<Suggestion>);
+        }
+        else if (app.FocusedNode is not TextBoxNode)
+        {
+            app.RequestFocus(n => n is TextBoxNode);
+        }
 
-        var termWidth = Console.WindowWidth;
+        var termWidth = width ?? Console.WindowWidth;
 
         Hex1bWidget hex1BWidget = ctx.VStack(v =>
         {
@@ -141,16 +147,7 @@ public static class Program
 
                 var t = state.Theme;
 
-                // ── Suggestions (above prompt, if configured) ──
-                if (t.SuggestionStyle == SuggestionStyle.Above && state.Suggestions.Count > 0)
-                {
-                    topWidgets.Add(v.Separator());
-                    topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
-                }
-                else
-                {
-                    topWidgets.Add(v.Separator());
-                }
+                topWidgets.Add(v.Separator());
 
                 // Prompt + input (visible TextBox)
                 var prompt = state.Prompt.TrimEnd(' ', '>');
@@ -158,40 +155,8 @@ public static class Program
                 var promptColor = TuiTheme.ToHex1bColor(t.PromptPathColor);
                 topWidgets.Add(TuiTheme.WithForeground(v, promptColor, v.Text(prompt)).Height(SizeHint.Content));
 
-                var inputWidth = Math.Max(1, termWidth - 2); // 2 = "> "
-                var wrapLines = ComputeWordWrapLines(state.InputText, inputWidth);
-
-                var chevronColor = TuiTheme.ToHex1bColor(t.ChevronColor);
-                var chevronWidget = TuiTheme.WithForeground(v, chevronColor, v.Text("> ")).ContentWidth();
-
-                topWidgets.Add(v.HStack(h =>
-                [
-                    chevronWidget,
-                    v.TextBox().State(state.EditorState).Multiline().WordWrap().Height(wrapLines)
-                        .OnTextChanged(e =>
-                        {
-                            state.UpdateSuggestions();
-                            app.Invalidate();
-                        })
-                ]));
-
-                // ── Suggestions (below input or inline) ──
-                if (t.SuggestionStyle != SuggestionStyle.Above && state.Suggestions.Count > 0)
-                {
-                    if (t.SuggestionStyle == SuggestionStyle.Inline)
-                        topWidgets.Add(SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion));
-                    else
-                        topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
-                }
-                else if (t.SuggestionStyle != SuggestionStyle.Above)
-                {
-                    topWidgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
-                    topWidgets.Add(v.Separator());
-                }
-                else
-                {
-                    topWidgets.Add(v.Separator());
-                }
+                topWidgets.Add(SuggestionRenderer.Build(v, state, app, Math.Max(1, termWidth - 2)));
+                topWidgets.Add(v.Separator());
 
                 return topWidgets.ToArray();
             }).Fill());
@@ -226,7 +191,7 @@ public static class Program
             bindings.Key(Hex1bKey.Escape).Global()
                 .Action(_ =>
                 {
-                    if (state.IsSuggestionSelected()) { state.ResetSelectedSuggestion(); }
+                    if (state.IsSuggestionSelected()) { state.ResetSelectedSuggestion(); app.Invalidate(); }
                     else if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
                     else if (state.IsRunning) { state.CancelRunning(); }
                     else { app.RequestStop(); }
@@ -274,6 +239,7 @@ public static class Program
                 {
                     state.InputText = state.InputText.Insert(state.CursorPos, "\n");
                     state.CursorPos++;
+                    state.UpdateSuggestions();
                     app.Invalidate();
                 }, "Insert newline");
 
@@ -313,6 +279,18 @@ public static class Program
                     app.Invalidate();
                 }, "Accept suggestion");
 
+            if (state.Suggestions.Count > 0
+                && (state.IsSuggestionSelected()
+                    || (state.CursorPos == state.InputText.Length && !state.EditorState.HasSelection)))
+            {
+                bindings.Key(Hex1bKey.RightArrow).Global()
+                    .Action(_ =>
+                    {
+                        state.CompleteSuggestion();
+                        app.Invalidate();
+                    }, "Complete suggestion");
+            }
+
             bindings.Ctrl().Key(Hex1bKey.L)
                 .Global()
                 .Action(_ =>
@@ -329,11 +307,17 @@ public static class Program
     /// <summary>
     /// Computes wrapped line count matching TextBox's WrapLine algorithm.
     /// </summary>
-    private static int ComputeWordWrapLines(string text, int width)
+    internal static int ComputeWordWrapLines(string text, int width)
     {
-        if (width <= 0 || string.IsNullOrEmpty(text) || text.Length <= width)
+        if (width <= 0 || string.IsNullOrEmpty(text))
             return 1;
 
+        return text.Split('\n').Sum(line => ComputeWrappedLineCount(line, width));
+    }
+
+    private static int ComputeWrappedLineCount(string text, int width)
+    {
+        if (text.Length <= width) return 1;
         var count = 0;
         var offset = 0;
         while (offset < text.Length)

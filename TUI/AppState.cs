@@ -40,7 +40,7 @@ class AppState
     private readonly List<HistoryEntry> _history = new();
     private readonly object _historyLock = new();
     public List<Suggestion> Suggestions { get; private set; } = new();
-    public int SelectedSuggestion { get; set; }
+    public int SelectedSuggestion { get; set; } = -1;
     public int OutputScrollOffset { get; set; }
     public string Prompt { get; private set; } = "/ > ";
     public bool ShowHelp { get; set; }
@@ -194,14 +194,23 @@ class AppState
 
     public void UpdateSuggestions()
     {
-        var trimmed = InputText.TrimStart();
+        var input = InputText;
+        var mode = Mode;
+        var trimmed = input.TrimStart();
+        Suggestions = [];
+        ResetSelectedSuggestion();
+        void OnResult(List<Suggestion> suggestions)
+        {
+            if (InputText == input && Mode == mode)
+                OnAsyncSuggestions(suggestions);
+        }
 
         if (trimmed.StartsWith("/", StringComparison.OrdinalIgnoreCase)
-            && _completionService.TryStartSlashCommandCompletion(trimmed, BuildCommandContext(), OnAsyncSuggestions))
+            && _completionService.TryStartSlashCommandCompletion(trimmed, BuildCommandContext(), OnResult))
             return;
 
         var result = _completionService.GetSuggestions(
-            InputText, Mode, _historyService.GetHistory(Mode), BuildCommandContext(), OnAsyncSuggestions);
+            input, mode, _historyService.GetHistory(mode), BuildCommandContext(), OnResult);
 
         if (result != null)
         {
@@ -225,6 +234,25 @@ class AppState
         InputText = _completionService.AcceptSuggestion(InputText, suggestion);
         CursorPos = InputText.Length;
         UpdateSuggestions();
+    }
+
+    public string? GetPrediction(string text)
+    {
+        var suggestions = Suggestions;
+        if (text != InputText || suggestions.Count == 0) return null;
+        var index = IsSuggestionSelected() ? SelectedSuggestion : 0;
+        if (index < 0 || index >= suggestions.Count) return null;
+        var completed = _completionService.AcceptSuggestion(text, suggestions[index].Text);
+        return completed.StartsWith(text, StringComparison.OrdinalIgnoreCase)
+            ? completed[text.Length..]
+            : null;
+    }
+
+    public void CompleteSuggestion()
+    {
+        if (Suggestions.Count == 0) return;
+        if (!IsSuggestionSelected()) SelectedSuggestion = 0;
+        AcceptSuggestion();
     }
 
     public void ResetSelectedSuggestion()

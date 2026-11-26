@@ -32,9 +32,11 @@ static class HelpRenderer
 
         | Key | Action |
         |-----|--------|
-        | **Enter** | Execute command |
+        | **Enter** | Accept selected suggestion / execute command |
         | **Tab** | Accept suggestion |
-        | **↑ / ↓** | Browse suggestions / history |
+        | **→** | Complete suggestion at end of input / move cursor right |
+        | **↑ / ↓** | Focus and browse suggestions / history |
+        | **Ctrl+Enter** | Insert newline |
         | **PgUp / PgDn** | Scroll output |
         | **Ctrl+V** | Paste from clipboard |
         | **Ctrl+L** | Clear output |
@@ -51,6 +53,7 @@ static class HelpRenderer
 
         ## Tips
 
+        - Suggestions appear above the input; Esc returns focus to the input
         - Type a natural language query for AI help
         - Use tab completion for faster input
         - Commands are forwarded to az CLI
