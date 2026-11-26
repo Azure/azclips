@@ -211,7 +211,7 @@ Task 1.11 remains unchecked pending reviewed legacy discovery integration and a 
 
 A later newer-source experiment exposed a separate writable-scope problem after resource registration succeeded. That experiment used ARM/core `0.74.0`, outside upstream's declared `^0.71.0` peer range, so it was not sufficient by itself to establish an upstream defect. The focused reproduction below confirms the problem with the existing supported pins; it does not upgrade the Network source or any dependencies.
 
-The [fixture](../../../toolkit/tools/typespec-bicep/test/generic-resource-scope.tsp) contains one version (`2025-07-01`), a standard `TrackedResource` control and an official `Legacy.GenericResource` with legacy GET/PUT templates. Both have an unambiguous resource-group-scoped PUT. The [opt-in reproducer](../../../toolkit/tools/typespec-bicep/test/generic-resource-scope.repro.mjs) verifies actual model identities, registrations, officially resolved resource types, PUT body identities and exact paths before checking upstream output.
+The [fixture](../../../toolkit/tools/typespec-bicep/test/generic-resource-scope.tsp) contains one version (`2025-07-01`), a standard `TrackedResource` control and an official `Legacy.GenericResource` with legacy GET/PUT templates. Both have an unambiguous resource-group-scoped PUT. The [reproducer, now a passing regression](../../../toolkit/tools/typespec-bicep/test/generic-resource-scope.test.mjs), verifies actual model identities, registrations, officially resolved resource types, PUT body identities and exact paths before checking upstream output.
 
 Run after the existing tool setup:
 
@@ -219,7 +219,7 @@ Run after the existing tool setup:
 npm --prefix toolkit\tools\typespec-bicep run repro:generic-scope
 ```
 
-Result: **one control passes, one regression fails; exit 1 is intentional while the defect remains unfixed.** The failing assertion expects correct writable scope rather than accepting the bug as expected behavior.
+Before the approved local fix: **one control passed, one regression failed with exit 1.** The assertion expected correct writable scope rather than accepting the bug as expected behavior.
 
 | Case | Registration | Official PUT | Expected writable scope | Upstream writable scope |
 | --- | --- | --- | --- | --- |
@@ -228,11 +228,36 @@ Result: **one control passes, one regression fails; exit 1 is intentional while 
 
 Both emitted definitions have readable scope `ResourceGroup`. The generic model even declares its own name/key/segment; the official generic registration deliberately does not require or populate a collection name. This is not a missing PUT, an unregistered model, an ambiguous API selector or a newer-library mismatch.
 
-The unchanged upstream `resources.ts` rejects resolved records when `collectionName` is absent in `resolvedRepresentsModel`. Legacy operations are retained in the older lifecycle API's `lists` collection, so its fallback supplies no writable lifecycle scope. GET-route fallback then exposes the resource with readable scope only. Official resolved-operation metadata already contains the correct PUT and resource path. The evidence supports an upstream generic/legacy discovery defect, not a demonstrated Network API-definition defect.
+The original upstream `resources.ts` rejects resolved records when `collectionName` is absent in `resolvedRepresentsModel`. Legacy operations are retained in the older lifecycle API's `lists` collection, so its fallback supplies no writable lifecycle scope. GET-route fallback then exposes the resource with readable scope only. Official resolved-operation metadata already contains the correct PUT and resource path. The evidence supports an upstream generic/legacy discovery defect, not a demonstrated Network API-definition defect.
 
-Verified with compiler `1.17.0`, HTTP/OpenAPI `1.15.0`, ARM/core `0.71.0` and REST/versioning `0.85.0`, against upstream revision `754a33f2ddc902afe583acb6e46316afbd59bc5d`. `npm ls` reports a valid deduplicated dependency tree. Upstream `resources.ts` is byte-for-byte unchanged relative to that revision; the existing integration patch only touches exports and observational source correspondence.
+Reproduction commit `a6474dce16297457d21de7f338d99cee6a32f70c` used compiler `1.17.0`, HTTP/OpenAPI `1.15.0`, ARM/core `0.71.0` and REST/versioning `0.85.0`, against upstream revision `754a33f2ddc902afe583acb6e46316afbd59bc5d`. `npm ls` reported a valid deduplicated dependency tree. At that point upstream `resources.ts` was byte-for-byte unchanged relative to the revision; the integration patch only touched exports and observational source correspondence.
 
-The reproducer is deliberately separate from `npm test`, which retains the original six checks. Validation: `npm --prefix toolkit\tools\typespec-bicep test` passed all six checks, and `openspec validate pilot-public-ip-bicep-create --strict` passed. This step does not fix upstream, prove real selected-version Public IP generation, create a deployment template or complete task 1.11.
+The reproduction was initially opt-in and separate from the six passing `npm test` checks. That evidence established the defect; it did not prove real selected-version Public IP generation or complete task 1.11.
+
+### Approved local generic-resource scope fix
+
+The user approved a scope-only local patch with **all upstream, Network source and dependency pins unchanged**. The reviewed [integration patch](../../../toolkit/tools/typespec-bicep/integration.patch) now also adapts upstream resource discovery and its scope helper; the schema converter and its existing property-correspondence hook remain the implementation of field/type generation.
+
+- Generic records must reference the actual registered model and provider. An exact resolved instance operation must supply a successful resource response or a matching write-body model; error responses and unrelated read-styled actions are not resource-identity evidence. Existing collection-name matching for standard resources is unchanged.
+- Read/write scopes come from each verified instance's lifecycle operations and actual paths. Records are grouped only by the same resource type, merging readable and writable flags independently. A subscription GET cannot make that scope writable, and a PUT cannot make a different read-only type writable.
+- Generic PUT schema selection uses only those verified PUT operations, not the global type-segment-only HTTP lookup. Distinct PUT/GET body models are supported; missing or conflicting PUT request models produce an explicit diagnostic and skip that resource type rather than selecting one.
+- An unknown generic scope is diagnosed and skipped instead of becoming resource-group scoped. Existing standard callers retain their original scope fallback.
+- Git preserves the integration patch's exact bytes, including CRLF context from the upstream scope-helper file. Text normalization would corrupt that context and break clean application/source verification after checkout.
+
+The [additional fixture](../../../toolkit/tools/typespec-bicep/test/generic-resource-guards.tsp) covers a reused model with an RG PUT/subscription GET, a separate read-only type, an unrelated successful response with the resource appearing only in an error body, a foreign provider, distinct PUT/GET models, conflicting PUT models and an unknown scope. The original fixture also verifies the **serialized generated Bicep resource type**, not just discovery metadata: generic readable and writable scopes are now both `8`.
+
+The seven scope checks are included in the default suite alongside the original six checks. Test files run serially because the source-integrity check intentionally creates a temporary unreviewed upstream source file.
+
+| Command / check | Result |
+| --- | --- |
+| `npm --prefix toolkit\tools\typespec-bicep run build` | Passed; isolated upstream source type-check/build, exact patch verification |
+| `npm --prefix toolkit\tools\typespec-bicep run repro:generic-scope` | 7 passed; exits 0 |
+| `npm --prefix toolkit\tools\typespec-bicep test` | 13 passed, including original upstream golden output and source-integrity checks |
+| Pristine pinned-source patch application with `core.autocrlf=false`, matching `prepare.mjs` | Passed; all four patched source files match the built checkout byte-for-byte |
+| `git diff --exit-code HEAD -- toolkit\tools\typespec-bicep\upstream.json toolkit\tools\typespec-bicep\package-lock.json` | Passed; upstream and dependency pins unchanged |
+| `openspec validate pilot-public-ip-bicep-create --strict` | Passed |
+
+This unblocks the reproduced registered-generic scope defect, **not the original unregistered Network source**. No Network discovery hook, source/toolchain upgrade, selected-version integration, command binding, template or runtime change is included. Task 1.11 and the later pilot gates remain pending; this local patch has not been submitted upstream.
 
 ## Goals / Non-Goals
 

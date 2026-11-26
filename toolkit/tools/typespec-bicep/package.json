@@ -6,8 +6,8 @@
   "scripts": {
     "setup": "node prepare.mjs --install",
     "build": "node prepare.mjs --build",
-    "test": "node --test test/reuse.test.mjs",
-    "repro:generic-scope": "node --test test/generic-resource-scope.repro.mjs"
+    "test": "node --test --test-concurrency=1 test/reuse.test.mjs test/generic-resource-scope.test.mjs",
+    "repro:generic-scope": "node --test test/generic-resource-scope.test.mjs"
   },
   "dependencies": {
     "@azure/bicep-types": "0.6.129",
