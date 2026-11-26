@@ -6,7 +6,13 @@ Establish a deliberately bounded Public IP create pilot that uses Bicep deployme
 
 ### Requirement: Exact-version source and compilation gates
 
-The pilot SHALL use the complete Public IP deployment contract derived from the same pinned TypeSpec source and concrete `2025-07-01` API selector as current codegen. Activation MUST remain blocked until resource identity, scope, ordered inputs, writable contract coverage, reviewed command-level handling of every catalogue difference and template compilation have explicit passing evidence. The full-API audit SHALL retain its original incompatible/unsupported diagnostics; command-level proof SHALL NOT be reported as identical API/Bicep schemas. Catalogue/compiler association MUST be verified separately; version presence alone SHALL NOT constitute a pass.
+The local pilot experiment SHALL use the complete Public IP deployment contract derived from Network source `965a33b4c632fb1aaf5f2ea02e6d603e1c81baa6` and the same concrete `2026-05-01` API selector as experimental canonical command generation. Normal Network source/API/toolchain configuration SHALL remain unchanged. Activation MUST remain blocked until resource identity, scope, ordered inputs, writable contract coverage, reviewed command-level handling of every catalogue difference and template compilation have explicit passing evidence. Historical `2025-07-01` audit and blocked-generation evidence SHALL remain intact and SHALL NOT certify the newer version. Command-level proof SHALL NOT be reported as identical API/Bicep schemas. Catalogue/compiler association MUST be verified separately; version presence alone SHALL NOT constitute a pass.
+
+#### Scenario: Create-only schema experiment
+- **WHEN** the approved newer-source Public IP schema experiment runs
+- **THEN** it SHALL select the actual version-projected create-or-update source models and generate only the Public IP resource root and its type dependencies
+- **AND** full Network/Compute C# generation or unrelated C# naming fixes SHALL NOT be prerequisites for this schema step
+- **AND** property-source correspondence SHALL NOT be reported as completed command-parameter bindings, runtime customization qualification or compiled deployment-template evidence
 
 #### Scenario: Real source association is unresolved
 - **WHEN** the selected source cannot provide an unambiguous Public IP resource/operation association
@@ -40,7 +46,8 @@ The pilot SHALL use the complete Public IP deployment contract derived from the 
 
 #### Scenario: Reviewed command-level handling of measured differences
 - **WHEN** pilot input proof accounts for the root ID and both measured integer-range diagnostics
-- **THEN** the complete audit SHALL still report the original three differences
+- **THEN** the historical `2025-07-01` audit SHALL retain the original three differences
+- **AND** the experimental `2026-05-01` contract SHALL be audited independently rather than assuming the same differences
 - **AND** the proof SHALL separately establish rejection of supplied root ID, exact normalized Int32 timeout transmission and rejection of nested NAT Gateway input
 - **AND** compiler, execution-wiring, transport, both-surface playback and live gates SHALL remain independently required
 
@@ -66,7 +73,7 @@ The pilot SHALL reuse pinned upstream `@azure-tools/typespec-bicep` code to inte
 #### Scenario: Reproducible upstream generation
 - **WHEN** upstream resource-type generation is integrated
 - **THEN** its source/package, compatible TypeSpec/HTTP/ARM libraries, input source revision and concrete API selector SHALL be recorded
-- **AND** legacy Public IP discovery at `2025-07-01` SHALL be demonstrated before template generation
+- **AND** selected-version Public IP create discovery at `2026-05-01` SHALL be demonstrated before experimental template generation
 - **AND** no TypeSpec/Bicep compiler or schema emitter SHALL be installed or invoked at command runtime
 
 #### Scenario: Flattened or renamed atomic input
@@ -157,12 +164,12 @@ The initial pilot SHALL accept only one standalone Standard/Regional, Static, IP
 
 ### Requirement: Single-resource Incremental deployment and resource output
 
-Eligible pilot execution SHALL deploy exactly one Public IP declaration at `2025-07-01` in Incremental resource-group mode, await terminal deployment success and return the final Public IP using the existing resource retrieval/output contract. Deployment transport API version SHALL be tracked independently of the resource version.
+Eligible experimental pilot execution SHALL deploy exactly one Public IP declaration at `2026-05-01` in Incremental resource-group mode, await terminal deployment success and return the final Public IP using the existing resource retrieval/output contract. Deployment transport API version SHALL be tracked independently of the resource version.
 
 #### Scenario: Successful create
 - **WHEN** the opted-in eligible deployment completes successfully
 - **THEN** the declaration SHALL contain only the intended Public IP and no created resource group or dependency resource
-- **AND** the command SHALL retrieve the target Public IP at `2025-07-01` and return its resource-shaped CLI/PowerShell output
+- **AND** the command SHALL retrieve the target Public IP at `2026-05-01` and return its resource-shaped CLI/PowerShell output
 - **AND** it SHALL NOT return a deployment object as the create result
 
 #### Scenario: Compiled template is unavailable

@@ -11,8 +11,9 @@ import {
 } from "@typespec/compiler";
 import {
   getArmResourceOperationData, getArmResourceOperationList,
-  getResourceBaseType, getResourcePathElements, ResourceBaseType,
+  getResourceBaseType, ResourceBaseType,
 } from "@azure-tools/typespec-azure-resource-manager";
+import * as armResourceManager from "@azure-tools/typespec-azure-resource-manager";
 import type { SdkClientType, SdkHttpOperation, SdkType } from "@azure-tools/typespec-client-generator-core";
 import { isApiVersion } from "@azure-tools/typespec-client-generator-core";
 import {
@@ -28,6 +29,22 @@ export class DeploymentContractError extends Error {}
 
 function fail(detail: string): never {
   throw new DeploymentContractError(detail);
+}
+
+interface ArmResourcePath {
+  resourceType: { provider: string; types: string[] };
+  resourceInstancePath: string;
+}
+
+const armPathApi: {
+  parseArmResourceInstancePath?: (path: string) => ArmResourcePath | undefined;
+  getResourcePathElements?: (path: string, kind: "createOrUpdate") => ArmResourcePath | undefined;
+} = armResourceManager;
+
+function resourcePathFrom(path: string): ArmResourcePath | undefined {
+  if (armPathApi.parseArmResourceInstancePath) return armPathApi.parseArmResourceInstancePath(path);
+  if (armPathApi.getResourcePathElements) return armPathApi.getResourcePathElements(path, "createOrUpdate");
+  fail("The installed ARM TypeSpec library exposes no supported resource-instance path parser");
 }
 
 function compareText(left: string, right: string): number {
@@ -223,7 +240,7 @@ function resourcesFrom(ctx: BuildContext, ir: IR, selection?: string[]): IRDeplo
     for (const method of client.methods) {
       const raw = method.__raw ?? method.operation.__raw.operation;
       if (getArmResourceOperationData(ctx.program, raw)?.kind !== "createOrUpdate") continue;
-      const resolved = getResourcePathElements(method.operation.path, "createOrUpdate");
+      const resolved = resourcePathFrom(method.operation.path);
       if (!resolved) fail(`ARM resource path is unresolved: ${method.operation.path}`);
       const { provider, types } = resolved.resourceType;
       const resourceType = `${provider}/${types.join("/")}`;

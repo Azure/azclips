@@ -4,8 +4,9 @@ The deployment-contract prerequisites are implemented, but no real command has e
 
 ## What Changes
 
-- Establish the complete deployment contract for `Microsoft.Network/publicIPAddresses@2025-07-01` from Network's existing pinned source commit `90e63e5fe2c596e8bd807aad7dd9d62cee1746dd`.
-- Resolve the real extraction blocker discovered during proposal research: the global Network projection stops at Application Gateway, and Public IP independently has official ARM lifecycle/operation associations but no modern `getArmResource` registration. Use supported source metadata rather than class-name or handwritten route/resource inference.
+- Use the approved local experimental Network source `965a33b4c632fb1aaf5f2ea02e6d603e1c81baa6` and API `2026-05-01` for both canonical command inputs and Public IP Bicep types. Keep the normal Network source/API/toolchain pins unchanged and preserve the original `2025-07-01` extraction, audit and blocked upstream-generation evidence.
+- Limit the experiment to the Public IP create-or-update operation and its schema dependencies. Full Network/Compute C# regeneration and unrelated model-name fixes are not prerequisites for this schema work.
+- Retain the original legacy-association investigation and use supported source metadata rather than class-name or handwritten route/resource inference. The newer experimental source registers the resource; exact-version source projection is still independently required.
 - Add explicitly selected deployment metadata and its complete writable-schema closure without pruning canonical Network IR. Unselected resource operations are outside this audit, not certified compatible; referenced or embedded models do not implicitly select more resource-create operations.
 - Reuse pinned upstream `@azure-tools/typespec-bicep` code for TypeSpec-to-Bicep resource-type interpretation instead of maintaining a competing schema implementation. Derive atomic-parameter-to-resource-field bindings through shared source identities and containing property paths, including existing flattening metadata, before generating the pilot template.
 - Treat the handwritten pilot binder as an offline prototype/regression baseline. Replace its structural mapping with the generated bridge, retaining command customization, eligibility checks and deployment transport as separate AzCLIPS responsibilities.
