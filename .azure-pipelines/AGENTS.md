@@ -22,7 +22,7 @@ guide in the same PR so it stays accurate.
 | `azclips-beta-sign.yml` | Daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`) + pipeline resource `betaBuild` tagged `sign-beta` | release | Scheduled/manual runs default to the latest successful `main` beta build without requiring a tag; ESRP-signs the selected build, verifies signatures/content, runs the full native lifecycle matrix, and builds/validates signed PowerShell Docker images without registry publication. |
 | `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI and changed extension/PowerShell module versions, then opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → signed lifecycle validation → publish GitHub release. In parallel after verify, signed PowerShell images are built/validated and CLI + PowerShell images are published to the ACR repositories configured by the `Docker*Registry*`/`Docker*Repository` variables in the entry pipeline, then verified from ACR and from MCR after a 10-minute delay. |
-| `azclips-preview-docs-sync.yml` | Manual | release | Standalone, tag-selected preview docs sync scaffold. Default `validate` mode checks the tag and source scripts; `dry-run` generates CLI output and reports the PowerShell copy plan without pushing. |
+| `azclips-preview-docs-sync.yml` | Manual | release | Standalone, tag-selected preview docs sync scaffold. Default `validate` mode checks the tag and source scripts; `dry-run` publishes CLI output and reports the PowerShell copy plan against a docs checkout without pushing. |
 
 ## Template Layout (`templates/`)
 - The standalone pipeline defaults to `validate` and has no automatic trigger.
@@ -33,8 +33,10 @@ guide in the same PR so it stays accurate.
   job uses `NuGetAuthenticate` to install the credential provider and restores
   the tagged configuration's approved package into a job-specific cache using a
   short-lived, process-scoped Azure DevOps token; it does not persist the token.
-  The run does not push, open PRs, or email. CLI generates scratch output; PowerShell
-  reports a copy plan against an absent target, not a comparison with live docs.
+  The run does not push, open PRs, or email. CLI publishes `CliDocsDryRun_<attempt>`
+  containing generated docs and the sync manifest. PowerShell anonymously checks out
+  the target repo's `main` branch, records its commit, and reports the copy plan,
+  stale files, and service-map status. This is not a full content diff.
   Runs require the selected tag to contain the tag-aware sync scripts.
   `create-pr` mode is not operational: `templates/dist/stages/sync-preview-docs.yml`
   deliberately fails its setup job before sync. PAT vault/secret and reviewer

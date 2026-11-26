@@ -20,7 +20,10 @@ BeforeAll {
     $restoreMatch = [regex]::Match($jobYaml, '(?m)^        inlineScript: \|\r?\n(?<body>(?: {10}[^\r\n]*\r?\n)+?)      env:')
     if (-not $restoreMatch.Success) { throw 'Cannot find CLI2Yaml restore script' }
     $script:RestoreCli2Yaml = [scriptblock]::Create([regex]::Replace($restoreMatch.Groups['body'].Value, '(?m)^ {10}', ''))
-    $script:EnvironmentNames = @('RELEASE_TAG', 'EXPECTED_COMMIT', 'DOCS_COMMIT', 'SYNC_MODE', 'FETCH_CLI2YAML', 'SYNC_SCRIPT', 'AGENT_TEMPDIRECTORY', 'FAKE_BUILD_DIR', 'BUILD_SOURCESDIRECTORY', 'ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS', 'VSS_NUGET_EXTERNAL_FEED_ENDPOINTS', 'ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'AZCLIPS_CLI_SYNC_LOAD_ONLY')
+    $targetMatch = [regex]::Match($jobYaml, '(?m)^    - pwsh: \|\r?\n(?<body>(?: {8}[^\r\n]*\r?\n)+?)      displayName: Check Out PowerShell Docs For Comparison')
+    if (-not $targetMatch.Success) { throw 'Cannot find PowerShell docs target checkout script' }
+    $script:CheckoutTarget = [scriptblock]::Create([regex]::Replace($targetMatch.Groups['body'].Value, '(?m)^ {8}', ''))
+    $script:EnvironmentNames = @('RELEASE_TAG', 'EXPECTED_COMMIT', 'DOCS_COMMIT', 'DOCS_REPOSITORY', 'SYNC_MODE', 'FETCH_CLI2YAML', 'SYNC_SCRIPT', 'AGENT_TEMPDIRECTORY', 'BUILD_ARTIFACTSTAGINGDIRECTORY', 'FAKE_BUILD_DIR', 'BUILD_SOURCESDIRECTORY', 'ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS', 'VSS_NUGET_EXTERNAL_FEED_ENDPOINTS', 'ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'AZCLIPS_CLI_SYNC_LOAD_ONLY')
 }
 
 Describe 'Standalone docs pipeline orchestration' {
@@ -79,11 +82,44 @@ Describe 'Standalone docs pipeline orchestration' {
         } finally { Pop-Location }
     }
 
-    It 'runs dry-run without Push and rejects a different tag commit' {
+    It 'stages generated CLI docs without Push and rejects a different tag commit' {
         $fake = Join-Path $script:Repo 'build/fake.ps1'
         Set-Content -LiteralPath $fake -Value @'
-param([string]$ReleaseTag, [string]$TargetRepoPath, [switch]$FetchIfMissing, [switch]$Push)
+param([string]$ReleaseTag, [string]$TargetRepoPath, [string]$OutputManifest, [switch]$FetchIfMissing, [switch]$Push)
 $global:CapturedSyncArgs = $PSBoundParameters
+$output = Join-Path $env:AGENT_TEMPDIRECTORY 'generated'
+New-Item -ItemType Directory -Path (Join-Path $output 'latest') -Force | Out-Null
+Set-Content -LiteralPath (Join-Path $output 'latest/TOC.yml') -Value 'toc'
+@{ mode = 'dry-run'; outputLocation = $output } | ConvertTo-Json | Set-Content -LiteralPath $OutputManifest
+'@
+        $env:DOCS_COMMIT = $script:Commit
+        $env:SYNC_MODE = 'dry-run'
+        $env:FETCH_CLI2YAML = 'True'
+        $env:SYNC_SCRIPT = 'fake.ps1'
+        $env:FAKE_BUILD_DIR = Join-Path $script:Repo 'build'
+        $env:AGENT_TEMPDIRECTORY = $TestDrive
+        $env:BUILD_ARTIFACTSTAGINGDIRECTORY = Join-Path $TestDrive 'staging'
+        Push-Location $script:Repo
+        try {
+            & $script:RunSync
+            $global:CapturedSyncArgs.ReleaseTag | Should -Be $env:RELEASE_TAG
+            $global:CapturedSyncArgs.FetchIfMissing | Should -BeTrue
+            $global:CapturedSyncArgs.ContainsKey('Push') | Should -BeFalse
+            $global:CapturedSyncArgs.TargetRepoPath | Should -Be (Join-Path $TestDrive 'azclips-docs-dry-run-target')
+            Test-Path (Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY 'cli-docs-dry-run/docs/latest/TOC.yml') | Should -BeTrue
+            Test-Path (Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY 'cli-docs-dry-run/manifest.json') | Should -BeTrue
+            $env:DOCS_COMMIT = '0000000000000000000000000000000000000000'
+            { & $script:RunSync } | Should -Throw '*no longer matches*'
+        } finally {
+            Pop-Location
+            Remove-Variable -Name CapturedSyncArgs -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'fails when CLI output is missing' {
+        Set-Content -LiteralPath (Join-Path $script:Repo 'build/fake.ps1') -Value @'
+param([string]$ReleaseTag, [string]$TargetRepoPath, [string]$OutputManifest, [switch]$FetchIfMissing)
+@{ mode = 'dry-run'; outputLocation = $env:AGENT_TEMPDIRECTORY } | ConvertTo-Json | Set-Content -LiteralPath $OutputManifest
 '@
         $env:DOCS_COMMIT = $script:Commit
         $env:SYNC_MODE = 'dry-run'
@@ -92,18 +128,26 @@ $global:CapturedSyncArgs = $PSBoundParameters
         $env:FAKE_BUILD_DIR = Join-Path $script:Repo 'build'
         $env:AGENT_TEMPDIRECTORY = $TestDrive
         Push-Location $script:Repo
-        try {
-            & $script:RunSync
-            $global:CapturedSyncArgs.ReleaseTag | Should -Be $env:RELEASE_TAG
-            $global:CapturedSyncArgs.FetchIfMissing | Should -BeTrue
-            $global:CapturedSyncArgs.ContainsKey('Push') | Should -BeFalse
-            $global:CapturedSyncArgs.TargetRepoPath | Should -Be (Join-Path $TestDrive 'azclips-docs-dry-run-target')
-            $env:DOCS_COMMIT = '0000000000000000000000000000000000000000'
-            { & $script:RunSync } | Should -Throw '*no longer matches*'
-        } finally {
-            Pop-Location
-            Remove-Variable -Name CapturedSyncArgs -Scope Global -ErrorAction SilentlyContinue
+        try { { & $script:RunSync } | Should -Throw '*did not produce the expected output*' }
+        finally { Pop-Location }
+    }
+
+    It 'checks out the tagged moniker and fails if the target is missing it' {
+        $env:DOCS_COMMIT = $script:Commit
+        $env:DOCS_REPOSITORY = 'MicrosoftDocs/azure-docs-powershell'
+        $env:AGENT_TEMPDIRECTORY = $TestDrive
+        Mock git {
+            $global:LASTEXITCODE = 0
+            if ($args[0] -eq 'show') { '{"moniker":"azps-preview"}' }
+            elseif ($args -contains 'rev-parse') { 'target-commit' }
         }
+        $target = Join-Path $TestDrive 'azclips-docs-dry-run-target'
+        New-Item -ItemType Directory -Path (Join-Path $target 'azps-preview') -Force | Out-Null
+        $output = & $script:CheckoutTarget 6>&1
+        ($output -join "`n") | Should -Match 'main at target-commit'
+        Should -Invoke git -Times 1 -Exactly -ParameterFilter { $args -contains 'sparse-checkout' -and $args -contains 'azps-preview' -and $args -contains 'mapping' }
+        Remove-Item -LiteralPath (Join-Path $target 'azps-preview') -Force
+        { & $script:CheckoutTarget } | Should -Throw '*does not contain moniker*'
     }
 
     It 'restores CLI2Yaml using process-scoped workload identity credentials' {

@@ -90,6 +90,30 @@ jobs:
         NUGET_PACKAGES: $(Agent.TempDirectory)/azclips-docs-nuget-$(System.JobId)
         NUGET_HTTP_CACHE_PATH: $(Agent.TempDirectory)/azclips-docs-http-$(System.JobId)
 
+  - ${{ if and(eq(parameters.sync_mode, 'dry-run'), eq(parameters.fetch_cli2yaml, false)) }}:
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $configJson = & git show "${env:DOCS_COMMIT}:build/ps-docs-sync.config.json"
+        if ($LASTEXITCODE -ne 0) { throw 'Could not read the PowerShell docs configuration from the validated tag.' }
+        $moniker = ($configJson | ConvertFrom-Json).moniker
+        if ($moniker -notmatch '^[a-zA-Z0-9][a-zA-Z0-9._-]*$') { throw 'Invalid PowerShell docs moniker.' }
+        $target = Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-docs-dry-run-target'
+        & git -c credential.helper= clone --depth 1 --filter=blob:none --sparse --branch main -- "https://github.com/$($env:DOCS_REPOSITORY).git" $target
+        if ($LASTEXITCODE -ne 0) { throw 'Could not clone the PowerShell docs target.' }
+        & git -C $target sparse-checkout set -- $moniker mapping
+        if ($LASTEXITCODE -ne 0) { throw 'Could not check out the PowerShell docs moniker and mapping.' }
+        if (-not (Test-Path -LiteralPath (Join-Path $target $moniker) -PathType Container)) {
+          throw "PowerShell docs target does not contain moniker '$moniker'."
+        }
+        $targetCommit = & git -C $target rev-parse HEAD
+        if ($LASTEXITCODE -ne 0) { throw 'Could not resolve the PowerShell docs target commit.' }
+        Write-Host "PowerShell docs target: $($env:DOCS_REPOSITORY) main at $targetCommit."
+      displayName: Check Out PowerShell Docs For Comparison
+      env:
+        DOCS_COMMIT: $(DocsCommit)
+        DOCS_REPOSITORY: ${{ parameters.target_repository }}
+        GIT_TERMINAL_PROMPT: '0'
+
   - task: PowerShell@2
     displayName: Run Tagged Docs Sync
     inputs:
@@ -119,9 +143,23 @@ jobs:
         }
         if ($env:FETCH_CLI2YAML -eq 'True') {
           $syncArgs.FetchIfMissing = $true
+          if ($env:SYNC_MODE -eq 'dry-run') {
+            $syncArgs.OutputManifest = Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-cli-docs-manifest.json'
+          }
         }
         $script = Join-Path "$(Build.SourcesDirectory)/build" $env:SYNC_SCRIPT
         & $script @syncArgs
+        if ($syncArgs.ContainsKey('OutputManifest')) {
+          $manifest = Get-Content -Raw -LiteralPath $syncArgs.OutputManifest | ConvertFrom-Json
+          if ($manifest.mode -ne 'dry-run' -or -not $manifest.outputLocation -or
+              -not (Test-Path -LiteralPath (Join-Path $manifest.outputLocation 'latest/TOC.yml') -PathType Leaf)) {
+            throw 'CLI docs dry-run did not produce the expected output.'
+          }
+          $artifact = Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY 'cli-docs-dry-run'
+          New-Item -ItemType Directory -Path $artifact -Force | Out-Null
+          Copy-Item -LiteralPath $manifest.outputLocation -Destination (Join-Path $artifact 'docs') -Recurse
+          Copy-Item -LiteralPath $syncArgs.OutputManifest -Destination (Join-Path $artifact 'manifest.json')
+        }
     env:
       ${{ if eq(parameters.sync_mode, 'create-pr') }}:
         GH_TOKEN: $(GH_TOKEN)
@@ -137,3 +175,10 @@ jobs:
       SYNC_SCRIPT: ${{ parameters.sync_script }}
       FETCH_CLI2YAML: ${{ parameters.fetch_cli2yaml }}
       GIT_TERMINAL_PROMPT: '0'
+
+  - ${{ if and(eq(parameters.sync_mode, 'dry-run'), eq(parameters.fetch_cli2yaml, true)) }}:
+    - task: PublishPipelineArtifact@1
+      displayName: Publish CLI Docs Dry-Run
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/cli-docs-dry-run
+        artifact: CliDocsDryRun_$(System.JobAttempt)
