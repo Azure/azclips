@@ -8,6 +8,7 @@ using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Compute.Models;
 using Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 using Xunit;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 

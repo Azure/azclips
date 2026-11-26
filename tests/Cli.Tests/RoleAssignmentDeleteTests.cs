@@ -13,6 +13,7 @@ using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 

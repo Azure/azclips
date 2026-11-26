@@ -16,13 +16,18 @@ namespace Extensions.Resources.Tests;
 internal static class ResourcesProcessorTestHelpers
 {
     /// <summary>Initializes <paramref name="processor"/> with <paramref name="mockPipeline"/> and no signed-in profile, and returns it.</summary>
-    internal static T Initialize<T>(T processor, Mock<IRuntimeHttpPipeline> mockPipeline) where T : IProcessor
+    internal static T Initialize<T>(T processor, Mock<IRuntimeHttpPipeline> mockPipeline) where T : IProcessor =>
+        Initialize(processor, mockPipeline, profile: null);
+
+    /// <summary>Initializes <paramref name="processor"/> with <paramref name="mockPipeline"/> and <paramref name="profile"/> as the signed-in profile, and returns it.</summary>
+    internal static T Initialize<T>(T processor, Mock<IRuntimeHttpPipeline> mockPipeline, Profile? profile) where T : IProcessor
     {
         processor.Init(new ProcessorContext(
             mockPipeline.Object,
             Mock.Of<IEventPublisher>(),
-            Mock.Of<IAuthHandler>(),
-            Mock.Of<IOutputHandler>()));
+            Mock.Of<IAuthHandler>(a => a.Profile == profile),
+            Mock.Of<IOutputHandler>(),
+            Profile: profile));
         return processor;
     }
 }

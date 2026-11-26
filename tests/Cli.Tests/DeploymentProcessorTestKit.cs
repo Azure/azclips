@@ -4,6 +4,7 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions;
+using Tests.Common.Stubs;
 using static Cli.Tests.ResourceGroupDeploymentCliTests;
 
 namespace Cli.Tests;
