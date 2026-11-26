@@ -22,8 +22,8 @@ public class NetworkSecurityGroupDefaultRuleTests
         SecurityRule rule = NetworkSecurityGroupDefaultRule.For(osType);
 
         Assert.Equal("rdp", rule.Name);
-        Assert.Equal("3389", rule.Properties.DestinationPortRange);
-        AssertInboundTcpAllowedFromAnywhere(rule.Properties);
+        Assert.Equal("3389", rule.DestinationPortRange);
+        AssertInboundTcpAllowedFromAnywhere(rule.Properties!);
     }
 
     [Theory]
@@ -34,11 +34,11 @@ public class NetworkSecurityGroupDefaultRuleTests
         SecurityRule rule = NetworkSecurityGroupDefaultRule.For(osType);
 
         Assert.Equal("default-allow-ssh", rule.Name);
-        Assert.Equal("22", rule.Properties.DestinationPortRange);
-        AssertInboundTcpAllowedFromAnywhere(rule.Properties);
+        Assert.Equal("22", rule.DestinationPortRange);
+        AssertInboundTcpAllowedFromAnywhere(rule.Properties!);
     }
 
-    private static void AssertInboundTcpAllowedFromAnywhere(SecurityRuleProperties properties)
+    private static void AssertInboundTcpAllowedFromAnywhere(SecurityRulePropertiesFormat properties)
     {
         Assert.Equal("Inbound", properties.Direction);
         Assert.Equal("Tcp", properties.Protocol);

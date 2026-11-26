@@ -18,17 +18,14 @@ internal static class NetworkSecurityGroupDefaultRule
         return new SecurityRule
         {
             Name = windows ? "rdp" : "default-allow-ssh",
-            Properties = new SecurityRuleProperties
-            {
-                Protocol = "Tcp",
-                SourcePortRange = "*",
-                DestinationPortRange = windows ? "3389" : "22",
-                SourceAddressPrefix = "*",
-                DestinationAddressPrefix = "*",
-                Access = "Allow",
-                Priority = 1000,
-                Direction = "Inbound",
-            },
+            Protocol = "Tcp",
+            SourcePortRange = "*",
+            DestinationPortRange = windows ? "3389" : "22",
+            SourceAddressPrefix = "*",
+            DestinationAddressPrefix = "*",
+            Access = "Allow",
+            Priority = 1000,
+            Direction = "Inbound",
         };
     }
 }

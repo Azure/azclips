@@ -12,6 +12,6 @@ $vm = New-AzVM -SubscriptionId '00000000-0000-0000-0000-000000000000' `
     -Image MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest `
     -VirtualNetworkName scenario-vm-vnet `
     -SubnetNames default -SubnetAddressPrefixes @(,@('10.0.0.0/24')) -AddressPrefixes 10.0.0.0/16
-if ($vm.Properties.ProvisioningState -ne 'Succeeded') { exit 2 }
+if ($vm.ProvisioningState -ne 'Succeeded') { exit 2 }
 
-"created $($vm.Name) in $($rg.Name): $($vm.Properties.ProvisioningState)"
+"created $($vm.Name) in $($rg.Name): $($vm.ProvisioningState)"

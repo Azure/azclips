@@ -130,7 +130,7 @@ public class VmCreateScenarioTests
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
         Assert.Equal(VmName, vm.Name);
         Assert.Equal(Location, vm.Location);
-        Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
+        Assert.Equal("Succeeded", vm.ProvisioningState);
 
         // vm create writes the az vm show -d view: the default public IP is attached, and no DNS
         // label is set, so Fqdns is an empty string rather than null.
@@ -139,7 +139,7 @@ public class VmCreateScenarioTests
         Assert.StartsWith("10.0.0.", vm.PrivateIps);
         Assert.False(string.IsNullOrEmpty(vm.MacAddresses));
         Assert.Equal("", vm.Fqdns);
-        Assert.Null(vm.Properties.InstanceView);
+        Assert.Null(vm.InstanceViewStatuses);
         return vm;
     }
 
@@ -147,43 +147,43 @@ public class VmCreateScenarioTests
     private static void AssertSentDependencies(IReadOnlyList<CapturedHttpRequest> sent, string? groupName = null)
     {
         var vnet = RecordedArm.SentPut<VirtualNetwork>(sent, "virtualNetworks", "scenario-vm-vnet");
-        Assert.Equal("10.0.0.0/16", Assert.Single(vnet.Properties.AddressSpace.AddressPrefixes));
-        Assert.Equal("10.0.0.0/24", Assert.Single(vnet.Properties.Subnets).Properties.AddressPrefix);
+        Assert.Equal("10.0.0.0/16", Assert.Single(vnet.AddressSpaceAddressPrefixes!));
+        Assert.Equal("10.0.0.0/24", Assert.Single(vnet.Subnets!).AddressPrefix);
 
         // A new NSG gets legacy CLI's default rule for the Windows image vm create deploys.
         var nsg = RecordedArm.SentPut<NetworkSecurityGroup>(sent, "networkSecurityGroups", $"{VmName}NSG");
-        var rule = Assert.Single(nsg.Properties.SecurityRules);
+        var rule = Assert.Single(nsg.SecurityRules!);
         Assert.Equal("rdp", rule.Name);
-        Assert.Equal("3389", rule.Properties.DestinationPortRange);
-        Assert.Equal(1000, rule.Properties.Priority);
+        Assert.Equal("3389", rule.DestinationPortRange);
+        Assert.Equal(1000, rule.Priority);
 
         var publicIp = RecordedArm.SentPut<PublicIPAddress>(sent, "publicIPAddresses", $"{VmName}PublicIP");
-        Assert.Equal("Standard", publicIp.Sku!.Name);
-        Assert.Equal("Static", publicIp.Properties.PublicIPAllocationMethod);
+        Assert.Equal("Standard", publicIp.SkuName);
+        Assert.Equal("Static", publicIp.PublicIPAllocationMethod);
 
         var nic = RecordedArm.SentPut<NetworkInterface>(sent, "networkInterfaces", "scenario-vmVMNic");
-        var ipConfig = Assert.Single(nic.Properties.IPConfigurations).Properties;
-        Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG", groupName), nic.Properties.NetworkSecurityGroup!.Id, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP", groupName), ipConfig.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(NetworkId("virtualNetworks", "scenario-vm-vnet", groupName) + "/subnets/default", ipConfig.Subnet.Id, StringComparison.OrdinalIgnoreCase);
+        var ipConfig = Assert.Single(nic.IpConfigurations!);
+        Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG", groupName), nic.NetworkSecurityGroupId!, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP", groupName), ipConfig.PublicIpAddressId!, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("virtualNetworks", "scenario-vm-vnet", groupName) + "/subnets/default", ipConfig.SubnetId!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>What ARM created: each resource's GET at the end of its long-running create.</summary>
     private static void AssertCreatedDependencies(IReadOnlyList<SessionRecordEntry> entries, VirtualMachine vm)
     {
         var vnet = RecordedArm.FinalGet<VirtualNetwork>(entries, "virtualNetworks", "scenario-vm-vnet");
-        Assert.Equal("10.0.0.0/24", Assert.Single(vnet.Properties.Subnets).Properties.AddressPrefix);
+        Assert.Equal("10.0.0.0/24", Assert.Single(vnet.Subnets!).AddressPrefix);
 
         var nsg = RecordedArm.FinalGet<NetworkSecurityGroup>(entries, "networkSecurityGroups", $"{VmName}NSG");
-        Assert.Equal("rdp", Assert.Single(nsg.Properties.SecurityRules).Name);
+        Assert.Equal("rdp", Assert.Single(nsg.SecurityRules!).Name);
 
         var publicIp = RecordedArm.FinalGet<PublicIPAddress>(entries, "publicIPAddresses", $"{VmName}PublicIP");
-        Assert.Equal("Static", publicIp.Properties.PublicIPAllocationMethod);
-        Assert.Equal(vm.PublicIps, publicIp.Properties.IpAddress);
+        Assert.Equal("Static", publicIp.PublicIPAllocationMethod);
+        Assert.Equal(vm.PublicIps, publicIp.IpAddress);
 
         var nic = RecordedArm.FinalGet<NetworkInterface>(entries, "networkInterfaces", "scenario-vmVMNic");
-        Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG"), nic.Properties.NetworkSecurityGroup!.Id, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP"), Assert.Single(nic.Properties.IPConfigurations).Properties.PublicIPAddress!.Id, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("networkSecurityGroups", $"{VmName}NSG"), nic.NetworkSecurityGroupId!, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(NetworkId("publicIPAddresses", $"{VmName}PublicIP"), Assert.Single(nic.IpConfigurations!).PublicIpAddressId!, StringComparison.OrdinalIgnoreCase);
     }
 
     // Compared by suffix: when recording, the sent bodies carry the live subscription, not the

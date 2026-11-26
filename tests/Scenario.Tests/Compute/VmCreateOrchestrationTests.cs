@@ -293,7 +293,7 @@ public class VmCreateOrchestrationTests
     {
         var vmBody = RecordVmBody(ArgsWithImage("Contoso:offer:sku:with-plan"));
 
-        Assert.Contains("\"plan\":{\"name\":\"plan-name\",\"product\":\"plan-product\",\"publisher\":\"plan-publisher\"}", vmBody);
+        Assert.Contains("\"plan\":{\"name\":\"plan-name\",\"publisher\":\"plan-publisher\",\"product\":\"plan-product\"}", vmBody);
     }
 
     [Fact]
@@ -1448,7 +1448,7 @@ public class VmCreateOrchestrationTests
         var vm = Assert.IsType<VirtualMachine>(Assert.Single(outputs));
         Assert.Equal(VmName, vm.Name);
         Assert.Equal("westus2", vm.Location);
-        Assert.Equal("Succeeded", vm.Properties.ProvisioningState);
+        Assert.Equal("Succeeded", vm.ProvisioningState);
     }
 
     /// <summary>Runs group create then vm create against <paramref name="backend"/>, recording both.</summary>
