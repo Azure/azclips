@@ -56,11 +56,13 @@ public static class Program
             var theme = TuiTheme.CreateBaseTheme();
 
             await using var terminal = Hex1bTerminal.CreateBuilder()
-                .WithHex1bApp((app, options) =>
+                .WithHex1bApp(options =>
                 {
                     options.EnableMouse = true;
                     options.Theme = theme;
-
+                },
+                app =>
+                {
                     // Wire state to app
                     state.Invalidate = () => app.Invalidate();
                     state.RequestStop = () => app.RequestStop();
