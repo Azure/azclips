@@ -8,6 +8,11 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <!--
+      Common/CmdletOutputStreamsFactory.cs compiles into Cmdlets.Accounts, Cmdlets.KeyVault and Cmdlets.MsGraph, so its
+      internal types reach this project more than once (CS0433). The aliases hide the KeyVault and MsGraph copies; a
+      test needing one of their types must add `extern alias CmdletsKeyVault;` or `extern alias CmdletsMsGraph;`.
+    -->
     <ProjectReference Include="../../src/PS/KeyVault/Cmdlets.KeyVault.csproj">
       <Aliases>CmdletsKeyVault</Aliases>
     </ProjectReference>
