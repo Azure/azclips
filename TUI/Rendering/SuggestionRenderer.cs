@@ -11,6 +11,9 @@ static class SuggestionRenderer
         AppState state, Hex1bApp app, int inputWidth)
     {
         const int maxVisible = 8;
+        var suggestionRows = Math.Min(maxVisible, state.Suggestions.Count);
+        var inputRows = Program.ComputeWordWrapLines(state.InputText, inputWidth);
+        // List measurement reserves at least one row and ignores its capped height.
         return v.VStack(inner =>
         {
             var widgets = new List<Hex1bWidget>();
@@ -37,11 +40,10 @@ static class SuggestionRenderer
                     app.Invalidate();
                     return Task.CompletedTask;
                 }, "Resume editing"))
-                .Height(SizeHint.Fixed(Math.Min(maxVisible, state.Suggestions.Count))));
+                .Height(SizeHint.Fixed(suggestionRows)));
 
-            var wrapLines = Program.ComputeWordWrapLines(state.InputText, inputWidth);
             var editor = inner.TextBox().State(state.EditorState)
-                .WordWrap().Height(wrapLines)
+                .WordWrap().Height(inputRows)
                 .OnTextChanged(e =>
                 {
                     state.TypedInputText = state.InputText;
@@ -62,7 +64,7 @@ static class SuggestionRenderer
             }
             // Hex1b predictions are single-line only; retain multiline editing
             // when the command contains a newline or wraps across rows.
-            if (state.InputText.Contains('\n') || wrapLines > 1)
+            if (state.InputText.Contains('\n') || inputRows > 1)
                 editor = editor.Multiline();
 
             widgets.Add(inner.HStack(h =>
@@ -70,8 +72,8 @@ static class SuggestionRenderer
                 TuiTheme.WithForeground(h, TuiTheme.ToHex1bColor(state.Theme.ChevronColor),
                     h.Text("> ")).ContentWidth(),
                 editor.FillWidth(),
-            ]));
+            ]).Height(SizeHint.Fixed(inputRows)));
             return widgets.ToArray();
-        }).Height(SizeHint.Content);
+        }).Height(SizeHint.Fixed(suggestionRows + inputRows));
     }
 }

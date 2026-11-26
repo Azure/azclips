@@ -145,8 +145,59 @@ public class TuiSuggestionEditorTests
 
     private static Hex1bTerminalInputSequenceBuilder Sequence() => new();
 
+    [Theory]
+    [InlineData(40, 18, 0)]
+    [InlineData(80, 24, 0)]
+    [InlineData(120, 40, 0)]
+    [InlineData(40, 18, 1)]
+    [InlineData(80, 24, 1)]
+    [InlineData(120, 40, 1)]
+    [InlineData(40, 18, 2)]
+    [InlineData(80, 24, 2)]
+    [InlineData(120, 40, 2)]
+    public async Task EditorStaysAboveFooterAsSuggestionsAndInputGrow(int width, int height, int panel)
+    {
+        await WithEditor(async (terminal, app, state, _) =>
+        {
+            if (panel == 1)
+                state.AddHistory(new HistoryEntry(HistoryItemType.Info, "Previous output"));
+            state.ShowHelp = panel == 2;
+
+            foreach (var text in new[] { "zz", "first\nsecond", new string('z', width + 5), "" })
+            {
+                foreach (var count in new[] { 0, 1, 8, 12, 24, 0 })
+                {
+                    var inputRows = TuiProgram.ComputeWordWrapLines(text, width - 2);
+                    state.InputText = text;
+                    state.Suggestions.Clear();
+                    state.Suggestions.AddRange(Enumerable.Range(0, count)
+                        .Select(i => new Suggestion($"suggestion-{i}", "test")));
+                    app.Invalidate();
+
+                    await Sequence().WaitUntil(_ =>
+                    {
+                        if (app.FocusedNode is not TextBoxNode editor) return false;
+                        var group = Assert.IsType<VStackNode>(editor.Parent!.Parent);
+                        return group.Children.OfType<ListNode<Suggestion>>().Single().Bounds.Height
+                            == Math.Min(8, count) && editor.Text == text
+                            && editor.IsMultiline == (text.Contains('\n') || inputRows > 1);
+                    }, AgentTestTimeouts.HangGuard).Build().ApplyAsync(terminal).WithAgentHangGuard();
+
+                    var editor = Assert.IsType<TextBoxNode>(app.FocusedNode);
+                    Assert.Equal(inputRows, editor.Bounds.Height);
+                    Assert.Equal(height - 2, editor.Bounds.Y + editor.Bounds.Height);
+                    var group = Assert.IsType<VStackNode>(editor.Parent!.Parent);
+                    var list = group.Children.OfType<ListNode<Suggestion>>().Single();
+                    Assert.Equal(editor.Bounds.Y, list.Bounds.Y + list.Bounds.Height);
+                    Assert.Equal(Math.Min(8, count) + inputRows, group.Bounds.Height);
+                }
+            }
+        }, width, height);
+    }
+
     private static async Task WithEditor(
-        Func<Hex1bTerminal, Hex1bApp, AppState, HistoryService, Task> test)
+        Func<Hex1bTerminal, Hex1bApp, AppState, HistoryService, Task> test,
+        int width = 80, int height = 24)
     {
         using var arm = new ArmClient(Mock.Of<IAuthService>());
         var history = new HistoryService();
@@ -155,13 +206,13 @@ public class TuiSuggestionEditorTests
         history.GetHistory(ShellMode.Azure).Clear();
         Hex1bApp? app = null;
         await using var terminal = Hex1bTerminal.CreateBuilder()
-            .WithHeadless().WithDimensions(80, 24)
+            .WithHeadless().WithDimensions(width, height)
             .WithHex1bApp(_ => { }, builtApp =>
             {
                 app = builtApp;
                 state.Invalidate = () => builtApp.Invalidate();
                 state.RequestStop = () => builtApp.RequestStop();
-                return ctx => TuiProgram.BuildUI(ctx, builtApp, state, 80);
+                return ctx => TuiProgram.BuildUI(ctx, builtApp, state, width);
             }).Build();
         var runTask = terminal.RunAsync();
         try
