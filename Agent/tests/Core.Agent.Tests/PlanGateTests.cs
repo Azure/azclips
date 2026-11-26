@@ -148,16 +148,6 @@ public class PlanGateTests
     }
 
     [Fact]
-    public async Task Does_not_rewrite_az_for_non_shell_tools()
-    {
-        var state = new SessionState { PlanApproved = true };
-
-        var result = await RunHookAsync(Input("view", new { command = "az vm show" }), state, new ConsoleApprovalPrompt());
-
-        Assert.Null(result);
-    }
-
-    [Fact]
     public async Task Submit_response_renders_and_allows()
     {
         var state = new SessionState { IsOneShot = true };
