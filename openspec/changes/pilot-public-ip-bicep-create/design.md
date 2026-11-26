@@ -207,6 +207,33 @@ The source also declares versions through `2026-03-01`; upstream's last-enum-mem
 
 Task 1.11 remains unchecked pending reviewed legacy discovery integration and a verified selected-version program. The existing canonical association infrastructure may still be necessary to supply upstream's missing legacy-resource linkage; its Bicep schema conversion must not be reimplemented. Do not remove the earlier extractor/audit or handwritten fixture until their replacements actually work. Tasks 1.12-1.16, template/compiler/runtime gates and live validation remain pending.
 
+### Supported-toolchain generic/legacy writable-scope reproduction
+
+A later newer-source experiment exposed a separate writable-scope problem after resource registration succeeded. That experiment used ARM/core `0.74.0`, outside upstream's declared `^0.71.0` peer range, so it was not sufficient by itself to establish an upstream defect. The focused reproduction below confirms the problem with the existing supported pins; it does not upgrade the Network source or any dependencies.
+
+The [fixture](../../../toolkit/tools/typespec-bicep/test/generic-resource-scope.tsp) contains one version (`2025-07-01`), a standard `TrackedResource` control and an official `Legacy.GenericResource` with legacy GET/PUT templates. Both have an unambiguous resource-group-scoped PUT. The [opt-in reproducer](../../../toolkit/tools/typespec-bicep/test/generic-resource-scope.repro.mjs) verifies actual model identities, registrations, officially resolved resource types, PUT body identities and exact paths before checking upstream output.
+
+Run after the existing tool setup:
+
+```powershell
+npm --prefix toolkit\tools\typespec-bicep run repro:generic-scope
+```
+
+Result: **one control passes, one regression fails; exit 1 is intentional while the defect remains unfixed.** The failing assertion expects correct writable scope rather than accepting the bug as expected behavior.
+
+| Case | Registration | Official PUT | Expected writable scope | Upstream writable scope |
+| --- | --- | --- | --- | --- |
+| Standard control | `Tracked`, collection `standardWidgets` | RG-scoped, matching request model | `ResourceGroup` (`8`) | `ResourceGroup` (`8`) |
+| Generic + legacy operations | `Generic`, no registration-level collection name | RG-scoped, matching request model | `ResourceGroup` (`8`) | `None` (`0`) |
+
+Both emitted definitions have readable scope `ResourceGroup`. The generic model even declares its own name/key/segment; the official generic registration deliberately does not require or populate a collection name. This is not a missing PUT, an unregistered model, an ambiguous API selector or a newer-library mismatch.
+
+The unchanged upstream `resources.ts` rejects resolved records when `collectionName` is absent in `resolvedRepresentsModel`. Legacy operations are retained in the older lifecycle API's `lists` collection, so its fallback supplies no writable lifecycle scope. GET-route fallback then exposes the resource with readable scope only. Official resolved-operation metadata already contains the correct PUT and resource path. The evidence supports an upstream generic/legacy discovery defect, not a demonstrated Network API-definition defect.
+
+Verified with compiler `1.17.0`, HTTP/OpenAPI `1.15.0`, ARM/core `0.71.0` and REST/versioning `0.85.0`, against upstream revision `754a33f2ddc902afe583acb6e46316afbd59bc5d`. `npm ls` reports a valid deduplicated dependency tree. Upstream `resources.ts` is byte-for-byte unchanged relative to that revision; the existing integration patch only touches exports and observational source correspondence.
+
+The reproducer is deliberately separate from `npm test`, which retains the original six checks. Validation: `npm --prefix toolkit\tools\typespec-bicep test` passed all six checks, and `openspec validate pilot-public-ip-bicep-create --strict` passed. This step does not fix upstream, prove real selected-version Public IP generation, create a deployment template or complete task 1.11.
+
 ## Goals / Non-Goals
 
 **Goals:**
