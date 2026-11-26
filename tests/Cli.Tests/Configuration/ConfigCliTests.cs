@@ -117,6 +117,23 @@ public class ConfigCliTests
     }
 
     [Fact]
+    public void ConfigCommands_ShouldToggleSurveyReminder()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "--key", "survey.enabled"]),
+            "survey.enabled", true, "default");
+
+        fixture.ExecuteCli(["config", "set", "--key", "survey.enabled", "--value", "false"]);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "--key", "survey.enabled"]),
+            "survey.enabled", false, "global config");
+
+        fixture.ExecuteCli(["config", "delete", "--key", "survey.enabled"]);
+        AssertConfigEntry(fixture.ExecuteCli(["config", "get", "--key", "survey.enabled"]),
+            "survey.enabled", true, "default");
+    }
+
+    [Fact]
     public void ArgumentParsingService_ShouldTreatBareBoolFlagsAsTrue()
     {
         var loggingService = new ConsoleLoggingService();
