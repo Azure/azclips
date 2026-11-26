@@ -264,6 +264,23 @@ Legacy `schema: 2.0.0` markdown is still accepted as input by PlatyPS 1.0.1 (`Im
 
 ## Example Validation
 
+### Regression tests
+
+Help regression tests do not snapshot live documentation. Intentional edits to valid
+CLI summaries, descriptions, or examples do not require refreshing JSON fixtures.
+Fixed synthetic fixtures protect the help-artifact serialization contract; CLI
+export integration tests compare authored content with current Markdown and command
+membership, parameter metadata, and global arguments with the live extension index.
+
+Build the solution before running these tests, since the exporter loads built
+extension assemblies:
+
+```powershell
+dotnet build azclips.slnx
+dotnet test tools\Help\Azclips.Help.Tool.Tests\Azclips.Help.Tool.Tests.csproj --no-build --no-restore
+dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-build --no-restore --filter "FullyQualifiedName~Cli.Tests.HelpArtifactWriterTests|FullyQualifiedName~Cli.Tests.ExtensionHelpManifestBuilderTests|FullyQualifiedName~Cli.Tests.MarkdownCommandHelpProviderTests"
+```
+
 `Azclips.Help.Tool` validates all examples at build time against the live extension assemblies and cmdlet binaries.
 
 ### Markdown structure (both surfaces)
