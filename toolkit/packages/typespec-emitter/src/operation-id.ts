@@ -7,10 +7,12 @@ export function operationIdFor(ctx: BuildContext, raw: Operation): IRId {
   const owner = raw.interface;
   const namespace = owner?.namespace ?? raw.namespace;
   const fqn = namespace !== undefined ? getNamespaceFullName(namespace) : "";
-  return {
+  const id: IRId = {
     module: ctx.options.sourceId,
     namespace: fqn.length === 0 ? [] : fqn.split("."),
     ...(owner !== undefined ? { interface: owner.name } : {}),
     name: raw.name,
   };
+  ctx.observeSource?.({ kind: "operation", id, source: raw });
+  return id;
 }

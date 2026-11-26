@@ -62,7 +62,11 @@ function rawSources(raw: Type | undefined): Type[] {
   return sources;
 }
 
-function sourceFacet(ctx: BuildContext, target: IRId, typePath: IRDeploymentFacet["typePath"], sources: Type[]): IRDeploymentFacet {
+export function getSourceConstraints(program: BuildContext["program"], target: IRId, source: Type): IRDeploymentFacet {
+  return sourceFacet({ program }, target, [], rawSources(source));
+}
+
+function sourceFacet(ctx: Pick<BuildContext, "program">, target: IRId, typePath: IRDeploymentFacet["typePath"], sources: Type[]): IRDeploymentFacet {
   const first = <T>(getter: (type: Type) => T | undefined): T | undefined =>
     sources.map(getter).find((value) => value !== undefined);
   const numeric = (getter: (program: BuildContext["program"], type: Type) => Numeric | undefined): string | undefined =>

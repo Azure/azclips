@@ -301,7 +301,45 @@ The experimental test defaults to that tool-local cache; set `AZCLIPS_NEWER_TSP_
 
 The focused canonical-emitter change accommodates the old `getResourcePathElements` and newer `parseArmResourceInstancePath` public exports without copying either parser. It is necessary to load canonical command generation under the experimental library, even when supplemental deployment metadata is disabled.
 
-Task 1.11 is complete for this explicitly approved newer-source experiment only. **Task 1.12 remains next:** join canonical command/property identities and containing paths to the 533 source records; they are not 533 command bindings. Create customization compatibility, an independent 2026 catalogue audit/compiler association, template compilation, runtime transport and live gates remain unproven. No public registration, normal source pin, generated product C#, runtime backend or Azure resource changed.
+Task 1.11 is complete for this explicitly approved newer-source experiment only. The 533 source records are not 533 command bindings. The following bridge step accounts for the selected command separately. Create customization compatibility, an independent 2026 catalogue audit/compiler association, template compilation, runtime transport and live gates remain unproven. No public registration, normal source pin, generated product C#, runtime backend or Azure resource changed.
+
+### Source-aware Public IP create bindings
+
+Tasks 1.12 and 1.13 are complete. The [bridge generator](../../../toolkit/tools/typespec-bicep/create-bindings.mjs) joins actual canonical source observations to the upstream property-source records. The opt-in probe runs the ordinary canonical emitter on the same real Program, then the existing command transforms with only C# generation disabled. It retains the normal Network flatten setting `noInline: ["IPConfiguration"]`; it does not prune canonical models/operations or reproduce command generation.
+
+The optional [canonical observation API](../../../toolkit/packages/typespec-emitter/src/context.ts) records model, operation, property and raw parameter objects at their actual canonical IDs. Ordinary `$onEmit` delegates to the same implementation without an observer. A regression compares the entire ordinary and observed IR, including disabled supplemental deployment metadata. No observation records or new fields are added to canonical IR.
+
+The join validates the selected canonical operation, official PUT instance path, API version, request model and single atomic command. It follows each parameter's property ID and `via` container chain, verifies the containing source model at every step, and matches upstream PUT properties only within the corresponding Bicep container. Shared declaration nodes link projected clones, but model ownership and generic template arguments must also agree; declaration-node equality alone would incorrectly conflate distinct `ResourceInstance` instantiations. Aliases and renamed parameter/property display names do not determine the wire or Bicep paths.
+
+Scope/name handling is deliberately limited to one top-level resource-group resource with the three officially resolved instance path parameters. Resource-name correspondence remains distinct from the two deployment-scope inputs. Synthesized `content-type` and `accept` headers have protocol roles, not fabricated source properties. Missing/ambiguous field records, broken containing paths, version mismatches and unsupported union-container traversal fail explicitly rather than dropping inputs or guessing branches.
+
+The bridge carries canonical type, required/nullable/default metadata and source constraints through the existing source-facet helper. Bicep primitive widening never replaces the canonical Int32 domain. Computed root ID remains an explicit rejected input; ordinary nested IDs remain ordinary mapped fields. Read-only Bicep fields are recorded separately and are not turned into command inputs.
+
+The real `2026-05-01` run writes `bindings.json`, with **all 43** `CreateOrUpdatePublicIPAddresses` inputs accounted for:
+
+| Role | Inputs |
+| --- | --- |
+| Deployment scope | 2 |
+| Required resource name | 1 |
+| Protocol headers | 2 |
+| Computed root identity, rejected | 1 |
+| Ordinary fields | 37 |
+
+Seven exact field paths are allowed by the separate pilot field policy: `location`, `tags`, `sku.name`, `sku.tier`, `properties.publicIPAllocationMethod`, `properties.publicIPAddressVersion` and `properties.idleTimeoutInMinutes`. The other 30 ordinary fields are explicitly excluded, including nested NAT Gateway inputs. Eligibility compares actual path segments, not ambiguous dot-joined strings. This is **field eligibility only**: it does not accept unsupported SKU/IP-version values, normalize inputs, apply defaults, reject a concrete invocation or enforce omission. Those existing runtime policies remain independently required.
+
+The output also has 186 read-only field records across the selected type graph; these are neither additional writable command inputs nor fully enumerated root-to-leaf usage paths. Schema SHA-256 remains `b40dc36e568754305cbb4a9fa35dc655be21fe81204ae921d38eb97faf69db9e`. Binding SHA-256 is `dbe24cce0e8e9d5b13b4d5d59a0c6df0bb5b96c0c1b1ed78fa68a338b6848729`, recorded separately from the schema and experimental dependency lock.
+
+All diagnostics remain visible. Canonical emission adds the two known ambiguous-polling warnings and one open-enum warning to the 132 upstream discovery warnings. Command transformation retains intentional `no-generator`, two library model-name collision and two circular-reference warnings. The selected bridge has no unmapped inputs or conversion errors; this is not whole-Network qualification.
+
+| Command / check | Result |
+| --- | --- |
+| `npm --prefix toolkit run build --workspace @azure-client-engine/typespec-emitter` | Passed; source-observation and reused constraint API type-check/build |
+| `node --test toolkit\tools\typespec-bicep\test\projected-create.test.mjs` | 7 passed: actual source joins, inheritance/reuse/flattening/client rename/CLI dialect alias independence, identity roles, constraints, fail-closed mapping, exact-segment eligibility and version projection |
+| `node toolkit\tools\typespec-bicep\project-public-ip.mjs $toolchain $source` | Passed; actual pinned source, 43 bindings, unchanged schema hash and seven eligible field paths verified |
+| `npm --prefix toolkit\tools\typespec-bicep test` | 13 passed; original upstream golden output, scope and source-integrity checks preserved |
+| `npm --prefix toolkit exec -- vitest run packages\typespec-emitter\test\deployment.e2e.test.ts` | 24 passed; includes whole-IR observational equality and existing disabled/legacy parser behavior |
+
+**Task 1.14 remains next:** replace the handwritten offline fixture's structural mapping with this generated bridge while preserving independent normalization, eligibility, direct-ID, exact integer and omission assertions. JSON generation alone does not prove runtime consumption, newer-source customization parity, a compiled template or deployment execution. No normal pins, generated product C#, runtime registration or live resources changed.
 
 ## Goals / Non-Goals
 

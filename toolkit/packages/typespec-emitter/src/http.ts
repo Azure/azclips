@@ -79,6 +79,7 @@ function paramOf(
   const { type, nullable } = unwrapNullable(ctx, p.type);
   const irType = typeRefFor(ctx, type, `${operationId.name}.${p.name}`);
   const id = parameterIdFor(operationId, p);
+  if (p.__raw) ctx.observeSource?.({ kind: "parameter", id, source: p.__raw });
   const format = formatHintOf(irType);
   const cf =
     (p as SdkHeaderParameter | SdkQueryParameter).collectionFormat !== undefined

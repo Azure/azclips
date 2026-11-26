@@ -3,9 +3,11 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkout, packageRoot, upstream, verifySource } from "./prepare.mjs";
+import { compile as compileCommands } from "@azure-client-engine/compiler";
+import { createBindings, classifyPublicIpEligibility } from "./create-bindings.mjs";
 
 const apiVersion = "2026-05-01";
 const resourceType = "Microsoft.Network/publicIPAddresses";
@@ -103,6 +105,33 @@ export function requireNoErrors(program) {
     .map(({ code, message }) => ({ code, message })), []);
 }
 
+export async function emitCanonical(program, root, apiVersion) {
+  const canonicalRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "packages", "typespec-emitter");
+  const stage = join(root, "public-ip-create", "canonical-emitter");
+  mkdirSync(stage, { recursive: true });
+  cpSync(join(canonicalRoot, "dist"), join(stage, "dist"), { recursive: true });
+  cpSync(join(canonicalRoot, "package.json"), join(stage, "package.json"));
+  const canonical = await import(pathToFileURL(join(stage, "dist", "src", "index.js")).href);
+  const sources = [];
+  const ir = await canonical.emitWithSources({
+    program,
+    options: { "api-version": apiVersion, format: "json", outputFile: "canonical.json" },
+    emitterOutputDir: join(root, "public-ip-create"),
+  }, (record) => sources.push(record));
+  requireNoErrors(program);
+  assert.ok(ir, "Canonical emitter produced no IR");
+  return { ir, sources, getSourceConstraints: canonical.getSourceConstraints };
+}
+
+export async function projectCommands(ir, config = {}) {
+  const result = await compileCommands({
+    entrypoint: ir.sources[0].entrypoint, apiVersion: ir.sources[0].apiVersion.value,
+    config: { ...config, stages: { ...config.stages, csharp: { disabled: true } } },
+  }, { emit: { name: "observed-canonical-ir", produce: async () => ({ ir }) } });
+  assert.ok(result.success, JSON.stringify(result.diagnostics));
+  return result;
+}
+
 async function main(root, source) {
   assert.ok(root && source, "Usage: node project-public-ip.mjs <isolated-toolchain-root> <network-source-checkout>");
   root = resolve(root);
@@ -129,6 +158,20 @@ async function main(root, source) {
   assert.equal(roots[0].name, `${resourceType}@${apiVersion}`);
   assert.equal(roots[0].writableScopes, tools.bicep.ScopeType.ResourceGroup);
 
+  const canonical = await emitCanonical(program, root, apiVersion);
+  const configRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "packages", "cli");
+  const { loadAceConfig } = await import(pathToFileURL(join(configRoot, "dist", "src", "aceconfig.js")).href);
+  const config = await loadAceConfig(resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..",
+    "src", "Extensions", "Network", "aceconfig.yaml"), (diagnostic) => {
+    assert.notEqual(diagnostic.severity, "error", diagnostic.message);
+  });
+  assert.ok(config, "Normal Network configuration failed to load");
+  const commands = await projectCommands(canonical.ir, config.config);
+  const bridge = classifyPublicIpEligibility(createBindings({
+    ir: commands.ir, sources: canonical.sources, selected, types, correspondence,
+    program, getSourceConstraints: canonical.getSourceConstraints, bicep: tools.bicep,
+  }));
+
   const describe = (property) => {
     if (!property) return undefined;
     const location = tools.compiler.getSourceLocation(property);
@@ -141,7 +184,7 @@ async function main(root, source) {
     };
   };
   const report = {
-    status: "schema-generated-bindings-pending",
+    status: "create-bindings-generated-runtime-pending",
     resourceType, apiVersion, sourceCommit, upstreamRevision: upstream.revision,
     toolchain: tools.versions,
     toolchainLockSha256: createHash("sha256").update(readFileSync(join(root, "package-lock.json"))).digest("hex"),
@@ -153,11 +196,18 @@ async function main(root, source) {
     writableScopes: roots[0].writableScopes,
     typeCount: types.length,
     correspondenceCount: correspondence.length,
+    commandName: bridge.commandName,
+    bindingCount: bridge.bindings.length,
+    roles: Object.fromEntries([...new Set(bridge.bindings.map(({ role }) => role))].map((role) =>
+      [role, bridge.bindings.filter((binding) => binding.role === role).length])),
+    commandDiagnostics: commands.diagnostics,
     schemaSha256: createHash("sha256").update(schema).digest("hex"),
+    bindingSha256: createHash("sha256").update(JSON.stringify(bridge)).digest("hex"),
     diagnostics: program.diagnostics.map(({ severity, code, message }) => ({ severity, code, message })),
   };
   const output = join(root, "public-ip-create");
   writeFileSync(join(output, "types.json"), schema);
+  writeFileSync(join(output, "bindings.json"), JSON.stringify(bridge, null, 2));
   writeFileSync(join(output, "correspondence.json"), JSON.stringify(correspondence.map((record) => ({
     container: record.container, name: record.name, role: record.role,
     type: record.property.type, flags: record.property.flags,

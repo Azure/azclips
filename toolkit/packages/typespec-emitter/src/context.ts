@@ -22,7 +22,7 @@ import type {
   SdkModelType,
   SdkType,
 } from "@azure-tools/typespec-client-generator-core";
-import type { Program, Union } from "@typespec/compiler";
+import type { Model, ModelProperty, Operation, Program, Union } from "@typespec/compiler";
 import type { IRDiscriminatedUnion, IRId } from "@azure-client-engine/ir";
 
 export type BuildContextOptions = {
@@ -32,10 +32,18 @@ export type BuildContextOptions = {
   diagnosticsAsErrors: boolean;
 };
 
+export type CanonicalSource =
+  | { kind: "model"; id: IRId; source: Model }
+  | { kind: "operation"; id: IRId; source: Operation }
+  | { kind: "property" | "parameter"; id: IRId; source: ModelProperty };
+
+export type CanonicalSourceObserver = (record: CanonicalSource) => void;
+
 export type BuildContext = {
   sdkContext: SdkContext<Record<string, any>, SdkHttpOperation>;
   program: Program;
   options: BuildContextOptions;
+  observeSource?: CanonicalSourceObserver;
 
   /** Map from any SdkType the converter has seen to the IRId we produced. */
   idCache: Map<SdkType, IRId>;
@@ -57,11 +65,13 @@ export type BuildContext = {
 export function createBuildContext(
   sdkContext: SdkContext<Record<string, any>, SdkHttpOperation>,
   options: BuildContextOptions,
+  observeSource?: CanonicalSourceObserver,
 ): BuildContext {
   return {
     sdkContext,
     program: sdkContext.program,
     options,
+    ...(observeSource ? { observeSource } : {}),
     idCache: new Map(),
     propertyIdCache: new Map(),
     models: new Set(sdkContext.sdkPackage.models),

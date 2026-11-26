@@ -5,9 +5,32 @@ import { compile, createSourceFile, NodeHost, normalizePath, type CompilerHost }
 import { getArmResource, getArmResourceOperationList } from "@azure-tools/typespec-azure-resource-manager";
 import { idEquals, parseIR, type IR, type IRDeploymentResource } from "@azure-client-engine/ir";
 import type { EmitterOptions } from "../src/options.js";
+import { emitWithSources } from "../src/emitter.js";
+import type { CanonicalSource } from "../src/context.js";
 
 const emitter = "@azure-client-engine/typespec-emitter";
 const here = dirname(fileURLToPath(import.meta.url));
+
+it("observes canonical source identities without changing ordinary emitted IR", async () => {
+  const options = { format: "json" as const, outputFile: "ir.json", "api-version": "2024-01-01" };
+  const original = await emit(options, "deployment-legacy.tsp");
+  expect(original.errors).toEqual([]);
+  const sources: CanonicalSource[] = [];
+  const observed = await emitWithSources({
+    program: original.program, options, emitterOutputDir: "observational-output",
+  }, (source) => sources.push(source));
+  expect(observed).toEqual(original.ir);
+  const resource = observed!.models.find((model) => model.name === "Widget")!;
+  expect(sources.some((record) => record.kind === "model" && idEquals(record.id, resource.id))).toBe(true);
+  for (const property of resource.properties) {
+    expect(sources.some((record) => record.kind === "property" && record.source.kind === "ModelProperty" &&
+      idEquals(record.id, property.id))).toBe(true);
+  }
+  const create = observed!.operations.find((operation) => operation.method === "PUT")!;
+  expect(sources.some((record) => record.kind === "operation" && idEquals(record.id, create.id))).toBe(true);
+  expect(sources.some((record) => record.kind === "parameter" &&
+    idEquals(record.id, create.pathParameters[0]!.id))).toBe(true);
+});
 
 async function emit(options: EmitterOptions, fixture = "deployment-service.tsp", extraProperty?: string, transform?: (text: string) => string) {
   const written = new Map<string, string>();

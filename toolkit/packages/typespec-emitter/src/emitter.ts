@@ -30,7 +30,7 @@ import {
 } from "@azure-client-engine/ir";
 
 import { resolveOptions, type EmitterOptions } from "./options.js";
-import { createBuildContext } from "./context.js";
+import { createBuildContext, type CanonicalSourceObserver } from "./context.js";
 import { modelsFrom } from "./models.js";
 import { enumsFrom } from "./enums.js";
 import { operationsFrom } from "./operations.js";
@@ -40,6 +40,14 @@ import { $lib, reportDiagnostic } from "./lib.js";
 import { deploymentFrom, DeploymentContractError } from "./deployment.js";
 
 export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<void> {
+  await emitWithSources(context);
+}
+
+/** Build-time observation of canonical IDs and their actual selected source objects; IR is unchanged. */
+export async function emitWithSources(
+  context: EmitContext<EmitterOptions>,
+  observeSource?: CanonicalSourceObserver,
+): Promise<IR | undefined> {
   const options = resolveOptions(context.options);
   const selector = context.options["api-version"];
   const deploymentError = (detail: string): void =>
@@ -88,7 +96,7 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
   const buildCtx = createBuildContext(sdkContext, {
     sourceId: options.sourceId ?? fqn,
     diagnosticsAsErrors: options.diagnosticsAsErrors,
-  });
+  }, observeSource);
 
   const { source, apiVersion, server } = buildSource(buildCtx, serviceNs);
   if (options.deploymentContract && (apiVersion.value !== selector || sdkContext.apiVersion !== selector)) {
@@ -171,4 +179,5 @@ export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<voi
       });
     }
   }
+  return context.program.hasError() ? undefined : ir;
 }
