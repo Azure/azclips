@@ -1,4 +1,6 @@
 BeforeAll {
+    function az { throw 'Unexpected Azure CLI invocation' }
+
     function Get-PipelineScript {
         param([string]$Path, [string]$End)
         $yaml = Get-Content -Raw -LiteralPath $Path
