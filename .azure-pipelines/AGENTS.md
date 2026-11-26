@@ -22,21 +22,12 @@ guide in the same PR so it stays accurate.
 | `azclips-beta-sign.yml` | Daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`) + pipeline resource `betaBuild` tagged `sign-beta` | release | Scheduled/manual runs default to the latest successful `main` beta build without requiring a tag; ESRP-signs the selected build, verifies signatures/content, runs the full native lifecycle matrix, and builds/validates signed PowerShell Docker images without registry publication. |
 | `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI and changed extension/PowerShell module versions, then opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → signed lifecycle validation → publish GitHub release. In parallel after verify, signed PowerShell images are built/validated and CLI + PowerShell images are published to the ACR repositories configured by the `Docker*Registry*`/`Docker*Repository` variables in the entry pipeline, then verified from ACR and from MCR after a 10-minute delay. |
-| `azclips-preview-docs-sync.yml` | Manual or queued by stable release | release | Standalone, tag-selected preview docs sync scaffold. Default `validate` mode checks the tag and source scripts; `dry-run` generates CLI output and reports the PowerShell copy plan without pushing. |
+| `azclips-preview-docs-sync.yml` | Manual | release | Standalone, tag-selected preview docs sync scaffold. Default `validate` mode checks the tag and source scripts; `dry-run` generates CLI output and reports the PowerShell copy plan without pushing. |
 
 ## Template Layout (`templates/`)
-- Preview docs integration remains an opt-in scaffold: `sync_preview_docs`
-  defaults to `false` in `azclips-stable-release.yml`. When selected,
-  `QueuePreviewDocs` runs after `ValidateSignedDistribution`, alongside GitHub
-  publication, and queues `azclips-preview-docs-sync` without waiting for it.
-  Configure `DocsSyncPipelineId` and grant the release build identity permission
-  to queue that definition before enabling it. Queue failures fail the queue
-  stage but do not block package/container publication; the separate docs run
-  must be monitored independently. Retrying a queue job can create another run.
-  The queue passes the release tag and source commit and pins the docs pipeline
-  checkout to that tag/commit. Manual runs select a tag via `release_tag`; the
-  optional `expected_commit` detects an unexpected tag target.
 - The standalone pipeline defaults to `validate` and has no automatic trigger.
+  Manual runs select a tag via `release_tag`; the optional `expected_commit`
+  detects an unexpected tag target.
   Its `dry-run` mode requires an authorized CLI2Yaml feed service connection;
   it does not push, open PRs, or email. CLI generates scratch output; PowerShell
   reports a copy plan against an absent target, not a comparison with live docs.

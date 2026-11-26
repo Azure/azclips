@@ -9,14 +9,13 @@ BeforeAll {
     }
 
     $script:ValidateTag = Get-PipelineScript "$PSScriptRoot/../../.azure-pipelines/templates/dist/stages/sync-preview-docs.yml" 'name: ValidateTag'
-    $script:QueueDocs = Get-PipelineScript "$PSScriptRoot/../../.azure-pipelines/templates/dist/stages/queue-preview-docs.yml" 'displayName: Queue Docs Sync For Release Tag'
     $jobYaml = Get-Content -Raw "$PSScriptRoot/../../.azure-pipelines/templates/dist/jobs/sync-preview-docs.yml"
     $jobMatch = [regex]::Match($jobYaml, '(?m)^      script: \|\r?\n(?<body>(?: {8}[^\r\n]*\r?\n)+?)    env:')
     if (-not $jobMatch.Success) { throw 'Cannot find docs sync job script' }
     $jobScript = [regex]::Replace($jobMatch.Groups['body'].Value, '(?m)^ {8}', '')
     $jobScript = $jobScript.Replace('"$(Build.SourcesDirectory)/build"', '$env:FAKE_BUILD_DIR')
     $script:RunSync = [scriptblock]::Create($jobScript)
-    $script:EnvironmentNames = @('RELEASE_TAG', 'EXPECTED_COMMIT', 'DOCS_PIPELINE_ID', 'SOURCE_REF', 'SOURCE_COMMIT', 'SYSTEM_ACCESSTOKEN', 'SYSTEM_COLLECTIONURI', 'SYSTEM_TEAMPROJECTID', 'DOCS_COMMIT', 'SYNC_MODE', 'FETCH_CLI2YAML', 'SYNC_SCRIPT', 'AGENT_TEMPDIRECTORY', 'FAKE_BUILD_DIR')
+    $script:EnvironmentNames = @('RELEASE_TAG', 'EXPECTED_COMMIT', 'DOCS_COMMIT', 'SYNC_MODE', 'FETCH_CLI2YAML', 'SYNC_SCRIPT', 'AGENT_TEMPDIRECTORY', 'FAKE_BUILD_DIR')
 }
 
 Describe 'Standalone docs pipeline orchestration' {
@@ -73,51 +72,6 @@ Describe 'Standalone docs pipeline orchestration' {
             $env:RELEASE_TAG = 'v1.2.3.20260626T091500Z'
             { & $script:ValidateTag } | Should -Throw '*does not contain*'
         } finally { Pop-Location }
-    }
-
-    It 'queues the standalone pipeline with the exact release ref and commit' {
-        $env:DOCS_PIPELINE_ID = '123'
-        $env:SOURCE_REF = "refs/tags/$env:RELEASE_TAG"
-        $env:SOURCE_COMMIT = $script:Commit
-        $env:SYSTEM_ACCESSTOKEN = 'test-token'
-        $env:SYSTEM_COLLECTIONURI = 'https://example.invalid/'
-        $env:SYSTEM_TEAMPROJECTID = 'project'
-        Mock Invoke-RestMethod {
-            $script:QueuedBody = $Body | ConvertFrom-Json
-            [pscustomobject]@{ id = 42; _links = @{ web = @{ href = 'https://example.invalid/run/42' } } }
-        }
-        & $script:QueueDocs
-        $script:QueuedBody.resources.repositories.self.refName | Should -Be $env:SOURCE_REF
-        $script:QueuedBody.resources.repositories.self.version | Should -Be $script:Commit
-        $script:QueuedBody.templateParameters.release_tag | Should -Be $env:RELEASE_TAG
-        $script:QueuedBody.templateParameters.expected_commit | Should -Be $script:Commit
-        $script:QueuedBody.templateParameters.sync_mode | Should -Be 'create-pr'
-        Should -Invoke Invoke-RestMethod -Times 1 -Exactly
-    }
-
-    It 'does not queue with an unconfigured ID or invalid source' {
-        $env:DOCS_PIPELINE_ID = 'CONFIGURE_DOCS_PIPELINE_ID'
-        $env:SOURCE_REF = "refs/tags/$env:RELEASE_TAG"
-        $env:SOURCE_COMMIT = $script:Commit
-        $env:SYSTEM_ACCESSTOKEN = 'test-token'
-        Mock Invoke-RestMethod { throw 'Unexpected request' }
-        { & $script:QueueDocs } | Should -Throw '*Configure DocsSyncPipelineId*'
-        $env:DOCS_PIPELINE_ID = '123'
-        $env:SOURCE_REF = 'refs/heads/main'
-        { & $script:QueueDocs } | Should -Throw '*requires a stable release tag*'
-        $env:SOURCE_REF = "refs/tags/$env:RELEASE_TAG"
-        $env:SOURCE_COMMIT = 'bad'
-        { & $script:QueueDocs } | Should -Throw '*must be a Git commit SHA*'
-        Should -Invoke Invoke-RestMethod -Times 0 -Exactly
-    }
-
-    It 'surfaces queue failures' {
-        $env:DOCS_PIPELINE_ID = '123'
-        $env:SOURCE_REF = "refs/tags/$env:RELEASE_TAG"
-        $env:SOURCE_COMMIT = $script:Commit
-        $env:SYSTEM_ACCESSTOKEN = 'test-token'
-        Mock Invoke-RestMethod { throw 'Queue denied' }
-        { & $script:QueueDocs } | Should -Throw '*Queue denied*'
     }
 
     It 'runs dry-run without Push and rejects a different tag commit' {
