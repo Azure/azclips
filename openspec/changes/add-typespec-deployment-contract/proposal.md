@@ -1,3 +1,5 @@
+> Implementation update: the custom discovery/emitter options introduced here were retired by [Public IP pilot task 1.16](../pilot-public-ip-bicep-create/design.md#upstream-derived-source-gate-retirement). The audit contract/readers and independent comparison walker remain; current metadata is produced through upstream correspondence. The original artifacts below describe the historical implementation, not instructions to enable the retired options.
+
 ## Why
 
 Selected atomic and customized create commands should eventually be able to use Bicep without redefining their API contracts or public command surfaces. Current codegen preserves HTTP contracts but omits some deployment metadata and constraints, while the upstream TypeSpec-to-Bicep emitter has unresolved version-selection and type-fidelity limitations.

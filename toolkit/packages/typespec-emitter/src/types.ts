@@ -126,7 +126,7 @@ export function idFor(
   const id = sourceId(ctx, t.__raw, name);
   ctx.idCache.set(t, id);
   if (t.kind === "model" && t.__raw?.kind === "Model") {
-    ctx.observeSource?.({ kind: "model", id, source: t.__raw });
+    ctx.observeSource?.({ kind: "model", id, source: t.__raw, sdkType: t });
   }
   return id;
 }

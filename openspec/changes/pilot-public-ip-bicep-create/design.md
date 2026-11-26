@@ -419,7 +419,52 @@ node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir (Join-Pat
 | `dotnet test toolkit\packages\generator\test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj --no-restore --filter FullyQualifiedName~CompatibilityAuditTests -v quiet` | 33 passed; official generated-reference loading and unchanged comparison behavior |
 | `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~PublicIpAddressParameterTests -v quiet` | 71 passed; March fixture, independent normalized-value assertions and IP-tag/ARM-ID exclusion |
 
-Compiler association, build-compiled template, newly generated March C# processor execution, adapter/transport, both-surface playback and live authorization remain unchecked. **Task 1.16 is next**: retire only genuinely superseded source/schema machinery after updating its remaining audit consumers; keep canonical linkage, independent constraints, provenance and these raw reports.
+Compiler association, build-compiled template, newly generated March C# processor execution, adapter/transport, both-surface playback and live authorization remain unchecked. The following retirement step updates the remaining consumers without removing these raw reports or their independent safeguards.
+
+### Upstream-derived source-gate retirement
+
+Task 1.16 is complete. The former canonical-emitter `deployment.ts` resource discovery, path/scope interpretation and SDK-package facet scans are removed. `deploymentContract` and `deploymentResources` are no longer accepted emitter options; compiler validation rejects them explicitly. Their implementation-specific tests and unused service/scoped/empty fixtures are removed rather than retained to preserve test counts.
+
+The separate probe's `--audit-ir` mode now builds the same pinned upstream converter, selects its actual registered/version-projected Public IP PUT/resource models, and generates real property correspondence before emitting ordinary canonical IR once. The shared bridge context validates canonical operation/source version, actual PUT/body identity, generated writable scope and name/path input coverage. `createAuditContract` produces the existing metadata shape through these identities, never through a legacy class/route fallback.
+
+Source observation additionally carries the original SDK input type. The retained `constraints.ts` helper reads source-only bounds, sensitivity and literals, including collection element/value paths and explicit failure for encoding/range/nullability loss. It does not discover resource models or convert Bicep schema.
+
+A replacement regression exposed why the minimal **canonical writable-dependency selector must remain**: upstream correspondence also includes nested output-only model properties whose own fields appear writable. Using all observed PUT owners incorrectly selected an encoded read-only descendant. The selector follows canonical writable edges from the actual selected body, with inheritance/union/recursive guards; observed inputs then supply facets without rescanning SDK clients or property caches. Full writable source correspondence is required, so a missing field cannot become an empty-facet compatibility claim.
+
+The consumed IR deployment contract fields/readers and the single native comparison walker remain necessary, including for historical audit inputs. No unused contract fields were identified that could be safely removed. The ordinary host's `sourceCommit` pass-through is also retained because acquisition/compiler workers still supply it. No IR/schema/reader version or dependency pin changes are required.
+
+Real March replacement input still contains **1,161 models and 838 operations**, deeply equal to both the prior audit input and newly generated ordinary IR after removing only `deployment`. Resource descriptors and source digest are unchanged. It has two genuine scope-source facets instead of four: the removed two are synthetic `accept`/`contentType` literals, not source fields or inputs compared by the native walker. Both protocol roles remain explicit in all 43 command bindings; transport semantics are still an unchecked separate gate.
+
+Fresh reports preserve the original March reports:
+
+- [Post-retirement independent catalogue audit](public-ip-audit-after-retirement-2026-03-01.json).
+- [Post-retirement upstream-type audit](public-ip-upstream-audit-after-retirement-2026-03-01.json).
+
+Both result arrays are deeply equal to the prior March result: **118 compared paths, two recursive references, two unsupported paths, four diagnostics, unsupported / exit 1**. Source provenance now additionally identifies the pinned upstream revision and the complete tested isolated dependency versions. Source digest, ordinary schema/binding hashes and the persisted offline fixture are unchanged; removing implementation machinery does not relabel raw compatibility.
+
+Use the prepared `$toolchain`, `$source` and `$output` variables from the March section, from the repository root:
+
+```powershell
+npm --prefix toolkit run build
+node toolkit\tools\typespec-bicep\project-public-ip.mjs $toolchain $source
+node toolkit\tools\typespec-bicep\project-public-ip.mjs $toolchain $source (Join-Path $output 'audit-ir-upstream.json') --audit-ir
+node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir (Join-Path $output 'audit-ir-upstream.json') --catalogue Azure.Bicep.Types.Az@0.2.972 --select Microsoft.Network/publicIPAddresses@2026-03-01
+node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir (Join-Path $output 'audit-ir-upstream.json') --catalogue Azure.Bicep.Types.Az@0.2.972 --select Microsoft.Network/publicIPAddresses@2026-03-01 --upstream-types (Join-Path $output 'types.json')
+```
+
+| Command / check | Result |
+| --- | --- |
+| `npm --prefix toolkit run build` | Passed; unchanged normal toolkit pins |
+| `npm --prefix toolkit exec -- vitest run packages\typespec-emitter\test\source-observation.e2e.test.ts` | 5 passed; ordinary equality, source/SDK identity, rejected retired options and invalid observer versions |
+| `node --test toolkit\tools\typespec-bicep\test\projected-create.test.mjs` | 11 passed; includes writable/read-only/unselected isolation, recursion/inherited sensitivity, collection/additional-property facets, missing correspondence and encoding/range/nullability rejection |
+| `npm --prefix toolkit\tools\typespec-bicep test` | 13 passed; pinned upstream golden/scope/source-integrity checks |
+| `dotnet test toolkit\packages\generator\test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj --no-restore --filter FullyQualifiedName~CompatibilityAuditTests -v quiet` | 33 passed; retained shared walker, independent constraints and historical metadata shape |
+| `npm --prefix toolkit exec -- vitest run packages\compiler\test\runtime.test.ts -t 'forwards the entrypoint'` | 1 passed; 11 nonselected tests skipped; source commit/acquisition pass-through remains intact |
+| Both real producer modes and audits above | Passed production of complete input/types/bindings; audits completed unsupported / exit 1 with exact retained result arrays |
+| Entire canonical equality, old/new descriptors/source digest and persisted fixture comparison | Passed; 43 inputs, schema/binding hashes unchanged |
+| `openspec validate pilot-public-ip-bicep-create --strict`, `openspec validate add-typespec-deployment-contract --strict` and `git diff --check` | Passed |
+
+Only source-gate retirement is complete. Section 2 starts with the separately pinned official Bicep CLI/compiler-association gate; no template, runtime registration, public behavior, new generated March C# execution or live resource has been introduced.
 
 ## Goals / Non-Goals
 
@@ -445,7 +490,7 @@ Compiler association, build-compiled template, newly generated March C# processo
 
 Reproduce the legacy association gap with a focused fixture, then use official lifecycle/operation-list association and selected SDK model identity to establish eligibility. Preserve unambiguous request/response resource identity, scope, names and API version. A missing modern registration is not sufficient to reject a model whose supported metadata provides those identities; conversely, a guessed class name or route is not sufficient to accept it.
 
-The full Network retry and target-boundary review are complete. Add optional `deploymentResources` emitter configuration using resource types at the existing concrete API selector. With no selection, existing whole-service extraction remains strict; with explicit selection, record exact `resourceType@apiVersion` roots in optional contract `selection` and require one create descriptor per root. The full Public IP writable request graph must be covered even though initial runtime activation is narrower. Do not trim the canonical command/output schema to achieve a pass.
+The historical retry and target-boundary review established optional selected metadata without trimming canonical IR. Task 1.16 now retires its custom emitter discovery/options. The current producer selects the actual upstream version-projected Public IP PUT and records its exact `resourceType@apiVersion` root in the retained audit contract. The full writable source-constraint closure and raw comparison remain required even though runtime eligibility is narrower; broader legacy/whole-service extraction is not silently preserved as a fallback.
 
 **Alternative rejected:** inventing a Public IP descriptor with empty facets or switching catalogue/source versions to force a pass.
 
@@ -467,7 +512,7 @@ The fixture establishes the reviewed policy boundary for root ID and integer dif
 
 ### 3. Build-compile and package one version-fixed template
 
-Generate one resource-group-scoped experimental Bicep resource at `2026-05-01` with parameter/field assignments derived from the verified bridge, not a second handwritten structural mapping. Compose only the necessary command/pilot policy around it. Compile with a pinned official CLI during build, record executable/version/template provenance and verify the compiler's resource type association separately from upstream generation and the catalogue-only audit. Package the compiled ARM JSON as an immutable pilot asset; do not install or invoke Bicep at command runtime.
+Generate one resource-group-scoped experimental Bicep resource at `2026-03-01` with parameter/field assignments derived from the verified bridge, not a second handwritten structural mapping. Compose only the necessary command/pilot policy around it. Compile with a pinned official CLI during build, record executable/version/template provenance and verify the compiler's resource type association separately from upstream generation and the catalogue-only audit. Package the compiled ARM JSON as an immutable pilot asset; do not install or invoke Bicep at command runtime.
 
 Parameterization must preserve missing versus explicit values. The compiled declaration must contain exactly the selected Public IP, no resource-group or dependency creation, and no additional resource API version. Dynamic object assignment is not permission to bypass typed compiler checks or the contract gate.
 

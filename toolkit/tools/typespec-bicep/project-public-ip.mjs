@@ -7,7 +7,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkout, packageRoot, upstream, verifySource } from "./prepare.mjs";
 import { compile as compileCommands } from "@azure-client-engine/compiler";
-import { createBindings, classifyPublicIpEligibility, createBindingFixture } from "./create-bindings.mjs";
+import { createAuditContract, createBindings, classifyPublicIpEligibility, createBindingFixture } from "./create-bindings.mjs";
 
 const apiVersion = "2026-03-01";
 const resourceType = "Microsoft.Network/publicIPAddresses";
@@ -128,7 +128,28 @@ export async function emitCanonical(program, root, apiVersion, options = {}) {
   }, (record) => sources.push(record));
   requireNoErrors(program);
   assert.ok(ir, "Canonical emitter produced no IR");
-  return { ir, sources, getSourceConstraints: canonical.getSourceConstraints };
+  return { ir, sources, getSourceConstraints: canonical.getSourceConstraints, getSourceFacets: canonical.getSourceFacets };
+}
+
+function sourceProvenance(program, tools) {
+  const files = [...program.sourceFiles.values()].map(({ file }) => {
+    const path = file.path.replaceAll("\\", "/");
+    const dependency = path.lastIndexOf("/node_modules/");
+    const identity = dependency >= 0 ? path.slice(dependency + 14) : relative(program.projectRoot, file.path).replaceAll("\\", "/");
+    return [identity, createHash("sha256").update(file.text).digest("hex")];
+  }).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+  const canonical = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)),
+    "..", "..", "packages", "typespec-emitter", "package.json"), "utf8"));
+  const emitter = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+  return {
+    sourceHash: createHash("sha256").update(JSON.stringify(files)).digest("hex"),
+    sourceCommit,
+    tools: [
+      ...Object.entries(tools.versions).map(([name, version]) => ({ name, version })),
+      { name: canonical.name, version: canonical.version },
+      { name: emitter.name, version: `${emitter.version}+${upstream.revision}` },
+    ].sort((a, b) => a.name.localeCompare(b.name)),
+  };
 }
 
 export async function projectCommands(ir, config = {}) {
@@ -154,17 +175,6 @@ async function main(root, source, fixtureOutput, mode) {
   const entrypoint = join(source, "specification", "network", "resource-manager", "Microsoft.Network", "Network", "main.tsp");
   const program = await tools.compiler.compile(tools.compiler.NodeHost, entrypoint, { noEmit: true });
   requireNoErrors(program);
-  if (mode === "--audit-ir") {
-    assert.ok(fixtureOutput, "Full audit mode requires an output JSON path");
-    const audit = await emitCanonical(program, root, apiVersion, {
-      outputFile: "audit-ir.json", deploymentContract: true, deploymentResources: [resourceType],
-    });
-    assert.equal(audit.ir.deployment.resources.length, 1, "Full audit must select exactly one resource");
-    writeFileSync(resolve(fixtureOutput), JSON.stringify(audit.ir, null, 2));
-    console.log(JSON.stringify({ apiVersion, sourceCommit, models: audit.ir.models.length,
-      operations: audit.ir.operations.length, output: resolve(fixtureOutput) }, null, 2));
-    return;
-  }
   const emitter = await buildEmitter(root);
   const definitions = emitter.getProviderDefinitions({ program, options: {}, emitterOutputDir: "" });
   const selected = selectProjectedCreate(program, definitions, { resourceType, apiVersion }, tools);
@@ -178,7 +188,19 @@ async function main(root, source, fixtureOutput, mode) {
   assert.equal(roots[0].name, `${resourceType}@${apiVersion}`);
   assert.equal(roots[0].writableScopes, tools.bicep.ScopeType.ResourceGroup);
 
-  const canonical = await emitCanonical(program, root, apiVersion);
+  const canonical = await emitCanonical(program, root, apiVersion,
+    mode === "--audit-ir" ? { outputFile: "audit-canonical.json" } : {});
+  if (mode === "--audit-ir") {
+    assert.ok(fixtureOutput, "Full audit mode requires an output JSON path");
+    const deployment = createAuditContract({
+      ...canonical, selected, types, correspondence, program, bicep: tools.bicep,
+    }, sourceProvenance(program, tools));
+    writeFileSync(resolve(fixtureOutput), JSON.stringify({ ...canonical.ir, deployment }, null, 2));
+    console.log(JSON.stringify({ apiVersion, sourceCommit, models: canonical.ir.models.length,
+      operations: canonical.ir.operations.length, facets: deployment.facets.length,
+      output: resolve(fixtureOutput) }, null, 2));
+    return;
+  }
   const configRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "packages", "cli");
   const { loadAceConfig } = await import(pathToFileURL(join(configRoot, "dist", "src", "aceconfig.js")).href);
   const config = await loadAceConfig(resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..",

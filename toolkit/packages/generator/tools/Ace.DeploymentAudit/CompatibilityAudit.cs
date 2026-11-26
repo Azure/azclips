@@ -40,7 +40,7 @@ public static class CompatibilityAudit
             try
             {
                 IRDeploymentContract contract = ir.Deployment
-                    ?? throw new AuditInputException("metadata-disabled", "Generate IR with deploymentContract enabled.");
+                    ?? throw new AuditInputException("metadata-disabled", "Generate audit IR through the upstream-derived source gate.");
                 if (contract.SchemaVersion != "1.0.0") throw new AuditInputException("metadata-version", "Unsupported deployment contract schema version.");
                 if (contract.Selection is { } extracted &&
                     (extracted.Count == 0 ||

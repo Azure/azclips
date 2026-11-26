@@ -10,7 +10,7 @@
  *   bumps will pick them up later):
  *
  *   - Examples (`@opExample`): IR has no `IRExample` node.
- *   - Primitive constraints are retained only in opt-in deployment metadata.
+ *   - Primitive constraints are exposed to build tooling through source observation.
  *   - Cookies, tuples, streaming bodies: each diagnosed and skipped.
  *   - Multi-content-type bodies: first content-type wins; rest warned.
  *   - Override methods (`SdkServiceMethod.isOverride`): skipped.
@@ -33,11 +33,6 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
     emitterName: { type: "string", nullable: true },
     sourceId: { type: "string", nullable: true },
     "api-version": { type: "string", nullable: true },
-    deploymentContract: { type: "boolean", nullable: true },
-    deploymentResources: {
-      type: "array", nullable: true, minItems: 1, uniqueItems: true,
-      items: { type: "string", pattern: "^[\\w.-]+(?:/[\\w.-]+)+$" },
-    },
     sourceCommit: { type: "string", pattern: "^[a-f0-9]{40}$", nullable: true },
     diagnosticsAsErrors: { type: "boolean", nullable: true },
   },
@@ -47,10 +42,10 @@ const EmitterOptionsSchema: JSONSchemaType<EmitterOptions> = {
 export const $lib = createTypeSpecLibrary({
   name: EMITTER_NAME,
   diagnostics: {
-    "deployment-contract-invalid": {
+    "source-projection-incomplete": {
       severity: "error",
       messages: {
-        default: paramMessage`Cannot emit deployment contract: ${"detail"}`,
+        default: paramMessage`Cannot observe a complete canonical source projection: ${"detail"}`,
       },
     },
     "paging-property-unbound": {

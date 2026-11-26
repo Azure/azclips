@@ -4,13 +4,14 @@ import { dirname, join, resolve } from "node:path";
 import { before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { buildEmitter, emitCanonical, loadToolchain, projectCommands, requireNoErrors, selectProjectedCreate } from "../project-public-ip.mjs";
-import { classifyPublicIpEligibility, createBindingFixture, createBindings, sameSource } from "../create-bindings.mjs";
+import { classifyPublicIpEligibility, createAuditContract, createBindingFixture, createBindings, sameSource } from "../create-bindings.mjs";
 
 const root = resolve(process.env.AZCLIPS_NEWER_TSP_ROOT ??
   join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "newer-network-probe"));
 const resourceType = "Test.Selection/widgets";
 const apiVersion = "2026-01-01";
-let tools, program, emitter, definitions, fixture, bindingInput;
+let tools, program, emitter, definitions, fixture, bindingInput, auditInput;
+const provenance = { sourceHash: "a".repeat(64), tools: [{ name: "fixture", version: "test" }] };
 
 before(async () => {
   tools = await loadToolchain(root);
@@ -32,14 +33,24 @@ using Azure.ResourceManager;
 @versioned(Versions)
 namespace Test.Selection;
 enum Versions { earlier: "2025-01-01", current: "2026-01-01" }
-model Shared { id?: string; @minLength(2) value?: string; }
-model BaseProperties { inherited?: string; }
+@minLength(3) scalar LimitedText extends string;
+model Shared {
+  id?: string;
+  @minLength(2) value?: string;
+  @minItems(1) values?: LimitedText[];
+  labels?: Record<LimitedText>;
+  next?: Shared;
+}
+model OutputOnly { @encode(string) value?: int64; }
+model OpenSettings extends Record<LimitedText> { label?: LimitedText; }
+model BaseProperties { @secret inherited?: string; }
 model WidgetProperties extends BaseProperties {
   kept?: string;
   @minValue(1) @maxValue(100) timeout?: int32;
   left?: Shared;
   right?: Shared;
-  @visibility(Lifecycle.Read) serverOnly?: string;
+  open?: OpenSettings;
+  @visibility(Lifecycle.Read) serverOnly?: OutputOnly;
   @removed(Versions.current) obsolete?: string;
   @added(Versions.current) added?: string;
 }
@@ -54,7 +65,8 @@ interface Widgets {
 }
 @@Azure.ClientGenerator.Core.Legacy.flattenProperty(Widget.properties);
 @@Azure.ClientGenerator.Core.clientName(Shared.value, "renamedValue");
-model Other is TrackedResource<WidgetProperties> {
+model OtherProperties { @encode(string) unselected?: int64; }
+model Other is TrackedResource<OtherProperties> {
   ...ResourceNameParameter<Other, KeyName = "otherName", SegmentName = "others">;
 }
 @armResourceOperations
@@ -69,9 +81,68 @@ interface Others {
   const correspondence = [];
   const types = emitter.generateTypes(program, selected.provider, (record) => correspondence.push(record));
   const canonical = await emitCanonical(program, root, apiVersion);
+  auditInput = { ...canonical, selected, types, correspondence, program, bicep: tools.bicep };
   const commands = await projectCommands(canonical.ir);
   bindingInput = { ir: commands.ir, sources: canonical.sources, selected, types, correspondence,
     program, getSourceConstraints: canonical.getSourceConstraints, bicep: tools.bicep };
+});
+
+test("upstream-derived audit preserves full input facets, recursion and unselected/read-only isolation without pruning IR", () => {
+  const before = structuredClone(auditInput.ir);
+  const contract = createAuditContract(auditInput, provenance);
+  assert.deepEqual(auditInput.ir, before);
+  assert.equal(contract.resources.length, 1);
+  assert.deepEqual(contract.selection, [`${resourceType}@${apiVersion}`]);
+  const operation = auditInput.ir.operations.find(({ id }) => JSON.stringify(id) === JSON.stringify(contract.resources[0].operation));
+  const wire = (id) => operation.pathParameters.find((parameter) => JSON.stringify(parameter.id) === JSON.stringify(id)).wireName;
+  assert.deepEqual(contract.resources[0].scopeParameters.map(wire), ["subscriptionId", "resourceGroupName"]);
+  assert.equal(wire(contract.resources[0].name[0].parameter), "widgetName");
+  const property = (model, wire) => auditInput.ir.models.find(({ name }) => name === model).properties.find(({ wireName }) => wireName === wire);
+  const facet = (model, wire, typePath = []) => contract.facets.find((value) =>
+    JSON.stringify(value.target) === JSON.stringify(property(model, wire).id) && JSON.stringify(value.typePath) === JSON.stringify(typePath));
+  assert.equal(facet("Shared", "values").minItems, 1);
+  assert.equal(facet("Shared", "values", ["element"]).minLength, 3);
+  assert.equal(facet("Shared", "labels", ["value"]).minLength, 3);
+  assert.equal(facet("BaseProperties", "inherited").sensitive, true);
+  const open = auditInput.ir.models.find(({ name }) => name === "OpenSettings");
+  assert.equal(contract.facets.find(({ target, typePath }) =>
+    JSON.stringify(target) === JSON.stringify(open.id) && JSON.stringify(typePath) === '["additionalProperties"]').minLength, 3);
+  assert.equal(property("Shared", "next").type.kind, "model");
+  assert.ok(!facet("OutputOnly", "value"));
+  assert.ok(!facet("OtherProperties", "unselected"));
+  assert.equal(new Set(contract.facets.map(({ target, typePath }) => JSON.stringify([target, typePath]))).size, contract.facets.length);
+  const missing = auditInput.correspondence.filter(({ putProperty }) => putProperty?.name !== "timeout");
+  assert.throws(() => createAuditContract({ ...auditInput, correspondence: missing }, provenance),
+    /Missing upstream writable property correspondence/);
+  const stale = structuredClone(auditInput.ir);
+  stale.sources[0].apiVersion = { ...stale.sources[0].apiVersion, value: "2099-01-01" };
+  assert.throws(() => createAuditContract({ ...auditInput, ir: stale }, provenance), /source and operation API versions differ/);
+});
+
+test("upstream-derived audit fails explicitly on selected source encoding, range and nested-nullability loss", async () => {
+  for (const [property, message] of [
+    ["@encode(string) extra?: int64;", /Explicit wire encoding/],
+    ["@minLength(2147483648) extra?: string;", /reader range/],
+    ["extra?: (string | null)[];", /Nested collection nullability/],
+  ]) {
+    const changed = await tools.compiler.compile({
+      ...tools.compiler.NodeHost,
+      readFile: async (path) => {
+        const file = await tools.compiler.NodeHost.readFile(path);
+        return resolve(path) === fixture
+          ? tools.compiler.createSourceFile(file.text.replace("model WidgetProperties extends BaseProperties {",
+            `model WidgetProperties extends BaseProperties {\n${property}`), path)
+          : file;
+      },
+    }, fixture, { noEmit: true });
+    requireNoErrors(changed);
+    const definitions = emitter.getProviderDefinitions({ program: changed, options: {}, emitterOutputDir: "" });
+    const selected = selectProjectedCreate(changed, definitions, { resourceType, apiVersion }, tools);
+    const correspondence = [];
+    const types = emitter.generateTypes(changed, selected.provider, (record) => correspondence.push(record));
+    const canonical = await emitCanonical(changed, root, apiVersion);
+    assert.throws(() => createAuditContract({ ...canonical, selected, correspondence, types, program: changed, bicep: tools.bicep }, provenance), message);
+  }
 });
 
 test("source joins preserve inherited, flattened and reused property paths without using parameter names", () => {

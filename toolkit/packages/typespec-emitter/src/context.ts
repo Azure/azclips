@@ -33,9 +33,9 @@ export type BuildContextOptions = {
 };
 
 export type CanonicalSource =
-  | { kind: "model"; id: IRId; source: Model }
+  | { kind: "model"; id: IRId; source: Model; sdkType: SdkModelType }
   | { kind: "operation"; id: IRId; source: Operation }
-  | { kind: "property" | "parameter"; id: IRId; source: ModelProperty };
+  | { kind: "property" | "parameter"; id: IRId; source: ModelProperty; sdkType: SdkType };
 
 export type CanonicalSourceObserver = (record: CanonicalSource) => void;
 

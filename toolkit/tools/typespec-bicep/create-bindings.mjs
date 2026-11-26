@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { idKey, idEquals } from "@azure-client-engine/ir";
+import { idKey, idEquals, IRDeploymentContractSchema } from "@azure-client-engine/ir";
 
 // Projection realms share declaration nodes, not cloned Type objects.
 export function sameSource(left, right, seen = new Map()) {
@@ -32,7 +32,7 @@ function only(items, message) {
   return items[0];
 }
 
-export function createBindings({ ir, sources, selected, types, correspondence, program, getSourceConstraints, bicep }) {
+function createContext({ ir, sources, selected, types, correspondence, bicep }) {
   const sourceOf = (kind, id) => {
     const matches = sources.filter((record) => record.kind === kind && idEquals(record.id, id));
     const unique = [...new Set(matches.map(({ source }) => source))];
@@ -46,11 +46,10 @@ export function createBindings({ ir, sources, selected, types, correspondence, p
   const operation = only(ir.operations.filter(({ id }) => idEquals(id, operationId)), "Canonical create operation is missing");
   assert.equal(operation.method, "PUT");
   assert.equal(operation.apiVersion.value, selected.provider.apiVersion, "Canonical and Bicep API versions differ");
+  const source = only(ir.sources.filter(({ id }) => id === operation.source), "Canonical operation source is missing or ambiguous");
+  assert.equal(source.apiVersion.value, operation.apiVersion.value, "Canonical source and operation API versions differ");
   assert.equal(operation.pathTemplate, selected.create.httpOperation.path, "Canonical and ARM create paths differ");
   assert.equal(operation.requestBody?.type?.kind, "model", "Canonical create requires a model body");
-  const command = only(ir.commands.filter((candidate) => candidate.template === "atomic" &&
-    candidate.steps.length === 1 && idEquals(candidate.steps[0].operation, operationId)),
-  "Missing or ambiguous atomic create command");
   const definition = only(Object.values(selected.provider.resourcesByType).flat(), "Exactly one resource must be selected");
   const resourceName = `${definition.descriptor.namespace}/${definition.descriptor.typeSegments.join("/")}@${definition.descriptor.apiVersion}`;
   const resourceType = only(types.filter((type) => type.type === bicep.TypeBaseKind.ResourceType && type.name === resourceName),
@@ -58,6 +57,38 @@ export function createBindings({ ir, sources, selected, types, correspondence, p
   const bodyId = operation.requestBody.type.id;
   assert.ok(sameSource(sourceOf("model", bodyId), definition.putModel), "Canonical and projected PUT body sources differ");
 
+  const nameSegment = selected.resource.resourceInstancePath.split("/").at(-1);
+  assert.ok(/^\{[^{}]+\}$/.test(nameSegment), "Create binding requires a parameterized resource name");
+  const nameWire = nameSegment.slice(1, -1);
+  assert.equal(selected.resource.scope, "ResourceGroup", "Only resource-group create bindings are supported");
+  assert.equal(definition.descriptor.typeSegments.length, 1, "Nested resource scope/name bindings are not supported");
+  assert.equal(resourceType.writableScopes, bicep.ScopeType.ResourceGroup, "Generated resource must be writable at resource-group scope");
+  const officialPaths = selected.create.httpOperation.parameters.parameters.filter(({ type }) => type === "path");
+  assert.equal(officialPaths.length, 3, "Resource-group create must have two scope inputs and one resource name");
+  const rootName = only(correspondence.filter((record) =>
+    record.container.index === resourceType.body.index && record.role === "resourceName"), "Missing Bicep resource name");
+  assert.ok(correspondingSource(rootName.putProperty, definition.nameProperty),
+    "Bicep resource-name source differs from the selected ARM name property");
+  const paths = operation.pathParameters.map((parameter) => {
+    const source = sourceOf("parameter", parameter.id);
+    const official = only(officialPaths.filter(({ param }) => correspondingSource(param, source)),
+      `Missing or ambiguous official path parameter for ${idKey(parameter.id)}`);
+    assert.ok(!parameter.optional && !parameter.nullable, "Name/scope inputs must be required and non-nullable");
+    return { parameter, official, role: official.name === nameWire ? "resourceName" : "scope" };
+  });
+  assert.equal(paths.length, officialPaths.length, "Canonical and official path input coverage differs");
+  assert.equal(new Set(paths.map(({ official }) => official)).size, officialPaths.length, "Official path inputs must not be reused");
+  only(paths.filter(({ role }) => role === "resourceName"), "Exactly one canonical resource name is required");
+  assert.equal(paths.filter(({ role }) => role === "scope").length, 2, "Exactly two canonical scope inputs are required");
+  return { sourceOf, modelOf, operation, operationId, definition, resourceName, resourceType, bodyId, rootName, paths };
+}
+
+export function createBindings(input) {
+  const { ir, types, correspondence, program, getSourceConstraints, bicep } = input;
+  const { sourceOf, modelOf, operation, operationId, resourceName, resourceType, bodyId, rootName, paths } = createContext(input);
+  const command = only(ir.commands.filter((candidate) => candidate.template === "atomic" &&
+    candidate.steps.length === 1 && idEquals(candidate.steps[0].operation, operationId)),
+  "Missing or ambiguous atomic create command");
   const atContainer = (index, source) => correspondence.filter((record) =>
     record.container.index === index && record.putProperty && correspondingSource(record.putProperty, source));
   const walk = (reference, input) => {
@@ -89,18 +120,6 @@ export function createBindings({ ir, sources, selected, types, correspondence, p
     return { wirePath, bicepPath, record };
   };
 
-  const nameSegment = selected.resource.resourceInstancePath.split("/").at(-1);
-  assert.ok(/^\{[^{}]+\}$/.test(nameSegment), "Create binding requires a parameterized resource name");
-  const nameWire = nameSegment.slice(1, -1);
-  assert.equal(selected.resource.scope, "ResourceGroup", "Only resource-group create bindings are supported");
-  assert.equal(definition.descriptor.typeSegments.length, 1, "Nested resource scope/name bindings are not supported");
-  const officialPaths = selected.create.httpOperation.parameters.parameters.filter(({ type }) => type === "path");
-  assert.equal(officialPaths.length, 3, "Resource-group create must have two scope inputs and one resource name");
-  const rootName = only(correspondence.filter((record) =>
-    record.container.index === resourceType.body.index && record.role === "resourceName"), "Missing Bicep resource name");
-  assert.ok(correspondingSource(rootName.putProperty, definition.nameProperty),
-    "Bicep resource-name source differs from the selected ARM name property");
-
   const bindings = command.parameters.map((parameter) => {
     const base = {
       parameter: parameter.name, source: parameter.source,
@@ -123,10 +142,9 @@ export function createBindings({ ir, sources, selected, types, correspondence, p
       };
     }
     if (parameter.source.kind === "path") {
-      const source = sourceOf("parameter", parameter.source.parameter);
-      const official = only(officialPaths.filter(({ param }) => correspondingSource(param, source)),
+      const { official, role } = only(paths.filter(({ parameter: input }) => idEquals(input.id, parameter.source.parameter)),
         `Missing or ambiguous official path parameter for ${parameter.name}`);
-      const name = official.name === nameWire;
+      const name = role === "resourceName";
       return { ...base, role: name ? "resourceName" : "scope", wireName: official.name,
         ...(name ? { bicepPath: [rootName.name], bicepField: { container: rootName.container,
           name: rootName.name, type: rootName.property.type, flags: rootName.property.flags } } : {}) };
@@ -145,6 +163,93 @@ export function createBindings({ ir, sources, selected, types, correspondence, p
     readOnlyFields: correspondence.filter((record) => record.property.flags & bicep.ObjectTypePropertyFlags.ReadOnly)
       .map(({ container, name, role, property }) => ({ container, name, role, type: property.type, flags: property.flags })),
   };
+}
+
+export function createAuditContract(input, provenance) {
+  const { ir, sources, correspondence, program, getSourceFacets } = input;
+  const { operation, operationId, definition, resourceName, paths, modelOf } = createContext(input);
+  const writable = (property) => property.visibility === undefined ||
+    property.visibility.includes("create") || property.visibility.includes("update");
+  const putProperties = correspondence.flatMap(({ putProperty }) => putProperty ? [putProperty] : []);
+  const inputs = new Set(operation.pathParameters.concat(operation.queryParameters, operation.headerParameters)
+    .map(({ id }) => idKey(id)));
+  const models = new Set();
+  const seen = new Set();
+  const visit = (type) => {
+    if (type.kind === "primitive" || type.kind === "enum") return;
+    if (type.kind === "array") return visit(type.element);
+    if (type.kind === "dictionary") return visit(type.value);
+    if (type.kind === "union") return type.variants.forEach(visit);
+    const reference = `${type.kind}:${idKey(type.id)}`;
+    if (seen.has(reference)) return;
+    seen.add(reference);
+    if (type.kind === "model") {
+      const key = idKey(type.id);
+      models.add(key);
+      const model = modelOf(type.id);
+      for (const property of model.properties.filter(writable)) {
+        inputs.add(idKey(property.id));
+        visit(property.type);
+      }
+      if (model.additionalProperties) visit(model.additionalProperties);
+      if (model.parent) visit({ kind: "model", id: model.parent });
+      model.polymorphism?.subtypes.forEach(({ type }) => visit({ kind: "model", id: type }));
+      return;
+    }
+    const union = only(ir.discriminatedUnions.filter(({ id }) => idEquals(id, type.id)), "Selected canonical union is missing or ambiguous");
+    union.variants.forEach(({ type }) => { if (type) visit(type); });
+  };
+  visit(operation.requestBody.type);
+  for (const parameter of operation.pathParameters.concat(operation.queryParameters, operation.headerParameters)) visit(parameter.type);
+  const selectedModels = sources.filter(({ kind, id }) => kind === "model" && models.has(idKey(id)));
+  for (const key of models) {
+    assert.ok(selectedModels.some(({ id }) => idKey(id) === key), `Selected canonical model has no source: ${key}`);
+  }
+  const facets = new Map();
+  const add = (values) => {
+    for (const facet of values) {
+      const key = `${idKey(facet.target)}:${JSON.stringify(facet.typePath)}`;
+      const previous = facets.get(key);
+      assert.ok(!previous || JSON.stringify(previous) === JSON.stringify(facet), `Ambiguous source facets at ${key}`);
+      facets.set(key, facet);
+    }
+  };
+  for (const record of selectedModels) {
+    const model = only(ir.models.filter(({ id }) => idEquals(id, record.id)), "Selected canonical model is missing or ambiguous");
+    for (const property of model.properties.filter(writable)) {
+      const records = sources.filter(({ kind, id }) => kind === "property" && idEquals(id, property.id));
+      assert.ok(records.length > 0 && records.every(({ source }) =>
+        putProperties.some((property) => correspondingSource(property, source))),
+      `Missing upstream writable property correspondence for ${idKey(property.id)}`);
+      inputs.add(idKey(property.id));
+    }
+    if (record.sdkType.additionalProperties) {
+      add(getSourceFacets(program, record.id, record.sdkType.additionalProperties, undefined, ["additionalProperties"]));
+    }
+  }
+  for (const record of sources) {
+    if ((record.kind === "property" || record.kind === "parameter") && inputs.has(idKey(record.id))) {
+      add(getSourceFacets(program, record.id, record.sdkType, record.source));
+    }
+  }
+  const contract = {
+    schemaVersion: "1.0.0",
+    resources: [{
+      operation: operationId,
+      resourceType: `${definition.descriptor.namespace}/${definition.descriptor.typeSegments.join("/")}`,
+      apiVersion: operation.apiVersion.value, writableScope: "resourceGroup",
+      name: paths.filter(({ role }) => role === "resourceName").map(({ parameter }) => ({ kind: "parameter", parameter: parameter.id })),
+      scopeParameters: paths.filter(({ role }) => role === "scope").map(({ parameter }) => parameter.id),
+    }],
+    selection: [resourceName],
+    facets: [...facets.values()].sort((left, right) => {
+      const a = `${idKey(left.target)}:${left.typePath.join("/")}`;
+      const b = `${idKey(right.target)}:${right.typePath.join("/")}`;
+      return a < b ? -1 : a > b ? 1 : 0;
+    }),
+    provenance,
+  };
+  return IRDeploymentContractSchema.parse(contract);
 }
 
 export function classifyPublicIpEligibility(bridge) {

@@ -114,7 +114,7 @@ stages:
 The design and its rationale:
 [`DocDumpster/Aceconfig-Generation-Time-Config.md`](DocDumpster/Aceconfig-Generation-Time-Config.md).
 
-## Optional TypeSpec deployment contracts
+## Upstream-derived deployment audit inputs
 
 Deployment contracts are **build-only prerequisites**, not a Bicep backend switch.
 Existing atomic/customization commands, CLI/PowerShell surfaces and generated
@@ -122,63 +122,64 @@ processors remain unchanged. TypeSpec remains the API source of truth; the
 optional IR section references canonical operations, inputs and types rather
 than maintaining a second resource schema.
 
-Enable the existing emitter through the compile configuration:
+The ordinary TypeSpec emitter no longer discovers deployment resources.
+The former `deploymentContract` and `deploymentResources` options are retired;
+the compiler rejects them instead of silently using the old extraction path.
+Its build-only source observer exposes canonical identities and original SDK
+input types, and requires a complete, concrete selected-version projection.
 
-```yaml
-entrypoints:
-  - path: client.tsp
-    api-version: 2024-05-01
-stages:
-  tsp-emit:
-    options:
-      emitter:
-        deploymentContract: true
+The opt-in Public IP probe uses the pinned upstream converter and its actual
+version-projected resource/PUT models and property correspondence to produce
+the audit metadata. With an already prepared isolated toolchain/source checkout,
+run from the repository root:
+
+```powershell
+node toolkit\tools\typespec-bicep\project-public-ip.mjs <toolchain> <source> <audit-ir.json> --audit-ir
 ```
 
-Direct emitter consumers set `deploymentContract: true` and the existing
-`api-version` option. There is no independent metadata version selector.
-The selector must resolve to the **same concrete source/SDK/operation version**;
-omitted, `latest`, `all` and unresolved versions fail only when this feature is
-enabled. The ARM deployment transport API version is a separate future concern.
+This separate process emits the full ordinary canonical IR and appends only
+`deployment`; it does not generate C# or register a backend. The current probe
+selects only `Microsoft.Network/publicIPAddresses@2026-03-01` from the approved
+newer source. Normal Network and toolchain pins remain unchanged. The original
+unregistered 2025 source is not supported by upstream discovery, and is not
+silently restored through a custom fallback.
 
-IR `deployment` is absent by default. An enabled contract with `resources: []`
-means discovery found no eligible ARM create-or-update operation. Root IR remains
-`0.17.0`; the optional contract has its own `1.0.0` schema. Official ARM metadata
-supplies resource association and scope; ordered names/scope inputs reference
-canonical path parameters. Supplemental facets preserve constraints, sensitivity
-and exact literals separately from defaults. See
-[`deployment.ts`](packages/ir/src/deployment.ts).
+IR `deployment` remains absent from ordinary generation. Its existing `1.0.0`
+schema and .NET readers are retained for the live audit consumer and historical
+inputs, not as a second schema converter. Ordered name/scope inputs reference
+canonical path parameters joined to the actual official PUT. The current
+producer requires one resource-group-scoped, non-nested resource with a
+parameterized name; broader schema expressiveness is not supported extraction.
 
-For a bounded audit, add `deploymentResources: [Microsoft.Network/publicIPAddresses]`
-beside `deploymentContract: true` in emitter options. Each resource type must resolve
-to exactly one official ARM create operation at the existing concrete API selector.
-Modern registration is not required when legacy official operation/model association
-is unambiguous. Empty, duplicate, missing or ambiguous selections fail; selecting
-resources while metadata is disabled is an error.
+The remaining canonical writable-dependency selector is necessary to isolate
+source constraints from read-only descendants; upstream correspondence includes
+output models too. It does not interpret Bicep schema. Source facets use the
+observed inputs rather than rescanning SDK clients/property caches. Collection
+element/value constraints, exact numeric bounds/literals, sensitivity, inheritance
+and recursive dependencies remain checked. Missing writable source correspondence
+fails rather than producing incomplete metadata.
 
-Selection leaves canonical models, operations and command/output generation intact.
-The optional contract `selection` records exact `resourceType@apiVersion` roots;
-facets follow only their complete writable schema, including inherited/nested types,
-collections, polymorphism and cycles. Read-only response properties are retained,
-not converted into create inputs. Nested resource-shaped models and ID references
-do not automatically select additional provisioning operations. Without selection,
-whole-service discovery remains strict; unselected operations are outside a scoped
-audit, not compatible by omission. Genuine compiler/projection errors still fail.
+Canonical models, operations and command/output generation remain intact.
+Read-only and resource-shaped dependencies do not select additional provisioning
+operations. Unselected operations are outside the audit, not compatible by
+omission. Synthetic HTTP accept/content-type literals are not source facets;
+protocol roles remain explicit in the command bridge and protocol behavior
+remains an unchecked transport gate.
 
 Provenance contains a deterministic SHA-256 of loaded TypeSpec source contents
-and file identities plus resolved toolchain versions. Remote primary sources
-also record the commit acquired by the CLI; local primary sources do not borrow
-an additional directory's commit. This digest is not a hash of every compiler
-implementation or a certification of Bicep compiler association.
+and file identities plus resolved toolchain versions and the pinned upstream
+revision. The probe independently verifies its source commit and tracked
+cleanliness. The ordinary emitter still accepts the host's `sourceCommit`
+pass-through, preserving the existing acquisition protocol. This digest is not
+a hash of every compiler implementation or Bicep compiler certification.
 
 Unsupported/lossy projections fail explicitly instead of emitting a partial
-enabled contract. Examples include explicit wire encodings, nested collection
+audit contract. Examples include explicit wire encodings, nested collection
 nullability, constrained structural union variants and length/item counts above
 the .NET reader's Int32 range. Numeric bounds remain exact decimal strings.
-Tenant, subscription, resource-group and single-input extension scopes have
-extraction mappings; dedicated management-group/location mappings are not yet
-established. The schema's ability to express a scope does not certify extraction
-or runtime support for it.
+Broader scopes, nested names and unregistered legacy sources require separately
+verified upstream support and source linkage; their former custom extractor
+and implementation-specific fixtures have been removed.
 
 ## Offline Bicep catalogue audit
 

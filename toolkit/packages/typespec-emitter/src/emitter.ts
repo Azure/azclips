@@ -37,28 +37,23 @@ import { operationsFrom } from "./operations.js";
 import { buildSource } from "./source.js";
 import { writeIR } from "./writer.js";
 import { $lib, reportDiagnostic } from "./lib.js";
-import { deploymentFrom, DeploymentContractError } from "./deployment.js";
 
 export async function $onEmit(context: EmitContext<EmitterOptions>): Promise<void> {
   await emitWithSources(context);
 }
 
-/** Build-time observation of canonical IDs and their actual selected source objects; IR is unchanged. */
+/** Build-time observation requires a complete selected-version projection; ordinary IR is unchanged. */
 export async function emitWithSources(
   context: EmitContext<EmitterOptions>,
   observeSource?: CanonicalSourceObserver,
 ): Promise<IR | undefined> {
   const options = resolveOptions(context.options);
   const selector = context.options["api-version"];
-  const deploymentError = (detail: string): void =>
-    reportDiagnostic(context.program, { code: "deployment-contract-invalid", format: { detail }, target: NoTarget });
-  if (options.deploymentResources !== undefined && !options.deploymentContract) {
-    deploymentError("deploymentResources requires deploymentContract to be enabled");
-    return;
-  }
-  if (options.deploymentContract &&
+  const projectionError = (detail: string): void =>
+    reportDiagnostic(context.program, { code: "source-projection-incomplete", format: { detail }, target: NoTarget });
+  if (observeSource &&
       (!selector || !selector.trim() || ["latest", "all", "unknown"].includes(selector.toLowerCase()))) {
-    deploymentError("deploymentContract requires an explicit, concrete api-version; latest/all/default selection is not supported");
+    projectionError("Source observation requires an explicit, concrete api-version; latest/all/default selection is not supported");
     return;
   }
 
@@ -80,8 +75,8 @@ export async function emitWithSources(
   }
   const serviceNs = services[0]!;
   if (services.length > 1) {
-    if (options.deploymentContract) {
-      deploymentError("Multiple services are not supported by the current canonical IR projection");
+    if (observeSource) {
+      projectionError("Multiple services are not supported by the current canonical IR projection");
       return;
     }
     reportDiagnostic(context.program, {
@@ -99,8 +94,8 @@ export async function emitWithSources(
   }, observeSource);
 
   const { source, apiVersion, server } = buildSource(buildCtx, serviceNs);
-  if (options.deploymentContract && (apiVersion.value !== selector || sdkContext.apiVersion !== selector)) {
-    deploymentError(`Requested version '${selector}' did not resolve to the same SDK/operation version ('${sdkContext.apiVersion}'/'${apiVersion.value}')`);
+  if (observeSource && (apiVersion.value !== selector || sdkContext.apiVersion !== selector)) {
+    projectionError(`Requested version '${selector}' did not resolve to the same SDK/operation version ('${sdkContext.apiVersion}'/'${apiVersion.value}')`);
     return;
   }
 
@@ -117,7 +112,7 @@ export async function emitWithSources(
     discriminatedUnions: [...buildCtx.discriminatedUnions.values()],
     operations,
   };
-  if (options.deploymentContract) {
+  if (observeSource) {
     const lossyCodes = new Set([
       "unsupported-type-kind", "union-non-mappable", "unsupported-enum-value-type",
       "unsupported-multi-content-body", "cookie-parameter-dropped", "streaming-body-dropped", "override-method-skipped",
@@ -129,17 +124,9 @@ export async function emitWithSources(
         diagnostic.severity === "error" || (diagnostic.code.startsWith(prefix) && lossyCodes.has(diagnostic.code.slice(prefix.length)))),
     ];
     if (failures.length > 0) {
-      deploymentError(`The source projection is incomplete: ${failures.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`).join("; ")}`);
+      projectionError(`The source projection is incomplete: ${failures.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`).join("; ")}`);
       return;
     }
-    try {
-      ir.deployment = await deploymentFrom(buildCtx, ir, options.sourceCommit, options.deploymentResources);
-    } catch (error) {
-      if (!(error instanceof DeploymentContractError)) throw error;
-      deploymentError(error.message);
-      return;
-    }
-    if (context.program.hasError()) return;
   }
 
   // Integrity check. Re-throwing here surfaces emitter bugs immediately.
@@ -152,7 +139,7 @@ export async function emitWithSources(
       format: { detail },
       target: NoTarget,
     });
-    if (options.deploymentContract) return;
+    if (observeSource) return;
     // Still write the (broken) IR for diagnosis — the diagnostic surfaces the bug.
   }
 

@@ -90,7 +90,7 @@ export function propertyIdFor(
     name: `${containingModelId.name}.${libraryName}`,
   };
   ctx.propertyIdCache.set(prop, id);
-  if (prop.__raw) ctx.observeSource?.({ kind: "property", id, source: prop.__raw });
+  if (prop.__raw) ctx.observeSource?.({ kind: "property", id, source: prop.__raw, sdkType: prop.type });
   return id;
 }
 

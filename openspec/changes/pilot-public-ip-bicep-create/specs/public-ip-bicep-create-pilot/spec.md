@@ -110,6 +110,18 @@ The pilot SHALL reuse pinned upstream `@azure-tools/typespec-bicep` code to inte
 - **AND** canonical command linkage, exact-version/provenance checks, input constraint preservation and eligibility safeguards SHALL remain covered
 - **AND** historical audit reports SHALL remain intact without requiring obsolete implementation-specific tests or a second schema interpreter
 
+#### Scenario: Upstream correspondence includes read-only descendants
+- **WHEN** upstream types/correspondence include an output-only nested model
+- **THEN** supplemental input constraints SHALL follow only canonical writable dependencies from the selected actual PUT
+- **AND** unsupported constraints in read-only or unselected models SHALL NOT contaminate the selected input gate
+- **AND** inherited, recursive and collection element/value constraints on writable inputs SHALL remain checked
+
+#### Scenario: Retired emitter configuration is requested
+- **WHEN** configuration requests the former custom-discovery `deploymentContract` or `deploymentResources` emitter options
+- **THEN** compilation SHALL reject those options explicitly
+- **AND** the upstream-derived audit producer SHALL remain separate from ordinary canonical generation
+- **AND** the existing audit metadata schema/readers and historical reports SHALL remain usable
+
 ### Requirement: Explicit opt-in and unchanged normal commands
 
 The Bicep execution path SHALL be disabled by default and selected only through an explicit internal pilot host/fixture configuration. Public CLI/PowerShell names, aliases, parameters and default-path behavior SHALL remain unchanged.
