@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { buildEmitter, emitCanonical, loadToolchain, projectCommands, requireNoErrors, selectProjectedCreate } from "../project-public-ip.mjs";
-import { classifyPublicIpEligibility, createBindings, sameSource } from "../create-bindings.mjs";
+import { classifyPublicIpEligibility, createBindingFixture, createBindings, sameSource } from "../create-bindings.mjs";
 
 const root = resolve(process.env.AZCLIPS_NEWER_TSP_ROOT ??
   join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "newer-network-probe"));
@@ -148,6 +148,24 @@ test("pilot field eligibility keeps exact path segments and explicit identity re
   assert.deepEqual(bridge.bindings.map(({ eligibility }) => eligibility), [
     "eligible", "excluded", "excluded", "reject", "reject", "structural",
   ]);
+});
+
+test("offline fixture preserves source bindings and generates only permitted deployment parameter names", () => {
+  const bridge = classifyPublicIpEligibility(createBindings(bindingInput));
+  const fixture = createBindingFixture(bridge, { sourceCommit: "fixture" });
+  assert.equal(fixture.resourceType, bridge.resourceType);
+  assert.deepEqual(fixture.provenance, { sourceCommit: "fixture" });
+  assert.deepEqual(fixture.bindings.map(({ deploymentParameter, ...binding }) => binding), bridge.bindings);
+  for (const binding of fixture.bindings) {
+    if (binding.eligibility === "eligible" || binding.role === "resourceName")
+      assert.equal(binding.deploymentParameter, binding.parameter[0].toLowerCase() + binding.parameter.slice(1));
+    else
+      assert.ok(!Object.hasOwn(binding, "deploymentParameter"));
+  }
+  assert.throws(() => createBindingFixture({ bindings: [
+    { parameter: "Name", eligibility: "eligible", role: "field" },
+    { parameter: "name", eligibility: "eligible", role: "field" },
+  ] }, {}), /Duplicate deployment parameter/);
 });
 
 test("template instances sharing a declaration node retain their distinct source identities", () => {

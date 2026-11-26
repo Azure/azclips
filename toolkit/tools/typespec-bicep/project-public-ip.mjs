@@ -7,7 +7,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkout, packageRoot, upstream, verifySource } from "./prepare.mjs";
 import { compile as compileCommands } from "@azure-client-engine/compiler";
-import { createBindings, classifyPublicIpEligibility } from "./create-bindings.mjs";
+import { createBindings, classifyPublicIpEligibility, createBindingFixture } from "./create-bindings.mjs";
 
 const apiVersion = "2026-05-01";
 const resourceType = "Microsoft.Network/publicIPAddresses";
@@ -132,8 +132,8 @@ export async function projectCommands(ir, config = {}) {
   return result;
 }
 
-async function main(root, source) {
-  assert.ok(root && source, "Usage: node project-public-ip.mjs <isolated-toolchain-root> <network-source-checkout>");
+async function main(root, source, fixtureOutput) {
+  assert.ok(root && source, "Usage: node project-public-ip.mjs <isolated-toolchain-root> <network-source-checkout> [fixture-output.json]");
   root = resolve(root);
   source = resolve(source);
   const commit = execFileSync("git", ["-C", source, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -206,6 +206,14 @@ async function main(root, source) {
     diagnostics: program.diagnostics.map(({ severity, code, message }) => ({ severity, code, message })),
   };
   const output = join(root, "public-ip-create");
+  if (fixtureOutput) {
+    const fixture = createBindingFixture(bridge, {
+      sourceCommit, upstreamRevision: upstream.revision,
+      toolchainLockSha256: report.toolchainLockSha256,
+      schemaSha256: report.schemaSha256, bindingSha256: report.bindingSha256,
+    });
+    writeFileSync(resolve(fixtureOutput), JSON.stringify(fixture, null, 2) + "\n");
+  }
   writeFileSync(join(output, "types.json"), schema);
   writeFileSync(join(output, "bindings.json"), JSON.stringify(bridge, null, 2));
   writeFileSync(join(output, "correspondence.json"), JSON.stringify(correspondence.map((record) => ({

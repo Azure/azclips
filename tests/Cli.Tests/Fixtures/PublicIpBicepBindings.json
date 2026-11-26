@@ -1,0 +1,2938 @@
+{
+  "schemaVersion": "1.0.0",
+  "resourceType": "Microsoft.Network/publicIPAddresses@2026-05-01",
+  "operation": {
+    "module": "Microsoft.Network",
+    "namespace": [
+      "Microsoft",
+      "Network"
+    ],
+    "interface": "PublicIPAddressOperationGroup",
+    "name": "createOrUpdate"
+  },
+  "command": {
+    "module": "Microsoft.Network",
+    "subject": "PublicIPAddresses",
+    "action": "CreateOrUpdate",
+    "variant": "CreateOrUpdate"
+  },
+  "commandName": "CreateOrUpdatePublicIPAddresses",
+  "provenance": {
+    "sourceCommit": "965a33b4c632fb1aaf5f2ea02e6d603e1c81baa6",
+    "upstreamRevision": "754a33f2ddc902afe583acb6e46316afbd59bc5d",
+    "toolchainLockSha256": "78fd25723a37ce2f0d656e7f86d9af662f0460df5bc090dfba4f46c30d3897b5",
+    "schemaSha256": "b40dc36e568754305cbb4a9fa35dc655be21fe81204ae921d38eb97faf69db9e",
+    "bindingSha256": "dbe24cce0e8e9d5b13b4d5d59a0c6df0bb5b96c0c1b1ed78fa68a338b6848729"
+  },
+  "bindings": [
+    {
+      "parameter": "SubscriptionId",
+      "source": {
+        "kind": "path",
+        "parameter": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "interface": "PublicIPAddressOperationGroup",
+          "name": "createOrUpdate.subscriptionId"
+        }
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string",
+        "format": "uuid"
+      },
+      "required": true,
+      "nullable": false,
+      "role": "scope",
+      "wireName": "subscriptionId",
+      "eligibility": "structural"
+    },
+    {
+      "parameter": "ResourceGroupName",
+      "source": {
+        "kind": "path",
+        "parameter": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "interface": "PublicIPAddressOperationGroup",
+          "name": "createOrUpdate.resourceGroupName"
+        }
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": true,
+      "nullable": false,
+      "role": "scope",
+      "wireName": "resourceGroupName",
+      "eligibility": "structural"
+    },
+    {
+      "parameter": "PublicIpAddressName",
+      "source": {
+        "kind": "path",
+        "parameter": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "interface": "PublicIPAddressOperationGroup",
+          "name": "createOrUpdate.publicIpAddressName"
+        }
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": true,
+      "nullable": false,
+      "role": "resourceName",
+      "wireName": "publicIpAddressName",
+      "bicepPath": [
+        "name"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 3
+        },
+        "name": "name",
+        "type": {
+          "index": 0
+        },
+        "flags": 9
+      },
+      "eligibility": "structural",
+      "deploymentParameter": "publicIpAddressName"
+    },
+    {
+      "parameter": "ContentType",
+      "source": {
+        "kind": "header",
+        "parameter": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "interface": "PublicIPAddressOperationGroup",
+          "name": "createOrUpdate.contentType"
+        }
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": true,
+      "nullable": false,
+      "role": "protocol",
+      "wireName": "Content-Type",
+      "eligibility": "structural"
+    },
+    {
+      "parameter": "Accept",
+      "source": {
+        "kind": "header",
+        "parameter": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "interface": "PublicIPAddressOperationGroup",
+          "name": "createOrUpdate.accept"
+        }
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": true,
+      "nullable": false,
+      "role": "protocol",
+      "wireName": "Accept",
+      "eligibility": "structural"
+    },
+    {
+      "parameter": "Id",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.id"
+        },
+        "via": []
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "computedIdentity",
+      "wirePath": [
+        "id"
+      ],
+      "bicepPath": [
+        "id"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 3
+        },
+        "name": "id",
+        "type": {
+          "index": 0
+        },
+        "flags": 10
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.id"
+        },
+        "typePath": []
+      },
+      "eligibility": "reject"
+    },
+    {
+      "parameter": "Location",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.location"
+        },
+        "via": []
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "location"
+      ],
+      "bicepPath": [
+        "location"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 3
+        },
+        "name": "location",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.location"
+        },
+        "typePath": []
+      },
+      "eligibility": "eligible",
+      "deploymentParameter": "location"
+    },
+    {
+      "parameter": "Tags",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.tags"
+        },
+        "via": []
+      },
+      "type": {
+        "kind": "dictionary",
+        "value": {
+          "kind": "primitive",
+          "name": "string"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "tags"
+      ],
+      "bicepPath": [
+        "tags"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 3
+        },
+        "name": "tags",
+        "type": {
+          "index": 4
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.tags"
+        },
+        "typePath": []
+      },
+      "eligibility": "eligible",
+      "deploymentParameter": "tags"
+    },
+    {
+      "parameter": "Zones",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddress.zones"
+        },
+        "via": []
+      },
+      "type": {
+        "kind": "array",
+        "element": {
+          "kind": "primitive",
+          "name": "string"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "zones"
+      ],
+      "bicepPath": [
+        "zones"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 3
+        },
+        "name": "zones",
+        "type": {
+          "index": 555
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddress.zones"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "PublicIPAllocationMethod",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.publicIPAllocationMethod"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "IPAllocationMethod"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "publicIPAllocationMethod"
+      ],
+      "bicepPath": [
+        "properties",
+        "publicIPAllocationMethod"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "publicIPAllocationMethod",
+        "type": {
+          "index": 8
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.publicIPAllocationMethod"
+        },
+        "typePath": []
+      },
+      "eligibility": "eligible",
+      "deploymentParameter": "publicIPAllocationMethod"
+    },
+    {
+      "parameter": "PublicIPAddressVersion",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.publicIPAddressVersion"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "IPVersion"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "publicIPAddressVersion"
+      ],
+      "bicepPath": [
+        "properties",
+        "publicIPAddressVersion"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "publicIPAddressVersion",
+        "type": {
+          "index": 11
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.publicIPAddressVersion"
+        },
+        "typePath": []
+      },
+      "eligibility": "eligible",
+      "deploymentParameter": "publicIPAddressVersion"
+    },
+    {
+      "parameter": "IpTags",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.ipTags"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "array",
+        "element": {
+          "kind": "model",
+          "id": {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "IpTag"
+          }
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "ipTags"
+      ],
+      "bicepPath": [
+        "properties",
+        "ipTags"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "ipTags",
+        "type": {
+          "index": 515
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.ipTags"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "IpAddress",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.ipAddress"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "ipAddress"
+      ],
+      "bicepPath": [
+        "properties",
+        "ipAddress"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "ipAddress",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.ipAddress"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "IdleTimeoutInMinutes",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.idleTimeoutInMinutes"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "int32"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "idleTimeoutInMinutes"
+      ],
+      "bicepPath": [
+        "properties",
+        "idleTimeoutInMinutes"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "idleTimeoutInMinutes",
+        "type": {
+          "index": 50
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.idleTimeoutInMinutes"
+        },
+        "typePath": []
+      },
+      "eligibility": "eligible",
+      "deploymentParameter": "idleTimeoutInMinutes"
+    },
+    {
+      "parameter": "ServicePublicIPAddress",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.servicePublicIPAddress"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "model",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddress"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "servicePublicIPAddress"
+      ],
+      "bicepPath": [
+        "properties",
+        "servicePublicIPAddress"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "servicePublicIPAddress",
+        "type": {
+          "index": 140
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.servicePublicIPAddress"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "MigrationPhase",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.migrationPhase"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressMigrationPhase"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "migrationPhase"
+      ],
+      "bicepPath": [
+        "properties",
+        "migrationPhase"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "migrationPhase",
+        "type": {
+          "index": 551
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.migrationPhase"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "LinkedPublicIPAddress",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.linkedPublicIPAddress"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "model",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddress"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "linkedPublicIPAddress"
+      ],
+      "bicepPath": [
+        "properties",
+        "linkedPublicIPAddress"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "linkedPublicIPAddress",
+        "type": {
+          "index": 140
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.linkedPublicIPAddress"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "DeleteOption",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.deleteOption"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "DeleteOptions"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "deleteOption"
+      ],
+      "bicepPath": [
+        "properties",
+        "deleteOption"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 5
+        },
+        "name": "deleteOption",
+        "type": {
+          "index": 554
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressPropertiesFormat.deleteOption"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "DnsSettingsDomainNameLabel",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressDnsSettings.domainNameLabel"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.dnsSettings"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "dnsSettings",
+        "domainNameLabel"
+      ],
+      "bicepPath": [
+        "properties",
+        "dnsSettings",
+        "domainNameLabel"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 503
+        },
+        "name": "domainNameLabel",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressDnsSettings.domainNameLabel"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "DnsSettingsDomainNameLabelScope",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressDnsSettings.domainNameLabelScope"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.dnsSettings"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIpAddressDnsSettingsDomainNameLabelScope"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "dnsSettings",
+        "domainNameLabelScope"
+      ],
+      "bicepPath": [
+        "properties",
+        "dnsSettings",
+        "domainNameLabelScope"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 503
+        },
+        "name": "domainNameLabelScope",
+        "type": {
+          "index": 508
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressDnsSettings.domainNameLabelScope"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "DnsSettingsFqdn",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressDnsSettings.fqdn"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.dnsSettings"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "dnsSettings",
+        "fqdn"
+      ],
+      "bicepPath": [
+        "properties",
+        "dnsSettings",
+        "fqdn"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 503
+        },
+        "name": "fqdn",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressDnsSettings.fqdn"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "DnsSettingsReverseFqdn",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressDnsSettings.reverseFqdn"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.dnsSettings"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "dnsSettings",
+        "reverseFqdn"
+      ],
+      "bicepPath": [
+        "properties",
+        "dnsSettings",
+        "reverseFqdn"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 503
+        },
+        "name": "reverseFqdn",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressDnsSettings.reverseFqdn"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "DdosSettingsProtectionMode",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "DdosSettings.protectionMode"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.ddosSettings"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "DdosSettingsProtectionMode"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "ddosSettings",
+        "protectionMode"
+      ],
+      "bicepPath": [
+        "properties",
+        "ddosSettings",
+        "protectionMode"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 509
+        },
+        "name": "protectionMode",
+        "type": {
+          "index": 513
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "DdosSettings.protectionMode"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "DdosCustomPolicyId",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.ddosSettings"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "DdosSettings.ddosCustomPolicy"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "ddosSettings",
+        "ddosCustomPolicy",
+        "id"
+      ],
+      "bicepPath": [
+        "properties",
+        "ddosSettings",
+        "ddosCustomPolicy",
+        "id"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 65
+        },
+        "name": "id",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "DdosProtectionPlanId",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.ddosSettings"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "DdosSettings.ddosProtectionPlan"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "ddosSettings",
+        "ddosProtectionPlan",
+        "id"
+      ],
+      "bicepPath": [
+        "properties",
+        "ddosSettings",
+        "ddosProtectionPlan",
+        "id"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 65
+        },
+        "name": "id",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "PublicIpPrefixId",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.publicIPPrefix"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "publicIPPrefix",
+        "id"
+      ],
+      "bicepPath": [
+        "properties",
+        "publicIPPrefix",
+        "id"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 65
+        },
+        "name": "id",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "NatGatewayId",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.id"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "id"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "id"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 523
+        },
+        "name": "id",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.id"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "NatGatewayLocation",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.location"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "location"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "location"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 523
+        },
+        "name": "location",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.location"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "NatGatewayTags",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.tags"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          }
+        ]
+      },
+      "type": {
+        "kind": "dictionary",
+        "value": {
+          "kind": "primitive",
+          "name": "string"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "tags"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "tags"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 523
+        },
+        "name": "tags",
+        "type": {
+          "index": 4
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Resource.tags"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "NatGatewayZones",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGateway.zones"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          }
+        ]
+      },
+      "type": {
+        "kind": "array",
+        "element": {
+          "kind": "primitive",
+          "name": "string"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "zones"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "zones"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 523
+        },
+        "name": "zones",
+        "type": {
+          "index": 545
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGateway.zones"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "PropertiesIdleTimeoutInMinutes",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.idleTimeoutInMinutes"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "int32"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "idleTimeoutInMinutes"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "idleTimeoutInMinutes"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 524
+        },
+        "name": "idleTimeoutInMinutes",
+        "type": {
+          "index": 50
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.idleTimeoutInMinutes"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "PublicIpAddresses",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.publicIpAddresses"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "array",
+        "element": {
+          "kind": "model",
+          "id": {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "SubResource"
+          }
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "publicIpAddresses"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "publicIpAddresses"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 524
+        },
+        "name": "publicIpAddresses",
+        "type": {
+          "index": 525
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.publicIpAddresses"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "PublicIpAddressesV6",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.publicIpAddressesV6"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "array",
+        "element": {
+          "kind": "model",
+          "id": {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "SubResource"
+          }
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "publicIpAddressesV6"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "publicIpAddressesV6"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 524
+        },
+        "name": "publicIpAddressesV6",
+        "type": {
+          "index": 526
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.publicIpAddressesV6"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "PublicIpPrefixes",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.publicIpPrefixes"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "array",
+        "element": {
+          "kind": "model",
+          "id": {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "SubResource"
+          }
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "publicIpPrefixes"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "publicIpPrefixes"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 524
+        },
+        "name": "publicIpPrefixes",
+        "type": {
+          "index": 527
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.publicIpPrefixes"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "PublicIpPrefixesV6",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.publicIpPrefixesV6"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "array",
+        "element": {
+          "kind": "model",
+          "id": {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "SubResource"
+          }
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "publicIpPrefixesV6"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "publicIpPrefixesV6"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 524
+        },
+        "name": "publicIpPrefixesV6",
+        "type": {
+          "index": 528
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.publicIpPrefixesV6"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "Nat64",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.nat64"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.properties"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "Nat64State"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "nat64"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "nat64"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 524
+        },
+        "name": "nat64",
+        "type": {
+          "index": 533
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewayPropertiesFormat.nat64"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "SourceVirtualNetworkId",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGatewayPropertiesFormat.sourceVirtualNetwork"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "sourceVirtualNetwork",
+        "id"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "sourceVirtualNetwork",
+        "id"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 65
+        },
+        "name": "id",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "ServiceGatewayId",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGatewayPropertiesFormat.serviceGateway"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "serviceGateway",
+        "id"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "properties",
+        "serviceGateway",
+        "id"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 65
+        },
+        "name": "id",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "SubResource.id"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "NatGatewaySkuName",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewaySku.name"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.properties"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddressPropertiesFormat.natGateway"
+          },
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "NatGateway.sku"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewaySkuName"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "properties",
+        "natGateway",
+        "sku",
+        "name"
+      ],
+      "bicepPath": [
+        "properties",
+        "natGateway",
+        "sku",
+        "name"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 541
+        },
+        "name": "name",
+        "type": {
+          "index": 544
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "NatGatewaySku.name"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "ExtendedLocationName",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "ExtendedLocation.name"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.extendedLocation"
+          }
+        ]
+      },
+      "type": {
+        "kind": "primitive",
+        "name": "string"
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "extendedLocation",
+        "name"
+      ],
+      "bicepPath": [
+        "extendedLocation",
+        "name"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 104
+        },
+        "name": "name",
+        "type": {
+          "index": 0
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "ExtendedLocation.name"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "ExtendedLocationType",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "ExtendedLocation.type"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.extendedLocation"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "ExtendedLocationTypes"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "extendedLocation",
+        "type"
+      ],
+      "bicepPath": [
+        "extendedLocation",
+        "type"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 104
+        },
+        "name": "type",
+        "type": {
+          "index": 106
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "ExtendedLocation.type"
+        },
+        "typePath": []
+      },
+      "eligibility": "excluded"
+    },
+    {
+      "parameter": "SkuName",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressSku.name"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.sku"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressSkuName"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "sku",
+        "name"
+      ],
+      "bicepPath": [
+        "sku",
+        "name"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 141
+        },
+        "name": "name",
+        "type": {
+          "index": 145
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressSku.name"
+        },
+        "typePath": []
+      },
+      "eligibility": "eligible",
+      "deploymentParameter": "skuName"
+    },
+    {
+      "parameter": "SkuTier",
+      "source": {
+        "kind": "body",
+        "property": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressSku.tier"
+        },
+        "via": [
+          {
+            "module": "Microsoft.Network",
+            "namespace": [
+              "Microsoft",
+              "Network"
+            ],
+            "name": "PublicIPAddress.sku"
+          }
+        ]
+      },
+      "type": {
+        "kind": "enum",
+        "id": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressSkuTier"
+        }
+      },
+      "required": false,
+      "nullable": false,
+      "role": "field",
+      "wirePath": [
+        "sku",
+        "tier"
+      ],
+      "bicepPath": [
+        "sku",
+        "tier"
+      ],
+      "bicepField": {
+        "container": {
+          "index": 141
+        },
+        "name": "tier",
+        "type": {
+          "index": 148
+        },
+        "flags": 0
+      },
+      "constraints": {
+        "target": {
+          "module": "Microsoft.Network",
+          "namespace": [
+            "Microsoft",
+            "Network"
+          ],
+          "name": "PublicIPAddressSku.tier"
+        },
+        "typePath": []
+      },
+      "eligibility": "eligible",
+      "deploymentParameter": "skuTier"
+    }
+  ]
+}

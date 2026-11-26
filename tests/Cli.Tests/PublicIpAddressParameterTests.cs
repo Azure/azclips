@@ -263,6 +263,103 @@ public class PublicIpAddressParameterTests
         Assert.Equal(0, pipeline.SendCount);
     }
 
+    [Fact]
+    public async Task BicepBinding_UsesGeneratedDeploymentParameterNames()
+    {
+        var (body, pipeline) = NormalizePilotBody(_ => { });
+        var bridge = JsonNode.Parse(PublicIpBicepInputBinding.ReadBridge().GetRawText())!;
+        foreach (JsonNode? binding in bridge["bindings"]!.AsArray())
+        {
+            if (binding!["role"]!.GetValue<string>() == "resourceName")
+                binding["deploymentParameter"] = "generatedName";
+            if (binding["parameter"]!.GetValue<string>() == "IdleTimeoutInMinutes")
+                binding["deploymentParameter"] = "generatedTimeout";
+        }
+
+        var parameters = PublicIpBicepInputBinding.Bind(PipName, body, JsonSerializer.SerializeToElement(bridge));
+        JsonElement bound = await CaptureDeploymentParametersAsync(parameters);
+
+        Assert.Equal(PipName, bound.GetProperty("generatedName").GetProperty("value").GetString());
+        Assert.Equal(4, bound.GetProperty("generatedTimeout").GetProperty("value").GetInt32());
+        Assert.False(bound.TryGetProperty("publicIpAddressName", out _));
+        Assert.False(bound.TryGetProperty("idleTimeoutInMinutes", out _));
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public void BicepBinding_AllowsNullRootIdWithoutAssigningOrRemovingIt()
+    {
+        var (body, pipeline) = NormalizePilotBody(_ => { });
+        var input = JsonNode.Parse(body.GetRawText())!;
+        input["id"] = null;
+        JsonElement normalized = JsonSerializer.SerializeToElement(input);
+
+        var parameters = PublicIpBicepInputBinding.Bind(PipName, normalized);
+
+        Assert.False(parameters.ContainsKey("id"));
+        Assert.Equal(JsonValueKind.Null, normalized.GetProperty("id").ValueKind);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public void BicepBinding_RejectsSuppliedFieldsMissingFromTheGeneratedBridge()
+    {
+        var (body, pipeline) = NormalizePilotBody(processor => processor.TagSpecs = ["Owner=team-A"]);
+        var bridge = JsonNode.Parse(PublicIpBicepInputBinding.ReadBridge().GetRawText())!;
+        JsonArray bindings = bridge["bindings"]!.AsArray();
+        bindings.Remove(bindings.Single(binding => binding!["parameter"]!.GetValue<string>() == "Tags"));
+
+        var error = Assert.Throws<InvalidInputException>(() =>
+            PublicIpBicepInputBinding.Bind(PipName, body, JsonSerializer.SerializeToElement(bridge)));
+
+        Assert.Contains("$.tags", error.Message);
+        Assert.Equal("team-A", body.GetProperty("tags").GetProperty("Owner").GetString());
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Theory]
+    [InlineData("version")]
+    [InlineData("missingName")]
+    [InlineData("duplicateName")]
+    [InlineData("missingPath")]
+    [InlineData("missingOptionalName")]
+    [InlineData("duplicateOptionalName")]
+    public void BicepBinding_RejectsInvalidGeneratedMetadata(string defect)
+    {
+        var (body, pipeline) = NormalizePilotBody(_ => { });
+        var bridge = JsonNode.Parse(PublicIpBicepInputBinding.ReadBridge().GetRawText())!;
+        JsonNode timeout = bridge["bindings"]!.AsArray()
+            .Single(binding => binding!["parameter"]!.GetValue<string>() == "IdleTimeoutInMinutes")!;
+        JsonNode tags = bridge["bindings"]!.AsArray()
+            .Single(binding => binding!["parameter"]!.GetValue<string>() == "Tags")!;
+        switch (defect)
+        {
+            case "version": bridge["resourceType"] = "Microsoft.Network/publicIPAddresses@2025-07-01"; break;
+            case "missingName": timeout["deploymentParameter"] = null; break;
+            case "duplicateName": timeout["deploymentParameter"] = "skuName"; break;
+            case "missingPath": timeout["wirePath"] = new JsonArray(); break;
+            case "missingOptionalName": tags["deploymentParameter"] = null; break;
+            case "duplicateOptionalName": tags["deploymentParameter"] = "skuName"; break;
+        }
+
+        Assert.Throws<InvalidOperationException>(() => PublicIpBicepInputBinding.Bind(PipName, body, JsonSerializer.SerializeToElement(bridge)));
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public void BicepBinding_RejectsDuplicateFieldsInGeneratedContainers()
+    {
+        using var document = JsonDocument.Parse("""
+            {"location":"eastus","sku":{"name":"Standard","name":"Standard"},
+             "properties":{"publicIPAllocationMethod":"Static","publicIPAddressVersion":"IPv4","idleTimeoutInMinutes":4}}
+            """);
+
+        var error = Assert.Throws<InvalidInputException>(() => PublicIpBicepInputBinding.Bind(PipName, document.RootElement));
+
+        Assert.Contains("Duplicate", error.Message);
+        Assert.Contains("$.sku.name", error.Message);
+    }
+
     private static async Task<JsonElement> CaptureDeploymentParametersAsync(IDictionary<string, DeploymentParameter> parameters)
     {
         string? body = null;

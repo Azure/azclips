@@ -162,3 +162,19 @@ export function classifyPublicIpEligibility(bridge) {
     })),
   };
 }
+
+export function createBindingFixture(bridge, provenance) {
+  const names = new Set();
+  const bindings = bridge.bindings.map((binding) => {
+    if (binding.eligibility !== "eligible" && binding.role !== "resourceName") return binding;
+    const deploymentParameter = binding.parameter[0].toLowerCase() + binding.parameter.slice(1);
+    assert.ok(!names.has(deploymentParameter), `Duplicate deployment parameter ${deploymentParameter}`);
+    names.add(deploymentParameter);
+    return { ...binding, deploymentParameter };
+  });
+  return {
+    schemaVersion: bridge.schemaVersion, resourceType: bridge.resourceType,
+    operation: bridge.operation, command: bridge.command, commandName: bridge.commandName,
+    provenance, bindings,
+  };
+}

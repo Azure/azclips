@@ -339,7 +339,34 @@ All diagnostics remain visible. Canonical emission adds the two known ambiguous-
 | `npm --prefix toolkit\tools\typespec-bicep test` | 13 passed; original upstream golden output, scope and source-integrity checks preserved |
 | `npm --prefix toolkit exec -- vitest run packages\typespec-emitter\test\deployment.e2e.test.ts` | 24 passed; includes whole-IR observational equality and existing disabled/legacy parser behavior |
 
-**Task 1.14 remains next:** replace the handwritten offline fixture's structural mapping with this generated bridge while preserving independent normalization, eligibility, direct-ID, exact integer and omission assertions. JSON generation alone does not prove runtime consumption, newer-source customization parity, a compiled template or deployment execution. No normal pins, generated product C#, runtime registration or live resources changed.
+The following offline fixture step proves consumption of this bridge while retaining independent normalization, eligibility, direct-ID, exact integer and omission assertions. JSON generation alone does not prove newer-source customization parity, a compiled template or deployment execution. No normal pins, generated product C#, runtime registration or live resources changed.
+
+### Generated bridge consumed by the offline fixture
+
+Task 1.14 is complete. The probe's optional third argument writes the [generated fixture JSON](../../../tests/Cli.Tests/Fixtures/PublicIpBicepBindings.json). This view retains all 43 canonical input bindings, their source identities, wire/Bicep paths, types and constraint metadata, plus source/upstream revision and schema/binding/toolchain-lock hashes. Read-only output-field records are not duplicated in this input fixture.
+
+The generator adds `deploymentParameter` only to the seven allowed fields and the required resource name. It renders the canonical parameter name with a lowercase initial character and rejects duplicate rendered names. Rendering determines an output identifier, not source-to-field correspondence; there is no handwritten parameter-to-body-field table.
+
+The [test project](../../../tests/Cli.Tests/Cli.Tests.csproj) embeds the checked-in generated JSON. Ordinary .NET tests do not require Node, TypeSpec, a private cache, network access or runtime code generation. The [offline binder](../../../tests/Cli.Tests/Fixtures/PublicIpBicepInputBinding.cs) reads that asset, validates its schema/resource version and unambiguous parameter names, derives permitted containing paths from generated field eligibility, and copies present normalized leaves into the generated parameter names. It skips only absent optional leaves, never supplied unsupported fields. Dictionary-valued tags remain an opaque leaf with the existing string-value policy.
+
+The binder no longer manually assigns location, SKU or `properties` fields. Existing command normalization and separate Standard/Regional, Static, IPv4, tag-shape and Int32 policy remain unchanged. Every non-null root ID still fails; an explicit null root ID stays untouched in the input and is not assigned. Duplicate fields in generated containers, malformed required containers and fields missing from the bridge fail explicitly. Even missing/duplicate names for omitted optional parameters are invalid fixture metadata, not success-shaped omissions.
+
+The independent [Public IP assertions](../../../tests/Cli.Tests/PublicIpAddressParameterTests.cs) remain the expected-value oracle. They compare existing direct/customized bodies with parameter JSON serialized by the real generated resource-group deployment processor on a fake HTTP pipeline, including Int32 upper-bound values, defaulted non-positive timeouts, tags and omitted tier/tags. Added regressions change generated output names to prove that the fixture consumes them, remove a supplied field's bridge entry to prove it cannot be silently dropped, and cover invalid version/path/name metadata and duplicate container properties.
+
+Regenerate with the already prepared isolated closure:
+
+```powershell
+node toolkit\tools\typespec-bicep\project-public-ip.mjs $toolchain $source tests\Cli.Tests\Fixtures\PublicIpBicepBindings.json
+```
+
+| Command / check | Result |
+| --- | --- |
+| Probe with the fixture output argument above | Passed; pinned real source, 43 retained bindings and 8 generated parameter names; schema and source-binding hashes unchanged |
+| Exact JSON comparison with `createBindingFixture` applied to the real generated bridge | Passed; persisted fixture matches its generator output |
+| `node --test toolkit\tools\typespec-bicep\test\projected-create.test.mjs` | 8 passed, including fixture metadata preservation, excluded/computed inputs and rendered-name collision rejection |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~PublicIpAddressParameterTests -v quiet` | 69 passed, none skipped; repository SDK `10.0.404`, xUnit/VSTest; build succeeded with warnings in untouched projects |
+
+This proves **existing checked-in customization/body behavior bound through the generated 2026 bridge**, not compilation or execution of a newly generated 2026 Network processor. No whole-Network C# qualification, compiler catalogue audit, Bicep template compilation, product adapter, new public command or live deployment is claimed. **Task 1.15 remains next:** independently audit exact-2026 correspondence/coverage against upstream types and the pinned Bicep compiler catalogue before retiring superseded schema machinery.
 
 ## Goals / Non-Goals
 
