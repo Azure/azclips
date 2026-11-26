@@ -4,13 +4,22 @@ pr: none
 
 jobs:
 - job: CheckFeedRead
-  displayName: Check CLI2Yaml feed read access
+  displayName: Test CLI2Yaml package restore
   pool:
     name: pool-ubuntu-2404
   steps:
-  - checkout: none
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+    fetchTags: true
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+  - task: NuGetAuthenticate@1
+    displayName: Install NuGet credential provider
   - task: AzureCLI@2
-    displayName: Read CLI2Yaml package metadata with existing workload identity
+    displayName: Restore CLI2Yaml with existing workload identity
     inputs:
       azureSubscription: DocsReference_WIF
       scriptType: pscore
@@ -24,15 +33,24 @@ jobs:
         if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
           throw 'Could not obtain an Azure DevOps access token for the workload identity.'
         }
-        $uri = 'https://feeds.dev.azure.com/apidrop/_apis/packaging/feeds/ReferenceAutomation/packages?packageNameQuery=CLI2Yaml&protocolType=NuGet&includeAllVersions=false&api-version=7.1'
+        $feed = 'https://apidrop.pkgs.visualstudio.com/_packaging/ReferenceAutomation/nuget/v3/index.json'
         try {
-          $result = Invoke-RestMethod -Uri $uri -Headers @{ Authorization = "Bearer $token" } -TimeoutSec 30
-          $packages = @($result.value | Where-Object { $_.name -eq 'CLI2Yaml' })
-          if ($packages.Count -ne 1) {
-            throw 'The feed did not return the CLI2Yaml package.'
-          }
-          Write-Host 'The workload identity can read CLI2Yaml package metadata from the ReferenceAutomation feed.'
+          $credentials = @{ endpointCredentials = @(@{ endpoint = $feed; username = 'workload-identity'; password = $token }) } | ConvertTo-Json -Depth 4 -Compress
+          $env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS = $credentials
+          $env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS = $credentials
+          $env:ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED = 'false'
+          $env:NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED = 'false'
+          $env:AZCLIPS_CLI_SYNC_LOAD_ONLY = '1'
+          . (Join-Path $env:BUILD_SOURCESDIRECTORY 'build/Sync-AzClipsCliDocs.ps1')
+          $dll = Get-Cli2YamlDllPath -PackageName 'CLI2Yaml' -Feed $feed -FetchIfMissing
+          if (-not (Test-Path -LiteralPath $dll)) { throw 'Restored CLI2Yaml DLL was not found.' }
+          Write-Host 'Restored CLI2Yaml successfully using the workload identity.'
         }
         finally {
           $token = $null
+          $credentials = $null
+          Remove-Item Env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS, Env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS, Env:AZCLIPS_CLI_SYNC_LOAD_ONLY -ErrorAction SilentlyContinue
         }
+    env:
+      NUGET_PACKAGES: $(Agent.TempDirectory)/azclips-feed-test-packages-$(System.JobId)
+      NUGET_HTTP_CACHE_PATH: $(Agent.TempDirectory)/azclips-feed-test-http-$(System.JobId)
