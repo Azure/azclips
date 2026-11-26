@@ -1,0 +1,52 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+- name: dependency_stage
+  type: object
+
+stages:
+- stage: QueuePreviewDocs
+  displayName: Queue Microsoft Learn Preview Docs Sync
+  dependsOn: ${{ parameters.dependency_stage }}
+  variables:
+  - name: DocsSyncPipelineId
+    value: CONFIGURE_DOCS_PIPELINE_ID
+  jobs:
+  - job: QueueDocsPipeline
+    displayName: Queue Standalone Docs Pipeline
+    pool:
+      name: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+    - template: ../steps/validate-release-project.yml
+      parameters:
+        error_message: Preview docs sync must be queued from the release project.
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        if ($env:DOCS_PIPELINE_ID -notmatch '^[1-9][0-9]*$') {
+          throw 'Configure DocsSyncPipelineId with the standalone docs pipeline definition ID.'
+        }
+        if ($env:SOURCE_REF -notmatch '^refs/tags/(v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z)$') {
+          throw 'Docs sync requires a stable release tag.'
+        }
+        $tag = $Matches[1]
+        if ($env:SOURCE_COMMIT -notmatch '^[0-9a-fA-F]{40}$') {
+          throw 'Release source commit must be a Git commit SHA.'
+        }
+        if ([string]::IsNullOrWhiteSpace($env:SYSTEM_ACCESSTOKEN)) {
+          throw 'The pipeline job access token is required to queue docs sync.'
+        }
+        $body = @{
+          resources = @{ repositories = @{ self = @{ refName = $env:SOURCE_REF; version = $env:SOURCE_COMMIT } } }
+          templateParameters = @{ release_tag = $tag; expected_commit = $env:SOURCE_COMMIT; sync_mode = 'create-pr' }
+        } | ConvertTo-Json -Depth 10
+        $uri = "$($env:SYSTEM_COLLECTIONURI)$($env:SYSTEM_TEAMPROJECTID)/_apis/pipelines/$($env:DOCS_PIPELINE_ID)/runs?api-version=7.1"
+        $run = Invoke-RestMethod -Method Post -Uri $uri -Headers @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" } -ContentType 'application/json' -Body $body -TimeoutSec 60
+        if (-not $run.id) { throw 'Azure DevOps did not return a docs pipeline run ID.' }
+        Write-Host "Queued docs pipeline run $($run.id): $($run._links.web.href)"
+      displayName: Queue Docs Sync For Release Tag
+      env:
+        DOCS_PIPELINE_ID: $(DocsSyncPipelineId)
+        SOURCE_REF: $(Build.SourceBranch)
+        SOURCE_COMMIT: $(Build.SourceVersion)
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)

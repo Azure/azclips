@@ -22,20 +22,31 @@ guide in the same PR so it stays accurate.
 | `azclips-beta-sign.yml` | Daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`) + pipeline resource `betaBuild` tagged `sign-beta` | release | Scheduled/manual runs default to the latest successful `main` beta build without requiring a tag; ESRP-signs the selected build, verifies signatures/content, runs the full native lifecycle matrix, and builds/validates signed PowerShell Docker images without registry publication. |
 | `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI and changed extension/PowerShell module versions, then opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → signed lifecycle validation → publish GitHub release. In parallel after verify, signed PowerShell images are built/validated and CLI + PowerShell images are published to the ACR repositories configured by the `Docker*Registry*`/`Docker*Repository` variables in the entry pipeline, then verified from ACR and from MCR after a 10-minute delay. |
+| `azclips-preview-docs-sync.yml` | Manual or queued by stable release | release | Standalone, tag-selected preview docs sync scaffold. Default `validate` mode checks the tag and source scripts; `dry-run` generates CLI output and reports the PowerShell copy plan without pushing. |
 
 ## Template Layout (`templates/`)
-- Preview docs integration is currently an opt-in scaffold: `sync_preview_docs`
+- Preview docs integration remains an opt-in scaffold: `sync_preview_docs`
   defaults to `false` in `azclips-stable-release.yml`. When selected,
-  `SyncPreviewDocs` depends on `ValidateSignedDistribution`, alongside GitHub
-  publication, and is not a dependency of package/container publication.
-  `templates/dist/stages/sync-preview-docs.yml` deliberately fails its setup job
-  before the two sync jobs can run. PAT vault/secret, CLI2Yaml feed connection
-  and reviewer variables are placeholders; notification and structured result
-  handling are not implemented. Do not remove the setup stop until approved
-  configuration and those behaviors are implemented and validated. The job
-  template uses full tag/history checkout, the pinned SDK, the existing Key Vault
-  PAT helper, and process-scoped Git authentication through `gh`. No promotion
-  to `live` or manual-merge gate is implemented.
+  `QueuePreviewDocs` runs after `ValidateSignedDistribution`, alongside GitHub
+  publication, and queues `azclips-preview-docs-sync` without waiting for it.
+  Configure `DocsSyncPipelineId` and grant the release build identity permission
+  to queue that definition before enabling it. Queue failures fail the queue
+  stage but do not block package/container publication; the separate docs run
+  must be monitored independently. Retrying a queue job can create another run.
+  The queue passes the release tag and source commit and pins the docs pipeline
+  checkout to that tag/commit. Manual runs select a tag via `release_tag`; the
+  optional `expected_commit` detects an unexpected tag target.
+- The standalone pipeline defaults to `validate` and has no automatic trigger.
+  Its `dry-run` mode requires an authorized CLI2Yaml feed service connection;
+  it does not push, open PRs, or email. CLI generates scratch output; PowerShell
+  reports a copy plan against an absent target, not a comparison with live docs.
+  Runs require the selected tag to contain the tag-aware sync scripts.
+  `create-pr` mode is not operational: `templates/dist/stages/sync-preview-docs.yml`
+  deliberately fails its setup job before sync. PAT vault/secret, default feed
+  connection, and reviewer variables are placeholders; notification, structured
+  results, and safe reruns are not implemented. Do not remove the setup stop
+  until approved configuration and those behaviors are implemented and validated.
+  No promotion to `live` or manual-merge gate is implemented.
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
 - `templates/dist/variables/` — `common.yml`, `packaging.yml` (script/out roots, RIDs), `release.yml` (ESRP keycodes).
 - `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `validate-signed-distribution.yml`, `component-governance.yml`, `init-resolve-version.yml`, `build-signed-docker.yml`, `publish-docker-to-acr.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.

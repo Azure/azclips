@@ -1,0 +1,41 @@
+name: azclips-preview-docs-sync-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+- name: release_tag
+  displayName: Stable release tag
+  type: string
+  default: REQUIRED
+- name: expected_commit
+  displayName: Expected tag commit (optional)
+  type: string
+  default: none
+- name: sync_mode
+  displayName: Sync mode
+  type: string
+  default: validate
+  values:
+  - validate
+  - dry-run
+  - create-pr
+- name: cli2yaml_feed_service_connection
+  displayName: CLI2Yaml feed service connection (dry-run and PR modes)
+  type: string
+  default: CONFIGURE_CLI2YAML_FEED_CONNECTION
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- ${{ if eq(parameters.sync_mode, 'create-pr') }}:
+  - group: 'get-github-pat-token'
+
+stages:
+- template: templates/dist/stages/sync-preview-docs.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    release_tag: ${{ parameters.release_tag }}
+    expected_commit: ${{ parameters.expected_commit }}
+    sync_mode: ${{ parameters.sync_mode }}
+    cli2yaml_feed_service_connection: ${{ parameters.cli2yaml_feed_service_connection }}

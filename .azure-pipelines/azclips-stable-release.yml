@@ -219,7 +219,7 @@ stages:
     PackagingScriptsRoot: $(PackagingScriptsRoot)
 
 - ${{ if eq(parameters.sync_preview_docs, true) }}:
-  - template: templates/dist/stages/sync-preview-docs.yml
+  - template: templates/dist/stages/queue-preview-docs.yml
     parameters:
       ubuntu_pool: ${{ variables.ubuntu_pool }}
       dependency_stage: ValidateSignedDistribution

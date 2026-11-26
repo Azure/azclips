@@ -12,11 +12,19 @@ parameters:
 - name: fetch_cli2yaml
   type: boolean
   default: false
+- name: release_tag
+  type: string
+- name: sync_mode
+  type: string
+- name: cli2yaml_feed_service_connection
+  type: string
 
 jobs:
 - job: ${{ parameters.job_name }}
   displayName: ${{ parameters.display_name }}
   dependsOn: CheckDocsSetup
+  variables:
+    DocsCommit: $[ dependencies.CheckDocsSetup.outputs['ValidateTag.DocsCommit'] ]
   pool:
     name: ${{ parameters.ubuntu_pool }}
   steps:
@@ -31,40 +39,45 @@ jobs:
       packageType: sdk
       useGlobalJson: true
 
-  - template: ../steps/get-github-pat-token.yml
-    parameters:
-      azureSubscription: $(AzureSubscription)
-      keyVaultName: $(DocsGitHubPatKeyVault)
-      secretName: $(DocsGitHubPatSecretName)
+  - ${{ if eq(parameters.sync_mode, 'create-pr') }}:
+    - template: ../steps/get-github-pat-token.yml
+      parameters:
+        azureSubscription: $(AzureSubscription)
+        keyVaultName: $(DocsGitHubPatKeyVault)
+        secretName: $(DocsGitHubPatSecretName)
 
   - ${{ if eq(parameters.fetch_cli2yaml, true) }}:
     - task: NuGetAuthenticate@1
       displayName: Authenticate To CLI2Yaml Feed
       inputs:
-        nuGetServiceConnections: $(DocsNuGetServiceConnection)
+        nuGetServiceConnections: ${{ parameters.cli2yaml_feed_service_connection }}
 
   - task: PowerShell@2
-    displayName: Generate Tagged Docs And Open Draft PR
+    displayName: Run Tagged Docs Sync
     inputs:
       targetType: inline
       pwsh: true
       script: |
         $ErrorActionPreference = 'Stop'
-        if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
-          throw 'GitHub token is required for docs branch push and PR creation.'
+        $commit = & git rev-parse --verify --quiet "refs/tags/$($env:RELEASE_TAG)^{commit}"
+        if ($LASTEXITCODE -ne 0 -or -not $commit -or $commit.Trim() -ne $env:DOCS_COMMIT) {
+          throw 'The docs source tag no longer matches the validated commit.'
         }
-        if ($env:SOURCE_REF -notmatch '^refs/tags/(v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z)$') {
-          throw 'Docs sync requires the stable release tag.'
-        }
-        $tag = $Matches[1]
         $syncArgs = @{
-          ReleaseTag = $tag
-          Push = $true
-          TargetBranch = 'main'
-          HeadRepository = $env:DOCS_REPOSITORY
-          TargetRepository = $env:DOCS_REPOSITORY
-          CommitAuthor = 'Azclips Release Automation'
-          CommitEmail = 'azclips-release-automation@microsoft.com'
+          ReleaseTag = $env:RELEASE_TAG
+        }
+        if ($env:SYNC_MODE -eq 'create-pr') {
+          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw 'GitHub token is required for docs branch push and PR creation.'
+          }
+          $syncArgs.Push = $true
+          $syncArgs.TargetBranch = 'main'
+          $syncArgs.HeadRepository = $env:DOCS_REPOSITORY
+          $syncArgs.TargetRepository = $env:DOCS_REPOSITORY
+          $syncArgs.CommitAuthor = 'Azclips Release Automation'
+          $syncArgs.CommitEmail = 'azclips-release-automation@microsoft.com'
+        } else {
+          $syncArgs.TargetRepoPath = Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-docs-dry-run-target'
         }
         if ($env:FETCH_CLI2YAML -eq 'True') {
           $syncArgs.FetchIfMissing = $true
@@ -72,12 +85,15 @@ jobs:
         $script = Join-Path "$(Build.SourcesDirectory)/build" $env:SYNC_SCRIPT
         & $script @syncArgs
     env:
-      GH_TOKEN: $(GH_TOKEN)
-      SOURCE_REF: $(Build.SourceBranch)
+      ${{ if eq(parameters.sync_mode, 'create-pr') }}:
+        GH_TOKEN: $(GH_TOKEN)
+        GIT_CONFIG_COUNT: '1'
+        GIT_CONFIG_KEY_0: credential.https://github.com.helper
+        GIT_CONFIG_VALUE_0: '!gh auth git-credential'
+      RELEASE_TAG: ${{ parameters.release_tag }}
+      DOCS_COMMIT: $(DocsCommit)
+      SYNC_MODE: ${{ parameters.sync_mode }}
       DOCS_REPOSITORY: ${{ parameters.target_repository }}
       SYNC_SCRIPT: ${{ parameters.sync_script }}
       FETCH_CLI2YAML: ${{ parameters.fetch_cli2yaml }}
       GIT_TERMINAL_PROMPT: '0'
-      GIT_CONFIG_COUNT: '1'
-      GIT_CONFIG_KEY_0: credential.https://github.com.helper
-      GIT_CONFIG_VALUE_0: '!gh auth git-credential'

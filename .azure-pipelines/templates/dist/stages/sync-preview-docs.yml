@@ -1,21 +1,24 @@
 parameters:
 - name: ubuntu_pool
   type: string
-- name: dependency_stage
-  type: object
+- name: release_tag
+  type: string
+- name: expected_commit
+  type: string
+- name: sync_mode
+  type: string
+- name: cli2yaml_feed_service_connection
+  type: string
 
 stages:
 - stage: SyncPreviewDocs
-  displayName: Generate Microsoft Learn Preview PRs
-  dependsOn: ${{ parameters.dependency_stage }}
+  displayName: Sync Microsoft Learn Preview Docs
   variables:
   # Configuration stubs only. Replace with approved pipeline configuration before enabling.
   - name: DocsGitHubPatKeyVault
     value: CONFIGURE_DOCS_PAT_VAULT
   - name: DocsGitHubPatSecretName
     value: CONFIGURE_DOCS_PAT_SECRET
-  - name: DocsNuGetServiceConnection
-    value: CONFIGURE_CLI2YAML_FEED_CONNECTION
   - name: DocsMailRecipients
     value: CONFIGURE_AZCLIPS_REVIEWERS
   jobs:
@@ -24,42 +27,76 @@ stages:
     pool:
       name: ${{ parameters.ubuntu_pool }}
     steps:
-    - checkout: none
     - template: ../steps/validate-release-project.yml
       parameters:
         error_message: Preview docs sync must run in the release project.
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      fetchTags: true
     - pwsh: |
-        throw 'Docs CI is a scaffold: configure GitHub/feed access, structured PR results, and approved email delivery before enabling it.'
-      displayName: Stop Until Docs Setup Is Complete
+        $ErrorActionPreference = 'Stop'
+        if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{8}T[0-9]{6}Z$') {
+          throw 'Select a stable release tag like v1.2.3.20260624T091500Z.'
+        }
+        $commit = & git rev-parse --verify --quiet "refs/tags/$($env:RELEASE_TAG)^{commit}"
+        if ($LASTEXITCODE -ne 0 -or -not $commit) { throw 'Release tag was not found in the full checkout.' }
+        $commit = $commit.Trim()
+        if ($env:EXPECTED_COMMIT -ne 'none' -and $env:EXPECTED_COMMIT -ne $commit) {
+          throw 'The release tag does not match the expected release commit.'
+        }
+        foreach ($script in @('Sync-AzClipsCliDocs.ps1', 'Sync-AzclipsPowerShellDocs.ps1', 'Invoke-DocsReleaseCheckout.ps1')) {
+          & git cat-file -e "${commit}:build/$script"
+          if ($LASTEXITCODE -ne 0) { throw "The selected tag does not contain build/$script." }
+        }
+        Write-Host "Validated release tag $($env:RELEASE_TAG) at $commit."
+        Write-Host "##vso[task.setvariable variable=DocsCommit;isOutput=true]$commit"
+      name: ValidateTag
+      displayName: Validate Docs Source Tag
+      env:
+        RELEASE_TAG: ${{ parameters.release_tag }}
+        EXPECTED_COMMIT: ${{ parameters.expected_commit }}
+    - ${{ if eq(parameters.sync_mode, 'create-pr') }}:
+      - pwsh: |
+          throw 'Docs CI is a scaffold: configure GitHub/feed access, structured PR results, and approved email delivery before enabling it.'
+        displayName: Stop Until Docs Setup Is Complete
 
-  - template: ../jobs/sync-preview-docs.yml
-    parameters:
-      job_name: SyncCliDocs
-      display_name: Generate CLI Preview Docs PR
-      ubuntu_pool: ${{ parameters.ubuntu_pool }}
-      sync_script: Sync-AzClipsCliDocs.ps1
-      target_repository: MicrosoftDocs/azure-docs-cli
-      fetch_cli2yaml: true
+  - ${{ if ne(parameters.sync_mode, 'validate') }}:
+    - template: ../jobs/sync-preview-docs.yml
+      parameters:
+        job_name: SyncCliDocs
+        display_name: Sync CLI Preview Docs
+        ubuntu_pool: ${{ parameters.ubuntu_pool }}
+        sync_script: Sync-AzClipsCliDocs.ps1
+        target_repository: MicrosoftDocs/azure-docs-cli
+        fetch_cli2yaml: true
+        release_tag: ${{ parameters.release_tag }}
+        sync_mode: ${{ parameters.sync_mode }}
+        cli2yaml_feed_service_connection: ${{ parameters.cli2yaml_feed_service_connection }}
 
-  - template: ../jobs/sync-preview-docs.yml
-    parameters:
-      job_name: SyncPowerShellDocs
-      display_name: Generate PowerShell Preview Docs PR
-      ubuntu_pool: ${{ parameters.ubuntu_pool }}
-      sync_script: Sync-AzclipsPowerShellDocs.ps1
-      target_repository: MicrosoftDocs/azure-docs-powershell
+    - template: ../jobs/sync-preview-docs.yml
+      parameters:
+        job_name: SyncPowerShellDocs
+        display_name: Sync PowerShell Preview Docs
+        ubuntu_pool: ${{ parameters.ubuntu_pool }}
+        sync_script: Sync-AzclipsPowerShellDocs.ps1
+        target_repository: MicrosoftDocs/azure-docs-powershell
+        release_tag: ${{ parameters.release_tag }}
+        sync_mode: ${{ parameters.sync_mode }}
+        cli2yaml_feed_service_connection: ${{ parameters.cli2yaml_feed_service_connection }}
 
-  - job: NotifyDocsReviewers
-    displayName: Notify AzClips Docs Reviewers
-    dependsOn:
-    - CheckDocsSetup
-    - SyncCliDocs
-    - SyncPowerShellDocs
-    condition: and(not(canceled()), eq(dependencies.CheckDocsSetup.result, 'Succeeded'))
-    pool:
-      name: ${{ parameters.ubuntu_pool }}
-    steps:
-    - checkout: none
-    - pwsh: |
-        throw 'Notification stub: collect both PR URLs or no-change/failure results and send review instructions using the approved mail service.'
-      displayName: Send PR Links And Review Instructions (Not Implemented)
+  - ${{ if eq(parameters.sync_mode, 'create-pr') }}:
+    - job: NotifyDocsReviewers
+      displayName: Notify AzClips Docs Reviewers
+      dependsOn:
+      - CheckDocsSetup
+      - SyncCliDocs
+      - SyncPowerShellDocs
+      condition: and(not(canceled()), eq(dependencies.CheckDocsSetup.result, 'Succeeded'))
+      pool:
+        name: ${{ parameters.ubuntu_pool }}
+      steps:
+      - checkout: none
+      - pwsh: |
+          throw 'Notification stub: collect both PR URLs or no-change/failure results and send review instructions using the approved mail service.'
+        displayName: Send PR Links And Review Instructions (Not Implemented)
