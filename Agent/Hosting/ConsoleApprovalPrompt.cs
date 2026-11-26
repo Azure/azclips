@@ -28,16 +28,26 @@ public sealed class ConsoleApprovalPrompt
 {
     private readonly SpinnerService? _spinner;
     private readonly IAgentRenderer? _renderer;
-    private readonly AbortKeyWatcher? _abortWatcher;
+    private readonly ConsoleKeyReader? _keys;
+    private readonly ConsoleAgentRenderer? _output;
 
+    /// <param name="keys">
+    /// Reads the answer key by key when set; otherwise the answer is one line from
+    /// <see cref="Console.In"/>.
+    /// </param>
+    /// <param name="output">
+    /// Console renderer that redraws the open approval line after its own output.
+    /// </param>
     public ConsoleApprovalPrompt(
         SpinnerService? spinner = null,
         IAgentRenderer? renderer = null,
-        AbortKeyWatcher? abortWatcher = null)
+        ConsoleKeyReader? keys = null,
+        ConsoleAgentRenderer? output = null)
     {
         _spinner = spinner;
         _renderer = renderer;
-        _abortWatcher = abortWatcher;
+        _keys = keys;
+        _output = output;
     }
 
     private readonly Channel<PendingApproval> _queue =
@@ -78,9 +88,12 @@ public sealed class ConsoleApprovalPrompt
     // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
     // set, the user typed free-form text at the y/n prompt — the host treats it
     // as a rejection of the current tool plus the next chat-loop input.
-    public sealed record ApprovalOutcome(bool Handled, bool Approved, string? FeedbackPrompt)
+    // InterruptTurn is set when the user pressed Ctrl+C at the prompt: the tool is
+    // denied and the host interrupts the running turn.
+    public sealed record ApprovalOutcome(bool Handled, bool Approved, string? FeedbackPrompt, bool InterruptTurn = false)
     {
         public static readonly ApprovalOutcome NotHandled = new(false, false, null);
+        public static readonly ApprovalOutcome Interrupted = new(true, false, null, InterruptTurn: true);
         public static readonly ApprovalOutcome Yes = new(true, true, null);
         public static readonly ApprovalOutcome No = new(true, false, null);
         public static ApprovalOutcome Redirect(string feedback) => new(true, false, feedback);
@@ -124,7 +137,6 @@ public sealed class ConsoleApprovalPrompt
     public void ShowPlan(PlanContent plan)
     {
         _spinner?.Pause();
-        _abortWatcher?.Pause();
         try
         {
             Action body = () =>
@@ -137,7 +149,6 @@ public sealed class ConsoleApprovalPrompt
         }
         finally
         {
-            _abortWatcher?.Resume();
             _spinner?.Resume();
         }
     }
@@ -158,7 +169,6 @@ public sealed class ConsoleApprovalPrompt
         bool isOneShot)
     {
         _spinner?.Pause();
-        _abortWatcher?.Pause();
         try
         {
             Action body = () =>
@@ -172,7 +182,6 @@ public sealed class ConsoleApprovalPrompt
         }
         finally
         {
-            _abortWatcher?.Resume();
             _spinner?.Resume();
         }
     }
@@ -355,22 +364,33 @@ public sealed class ConsoleApprovalPrompt
         _                              => (req.Kind ?? "tool",                     string.Empty),
     };
 
+    /// <summary>Completes with true when a request is waiting to be pumped.</summary>
+    public Task<bool> WaitForRequestAsync(CancellationToken ct) =>
+        _queue.Reader.WaitToReadAsync(ct).AsTask();
+
+    /// <summary>Denies every queued request without prompting.</summary>
+    public void DenyPending()
+    {
+        while (_queue.Reader.TryRead(out var pending))
+        {
+            pending.Reg.Dispose();
+            pending.Result.TrySetResult(false);
+        }
+    }
+
     /// <summary>
-    /// Synchronously consumes one pending request (if any) on the calling
-    /// thread, writes the prompt + reads y/n from stdin. Designed to be raced
-    /// against <c>SendAndWaitAsync</c> via <see cref="Task.WhenAny(Task, Task)"/>
-    /// so the host's main thread can pump approvals during a busy turn without
-    /// spawning a second stdin reader.
+    /// Consumes one pending request on the calling thread, writes the prompt and
+    /// reads the answer. Only the host loop calls this, so the answer is read by the
+    /// single stdin owner.
     /// </summary>
     /// <returns>
-    /// <see cref="ApprovalOutcome.NotHandled"/> on cancellation; otherwise
-    /// <see cref="ApprovalOutcome.Yes"/> / <see cref="ApprovalOutcome.No"/>, or
-    /// <see cref="ApprovalOutcome.Redirect(string)"/> when the user typed free
-    /// text at the prompt instead of y/n. The SDK tool call is already settled
-    /// (true for Yes, false for No/Redirect) before this method returns; the
-    /// caller only needs to act on the FeedbackPrompt.
+    /// <see cref="ApprovalOutcome.NotHandled"/> on cancellation or when the request
+    /// was already cancelled; otherwise Yes / No / Redirect, or
+    /// <see cref="ApprovalOutcome.Interrupted"/> for Ctrl+C. The SDK tool call is
+    /// settled (true only for Yes) before this method returns.
     /// </returns>
-    public async Task<ApprovalOutcome> PumpOneAsync(CancellationToken ct)
+    /// <param name="turnEnded">A task that completes when the turn ends; an answer read after that is denied.</param>
+    public async Task<ApprovalOutcome> PumpOneAsync(CancellationToken ct, Task? turnEnded = null)
     {
         PendingApproval pending;
         try
@@ -382,49 +402,205 @@ public sealed class ConsoleApprovalPrompt
             return ApprovalOutcome.NotHandled;
         }
 
+        if (pending.Result.Task.IsCompleted)
+        {
+            pending.Reg.Dispose();
+            return ApprovalOutcome.NotHandled;
+        }
+
+        var prompt = pending.Plan is not null
+            ? "   approve plan? [y]es / [n]o, tell me what to do differently: "
+            : "   [y]es / [n]o, tell me what to do differently: ";
+
         _spinner?.Pause();
-        _abortWatcher?.Pause();
-        string? line = null;
+        LineRead answer;
         try
         {
+            var opened = false;
             Action body = () =>
             {
+                // A request cancelled while waiting for the renderer is not shown.
+                if (pending.Result.Task.IsCompleted || ct.IsCancellationRequested)
+                    return;
+                opened = true;
                 Console.WriteLine();
                 if (pending.Plan is not null)
                 {
                     RenderPlan(pending.Plan);
-                    Console.Write("   approve plan? [y]es / [n]o, tell me what to do differently: ");
                 }
                 else
                 {
                     WriteColor(ConsoleColor.DarkYellow, $"⚠ Approve '{pending.ToolName}'?");
                     WriteArgs(pending.ArgsPreview);
-                    Console.Write("   [y]es / [n]o, tell me what to do differently: ");
                 }
-                line = Console.ReadLine();
+                if (_keys is null)
+                    Console.Write(prompt);
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
             else                       body();
+
+            // The request may also end while the header renders; then no read opens.
+            if (!opened || pending.Result.Task.IsCompleted || ct.IsCancellationRequested)
+            {
+                pending.Result.TrySetResult(false);
+                return ApprovalOutcome.NotHandled;
+            }
+
+            answer = await ReadAnswerAsync(prompt, pending.Result.Task, ct).ConfigureAwait(false);
+            // A read that completes after the request ended or the turn ended answers nothing.
+            if (pending.Result.Task.IsCompleted || ct.IsCancellationRequested || turnEnded?.IsCompleted == true)
+            {
+                pending.Result.TrySetResult(false);
+                return ApprovalOutcome.NotHandled;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            pending.Result.TrySetResult(false);
+            return ApprovalOutcome.NotHandled;
         }
         finally
         {
-            _abortWatcher?.Resume();
             _spinner?.Resume();
             pending.Reg.Dispose();
         }
 
-        var trimmed = line?.Trim() ?? string.Empty;
+        return Settle(pending.Result, answer);
+    }
+
+    private async Task<LineRead> ReadAnswerAsync(string prompt, Task requestDone, CancellationToken ct)
+    {
+        if (_keys is null)
+        {
+            var line = Console.ReadLine();
+            return line is null
+                ? new LineRead(LineReadKind.EndOfInput)
+                : new LineRead(LineReadKind.Submitted, line);
+        }
+
+        var editor = new LineEditor();
+        var output = Console.Out;
+        Action<Action> exclusive = _renderer is null ? draw => draw() : _renderer.RunExclusive;
+        _output?.SetInputLine(() => editor.Erase(output), () =>
+        {
+            editor.Detach();
+            editor.Render(output, prompt);
+        });
+        // Ends the line and unregisters the redraw in one renderer lock, so renderer
+        // output never redraws a closed approval.
+        Action finish = () =>
+        {
+            editor.Finish(output, prompt);
+            _output?.SetInputLine(null, null);
+        };
+        // The read stops when the request ends (the turn finished) or ct fires.
+        // readCts is cancelled only here, before it is disposed.
+        using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        try
+        {
+            var read = ReadKeysAsync(editor, prompt, output, exclusive, finish, readCts.Token);
+            await Task.WhenAny(read, requestDone).ConfigureAwait(false);
+            if (!read.IsCompleted)
+                readCts.Cancel();
+            LineRead answer;
+            try
+            {
+                answer = await read.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The turn ended while the approval was open: close its line.
+                exclusive(finish);
+                throw;
+            }
+            if (answer.Kind is LineReadKind.Escape or LineReadKind.CtrlC)
+                exclusive(finish);
+            return answer;
+        }
+        finally
+        {
+            _output?.SetInputLine(null, null);
+        }
+    }
+
+    // Reads one line key by key. Each batch of queued keys is taken, applied and
+    // redrawn under the renderer lock, so a renderer redraw never sees a half-applied
+    // edit. Ctrl+C and Esc end the read; the keys after them stay queued.
+    private async Task<LineRead> ReadKeysAsync(
+        LineEditor editor, string prompt, TextWriter output, Action<Action> exclusive, Action finish,
+        CancellationToken ct)
+    {
+        var keys = _keys!;
+        exclusive(() => editor.Render(output, prompt));
+        while (true)
+        {
+            if (!await keys.WaitToReadAsync(ct).ConfigureAwait(false))
+            {
+                exclusive(finish);
+                return new LineRead(LineReadKind.EndOfInput);
+            }
+
+            LineRead? done = null;
+            exclusive(() =>
+            {
+                while (keys.TryRead(out var key))
+                {
+                    if (ConsoleKeyReader.IsCtrlC(key))
+                    {
+                        done = new LineRead(LineReadKind.CtrlC, editor.Text);
+                        return;
+                    }
+                    if (ConsoleKeyReader.IsEscape(key))
+                    {
+                        done = new LineRead(LineReadKind.Escape, editor.Text);
+                        return;
+                    }
+                    switch (editor.Apply(key))
+                    {
+                        case LineEditResult.Submit:
+                            finish();
+                            done = new LineRead(LineReadKind.Submitted, editor.Text);
+                            return;
+                        case LineEditResult.EndOfInput:
+                            finish();
+                            done = new LineRead(LineReadKind.EndOfInput);
+                            return;
+                    }
+                }
+                editor.Render(output, prompt);
+            });
+            if (done is { } result)
+                return result;
+        }
+    }
+
+    /// <summary>
+    /// Maps an answer to an outcome: y/yes approves; n/no/empty, Esc and end of input
+    /// deny; Ctrl+C denies and interrupts the turn; any other text denies and is
+    /// returned as feedback for the next turn.
+    /// </summary>
+    internal static ApprovalOutcome Settle(TaskCompletionSource<bool> result, LineRead answer)
+    {
+        switch (answer.Kind)
+        {
+            case LineReadKind.CtrlC:
+                result.TrySetResult(false);
+                return ApprovalOutcome.Interrupted;
+            case LineReadKind.Escape:
+            case LineReadKind.EndOfInput:
+                result.TrySetResult(false);
+                return ApprovalOutcome.No;
+        }
+
+        var trimmed = answer.Text.Trim();
         if (trimmed.Equals("y", StringComparison.OrdinalIgnoreCase) ||
             trimmed.Equals("yes", StringComparison.OrdinalIgnoreCase))
         {
-            pending.Result.TrySetResult(true);
+            result.TrySetResult(true);
             return ApprovalOutcome.Yes;
         }
 
-        // Inverse match: anything that isn't y/yes counts as No. Empty / n / no
-        // is a plain rejection; anything else is a rejection PLUS a feedback
-        // prompt the host should feed back into the next chat turn.
-        pending.Result.TrySetResult(false);
+        result.TrySetResult(false);
         if (trimmed.Length == 0 ||
             trimmed.Equals("n", StringComparison.OrdinalIgnoreCase) ||
             trimmed.Equals("no", StringComparison.OrdinalIgnoreCase))

@@ -13,7 +13,8 @@ namespace Core.Agent.Telemetry;
 /// <summary>Drains Agent producers and cleanup before asking Core.Telemetry to finish the file.</summary>
 public sealed class AgentRuntimeLifetime : IAgentProducerLifetime
 {
-    public static readonly TimeSpan ProducerDrainBudget = TimeSpan.FromSeconds(10);
+    /// <summary>Time that shutdown cleanup (producer drain, telemetry flush, scope dispose) may take.</summary>
+    public static readonly TimeSpan ProducerDrainBudget = TimeSpan.FromSeconds(2);
     private readonly object _gate = new();
     private readonly List<Func<Task>> _cleanups = [];
     private readonly ConcurrentQueue<string> _diagnostics = new();
