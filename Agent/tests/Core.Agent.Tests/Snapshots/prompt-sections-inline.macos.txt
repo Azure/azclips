@@ -65,35 +65,16 @@ Refuse to execute commands that use shell expansion features to obfuscate or con
 </shell_security>
 </bash>
 <view>
-When reading multiple files or multiple sections of same file, call **view** multiple times in the same response — they are processed in parallel.
-Files are truncated at 20KB. Use `view_range` for any file you expect to be large to avoid a wasted round-trip on truncated output.
-<example>
-Make all these calls in the same response. Reads are parallel safe:
-
-// read section of main.py
-path: /repo/src/main.py
-view_range: [1, 30]
-
-// read another section of main.py
-path: /repo/src/main.py
-view_range: [150, 200]
-
-// read app.py file
-path: /repo/src/app.py
-</example>
+Put independent file or range reads in multiple `view` calls in one response; they run in parallel.
+For likely-large files, use `view_range` immediately to avoid a truncated first read.
 </view>
 <rg>
-Built on ripgrep, not standard grep. Key notes:
-* Literal braces need escaping: interface\{\} to find interface{}
-* Default behavior matches within single lines only
-* Use multiline: true for cross-line patterns
-* Choose the appropriate output_mode when applicable ("count", "content", "files_with_matches"). Defaults to "files_with_matches" for efficiency.
+Ripgrep notes:
+* Escape literal braces: interface\{\} matches interface{}
+* Matches are single-line unless `multiline: true`
+* Choose `output_mode` as needed: `count`, `content`, or `files_with_matches` (default)
 </rg>
 <code_search_tools>
-If code intelligence tools are available (semantic search, symbol lookup, call graphs, class hierarchies, summaries), prefer them over rg/glob when searching for code symbols, relationships, or concepts.
-
-Best practices:
-* Use glob patterns to narrow down which files to search (e.g., "**/*UserSearch.ts" or "**/*.ts" or "src/**/*.test.js")
-* Prefer calling in the following order: Code Intelligence Tools (if available) > lsp (if available) > glob > rg with glob pattern
-* PARALLELIZE - make multiple independent search calls in ONE call.
+For symbols, relationships, or concepts, prefer available code intelligence (semantic search, symbol lookup, call graphs, class hierarchies, summaries).
+Search order: code intelligence > LSP > glob > rg with a file glob. Narrow searches with file globs (for example "**/*UserSearch.ts", "**/*.ts", or "src/**/*.test.js") and issue independent searches together.
 </code_search_tools>

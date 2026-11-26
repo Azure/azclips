@@ -396,6 +396,10 @@ public sealed class ChatAgent : IAsyncDisposable
             ConfigDirectory = HomePaths.GetDefaultAgentCopilotDirectory(),
             Streaming = true,
             ReasoningEffort = reasoningEffort,
+            // Tool results up to this size go to the model in full. Larger ones are saved to a temp file
+            // that the model must search, which costs extra turns; the largest results (the command
+            // catalog and a subscription resource tree) stay below it.
+            LargeOutput = new LargeToolOutputConfig { MaxSizeBytes = 256 * 1024 },
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Customize,
