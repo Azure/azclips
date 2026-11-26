@@ -7,6 +7,7 @@
   Single entry point for building the whole toolkit, so tools and pipelines do
   not need to know the per-package build commands:
 
+    - Restore locked npm dependencies, including development dependencies, via `npm ci --include=dev`.
     - TypeScript packages (ir, typespec-emitter, compiler, transformers, cli) via `npm run build`.
     - The C# generator + its out-of-process host via `dotnet build` (the host's
       project reference pulls in the generator library).
@@ -23,7 +24,7 @@
   `dotnet build` updates packages/generator/bin but NOT what the CLI runs.
 
 .PARAMETER SkipTypeScript
-  Skip the TypeScript build.
+  Skip npm dependency restore and the TypeScript build.
 
 .PARAMETER SkipDotnet
   Skip the .NET build.
@@ -65,6 +66,7 @@ function Invoke-Step {
 Push-Location $toolkitRoot
 try {
     if (-not $SkipTypeScript) {
+        Invoke-Step 'Restoring npm dependencies (npm ci --include=dev)' { npm ci --include=dev }
         Invoke-Step 'Building TypeScript packages (npm run build)' { npm run build }
     }
 
