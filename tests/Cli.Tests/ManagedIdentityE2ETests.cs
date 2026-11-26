@@ -172,8 +172,8 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         var savedProfile = await profileService.GetActiveProfileAsync();
         Assert.NotNull(savedProfile);
         Assert.Equal(AuthMethod.ManagedIdentity, savedProfile!.AuthMethod);
-        // managed identity does not persist a tenant id
-        Assert.True(string.IsNullOrEmpty(savedProfile.TenantId));
+        // the tenant comes from the issued token
+        Assert.Equal(MockTenantId, savedProfile.TenantId);
         Assert.Equal(MockSubscriptionId, savedProfile.SubscriptionId);
         Assert.Equal("MSI@", savedProfile.ManagedIdentityId); // System-assigned
 
@@ -181,7 +181,7 @@ public class ManagedIdentityE2ETests : IAsyncLifetime
         var profilesFile = Path.Combine(_profileDirectory, "profiles.json");
         Assert.True(File.Exists(profilesFile), $"Profiles file should exist at: {profilesFile}");
         var profilesJson = await File.ReadAllTextAsync(profilesFile);
-        Assert.DoesNotContain(MockTenantId, profilesJson);
+        Assert.Contains(MockTenantId, profilesJson);
         Assert.Contains("ManagedIdentity", profilesJson);
         Assert.Contains("MSI@", profilesJson);
     }
