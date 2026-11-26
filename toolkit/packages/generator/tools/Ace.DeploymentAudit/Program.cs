@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Ace.DeploymentAudit;
 using Ace.Generator.Model.Ir;
+using Azure.Bicep.Types;
 using Azure.Bicep.Types.Az;
 
 const string pinnedCatalogue = "Azure.Bicep.Types.Az@0.2.972";
@@ -14,6 +15,7 @@ try
 {
     string input = await Console.In.ReadToEndAsync();
     string? catalogue = null;
+    string? upstreamTypes = null;
     var selections = new List<string>();
     for (int index = 0; index < args.Length; index += 2)
     {
@@ -22,6 +24,7 @@ try
         {
             case "--catalogue" when catalogue is null: catalogue = args[index + 1]; break;
             case "--select": selections.Add(args[index + 1]); break;
+            case "--upstream-types" when upstreamTypes is null: upstreamTypes = args[index + 1]; break;
             default: throw new AuditInputException("argument-unsupported", $"Unknown or repeated argument '{args[index]}'.");
         }
     }
@@ -30,8 +33,11 @@ try
     string? actualVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0];
     if (actualVersion != "0.2.972") throw new AuditInputException("catalogue-pin-mismatch", $"The loaded catalogue version is '{actualVersion}', not the selected pin.");
     TransformedIR ir = IrJson.Deserialize(input);
-    AuditReport report = CompatibilityAudit.Run(ir, new AzTypeLoader(), selections, pinnedCatalogue,
-        Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(assembly.Location))),
+    byte[] catalogueBytes = await File.ReadAllBytesAsync(upstreamTypes ?? assembly.Location);
+    TypeLoader loader = upstreamTypes is null ? new AzTypeLoader() : new GeneratedTypeLoader(catalogueBytes);
+    AuditReport report = CompatibilityAudit.Run(ir, loader, selections,
+        upstreamTypes is null ? pinnedCatalogue : "generated-upstream-types-json",
+        Convert.ToHexStringLower(SHA256.HashData(catalogueBytes)),
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input))));
     Console.WriteLine(JsonSerializer.Serialize(report, jsonOptions));
     return report.ExitCode;

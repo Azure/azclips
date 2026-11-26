@@ -41,6 +41,7 @@ model WidgetProperties extends BaseProperties {
   right?: Shared;
   @visibility(Lifecycle.Read) serverOnly?: string;
   @removed(Versions.current) obsolete?: string;
+  @added(Versions.current) added?: string;
 }
 model Widget is TrackedResource<WidgetProperties> {
   ...ResourceNameParameter<Widget, KeyName = "widgetName", SegmentName = "widgets">;
@@ -196,14 +197,33 @@ test("latest-version projection removes obsolete fields and selects only one cre
   requireNoErrors(program);
 });
 
+test("earlier-version projection changes schema and canonical bindings rather than only the API label", async () => {
+  const earlier = "2025-01-01";
+  const selected = selectProjectedCreate(program, definitions, { resourceType, apiVersion: earlier }, tools);
+  const correspondence = [];
+  const types = emitter.generateTypes(program, selected.provider, (record) => correspondence.push(record));
+  assert.ok(correspondence.some(({ name }) => name === "obsolete"));
+  assert.ok(!correspondence.some(({ name }) => name === "added"));
+  const canonical = await emitCanonical(program, root, earlier);
+  const commands = await projectCommands(canonical.ir);
+  const bridge = createBindings({ ...bindingInput, ir: commands.ir, sources: canonical.sources,
+    selected, types, correspondence, getSourceConstraints: canonical.getSourceConstraints });
+  assert.equal(bridge.resourceType, `${resourceType}@${earlier}`);
+  assert.ok(bridge.bindings.some(({ wirePath }) => wirePath?.includes("obsolete")));
+  assert.ok(!bridge.bindings.some(({ wirePath }) => wirePath?.includes("added")));
+  assert.notEqual(bindingInput.selected.create.httpOperation.parameters.body.type, selected.create.httpOperation.parameters.body.type);
+});
+
 test("missing, duplicate and mismatched resource selections fail explicitly", () => {
   const select = (providers, selection) => selectProjectedCreate(program, providers, selection, tools);
   assert.throws(() => select(definitions, { resourceType: "Test.Selection/missing", apiVersion }),
     /upstream resource\/version must be unambiguous/);
   assert.throws(() => select([...definitions, ...definitions], { resourceType, apiVersion }),
     /upstream resource\/version must be unambiguous/);
-  assert.throws(() => select(definitions, { resourceType, apiVersion: "2025-01-01" }),
-    /upstream resource\/version must be unambiguous/);
+  const stale = definitions.map((provider) => ({ ...provider, apiVersion: "2099-01-01" }));
+  assert.throws(() => select(stale, { resourceType, apiVersion }), /Upstream descriptor version is inconsistent/);
+  assert.throws(() => select(definitions, { resourceType, apiVersion: "2099-01-01" }),
+    /unambiguous registered source metadata/);
   assert.throws(() => select(definitions, { resourceType, apiVersion: "latest" }),
     /explicit concrete API version/);
   assert.throws(() => select(definitions, { resourceType: "Test.Selection/others", apiVersion }),

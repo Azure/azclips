@@ -39,6 +39,33 @@ public sealed class CompatibilityAuditTests
     };
 
     [Fact]
+    public void Generated_Type_Json_Uses_Official_References_And_The_Same_Audit()
+    {
+        var ir = Document(Property("value"));
+        var catalogue = new Catalogue();
+        catalogue.Resource(new Dictionary<string, ObjectTypeProperty> {
+            ["value"] = new(catalogue.Ref(new StringType(null, null, null, null)), ObjectTypePropertyFlags.None, null),
+        });
+        AuditReport original = catalogue.Run(ir, Selection);
+        var loader = new GeneratedTypeLoader(catalogue.Definitions);
+        AuditReport generated = CompatibilityAudit.Run(ir, loader, [Selection], "generated-upstream-types-json",
+            Convert.ToHexStringLower(SHA256.HashData(catalogue.Definitions)), new string('a', 64));
+
+        Assert.Equal(original.Results[0].Status, generated.Results[0].Status);
+        Assert.Equal(original.Results[0].Coverage.ComparedPaths, generated.Results[0].Coverage.ComparedPaths);
+        Assert.Empty(generated.Results[0].Diagnostics);
+        Assert.Equal("generated-upstream-types-json", generated.Catalogue);
+    }
+
+    [Fact]
+    public void Generated_Type_Json_Without_A_Resource_Fails_Explicitly()
+    {
+        var error = Assert.Throws<AuditInputException>(() => new GeneratedTypeLoader("[]"u8.ToArray()));
+
+        Assert.Equal("generated-resource-missing", error.Code);
+    }
+
+    [Fact]
     public async Task Worker_Drains_Large_Input_Before_Returning_Argument_Diagnostics()
     {
         var start = new ProcessStartInfo("dotnet") {
@@ -401,6 +428,7 @@ public sealed class CompatibilityAuditTests
         private readonly Dictionary<string, CrossFileTypeReference> resources = new(StringComparer.Ordinal);
         private byte[]? definitions;
         private byte[]? index;
+        public byte[] Definitions => definitions ?? throw new InvalidOperationException("Fixture types were not serialized.");
 
         public ITypeReference Ref(TypeBase type)
         {

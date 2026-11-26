@@ -4,7 +4,7 @@ The deployment-contract prerequisites are implemented, but no real command has e
 
 ## What Changes
 
-- Use the approved local experimental Network source `965a33b4c632fb1aaf5f2ea02e6d603e1c81baa6` and API `2026-05-01` for both canonical command inputs and Public IP Bicep types. Keep the normal Network source/API/toolchain pins unchanged and preserve the original `2025-07-01` extraction, audit and blocked upstream-generation evidence.
+- Use the approved local experimental Network source `965a33b4c632fb1aaf5f2ea02e6d603e1c81baa6` and API `2026-03-01` for both canonical command inputs and Public IP Bicep types. The user approved this switch after the latest pinned catalogue proved to lack `2026-05-01`. Keep normal source/API/toolchain pins unchanged and preserve both the original `2025-07-01` evidence and historical May experiment.
 - Limit the experiment to the Public IP create-or-update operation and its schema dependencies. Full Network/Compute C# regeneration and unrelated model-name fixes are not prerequisites for this schema work.
 - Retain the original legacy-association investigation and use supported source metadata rather than class-name or handwritten route/resource inference. The newer experimental source registers the resource; exact-version source projection is still independently required.
 - Add explicitly selected deployment metadata and its complete writable-schema closure without pruning canonical Network IR. Unselected resource operations are outside this audit, not certified compatible; referenced or embedded models do not implicitly select more resource-create operations.

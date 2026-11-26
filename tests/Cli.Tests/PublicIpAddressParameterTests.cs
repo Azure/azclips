@@ -222,6 +222,7 @@ public class PublicIpAddressParameterTests
     [InlineData("publicIPPrefix", "$.properties.publicIPPrefix")]
     [InlineData("dnsSettings", "$.properties.dnsSettings")]
     [InlineData("zones", "$.zones")]
+    [InlineData("ipTags", "$.properties.ipTags")]
     public void BicepBinding_RejectsUnsupportedInputsRatherThanDiscardingThem(string field, string path)
     {
         var (body, pipeline) = NormalizePilotBody(processor =>
@@ -232,6 +233,7 @@ public class PublicIpAddressParameterTests
                 case "publicIPPrefix": processor.PublicIpPrefix = "my-prefix"; break;
                 case "dnsSettings": processor.DnsSettingsDomainNameLabel = "my-dns"; break;
                 case "zones": processor.Zones = []; break;
+                case "ipTags": processor.IpTagSpecs = ["FirstPartyUsage=/Sql"]; break;
             }
         });
 
@@ -260,6 +262,22 @@ public class PublicIpAddressParameterTests
         });
 
         Assert.Throws<InvalidInputException>(() => PublicIpBicepInputBinding.Bind(PipName, body));
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public void BicepBinding_RejectsIpTagArmIdsWithoutDiscardingTheirValues()
+    {
+        var (body, pipeline) = NormalizePilotBody(processor => processor.IpTagSpecs = ["FirstPartyUsage=/Sql"]);
+        var input = JsonNode.Parse(body.GetRawText())!;
+        string id = new Uri(ResourceUri).AbsolutePath;
+        input["properties"]!["ipTags"]![0]!["firstPartyServiceTagId"] = id;
+        JsonElement normalized = JsonSerializer.SerializeToElement(input);
+
+        var error = Assert.Throws<InvalidInputException>(() => PublicIpBicepInputBinding.Bind(PipName, normalized));
+
+        Assert.Contains("$.properties.ipTags", error.Message);
+        Assert.Equal(id, normalized.GetProperty("properties").GetProperty("ipTags")[0].GetProperty("firstPartyServiceTagId").GetString());
         Assert.Equal(0, pipeline.SendCount);
     }
 

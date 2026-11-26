@@ -2,6 +2,8 @@
 
 See [proposal.md](proposal.md) for motivation and scope. The prior [deployment-contract change](../add-typespec-deployment-contract/design.md) established opt-in IR metadata and an offline catalogue checker, not a runtime backend.
 
+**Active experiment:** source `965a33b4c632fb1aaf5f2ea02e6d603e1c81baa6`, API `2026-03-01`, explicitly approved after the May catalogue check. Earlier 2025 and May sections below are historical evidence, not the current selector. See [March requalification](#approved-march-experiment-and-independent-audit).
+
 Network selects source commit `90e63e5fe2c596e8bd807aad7dd9d62cee1746dd` and API `2025-07-01` in its [configuration](../../../src/Extensions/Network/aceconfig.yaml). Its generated create processor sends a direct PUT and polls the resource operation. The existing customization constructs the canonical body and applies Standard/Static/IPv4/idle-timeout defaults; the CLI and PowerShell scenarios share a record/playback baseline.
 
 ### Actual pre-implementation evidence
@@ -367,6 +369,57 @@ node toolkit\tools\typespec-bicep\project-public-ip.mjs $toolchain $source tests
 | `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~PublicIpAddressParameterTests -v quiet` | 69 passed, none skipped; repository SDK `10.0.404`, xUnit/VSTest; build succeeded with warnings in untouched projects |
 
 This proves **existing checked-in customization/body behavior bound through the generated 2026 bridge**, not compilation or execution of a newly generated 2026 Network processor. No whole-Network C# qualification, compiler catalogue audit, Bicep template compilation, product adapter, new public command or live deployment is claimed. **Task 1.15 remains next:** independently audit exact-2026 correspondence/coverage against upstream types and the pinned Bicep compiler catalogue before retiring superseded schema machinery.
+
+### Approved March experiment and independent audit
+
+Task 1.15 is complete as coverage/difference evidence, **not activation or identical-schema approval**. The exact pinned `Azure.Bicep.Types.Az` assembly is `0.2.972+e899dc9a90`, SHA-256 `ce08193659d798083d99611f2d2895e8cc8bd27986f72d8b7b8180c77cf42066`. Its newest Public IP entry is `2026-03-01`; it has no May entry. The [NuGet page](https://www.nuget.org/packages/Azure.Bicep.Types.Az) also identifies `0.2.972` as current, and [current upstream Network data](https://github.com/Azure/bicep-types-az/tree/754a33f2ddc902afe583acb6e46316afbd59bc5d/generated/network/microsoft.network) has only January and March 2026. Updating a catalogue pin would not unblock May.
+
+The user explicitly chose to switch only the experiment to `2026-03-01`, retaining the same newer source and all dependency/upstream/product pins. The five May files (types, bindings, correspondence, report and generated offline fixture) are preserved under the prepared toolchain's `public-ip-create-2026-05-01` directory with verified schema identity. Prior 2025 raw reports remain unchanged.
+
+The probe now resolves an exact **registered Version object** through the public versioning API and passes its namespace/version to `resolveArmResources(..., { serviceVersions })`. Only after obtaining the real projected resource/PUT models does it stamp their registered version on the selected upstream descriptor. An earlier-version regression proves removed fields return, later-added fields disappear, projected request models differ and canonical command bindings follow those changes. An inconsistent descriptor label or unknown/unregistered selector still fails. This is not relabeling the May schema.
+
+Actual March output has one resource with RG scopes `8`, **556** type definitions, **532** correspondence records and **43** inputs (same role counts and seven allowed fields). Schema SHA-256 is `fbc5b3487025d1852c09f044e6e7310ae21ed12b77cd8e07377fa4da07a00227`; source-binding SHA-256 is `f2ba1ed98c5798879672a0296d7abc835010de1b68c4a4cfb2f403709cd83a19`. The experimental dependency lock and upstream peer-range caveat are unchanged.
+
+Full selected-contract extraction retains **1,161** canonical models, **838** operations and four source facets. Removing only `deployment` gives deep equality with ordinary March canonical IR. Full-audit mode runs separately from type/binding generation: retaining two large SDK contexts in one process exhausted Node's array-buffer allocation. Isolation fixes that without raising shared-host memory limits or altering the schema.
+
+The existing comparison walker is reused for both:
+
+- [Independent pinned-catalogue report](public-ip-audit-2026-03-01.json).
+- [Upstream-generated-type report](public-ip-upstream-audit-2026-03-01.json), loaded by the official `Azure.Bicep.Types` serializer through a small indexed loader. No additional schema converter or comparison traversal is introduced.
+
+Both reports use the same real source IR and record **118 compared paths**, **two recursive references**, **two unsupported paths**, and these four diagnostics. Both remain **unsupported / exit 1**:
+
+| Measured path / gap | Existing pilot treatment and fresh evidence |
+| --- | --- |
+| `$.id`, writable API identity versus computed/read-only declaration identity | Canonical/direct inputs unchanged; every non-null root ID rejected without removal or HTTP; null stays unassigned |
+| `$.properties.idleTimeoutInMinutes`, Int32 versus Bicep Int64 | Existing normalization and exact integer serialization preserved; wider integers rejected |
+| `$.properties.natGateway.properties.idleTimeoutInMinutes`, same integer-domain gap | Whole NAT Gateway input explicitly excluded and rejected |
+| `$.properties.ipTags[].firstPartyServiceTagId`, source `ArmId` lexical format not provable from catalogue strings | Whole IP-tags input was already outside policy; new tests reject it including a supplied ARM-ID field, retaining its value and sending no HTTP |
+
+The reports agree on the canonical writable-contract comparison, **not complete read-only schema identity**. The additional ARM-ID gap is newly measured for this source/version, not assumed from the 2025 audit. Its policy exclusion is executable evidence; the diagnostic is not suppressed or reclassified compatible.
+
+Reproduce from the repository root with the prepared closure:
+
+```powershell
+$toolchain = 'C:\workplace\azure-ps-workspace\azclips\toolkit\tools\typespec-bicep\dist\newer-network-probe'
+$source = Join-Path $toolchain 'source'
+$output = Join-Path $toolchain 'public-ip-create'
+node toolkit\tools\typespec-bicep\project-public-ip.mjs $toolchain $source tests\Cli.Tests\Fixtures\PublicIpBicepBindings.json
+node toolkit\tools\typespec-bicep\project-public-ip.mjs $toolchain $source (Join-Path $output 'audit-ir.json') --audit-ir
+node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir (Join-Path $output 'audit-ir.json') --catalogue Azure.Bicep.Types.Az@0.2.972 --select Microsoft.Network/publicIPAddresses@2026-03-01
+node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir (Join-Path $output 'audit-ir.json') --catalogue Azure.Bicep.Types.Az@0.2.972 --select Microsoft.Network/publicIPAddresses@2026-03-01 --upstream-types (Join-Path $output 'types.json')
+```
+
+| Command / check | Result |
+| --- | --- |
+| Both probe modes above; full canonical equality and persisted fixture comparison | Passed; exact March selection, unchanged ordinary IR and source/tool pins |
+| Both full audit commands above | Completed unsupported / exit 1; identical coverage and four retained diagnostics, distinct catalogue identities/content hashes |
+| `node --test toolkit\tools\typespec-bicep\test\projected-create.test.mjs` | 9 passed, including actual earlier-version projection and inconsistent-descriptor rejection |
+| `npm --prefix toolkit\tools\typespec-bicep test` | 13 passed; supported upstream golden/scope/source-integrity checks preserved |
+| `dotnet test toolkit\packages\generator\test\Ace.DeploymentAudit.Tests\Ace.DeploymentAudit.Tests.csproj --no-restore --filter FullyQualifiedName~CompatibilityAuditTests -v quiet` | 33 passed; official generated-reference loading and unchanged comparison behavior |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~PublicIpAddressParameterTests -v quiet` | 71 passed; March fixture, independent normalized-value assertions and IP-tag/ARM-ID exclusion |
+
+Compiler association, build-compiled template, newly generated March C# processor execution, adapter/transport, both-surface playback and live authorization remain unchecked. **Task 1.16 is next**: retire only genuinely superseded source/schema machinery after updating its remaining audit consumers; keep canonical linkage, independent constraints, provenance and these raw reports.
 
 ## Goals / Non-Goals
 

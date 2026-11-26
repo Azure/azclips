@@ -203,6 +203,13 @@ loader/catalogue packages with restore locks. These are not product/runtime
 dependencies, and `Azure.Bicep.Core` is not required. The Node entry validates IR
 with the existing Zod schemas before starting the .NET worker.
 
+To audit generated upstream Bicep type-definition JSON against the same canonical
+contract, add `--upstream-types <types.json>` to the command above. The official
+type serializer/loader resolves its resource references, and the same comparison
+walker runs; no separate schema converter is used. The report identifies this
+input as `generated-upstream-types-json` with its own content hash, **not** as the
+independent pinned catalogue. Run both modes separately when both are required.
+
 Results compare normalized names/scopes/envelopes, writable field membership,
 requiredness, nullability, collections/object openness, supported constraints,
 string enum openness and nested model discriminator structures. Recursive

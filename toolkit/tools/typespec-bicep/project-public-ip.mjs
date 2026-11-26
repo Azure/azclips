@@ -9,7 +9,7 @@ import { checkout, packageRoot, upstream, verifySource } from "./prepare.mjs";
 import { compile as compileCommands } from "@azure-client-engine/compiler";
 import { createBindings, classifyPublicIpEligibility, createBindingFixture } from "./create-bindings.mjs";
 
-const apiVersion = "2026-05-01";
+const apiVersion = "2026-03-01";
 const resourceType = "Microsoft.Network/publicIPAddresses";
 const sourceCommit = "965a33b4c632fb1aaf5f2ea02e6d603e1c81baa6";
 
@@ -31,27 +31,33 @@ export async function loadToolchain(root) {
     assert.equal(installed.version, version, `Experimental toolchain mismatch for ${name}`);
   }
   const load = (name) => import(pathToFileURL(require.resolve(name)).href);
-  const [compiler, arm, bicep] = await Promise.all([
+  const [compiler, arm, bicep, versioning] = await Promise.all([
     load("@typespec/compiler"),
     load("@azure-tools/typespec-azure-resource-manager"),
     load("@azure/bicep-types"),
+    load("@typespec/versioning"),
   ]);
-  return { compiler, arm, bicep, versions: expected };
+  return { compiler, arm, bicep, versioning, versions: expected };
 }
 
-export function selectProjectedCreate(program, definitions, selection, { compiler, arm }) {
+export function selectProjectedCreate(program, definitions, selection, { compiler, arm, versioning }) {
   assert.ok(typeof selection.apiVersion === "string" && selection.apiVersion.trim() === selection.apiVersion &&
     !["", "latest", "all", "default"].includes(selection.apiVersion.toLowerCase()),
   "An explicit concrete API version is required");
   const key = selection.resourceType.toLowerCase();
   const candidates = definitions
-    .filter((provider) => provider.apiVersion === selection.apiVersion)
     .flatMap((provider) => (provider.resourcesByType[key] ?? []).map((definition) => ({ provider, definition })));
   assert.equal(candidates.length, 1, "Selected upstream resource/version must be unambiguous");
   const { provider, definition } = candidates[0];
-  assert.equal(definition.descriptor.apiVersion, selection.apiVersion);
+  assert.equal(definition.descriptor.apiVersion, provider.apiVersion, "Upstream descriptor version is inconsistent");
+  const versions = (versioning.getAllVersions(program, definition.getModel ?? definition.putModel) ?? [])
+    .filter((version) => version.value === selection.apiVersion);
+  assert.equal(versions.length, 1, "Selected API version must have unambiguous registered source metadata");
+  const version = versions[0];
 
-  const resources = (arm.resolveArmResources(program, { version: selection.apiVersion }).resources ?? [])
+  const resources = (arm.resolveArmResources(program, {
+    serviceVersions: [{ namespace: version.namespace, version }],
+  }).resources ?? [])
     .filter(({ resourceType }) => [resourceType.provider, ...resourceType.types].join("/").toLowerCase() === key);
   assert.equal(resources.length, 1, "Selected projected resource must be unambiguous");
   const resource = resources[0];
@@ -73,8 +79,10 @@ export function selectProjectedCreate(program, definitions, selection, { compile
     create,
     provider: {
       ...provider,
+      apiVersion: version.value,
       resourcesByType: {
-        [key]: [{ ...definition, putModel, getModel: resource.type, nameProperty: names[0] }],
+        [key]: [{ ...definition, descriptor: { ...definition.descriptor, apiVersion: version.value },
+          putModel, getModel: resource.type, nameProperty: names[0] }],
       },
       resourceActions: [],
       providerOperations: [],
@@ -105,7 +113,7 @@ export function requireNoErrors(program) {
     .map(({ code, message }) => ({ code, message })), []);
 }
 
-export async function emitCanonical(program, root, apiVersion) {
+export async function emitCanonical(program, root, apiVersion, options = {}) {
   const canonicalRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "packages", "typespec-emitter");
   const stage = join(root, "public-ip-create", "canonical-emitter");
   mkdirSync(stage, { recursive: true });
@@ -115,7 +123,7 @@ export async function emitCanonical(program, root, apiVersion) {
   const sources = [];
   const ir = await canonical.emitWithSources({
     program,
-    options: { "api-version": apiVersion, format: "json", outputFile: "canonical.json" },
+    options: { outputFile: "canonical.json", ...options, "api-version": apiVersion, format: "json" },
     emitterOutputDir: join(root, "public-ip-create"),
   }, (record) => sources.push(record));
   requireNoErrors(program);
@@ -132,8 +140,9 @@ export async function projectCommands(ir, config = {}) {
   return result;
 }
 
-async function main(root, source, fixtureOutput) {
-  assert.ok(root && source, "Usage: node project-public-ip.mjs <isolated-toolchain-root> <network-source-checkout> [fixture-output.json]");
+async function main(root, source, fixtureOutput, mode) {
+  assert.ok(root && source, "Usage: node project-public-ip.mjs <isolated-toolchain-root> <network-source-checkout> [output.json] [--audit-ir]");
+  assert.ok(mode === undefined || mode === "--audit-ir", "Unsupported probe mode");
   root = resolve(root);
   source = resolve(source);
   const commit = execFileSync("git", ["-C", source, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -142,10 +151,21 @@ async function main(root, source, fixtureOutput) {
     encoding: "utf8",
   }).trim(), "", "Experimental source checkout must have no tracked modifications");
   const tools = await loadToolchain(root);
-  const emitter = await buildEmitter(root);
   const entrypoint = join(source, "specification", "network", "resource-manager", "Microsoft.Network", "Network", "main.tsp");
   const program = await tools.compiler.compile(tools.compiler.NodeHost, entrypoint, { noEmit: true });
   requireNoErrors(program);
+  if (mode === "--audit-ir") {
+    assert.ok(fixtureOutput, "Full audit mode requires an output JSON path");
+    const audit = await emitCanonical(program, root, apiVersion, {
+      outputFile: "audit-ir.json", deploymentContract: true, deploymentResources: [resourceType],
+    });
+    assert.equal(audit.ir.deployment.resources.length, 1, "Full audit must select exactly one resource");
+    writeFileSync(resolve(fixtureOutput), JSON.stringify(audit.ir, null, 2));
+    console.log(JSON.stringify({ apiVersion, sourceCommit, models: audit.ir.models.length,
+      operations: audit.ir.operations.length, output: resolve(fixtureOutput) }, null, 2));
+    return;
+  }
+  const emitter = await buildEmitter(root);
   const definitions = emitter.getProviderDefinitions({ program, options: {}, emitterOutputDir: "" });
   const selected = selectProjectedCreate(program, definitions, { resourceType, apiVersion }, tools);
   assert.equal(selected.resource.scope, "ResourceGroup");
@@ -190,7 +210,7 @@ async function main(root, source, fixtureOutput) {
     toolchainLockSha256: createHash("sha256").update(readFileSync(join(root, "package-lock.json"))).digest("hex"),
     upstreamPeerRangeQualified: false,
     selection: "Public IP create-or-update and its schema dependencies only; no C# generation",
-    projection: "Official resolveArmResources(program, { version }) source models",
+    projection: "Official resolveArmResources(program, { serviceVersions }) with registered version metadata",
     create: { method: selected.create.httpOperation.verb, path: selected.create.httpOperation.path },
     readableScopes: roots[0].readableScopes,
     writableScopes: roots[0].writableScopes,

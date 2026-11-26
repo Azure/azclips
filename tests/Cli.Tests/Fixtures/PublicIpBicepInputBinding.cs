@@ -26,7 +26,7 @@ internal static class PublicIpBicepInputBinding
     internal static IDictionary<string, DeploymentParameter> Bind(string resourceName, JsonElement normalizedBody, JsonElement bridge)
     {
         if (bridge.GetProperty("schemaVersion").GetString() != "1.0.0" ||
-            bridge.GetProperty("resourceType").GetString() != "Microsoft.Network/publicIPAddresses@2026-05-01")
+            bridge.GetProperty("resourceType").GetString() != "Microsoft.Network/publicIPAddresses@2026-03-01")
             throw new InvalidOperationException("The generated Public IP Bicep binding fixture has an unsupported schema or resource version.");
         var bindings = bridge.GetProperty("bindings").EnumerateArray().Select(binding => new GeneratedBinding(
             binding.GetProperty("role").GetString() ?? throw new InvalidOperationException("A generated binding role is missing."),

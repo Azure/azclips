@@ -1,0 +1,215 @@
+{
+  "schemaVersion": "1.0.0",
+  "catalogue": "Azure.Bicep.Types.Az@0.2.972",
+  "catalogueSha256": "ce08193659d798083d99611f2d2895e8cc8bd27986f72d8b7b8180c77cf42066",
+  "irSha256": "180813c7d3e28c8e952ee703cb95c4c80ab7a3f36d137f88a9e10cff13ac9a21",
+  "source": {
+    "sourceHash": "d3528e2ef63d775e8e294d20f0f2af077711c368d040536c17969b5d9d405991",
+    "tools": [
+      {
+        "name": "@azure-client-engine/typespec-emitter",
+        "version": "0.0.1"
+      },
+      {
+        "name": "@azure-tools/typespec-azure-resource-manager",
+        "version": "0.74.0"
+      },
+      {
+        "name": "@azure-tools/typespec-client-generator-core",
+        "version": "0.74.0"
+      },
+      {
+        "name": "@typespec/compiler",
+        "version": "1.18.0"
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "Ace.DeploymentAudit",
+      "version": "1.0.0\u002B3b4cbced1c9f032fdb8ea85f14ef23f9e8756030",
+      "assemblySha256": "8f11c92966c08954695213ff45e6dd57a5eb1def7bda58b3060e112c941bca4d"
+    },
+    {
+      "name": "Azure.Bicep.Types",
+      "version": "0.6.144\u002B6c07d1543b",
+      "assemblySha256": "95215522754d32cb2c5e1bd21ca1629fd57bd3cf9e385bd997f6b184fad51cbe"
+    }
+  ],
+  "compilerAssociation": "unverified",
+  "limitations": [
+    "No template compilation or runtime equivalence was checked.",
+    "Permissions, deployment transport, query/header behavior, outputs, existing resources and live regression gates remain unchecked."
+  ],
+  "results": [
+    {
+      "selection": "Microsoft.Network/publicIPAddresses@2026-03-01",
+      "status": "unsupported",
+      "operation": {
+        "module": "Microsoft.Network",
+        "namespace": [
+          "Microsoft",
+          "Network"
+        ],
+        "interface": "PublicIPAddressOperationGroup",
+        "name": "createOrUpdate"
+      },
+      "diagnostics": [
+        {
+          "code": "writable-identity-envelope",
+          "path": "$.id",
+          "message": "Writable API body identity \u0027id\u0027 requires an explicit value-preserving declaration binding; it cannot be silently omitted."
+        },
+        {
+          "code": "integer-range",
+          "path": "$.properties.idleTimeoutInMinutes",
+          "message": "Source Int32 effective range [-2147483648, 2147483647] differs from catalogue effective range [-9223372036854775808, 9223372036854775807]; unspecified catalogue endpoints use Bicep Int64 limits."
+        },
+        {
+          "code": "format-unsupported",
+          "path": "$.properties.ipTags[].firstPartyServiceTagId",
+          "message": "Catalogue types cannot establish lexical-format parity for ArmId."
+        },
+        {
+          "code": "integer-range",
+          "path": "$.properties.natGateway.properties.idleTimeoutInMinutes",
+          "message": "Source Int32 effective range [-2147483648, 2147483647] differs from catalogue effective range [-9223372036854775808, 9223372036854775807]; unspecified catalogue endpoints use Bicep Int64 limits."
+        }
+      ],
+      "coverage": {
+        "comparedPaths": [
+          "$.*",
+          "$.extendedLocation",
+          "$.extendedLocation.*",
+          "$.extendedLocation.name",
+          "$.extendedLocation.type",
+          "$.location",
+          "$.name",
+          "$.properties",
+          "$.properties.*",
+          "$.properties.ddosSettings",
+          "$.properties.ddosSettings.*",
+          "$.properties.ddosSettings.ddosCustomPolicy",
+          "$.properties.ddosSettings.ddosCustomPolicy.*",
+          "$.properties.ddosSettings.ddosCustomPolicy.id",
+          "$.properties.ddosSettings.ddosProtectionPlan",
+          "$.properties.ddosSettings.ddosProtectionPlan.*",
+          "$.properties.ddosSettings.ddosProtectionPlan.id",
+          "$.properties.ddosSettings.protectionMode",
+          "$.properties.deleteOption",
+          "$.properties.dnsSettings",
+          "$.properties.dnsSettings.*",
+          "$.properties.dnsSettings.domainNameLabel",
+          "$.properties.dnsSettings.domainNameLabelScope",
+          "$.properties.dnsSettings.fqdn",
+          "$.properties.dnsSettings.reverseFqdn",
+          "$.properties.idleTimeoutInMinutes",
+          "$.properties.ipAddress",
+          "$.properties.ipTags",
+          "$.properties.ipTags[]",
+          "$.properties.ipTags[].*",
+          "$.properties.ipTags[].ipTagType",
+          "$.properties.ipTags[].tag",
+          "$.properties.linkedPublicIPAddress",
+          "$.properties.linkedPublicIPAddress.*",
+          "$.properties.linkedPublicIPAddress.extendedLocation",
+          "$.properties.linkedPublicIPAddress.extendedLocation.*",
+          "$.properties.linkedPublicIPAddress.extendedLocation.name",
+          "$.properties.linkedPublicIPAddress.extendedLocation.type",
+          "$.properties.linkedPublicIPAddress.id",
+          "$.properties.linkedPublicIPAddress.location",
+          "$.properties.linkedPublicIPAddress.properties",
+          "$.properties.linkedPublicIPAddress.sku",
+          "$.properties.linkedPublicIPAddress.sku.*",
+          "$.properties.linkedPublicIPAddress.sku.name",
+          "$.properties.linkedPublicIPAddress.sku.tier",
+          "$.properties.linkedPublicIPAddress.tags",
+          "$.properties.linkedPublicIPAddress.tags.*",
+          "$.properties.linkedPublicIPAddress.zones",
+          "$.properties.linkedPublicIPAddress.zones[]",
+          "$.properties.migrationPhase",
+          "$.properties.natGateway",
+          "$.properties.natGateway.*",
+          "$.properties.natGateway.id",
+          "$.properties.natGateway.location",
+          "$.properties.natGateway.properties",
+          "$.properties.natGateway.properties.*",
+          "$.properties.natGateway.properties.idleTimeoutInMinutes",
+          "$.properties.natGateway.properties.nat64",
+          "$.properties.natGateway.properties.publicIpAddresses",
+          "$.properties.natGateway.properties.publicIpAddressesV6",
+          "$.properties.natGateway.properties.publicIpAddressesV6[]",
+          "$.properties.natGateway.properties.publicIpAddressesV6[].*",
+          "$.properties.natGateway.properties.publicIpAddressesV6[].id",
+          "$.properties.natGateway.properties.publicIpAddresses[]",
+          "$.properties.natGateway.properties.publicIpAddresses[].*",
+          "$.properties.natGateway.properties.publicIpAddresses[].id",
+          "$.properties.natGateway.properties.publicIpPrefixes",
+          "$.properties.natGateway.properties.publicIpPrefixesV6",
+          "$.properties.natGateway.properties.publicIpPrefixesV6[]",
+          "$.properties.natGateway.properties.publicIpPrefixesV6[].*",
+          "$.properties.natGateway.properties.publicIpPrefixesV6[].id",
+          "$.properties.natGateway.properties.publicIpPrefixes[]",
+          "$.properties.natGateway.properties.publicIpPrefixes[].*",
+          "$.properties.natGateway.properties.publicIpPrefixes[].id",
+          "$.properties.natGateway.properties.serviceGateway",
+          "$.properties.natGateway.properties.serviceGateway.*",
+          "$.properties.natGateway.properties.serviceGateway.id",
+          "$.properties.natGateway.properties.sourceVirtualNetwork",
+          "$.properties.natGateway.properties.sourceVirtualNetwork.*",
+          "$.properties.natGateway.properties.sourceVirtualNetwork.id",
+          "$.properties.natGateway.sku",
+          "$.properties.natGateway.sku.*",
+          "$.properties.natGateway.sku.name",
+          "$.properties.natGateway.tags",
+          "$.properties.natGateway.tags.*",
+          "$.properties.natGateway.zones",
+          "$.properties.natGateway.zones[]",
+          "$.properties.publicIPAddressVersion",
+          "$.properties.publicIPAllocationMethod",
+          "$.properties.publicIPPrefix",
+          "$.properties.publicIPPrefix.*",
+          "$.properties.publicIPPrefix.id",
+          "$.properties.servicePublicIPAddress",
+          "$.properties.servicePublicIPAddress.*",
+          "$.properties.servicePublicIPAddress.extendedLocation",
+          "$.properties.servicePublicIPAddress.extendedLocation.*",
+          "$.properties.servicePublicIPAddress.extendedLocation.name",
+          "$.properties.servicePublicIPAddress.extendedLocation.type",
+          "$.properties.servicePublicIPAddress.id",
+          "$.properties.servicePublicIPAddress.location",
+          "$.properties.servicePublicIPAddress.properties",
+          "$.properties.servicePublicIPAddress.sku",
+          "$.properties.servicePublicIPAddress.sku.*",
+          "$.properties.servicePublicIPAddress.sku.name",
+          "$.properties.servicePublicIPAddress.sku.tier",
+          "$.properties.servicePublicIPAddress.tags",
+          "$.properties.servicePublicIPAddress.tags.*",
+          "$.properties.servicePublicIPAddress.zones",
+          "$.properties.servicePublicIPAddress.zones[]",
+          "$.sku",
+          "$.sku.*",
+          "$.sku.name",
+          "$.sku.tier",
+          "$.tags",
+          "$.tags.*",
+          "$.zones",
+          "$.zones[]",
+          "$scope"
+        ],
+        "recursiveReferences": [
+          "$.properties.linkedPublicIPAddress.properties",
+          "$.properties.servicePublicIPAddress.properties"
+        ],
+        "unsupportedPaths": [
+          "$.id",
+          "$.properties.ipTags[].firstPartyServiceTagId"
+        ]
+      }
+    }
+  ],
+  "extractionSelection": [
+    "Microsoft.Network/publicIPAddresses@2026-03-01"
+  ],
+  "exitCode": 1
+}
