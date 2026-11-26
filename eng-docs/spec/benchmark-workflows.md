@@ -40,6 +40,42 @@ For a PR commit, it renders the comparison from the downloaded results and `main
 
 For a `main` commit, it appends the results to gh-pages `dev/bench/{cli,ps,startup-cli,startup-ps}/data.js`, under the series github-action-benchmark used, and merges trace trees into `dev/bench/traces`. It then dispatches `build-wiki.yml` to redeploy GitHub Pages.
 
+## How `detect_benchmark_changes.py` selects benchmarks
+
+**1. Pick what to compare with**
+
+```mermaid
+flowchart TD
+    Start([DetectBenchmarks]) --> Reason{"Build.Reason"}
+    Reason -->|PullRequest| Target{"Target is main?"}
+    Target -->|no| Nothing["Run nothing"]
+    Target -->|yes| Merge{"HEAD is a merge commit?"}
+    Merge -->|no| Everything["Run everything"]
+    Merge -->|yes| PrDiff["Diff HEAD^1..HEAD"]
+    Reason -->|IndividualCI or BatchedCI| CiBranch{"Branch is main?"}
+    CiBranch -->|no| Nothing
+    Reason -->|Manual| ManualBranch{"Branch is main?"}
+    ManualBranch -->|no| Everything
+    CiBranch -->|yes| Lookup["Last successful run of this pipeline on main<br/>(Azure DevOps builds API)"]
+    ManualBranch -->|yes| Lookup
+    Reason -->|Schedule or other| Nothing
+    Lookup -->|"lookup fails, none found,<br/>or not an ancestor of HEAD"| Everything
+    Lookup -->|commit found| MainDiff["Diff base..HEAD"]
+    PrDiff --> Rules["2. Path rules"]
+    MainDiff --> Rules
+```
+
+**2. Map changed files to benchmarks**
+
+| Changed path | Runs |
+| --- | --- |
+| Any shared path (listed above) | Every extension (CLI + PS) and startup |
+| `src/Extensions/<Ext>/**`, `src/PS/<Ext>/**`, or a class tagged `[BenchmarkExtension("<Ext>")]` | `<ext>` (CLI + PS), if it has benchmarks |
+| `tests/Benchmark/Startup/**` | Startup |
+| Anything else | Nothing |
+
+The extension set is every `[BenchmarkExtension]` name under `tests/Benchmark/`. The result becomes the `detect` step's outputs (`hasExtensionWork`, `runStartup`, `extensionMatrix`, `extensions`), which the leg and collect jobs read.
+
 ## Architecture
 
 ```mermaid
