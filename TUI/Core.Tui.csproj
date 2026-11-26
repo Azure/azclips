@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Hex1b" Version="0.154.0" />
+    <PackageReference Include="Hex1b" Version="0.176.0" />
     <PackageReference Include="OpenTelemetry" Version="1.17.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
   </ItemGroup>
@@ -29,10 +29,10 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <InternalsVisibleTo Include="Cli.Tests" Key="$(MSSharedLibPublicKey)" />
+    <InternalsVisibleTo Include="Tui.Tests" Key="$(MSSharedLibPublicKey)" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' != 'Release'">
-    <InternalsVisibleTo Include="Cli.Tests" />
+    <InternalsVisibleTo Include="Tui.Tests" />
   </ItemGroup>
 </Project>

@@ -5,10 +5,18 @@ namespace Core.Tui.Services;
 /// </summary>
 class HistoryService
 {
-    private static readonly string AzclipsDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
-    private static readonly string AzureHistoryPath = Path.Combine(AzclipsDir, "tui_history_azure.txt");
-    private static readonly string LocalHistoryPath = Path.Combine(AzclipsDir, "tui_history_local.txt");
+    private readonly string _directory;
+    private readonly string _azurePath;
+    private readonly string _localPath;
+
+    /// <param name="directory">History directory; defaults to {LocalApplicationData}/.azclips.</param>
+    public HistoryService(string? directory = null)
+    {
+        _directory = directory ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".azclips");
+        _azurePath = Path.Combine(_directory, "tui_history_azure.txt");
+        _localPath = Path.Combine(_directory, "tui_history_local.txt");
+    }
 
     private readonly List<string> _azureHistory = new();
     private readonly List<string> _localHistory = new();
@@ -22,8 +30,8 @@ class HistoryService
     /// </summary>
     public void Load()
     {
-        LoadFile(AzureHistoryPath, _azureHistory);
-        LoadFile(LocalHistoryPath, _localHistory);
+        LoadFile(_azurePath, _azureHistory);
+        LoadFile(_localPath, _localHistory);
     }
 
     /// <summary>
@@ -85,12 +93,12 @@ class HistoryService
         catch { /* silently ignore */ }
     }
 
-    private static async Task SaveAsync(string command, ShellMode mode)
+    private async Task SaveAsync(string command, ShellMode mode)
     {
         try
         {
-            var path = mode == ShellMode.Azure ? AzureHistoryPath : LocalHistoryPath;
-            Directory.CreateDirectory(AzclipsDir);
+            var path = mode == ShellMode.Azure ? _azurePath : _localPath;
+            Directory.CreateDirectory(_directory);
             await File.AppendAllTextAsync(path, command + Environment.NewLine);
         }
         catch { /* silently ignore */ }

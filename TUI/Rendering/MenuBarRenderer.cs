@@ -63,10 +63,7 @@ static class MenuBarRenderer
             }).NoAccelerator(),
 
             // ── Footer colors ──
-            m.Menu("Footer", m => BuildFooterSubmenu(m, state, invalidate)).NoAccelerator(),
-
-            // ── Suggestion style ──
-            m.Menu("Suggestions", m => BuildSuggestionStylePicker(m, state, invalidate)).NoAccelerator()
+            m.Menu("Footer", m => BuildFooterSubmenu(m, state, invalidate)).NoAccelerator()
         ]);
     }
 
@@ -132,25 +129,4 @@ static class MenuBarRenderer
             invalidate)).NoAccelerator();
     }
 
-    private static IEnumerable<IMenuChild> BuildSuggestionStylePicker(
-        MenuContext m, AppState state, Action invalidate)
-    {
-        var styles = new (SuggestionStyle Style, string Label)[]
-        {
-            (SuggestionStyle.Below, "Below (bordered)"),
-            (SuggestionStyle.Above, "Above (bordered)"),
-            (SuggestionStyle.Inline, "Below (no border)"),
-        };
-        foreach (var (style, label) in styles)
-        {
-            var s = style;
-            var prefix = state.Theme.SuggestionStyle == s ? "* " : "  ";
-            yield return m.MenuItem($"{prefix}{label}").NoAccelerator().OnActivated(_ =>
-            {
-                state.Theme.SuggestionStyle = s;
-                state.Theme.Save();
-                invalidate();
-            });
-        }
-    }
 }

@@ -4,14 +4,14 @@
 using Core.Tui;
 using Core.Tui.Services;
 
-namespace Cli.Tests;
+namespace Tui.Tests;
 
 /// <summary>
 /// Unit tests for the TUI's stderr-line classifier. The classifier maps CLI
 /// diagnostic prefixes onto <see cref="HistoryItemType"/> values so warnings
 /// don't render as errors under <c>ProcessService.RunCliAsync</c>.
 /// </summary>
-public class TuiClassifyLineTests
+public class ClassifyLineTests
 {
     [Fact]
     public void ClassifyLine_ErrorPrefix_MapsToError()
