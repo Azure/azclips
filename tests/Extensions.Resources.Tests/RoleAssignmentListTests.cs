@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
@@ -26,6 +27,21 @@ public class RoleAssignmentListTests
     private const string Scope = "/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourceGroups/test-rg";
 
     private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
+
+    [Fact]
+    public void CliMetadata_ExposesRoleAssignmentList()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment list", ClientType.CLI);
+
+        Assert.Equal(typeof(ListRoleAssignmentProcessor_Orchestrator), metadata.ProcessorType);
+        Assert.Equal("SubscriptionId", metadata.Parameters["subscription-id"].Name);
+        Assert.False(metadata.Parameters["subscription-id"].IsRequired);
+        Assert.False(metadata.Parameters["scope"].IsRequired);
+        Assert.Equal("ResourceGroupName", metadata.Parameters["resource-group"].Name);
+        Assert.Equal("resource-group", metadata.ParameterAliases["g"]);
+        Assert.Equal("Assignee", metadata.Parameters["assignee"].Name);
+        Assert.Equal("AssigneeObjectId", metadata.Parameters["assignee-object-id"].Name);
+    }
 
     [Fact]
     public async Task List_DefaultsToSubscriptionScope()
@@ -298,6 +314,15 @@ public class RoleAssignmentListTests
     }
 
     [Fact]
+    public void CliMetadata_ExposesRoleParameter()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment list", ClientType.CLI);
+
+        Assert.Equal("RoleDefinitionId", metadata.Parameters["role"].Name);
+        Assert.False(metadata.Parameters["role"].IsRequired);
+    }
+
+    [Fact]
     public async Task List_FiltersByRoleDefinitionId_ClientSide()
     {
         Uri? sentUri = null;
@@ -548,6 +573,19 @@ public class RoleAssignmentListTests
         Assert.Equal(
             $"https://management.azure.com/subscriptions/{TestSubscriptionId}/providers/Microsoft.Authorization/roleAssignments?api-version=2022-04-01&$filter=assignedTo%28%27{AssigneeObjectId}%27%29",
             sentUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public void CliMetadata_ExposesScopeBreadthFlags()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment list", ClientType.CLI);
+
+        Assert.Equal("IncludeInherited", metadata.Parameters["include-inherited"].Name);
+        Assert.Equal(typeof(bool), metadata.Parameters["include-inherited"].ParameterType);
+        Assert.Equal("All", metadata.Parameters["all"].Name);
+        Assert.Equal(typeof(bool), metadata.Parameters["all"].ParameterType);
+        Assert.Equal("IncludeGroups", metadata.Parameters["include-groups"].Name);
+        Assert.Equal(typeof(bool), metadata.Parameters["include-groups"].ParameterType);
     }
 
     [Fact]

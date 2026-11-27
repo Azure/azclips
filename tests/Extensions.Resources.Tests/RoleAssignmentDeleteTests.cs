@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
@@ -25,6 +26,31 @@ public class RoleAssignmentDeleteTests
     private const string AssignmentName = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
     private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
+
+    [Fact]
+    public void CliMetadata_ExposesRoleAssignmentDelete()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment delete", ClientType.CLI);
+
+        Assert.Equal(typeof(DeleteRoleAssignmentProcessor_Orchestrator), metadata.ProcessorType);
+        Assert.False(metadata.Parameters["scope"].IsRequired);
+        Assert.True(metadata.Parameters["name"].IsRequired);
+        Assert.Equal("Name", metadata.Parameters["name"].Name);
+        Assert.Equal("ResourceGroupName", metadata.Parameters["resource-group"].Name);
+        Assert.Equal("name", metadata.ParameterAliases["n"]);
+        Assert.Equal("resource-group", metadata.ParameterAliases["g"]);
+    }
+
+    [Fact]
+    public void PowerShellMetadata_ExposesRemoveAzRoleAssignment()
+    {
+        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("Remove-AzRoleAssignment", ClientType.PowerShell);
+
+        Assert.Equal(typeof(DeleteRoleAssignmentProcessor_Orchestrator), metadata.ProcessorType);
+        Assert.True(metadata.Parameters["Name"].IsRequired);
+        Assert.False(metadata.Parameters["Scope"].IsRequired);
+        Assert.False(metadata.Parameters["ResourceGroupName"].IsRequired);
+    }
 
     [Fact]
     public async Task Delete_SendsDeleteToScopedRoleAssignment()

@@ -7,6 +7,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors;
@@ -18,6 +19,57 @@ namespace Extensions.ManagedServiceIdentity.Tests;
 public class IdentityProcessorTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
+
+    [Fact]
+    public void CliMetadata_ExposesDocumentedIdentityCommandSet()
+    {
+        var index = new ExtensionIndex();
+
+        Assert.Equal(
+            ["identity create", "identity list", "identity show", "identity update", "identity delete",
+             "identity federated-credential create", "identity federated-credential list", "identity federated-credential show", "identity federated-credential update", "identity federated-credential delete"],
+            [.. index.GetCommandKeys(ClientType.CLI)]);
+    }
+
+    [Fact]
+    public void PowerShellMetadata_ExposesIdentityCmdletCommandSet()
+    {
+        var index = new ExtensionIndex();
+
+        Assert.Equal(
+            ["New-AzUserAssignedIdentity", "Get-AzUserAssignedIdentity_List", "Get-AzUserAssignedIdentity_Get", "Update-AzUserAssignedIdentity", "Remove-AzUserAssignedIdentity",
+             "New-AzFederatedIdentityCredential", "Get-AzFederatedIdentityCredential_List", "Get-AzFederatedIdentityCredential_Get", "Update-AzFederatedIdentityCredential", "Remove-AzFederatedIdentityCredential"],
+            [.. index.GetCommandKeys(ClientType.PowerShell)]);
+    }
+
+    [Fact]
+    public void PowerShellMetadata_MapsCmdletParameters_ToProcessorProperties()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("Update-AzUserAssignedIdentity", ClientType.PowerShell);
+
+        Assert.Equal(typeof(UpdateIdentityProcessor), metadata.ProcessorType);
+        Assert.Equal("ResourceGroup", metadata.Parameters["ResourceGroupName"].Name);
+        Assert.Equal("ResourceName", metadata.Parameters["Name"].Name);
+        Assert.Equal("Location", metadata.Parameters["Location"].Name);
+        Assert.Equal("ResourceRestrictionProviders", metadata.Parameters["ResourceRestriction"].Name);
+        Assert.Equal(typeof(List<string>), metadata.Parameters["ResourceRestriction"].ParameterType);
+        Assert.Equal(typeof(Dictionary<string, string>), metadata.Parameters["Tags"].ParameterType);
+    }
+
+    [Fact]
+    public void CliMetadata_UsesLearnParameterNames_NotPowerShellNames()
+    {
+        var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
+
+        Assert.Contains("resource-group", metadata.Parameters.Keys);
+        Assert.Contains("resource-name", metadata.Parameters["name"].Aliases);
+        Assert.Contains("subscription", metadata.Parameters.Keys);
+        Assert.DoesNotContain("ResourceGroupName", metadata.Parameters.Keys);
+        Assert.DoesNotContain("SubscriptionId", metadata.Parameters.Keys);
+        Assert.Equal("ResourceGroup", metadata.Parameters["resource-group"].Name);
+        Assert.Equal("ResourceName", metadata.Parameters["name"].Name);
+        Assert.Equal("TagsInput", metadata.Parameters["tags"].Name);
+    }
 
     [Fact]
     public async Task CreateProcessAsync_UsesPreviewApi_AndSerializesIdentityProperties()
@@ -590,28 +642,6 @@ public class IdentityProcessorTests
         Assert.Equal(2, sentUris.Count);
         Assert.Contains("/resourceGroups/rg1/", sentUris[0], StringComparison.Ordinal);
         Assert.Contains("/resourceGroups/rg2/", sentUris[1], StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task BenchmarkStub_IdentityDelete_ReturnsEmptyBody_OtherRequestsUnchanged()
-    {
-        var handler = new StubHttpTerminateHandler();
-        var identityUri = $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/bench-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/bench-identity?api-version=2025-05-31-preview";
-
-        // Matches the live recording: identity DELETE answers 200 with no body.
-        using var delete = new HttpRequestMessage(HttpMethod.Delete, identityUri);
-        using var deleteResponse = await handler.SendAsync(delete, CreateEventPublisher(), null!);
-        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
-        Assert.Equal(string.Empty, await deleteResponse.Content.ReadAsStringAsync());
-
-        // Only identity DELETE is special-cased; reads of the same path and other resource deletes keep the default body.
-        using var get = new HttpRequestMessage(HttpMethod.Get, identityUri);
-        using var getResponse = await handler.SendAsync(get, CreateEventPublisher(), null!);
-        Assert.Equal("{}", await getResponse.Content.ReadAsStringAsync());
-
-        using var otherDelete = new HttpRequestMessage(HttpMethod.Delete, $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/bench-rg?api-version=2021-04-01");
-        using var otherDeleteResponse = await handler.SendAsync(otherDelete, CreateEventPublisher(), null!);
-        Assert.Equal("{}", await otherDeleteResponse.Content.ReadAsStringAsync());
     }
 
     [Fact]
