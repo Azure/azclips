@@ -10,7 +10,7 @@ using Microsoft.Azure.Azclips.Extensions.Compute.Processors;
 using Xunit;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Compute.Tests;
 
 /// <summary>
 /// Offline tests for <see cref="ListVMProcessor"/>. The ARM list endpoint returns an envelope
