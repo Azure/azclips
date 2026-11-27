@@ -32,7 +32,7 @@ A separate [supported-toolchain reproduction](design.md#supported-toolchain-gene
 
 ## 2. Verified single-resource build artifact
 
-- [ ] 2.1 After 1.16, pin an official Bicep CLI and verify its identity/resource type association separately from upstream type generation and the catalogue-only report.
+- [x] 2.1 After 1.16, pin an official Bicep CLI and verify its identity/resource type association separately from upstream type generation and the catalogue-only report.
 - [ ] 2.2 Generate the single resource-group-scoped experimental Public IP template's field/parameter assignments from the source-aware bridge, preserving normalized body values, omission semantics and resource API `2026-03-01`; do not maintain a second handwritten structural mapping.
 - [ ] 2.3 Build-compile/package immutable ARM JSON with provenance; validate exactly one declared Public IP, no dependencies/resource group, and explicit failure for missing/invalid assets without runtime compilation.
 - [ ] 2.4 Add focused minimal/default and tags/explicit-timeout tests comparing existing canonical request body semantics to template parameters/declaration, including absent optional values.

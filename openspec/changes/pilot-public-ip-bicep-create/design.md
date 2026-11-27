@@ -464,7 +464,45 @@ node toolkit\packages\generator\tools\Ace.DeploymentAudit\run.mjs --ir (Join-Pat
 | Entire canonical equality, old/new descriptors/source digest and persisted fixture comparison | Passed; 43 inputs, schema/binding hashes unchanged |
 | `openspec validate pilot-public-ip-bicep-create --strict`, `openspec validate add-typespec-deployment-contract --strict` and `git diff --check` | Passed |
 
-Only source-gate retirement is complete. Section 2 starts with the separately pinned official Bicep CLI/compiler-association gate; no template, runtime registration, public behavior, new generated March C# execution or live resource has been introduced.
+Source-gate retirement is complete. The following independent compiler gate advances Section 2 without qualifying a command-specific template, runtime registration, new generated March C# execution or live resource.
+
+### Official Bicep CLI and selected resource association
+
+Task 2.1 is complete. The [build-only compiler pin](../../../toolkit/tools/typespec-bicep/compiler.json) selects official Azure/bicep release `v0.49.2`, source commit `b34271ac51d820e7d448555fe7a6c1dbdb9e82c8`. The [tagged package versions](https://github.com/Azure/bicep/blob/b34271ac51d820e7d448555fe7a6c1dbdb9e82c8/src/Directory.Packages.props) pin `Azure.Bicep.Types.Az@0.2.972` and `Azure.Bicep.Types@0.6.144`, exactly matching the independent audit. Normal/toolkit/upstream pins remain unchanged.
+
+The official `bicep-win-x64.exe` release asset is **126,668,256 bytes**, SHA-256 `acfff0453c9bcf442aa97103acbcd845ef366634e6ea2a2ba5734514409ce9c3`, as recorded by GitHub's release asset metadata. The actual executable reports `Bicep CLI version 0.49.2 (b34271ac51)`. Setup stores only this asset under the ignored artifact cache; each invocation verifies size/digest/banner before execution. Missing/modified binaries fail instead of using PATH or another version, and normal verification never installs a fallback.
+
+The [helper](../../../toolkit/tools/typespec-bicep/compiler.mjs) uses supported CLI commands, not `Azure.Bicep.Core` APIs or a new product/runtime dependency. It invokes `build --stdout --no-restore --config <explicit-fixed-config> --diagnostics-format Sarif`. The [fixed config](../../../toolkit/tools/typespec-bicep/compiler-config.json) disables lint only; compiler/resource schema diagnostics remain enabled and parent config discovery is avoided.
+
+The first attempted whole-body `resourceInput<...>` probe failed with **BCP394**: resource-derived type expressions must select a property, not the whole resource body. Property-derived parameter metadata then compiled even for the missing May version without diagnostics. That annotation-only result is **not** catalogue association evidence and was not accepted as a pass.
+
+The final [association fixture](../../../toolkit/tools/typespec-bicep/test/compiler-association.bicep) includes property-derived type metadata and an actual exact-March Public IP declaration. The positive run returns **exit 0, no diagnostics, one declared Public IP at `2026-03-01`**, with expected parameter source references and the tested integer property. This is an offline schema probe, not a generated bridge-derived command template or an Azure deployment.
+
+Each negative probe returns **exit 0 with a schema diagnostic**:
+
+| Probe | Exact diagnostic | Qualification |
+| --- | --- | --- |
+| Missing `2026-05-01` resource types | `BCP081`: no available resource type validation | Rejected |
+| String `idleTimeoutInMinutes` | `BCP036`: expected `int \| null` | Rejected |
+| Unknown Public IP property | `BCP037`: property not allowed | Rejected |
+
+The helper rejects **all** diagnostics, not just nonzero compiler exit codes. Tests assert the exact warning-only exit/codes, so a syntax error or a source label is not a substitute for real schema validation. The SARIF output omits explicit levels for these default-warning results; the report keeps that absence as `null` rather than inventing a level. The rejection gate does not depend on diagnostic severity.
+
+The new [compiler-association report](public-ip-compiler-association.json) records official asset/source identity, tagged package association, the independently hashed audit report, probe/config/compiled-output digests and positive/negative results. The CLI's compressed single-file embedded catalogue DLL was **not** separately extracted/hashed; the recorded assembly hash explicitly identifies the independent audit assembly. Association evidence is official binary identity plus pinned source package versions and observed selected-schema behavior, not a claim of byte-extracted assembly identity.
+
+Prior raw audits and their `compilerAssociation: "unverified"` fields are preserved as historical catalogue-only evidence. Their four differences and unsupported status remain; the new separate association gate does not relabel them compatible or waive command input/eligibility constraints.
+
+| Command / check | Result |
+| --- | --- |
+| `gh release list --repo Azure/bicep --limit 5 --json tagName,publishedAt,isPrerelease,name` and exact release/tag/source package inspection | Official `v0.49.2`, exact commit, asset digest/size and matching package pins verified |
+| `npm --prefix toolkit\tools\typespec-bicep run compiler:setup` | Passed; missing CLI acquired from official release, size/digest/banner verified |
+| Isolated copy of `compiler.mjs` / `compiler.json`, then `node <isolated-tool-path>\compiler.mjs --install` | Passed fresh download/verification branch; temporary cache removed without modifying the shared verified compiler |
+| `npm --prefix toolkit\tools\typespec-bicep run compiler:verify` | Passed after replacing insufficient annotation-only probe; exact March declaration and three rejected warning-only cases |
+| `npm --prefix toolkit\tools\typespec-bicep run test:compiler` | 2 passed; actual compiler association plus same-size tampering/missing-executable rejection before invocation |
+| `node toolkit\tools\typespec-bicep\compiler.mjs --verify openspec\changes\pilot-public-ip-bicep-create\public-ip-compiler-association.json` | Passed; persistent separate report generated |
+| `openspec validate pilot-public-ip-bicep-create --strict`, `node --check toolkit\tools\typespec-bicep\compiler.mjs` and `git diff --check` | Passed; normal pins, bridge fixture and prior raw reports unchanged |
+
+The Windows x64 compiler tests/setup are opt-in; the normal supported upstream suite does not acquire a CLI. **Task 2.2 remains next**: generate the actual command-specific resource/parameter assignments from the existing bridge. Packaging/omission/default proof, product adapter/transport, both-surface playback and authorized live gates are still pending.
 
 ## Goals / Non-Goals
 

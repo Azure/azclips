@@ -242,6 +242,49 @@ Template compilation, command input derivation, permissions, deployment
 transport/query/header behavior, outputs, existing-resource handling and live
 regression gates still require a separately approved implementation/pilot.
 
+## Pinned build-only Bicep compiler association
+
+The isolated [compiler pin](tools/typespec-bicep/compiler.json) selects official
+Windows x64 Bicep CLI `0.49.2` at source revision
+`b34271ac51d820e7d448555fe7a6c1dbdb9e82c8`. Its tagged compiler dependencies use
+the same `Azure.Bicep.Types.Az@0.2.972` / `Azure.Bicep.Types@0.6.144` as the audit.
+No compiler-core API, runtime dependency or global/PATH installation is added.
+
+From the repository root:
+
+```powershell
+npm --prefix toolkit\tools\typespec-bicep run compiler:setup
+npm --prefix toolkit\tools\typespec-bicep run compiler:verify
+npm --prefix toolkit\tools\typespec-bicep run test:compiler
+```
+
+Setup uses `gh` to acquire only the pinned official asset into the ignored
+artifact cache. Every invocation verifies its size, SHA-256 and full version
+banner before execution. Missing/modified binaries fail explicitly; verification
+does not download a replacement, use PATH or fall back to another version.
+The compiler tests are opt-in and require setup; ordinary toolkit/upstream
+tests do not acquire a compiler.
+
+The association fixture is an **offline schema probe**, not the generated
+command-specific template. It declares one exact March Public IP and
+property-derived parameters. `build --no-restore --config <fixed-config>
+--diagnostics-format Sarif` avoids module restore and parent-config discovery.
+The fixed config disables lint only; resource schema diagnostics remain enabled.
+
+Exit zero is insufficient: Bicep returns zero with `BCP081` for unavailable
+May types, `BCP036` for a wrong timeout type, and `BCP037` for an unknown
+property. The helper rejects every diagnostic, not just compiler errors.
+Resource-derived parameter metadata alone does not prove schema availability;
+the real declaration and negative probes are required.
+
+The [association report](../openspec/changes/pilot-public-ip-bicep-create/public-ip-compiler-association.json)
+separately records official binary/source identity, independent audit reference,
+probe/config/output digests and positive/negative results. The single-file
+CLI's embedded catalogue assembly was not independently extracted/hashed.
+Historical raw audits remain unsupported and retain their original
+`compilerAssociation: "unverified"` field; this separate selected-resource
+evidence does not relabel those reports or qualify runtime/live behavior.
+
 ## Orchestration
 
 The **compiler owns the workflow**. `STAGE_CATALOG` in

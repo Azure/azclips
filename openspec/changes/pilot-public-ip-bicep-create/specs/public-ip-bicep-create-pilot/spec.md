@@ -28,6 +28,17 @@ The local pilot experiment SHALL use the complete Public IP deployment contract 
 - **WHEN** a minimal Public IP example compiles but the complete source/catalogue gate has unaccounted differences
 - **THEN** the example SHALL NOT authorize pilot activation or be reported as full-contract compatibility
 
+#### Scenario: Official compiler identity and selected type association
+- **WHEN** the build compiler is qualified for the selected Public IP version
+- **THEN** its official release asset digest, executable version/source revision and tagged catalogue dependency versions SHALL be recorded
+- **AND** actual resource-declaration/property-type probes SHALL demonstrate the selected schema rather than relying only on resource-derived parameter metadata or version presence
+- **AND** missing or modified binaries SHALL fail before invocation without a PATH, version or download fallback during verification
+
+#### Scenario: Compiler succeeds with schema diagnostics
+- **WHEN** Bicep exits zero but reports missing-type, wrong-property-type or unknown-property diagnostics
+- **THEN** compiler association and build-asset qualification SHALL still fail
+- **AND** build tooling SHALL use an explicit fixed configuration, retain schema diagnostics and avoid implicit module restore
+
 #### Scenario: Faithfully normalized open catalogue strings
 - **WHEN** a catalogue union contains one unconstrained non-sensitive string type and only string literal alternatives
 - **THEN** the audit SHALL compare it as an open string after checking nullability independently

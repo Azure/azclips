@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0.0",
+  "status": "verified-selected-resource-association",
+  "selection": "Microsoft.Network/publicIPAddresses@2026-03-01",
+  "compiler": {
+    "version": "Bicep CLI version 0.49.2 (b34271ac51)",
+    "sha256": "acfff0453c9bcf442aa97103acbcd845ef366634e6ea2a2ba5734514409ce9c3",
+    "revision": "b34271ac51d820e7d448555fe7a6c1dbdb9e82c8",
+    "asset": "https://github.com/Azure/bicep/releases/download/v0.49.2/bicep-win-x64.exe"
+  },
+  "catalogue": {
+    "package": "Azure.Bicep.Types.Az",
+    "version": "0.2.972",
+    "independentAssemblySha256": "ce08193659d798083d99611f2d2895e8cc8bd27986f72d8b7b8180c77cf42066",
+    "typesVersion": "0.6.144",
+    "source": "https://github.com/Azure/bicep/blob/b34271ac51d820e7d448555fe7a6c1dbdb9e82c8/src/Directory.Packages.props"
+  },
+  "independentAuditSha256": "6f97d7e52565435309c8ba0eeb412232a101b67fee2abbdb690c2227eee34106",
+  "configSha256": "a0f951a5163f70ced9abb3469225b10bb0b97d78a6b04fe495c6224add60cf02",
+  "probeSha256": "5c4bd0e9aa0b68980246fc30fb827b01e284289592cfc2a167d27db9cee1b491",
+  "templateSha256": "d34f9751b019b573c175a06e450a8a8b8e7d9bee6a53e3890c222d52ab950333",
+  "positive": {
+    "exitCode": 0,
+    "diagnostics": [],
+    "resources": 1
+  },
+  "negatives": [
+    {
+      "name": "missing-version",
+      "exitCode": 0,
+      "diagnostics": [
+        {
+          "code": "BCP081",
+          "level": null,
+          "message": "Resource type \"Microsoft.Network/publicIPAddresses@2026-05-01\" does not have types available. Bicep is unable to validate resource properties prior to deployment, but this will not block the resource from being deployed. [https://aka.ms/bicep/core-diagnostics#BCP081]"
+        }
+      ]
+    },
+    {
+      "name": "wrong-integer-type",
+      "exitCode": 0,
+      "diagnostics": [
+        {
+          "code": "BCP036",
+          "level": null,
+          "message": "The property \"idleTimeoutInMinutes\" expected a value of type \"int | null\" but the provided value is of type \"'not-an-integer'\". If this is a resource type definition inaccuracy, report it using https://aka.ms/bicep-type-issues. [https://aka.ms/bicep/core-diagnostics#BCP036]"
+        }
+      ]
+    },
+    {
+      "name": "unknown-property",
+      "exitCode": 0,
+      "diagnostics": [
+        {
+          "code": "BCP037",
+          "level": null,
+          "message": "The property \"azclipsUnknownProperty\" is not allowed on objects of type \"PublicIPAddressPropertiesFormat\". Permissible properties include \"ddosSettings\", \"deleteOption\", \"dnsSettings\", \"idleTimeoutInMinutes\", \"ipAddress\", \"ipTags\", \"linkedPublicIPAddress\", \"migrationPhase\", \"natGateway\", \"publicIPAddressVersion\", \"publicIPAllocationMethod\", \"publicIPPrefix\", \"servicePublicIPAddress\". If this is a resource type definition inaccuracy, report it using https://aka.ms/bicep-type-issues. [https://aka.ms/bicep/core-diagnostics#BCP037]"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Association uses the official release digest/version, its pinned source package versions and selected resource declaration/property-derived type probes.",
+    "The catalogue assembly inside the single-file CLI was not extracted or hashed independently.",
+    "This is not a command-specific template, API/Bicep schema-compatibility pass, runtime or live deployment qualification."
+  ]
+}
