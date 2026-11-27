@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "1.0.0",
+  "evaluator": "Bicep/get_deployment_snapshot",
+  "evaluatorVersion": "unverified",
+  "input": "Exact packaged ARM JSON, not recompiled Bicep resource source",
+  "metadata": {
+    "subscriptionId": "282bb33f-067d-4179-a7a4-b833c13af735",
+    "resourceGroup": "my-rg",
+    "deploymentName": "public-ip-offline-proof",
+    "location": "eastus"
+  },
+  "assetSha256": {
+    "TagsAbsent": "1e4b65f4810c8dc1a1e1014b005f2e9b565a36ba5ad9031dd9022134dc270363",
+    "TagsPresent": "c0070e44327dbde789c3256f682f16c563f925671b72602bd5be62d1b3685fae"
+  },
+  "cases": {
+    "Default": {
+      "variant": "TagsAbsent",
+      "parameters": {
+        "publicIpAddressName": { "value": "my-pip" },
+        "location": { "value": "eastus" },
+        "skuName": { "value": "Standard" },
+        "publicIPAllocationMethod": { "value": "Static" },
+        "publicIPAddressVersion": { "value": "IPv4" },
+        "idleTimeoutInMinutes": { "value": 4 }
+      },
+      "snapshot": {"predictedResources":[{"id":"/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourceGroups/my-rg/providers/Microsoft.Network/publicIPAddresses/my-pip","type":"Microsoft.Network/publicIPAddresses","name":"my-pip","apiVersion":"2026-03-01","location":"eastus","sku":{"name":"Standard"},"properties":{"publicIPAllocationMethod":"Static","publicIPAddressVersion":"IPv4","idleTimeoutInMinutes":4}}],"diagnostics":[],"outputs":{}}
+    },
+    "Explicit": {
+      "variant": "TagsPresent",
+      "parameters": {
+        "publicIpAddressName": { "value": "my-pip" },
+        "location": { "value": "eastus" },
+        "skuName": { "value": "Standard" },
+        "skuTier": { "value": "Regional" },
+        "tags": { "value": { "Owner": "team-A" } },
+        "publicIPAllocationMethod": { "value": "Static" },
+        "publicIPAddressVersion": { "value": "IPv4" },
+        "idleTimeoutInMinutes": { "value": 30 }
+      },
+      "snapshot": {"predictedResources":[{"id":"/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourceGroups/my-rg/providers/Microsoft.Network/publicIPAddresses/my-pip","type":"Microsoft.Network/publicIPAddresses","name":"my-pip","apiVersion":"2026-03-01","location":"eastus","sku":{"name":"Standard","tier":"Regional"},"tags":{"Owner":"team-A"},"properties":{"publicIPAllocationMethod":"Static","publicIPAddressVersion":"IPv4","idleTimeoutInMinutes":30}}],"diagnostics":[],"outputs":{}}
+    },
+    "EmptyTags": {
+      "variant": "TagsPresent",
+      "parameters": {
+        "publicIpAddressName": { "value": "my-pip" },
+        "location": { "value": "eastus" },
+        "skuName": { "value": "Standard" },
+        "tags": { "value": {} },
+        "publicIPAllocationMethod": { "value": "Static" },
+        "publicIPAddressVersion": { "value": "IPv4" },
+        "idleTimeoutInMinutes": { "value": 4 }
+      },
+      "snapshot": {"predictedResources":[{"id":"/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourceGroups/my-rg/providers/Microsoft.Network/publicIPAddresses/my-pip","type":"Microsoft.Network/publicIPAddresses","name":"my-pip","apiVersion":"2026-03-01","location":"eastus","sku":{"name":"Standard"},"tags":{},"properties":{"publicIPAllocationMethod":"Static","publicIPAddressVersion":"IPv4","idleTimeoutInMinutes":4}}],"diagnostics":[],"outputs":{}}
+    },
+    "Int32Max": {
+      "variant": "TagsAbsent",
+      "parameters": {
+        "publicIpAddressName": { "value": "my-pip" },
+        "location": { "value": "eastus" },
+        "skuName": { "value": "Standard" },
+        "publicIPAllocationMethod": { "value": "Static" },
+        "publicIPAddressVersion": { "value": "IPv4" },
+        "idleTimeoutInMinutes": { "value": 2147483647 }
+      },
+      "snapshot": {"predictedResources":[{"id":"/subscriptions/282bb33f-067d-4179-a7a4-b833c13af735/resourceGroups/my-rg/providers/Microsoft.Network/publicIPAddresses/my-pip","type":"Microsoft.Network/publicIPAddresses","name":"my-pip","apiVersion":"2026-03-01","location":"eastus","sku":{"name":"Standard"},"properties":{"publicIPAllocationMethod":"Static","publicIPAddressVersion":"IPv4","idleTimeoutInMinutes":2147483647}}],"diagnostics":[],"outputs":{}}
+    }
+  }
+}

@@ -52,8 +52,16 @@ async function installCompiler() {
 }
 
 export async function compileBicep(input, executable = compilerPath) {
+  return compile(input, executable, "build");
+}
+
+export async function compileParameters(input, executable = compilerPath) {
+  return compile(input, executable, "build-params");
+}
+
+async function compile(input, executable, command) {
   await verifyCompiler(executable);
-  const result = spawnSync(executable, ["build", resolve(input), "--stdout", "--no-restore",
+  const result = spawnSync(executable, [command, resolve(input), "--stdout", "--no-restore",
     "--config", config, "--diagnostics-format", "Sarif"], {
     encoding: "utf8", timeout: 120_000, maxBuffer: 16 * 1024 * 1024,
   });
@@ -63,10 +71,13 @@ export async function compileBicep(input, executable = compilerPath) {
   assert.equal(sarif.version, "2.1.0", "Compiler diagnostic format is unexpected");
   assert.ok(Array.isArray(sarif.runs) && sarif.runs.length === 1 && Array.isArray(sarif.runs[0].results),
     "Compiler diagnostic results are missing");
+  const output = result.stdout.trim() ? JSON.parse(result.stdout) : undefined;
   return {
     exitCode: result.status,
     diagnostics: sarif.runs[0].results.map(({ ruleId, level, message }) => ({ code: ruleId, level: level ?? null, message: message.text })),
-    ...(result.stdout.trim() ? { template: JSON.parse(result.stdout) } : {}),
+    ...(output ? command === "build" ? { template: output }
+      : { template: output.templateJson ? JSON.parse(output.templateJson) : undefined,
+        parameters: output.parametersJson ? JSON.parse(output.parametersJson) : undefined } : {}),
   };
 }
 

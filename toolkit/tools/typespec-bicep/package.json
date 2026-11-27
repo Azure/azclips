@@ -14,7 +14,8 @@
     "template:generate": "node generate-template.mjs",
     "test:template": "node --test test/template.test.mjs",
     "template:package": "node package-template.mjs",
-    "test:package": "node --test test/package.test.mjs"
+    "test:package": "node --test test/package.test.mjs",
+    "test:snapshots": "node --test test/snapshot.test.mjs"
   },
   "dependencies": {
     "@azure/bicep-types": "0.6.129",

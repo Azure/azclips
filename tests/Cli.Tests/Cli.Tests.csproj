@@ -12,6 +12,7 @@
     <EmbeddedResource Include="Fixtures\PublicIpBicepCreate.TagsAbsent.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.TagsAbsent.json" />
     <EmbeddedResource Include="Fixtures\PublicIpBicepCreate.TagsPresent.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.TagsPresent.json" />
     <EmbeddedResource Include="Fixtures\PublicIpBicepCreate.Assets.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.Assets.json" />
+    <EmbeddedResource Include="Fixtures\PublicIpBicepSnapshots.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepSnapshots.json" />
     <EmbeddedResource Include="..\..\toolkit\tools\typespec-bicep\compiler.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCompilerPin.json" />
     <EmbeddedResource Include="..\..\toolkit\tools\typespec-bicep\compiler-config.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCompilerConfig.json" />
   </ItemGroup>

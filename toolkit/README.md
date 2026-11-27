@@ -355,6 +355,31 @@ recompilation or independent verification of an embedded CLI catalogue.
 No product registration or feature dependency is added. Evaluated declaration,
 transport, both-surface and live gates remain separate.
 
+### Independent evaluated declaration proof
+
+The [offline snapshots](../tests/Cli.Tests/Fixtures/PublicIpBicepSnapshots.json)
+were produced by `Bicep/get_deployment_snapshot` using `.bicepparam` files
+referencing the exact packaged ARM JSON, not recompiled Bicep resource source.
+They cover defaults with absent tags/tier, explicit tags/tier/timeout, explicitly
+empty tags, and Int32 maximum timeout. Synthetic scope metadata is used without
+deployment. The snapshot evaluator's implementation version is **unverified**;
+this is independent evaluated-body evidence, not another compiler/catalogue
+association or service-acceptance claim.
+
+```powershell
+npm --prefix toolkit\tools\typespec-bicep run test:snapshots
+dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~BicepTemplate_IndependentSnapshot --verbosity quiet
+```
+
+The pinned CLI verifies that all four committed parameter files resolve to the
+recorded parameter values and unchanged packaged template. Native tests compare
+actual customized direct request bodies and generated bindings serialized by the
+existing atomic deployment transport with the independent snapshots. The
+transport's additional null `reference`/`expression` fields are asserted
+explicitly, not treated as value differences or silently ignored. Asset digests
+bind the evidence to both immutable variants. No handwritten ARM expression
+evaluator, runtime compiler or new structural mapping is added.
+
 ## Orchestration
 
 The **compiler owns the workflow**. `STAGE_CATALOG` in

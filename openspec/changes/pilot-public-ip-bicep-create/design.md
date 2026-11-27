@@ -562,6 +562,22 @@ The unregistered [fixture reader](../../../tests/Cli.Tests/Fixtures/PublicIpBice
 
 There are **91 distinct targeted tests** (the final reader run repeats the initial 16 cases). Task 2.4 remains next: compare existing canonical normalized bodies/parameters against evaluated declaration semantics. This packaging/loading gate is not adapter registration, deployment transport, both-surface playback, newly generated March C# execution, schema identity or live provisioning evidence.
 
+### Independent JSON-backed declaration snapshots
+
+Task 2.4 is complete. [Four offline snapshots](../../../tests/Cli.Tests/Fixtures/PublicIpBicepSnapshots.json) came from `Bicep/get_deployment_snapshot`, with JSON-backed `.bicepparam` inputs referencing exact copies of the packaged ARM assets. Both copied input byte digests were verified before evaluation. The resource template was not recompiled, no handwritten ARM expression evaluator was introduced, and no Azure deployment was performed. Bare relative JSON `using` references are required: an absolute Windows path was rejected as an unrecognized module-reference scheme (BCP189).
+
+The independent evaluator returned exactly one March Public IP, zero diagnostics and no outputs for defaults/absent optional values, explicit ordinary tags/Regional tier/timeout 30, explicitly empty tags with absent tier, and Int32 maximum timeout. Frozen evidence records both asset digests, actual snapshot results, parameter values and synthetic deployment metadata. The evaluator version remains **unverified**; this proof does not qualify another compiler, broaden the schema audit or establish service acceptance of representation-boundary timeouts.
+
+Four pinned-CLI parameter tests compile the committed JSON-backed inputs and compare both parameter maps and resolved templates with the evidence/immutable assets. Four native tests independently run the existing customization/direct processor and generated binder plus real atomic deployment serialization, compare every parameter value, and compare the evaluated declaration body after verifying/removing only declaration identity fields. Tags absent versus `{}`, tier omission and exact Int32 values remain distinct. The existing transport also writes null `reference` and `expression` fields; tests explicitly require those null fields rather than modifying transport or treating them as evaluator inputs.
+
+| Command / check | Result |
+| --- | --- |
+| `node --test toolkit\tools\typespec-bicep\test\compiler.test.mjs toolkit\tools\typespec-bicep\test\snapshot.test.mjs` | 6 passed, including both preserved compiler-qualification tests and four JSON-backed parameter cases |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~BicepTemplate_IndependentSnapshot --verbosity quiet` | 4 passed after explicitly accounting for existing transport null fields |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter 'FullyQualifiedName~PublicIpAddressParameterTests\|FullyQualifiedName~PublicIpBicepAssetTests' --verbosity quiet` | 92 passed, including the final snapshot identity/output checks and all existing normalization/asset cases |
+
+Section 3 remains next: isolated runtime selection, existing deployment/GET composition, body-matched both-surface replay and negative paths. No product registration, feature dependency, newly generated March C# execution or live readiness is claimed.
+
 ## Goals / Non-Goals
 
 **Goals:**

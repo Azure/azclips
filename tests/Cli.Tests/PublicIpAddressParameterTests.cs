@@ -402,6 +402,65 @@ public class PublicIpAddressParameterTests
         return document.RootElement.GetProperty("properties").GetProperty("parameters").Clone();
     }
 
+    [Theory]
+    [InlineData("Default")]
+    [InlineData("Explicit")]
+    [InlineData("EmptyTags")]
+    [InlineData("Int32Max")]
+    public async Task BicepTemplate_IndependentSnapshotMatchesActualCanonicalBodyAndSerializedParameters(string scenario)
+    {
+        Action<CreateOrUpdatePublicIPAddressesProcessor_Customization> configure = processor =>
+        {
+            if (scenario == "Explicit")
+            {
+                processor.SkuTier = "Regional";
+                processor.TagSpecs = ["Owner=team-A"];
+                processor.IdleTimeoutInMinutes = 30;
+            }
+            if (scenario == "EmptyTags") processor.Tags = new Dictionary<string, string>();
+            if (scenario == "Int32Max") processor.IdleTimeoutInMinutes = int.MaxValue;
+        };
+        JsonElement direct = await CaptureCreateBodyAsync(configure);
+        var (normalized, pipeline) = NormalizePilotBody(processor => configure(processor));
+        JsonElement parameters = await CaptureDeploymentParametersAsync(PublicIpBicepInputBinding.Bind(PipName, normalized));
+        JsonElement template = PublicIpBicepAssets.Load(normalized);
+        using Stream evidenceStream = PublicIpBicepAssets.OpenResource("PublicIpBicepSnapshots.json")!;
+        using var evidence = JsonDocument.Parse(evidenceStream);
+        JsonElement recorded = evidence.RootElement.GetProperty("cases").GetProperty(scenario);
+        JsonElement expectedParameters = recorded.GetProperty("parameters");
+        Assert.Equal(expectedParameters.EnumerateObject().Select(parameter => parameter.Name).Order(),
+            parameters.EnumerateObject().Select(parameter => parameter.Name).Order());
+        foreach (JsonProperty parameter in parameters.EnumerateObject())
+        {
+            Assert.Equal(new[] { "expression", "reference", "value" },
+                parameter.Value.EnumerateObject().Select(field => field.Name).Order());
+            Assert.Equal(JsonValueKind.Null, parameter.Value.GetProperty("reference").ValueKind);
+            Assert.Equal(JsonValueKind.Null, parameter.Value.GetProperty("expression").ValueKind);
+            Assert.True(JsonElement.DeepEquals(expectedParameters.GetProperty(parameter.Name).GetProperty("value"),
+                parameter.Value.GetProperty("value")), $"Snapshot value differs for '{parameter.Name}'.");
+        }
+        string variant = recorded.GetProperty("variant").GetString()!;
+        using Stream manifestStream = PublicIpBicepAssets.OpenResource("PublicIpBicepCreate.Assets.json")!;
+        using var manifest = JsonDocument.Parse(manifestStream);
+        Assert.Equal(evidence.RootElement.GetProperty("assetSha256").GetProperty(variant).GetString(),
+            manifest.RootElement.GetProperty("assets").GetProperty(variant).GetProperty("sha256").GetString());
+        JsonElement snapshot = recorded.GetProperty("snapshot");
+        Assert.Empty(snapshot.GetProperty("diagnostics").EnumerateArray());
+        Assert.Empty(snapshot.GetProperty("outputs").EnumerateObject());
+        JsonElement predicted = Assert.Single(snapshot.GetProperty("predictedResources").EnumerateArray());
+        Assert.Equal(PipName, predicted.GetProperty("name").GetString());
+        Assert.Equal(new Uri(ResourceUri).AbsolutePath, predicted.GetProperty("id").GetString());
+        Assert.Equal("Microsoft.Network/publicIPAddresses", predicted.GetProperty("type").GetString());
+        Assert.Equal("2026-03-01", predicted.GetProperty("apiVersion").GetString());
+        var predictedBody = JsonNode.Parse(predicted.GetRawText())!.AsObject();
+        foreach (string identity in new[] { "id", "type", "apiVersion", "name" }) predictedBody.Remove(identity);
+        Assert.True(JsonElement.DeepEquals(direct, JsonSerializer.SerializeToElement(predictedBody)));
+        Assert.True(JsonElement.DeepEquals(normalized, direct));
+        Assert.Equal(normalized.TryGetProperty("tags", out _),
+            template.GetProperty("resources").EnumerateObject().Single().Value.TryGetProperty("tags", out _));
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
     private static (JsonElement Body, FakeHttpPipeline Pipeline) NormalizePilotBody(Action<NormalizingPublicIpProcessor> configure)
     {
         var pipeline = new FakeHttpPipeline((_, _) => throw new InvalidOperationException("Input binding must not send HTTP requests."));
