@@ -1,72 +1,62 @@
-name: docs-github-app-identity-test-$(Date:yyyyMMdd)$(Rev:.r)
+name: docs-release-pat-read-test-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+variables:
+- group: get-github-pat-token
+
 jobs:
-- job: CheckGitHubApp
-  displayName: Test Learn GitHub App access
+- job: CheckGitHubPat
+  displayName: Test AzClips release GitHub PAT
   pool:
     name: pool-ubuntu-2404
   steps:
-  - checkout: none
-  - task: AzureCLI@2
-    displayName: Test GitHub App token requests
-    inputs:
-      azureSubscription: DocsReference_WIF
-      scriptType: pscore
-      scriptLocation: inlineScript
-      inlineScript: |
-        $ErrorActionPreference = 'Stop'
-        if ($env:SYSTEM_TEAMPROJECT -ne 'release') {
-          throw 'This test must run in the release project.'
-        }
-        $serviceToken = az account get-access-token --resource 6befca88-4c28-430a-957e-f870b267bcfc --query accessToken --output tsv
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($serviceToken)) {
-          throw 'Could not obtain an access token for the Learn build service.'
-        }
+  - checkout: self
+  - template: templates/dist/steps/get-github-pat-token.yml
+    parameters:
+      azureSubscription: $(AzureSubscription)
+      keyVaultName: $(GitHubPatKeyVault)
+      secretName: $(GitHubPatSecretName)
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      if ($env:SYSTEM_TEAMPROJECT -ne 'release') {
+        throw 'This test must run in the release project.'
+      }
+      if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+        throw 'GitHub token was not supplied by Key Vault.'
+      }
+      $headers = @{
+        Authorization = "Bearer $env:GH_TOKEN"
+        'User-Agent' = 'azclips-docs-pat-test'
+        Accept = 'application/vnd.github+json'
+      }
+      try {
+        $identity = Invoke-WebRequest -Uri 'https://api.github.com/user' -Headers $headers -SkipHttpErrorCheck
+        if ($identity.StatusCode -ne 200) { throw "GitHub authentication failed: HTTP $($identity.StatusCode)." }
+        Write-Host "Authenticated GitHub account: $(($identity.Content | ConvertFrom-Json).login)."
         $failures = 0
-        try {
-          foreach ($repo in @('MicrosoftDocs/azure-docs-cli', 'MicrosoftDocs/azure-docs-powershell')) {
-            foreach ($mode in @('read', 'pr-write')) {
-              $permissions = if ($mode -eq 'read') {
-                @{ contents = 'Read' }
-              } else {
-                @{ contents = 'Write'; pull_requests = 'Write' }
-              }
-              $body = @{ repoUrl = "https://github.com/$repo"; permissions = $permissions } | ConvertTo-Json -Compress
-              $response = Invoke-WebRequest -Method Post -Uri 'https://buildapi.docs.microsoft.com/v2/authentication/profile/token' `
-                -Headers @{ Authorization = "Bearer $serviceToken" } -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
-              if ($response.StatusCode -ne 200) {
-                Write-Host "$repo $mode token request failed: HTTP $($response.StatusCode)."
-                $failures++
-                continue
-              }
-              $githubToken = ($response.Content | ConvertFrom-Json).access_token
-              $response = $null
-              if ([string]::IsNullOrWhiteSpace($githubToken)) {
-                Write-Host "$repo $mode token request returned no token."
-                $failures++
-                continue
-              }
-              try {
-                $check = Invoke-WebRequest -Uri "https://api.github.com/repos/$repo" `
-                  -Headers @{ Authorization = "Bearer $githubToken"; 'User-Agent' = 'azclips-docs-app-test'; Accept = 'application/vnd.github+json' } `
-                  -SkipHttpErrorCheck
-                if ($check.StatusCode -ne 200) {
-                  Write-Host "$repo $mode GitHub check failed: HTTP $($check.StatusCode)."
-                  $failures++
-                } else {
-                  Write-Host "$repo $mode token request and GitHub read succeeded."
-                }
-              } finally {
-                $githubToken = $null
-                $check = $null
-              }
-            }
+        foreach ($repo in @('MicrosoftDocs/azure-docs-cli', 'MicrosoftDocs/azure-docs-powershell')) {
+          $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$repo" -Headers $headers -SkipHttpErrorCheck
+          if ($response.StatusCode -ne 200) {
+            Write-Host "$repo metadata request failed: HTTP $($response.StatusCode)."
+            $failures++
+            continue
           }
-        } finally {
-          $serviceToken = $null
-          $response = $null
+          $metadata = $response.Content | ConvertFrom-Json
+          if ($null -ne $metadata.permissions) {
+            Write-Host "$repo metadata: push=$($metadata.permissions.push), admin=$($metadata.permissions.admin)."
+          } else {
+            Write-Host "$repo metadata read succeeded; permission details not returned."
+          }
         }
-        if ($failures -ne 0) { throw "$failures GitHub App access check(s) failed." }
-        Write-Host 'No repository changes were made. Write permissions have not been exercised.'
+        if ($failures -ne 0) { throw "$failures repository metadata check(s) failed." }
+        Write-Host 'No repository changes were made. Public-repo reads and metadata do not prove token write or PR permissions.'
+      } finally {
+        $headers = $null
+        $identity = $null
+        $response = $null
+        Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+      }
+    displayName: Test GitHub Authentication And Repository Metadata
+    env:
+      GH_TOKEN: $(GH_TOKEN)
