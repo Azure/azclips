@@ -7,140 +7,17 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Core.ArgumentParsing;
-using Core.Cli;
-using Core.Runtime;
-using Core.Runtime.Persistence;
-using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.ManagedServiceIdentity.Tests;
 
-public class IdentityExtensionTests
+public class IdentityProcessorTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
-    private const string MissingIdentityAddressMessage = "Provide either --ids, or both --name and --resource-group.";
-
-    [Fact]
-    public void CliMetadata_ExposesDocumentedIdentityCommandSet()
-    {
-        var index = new ExtensionIndex();
-
-        Assert.Equal(
-            ["identity create", "identity list", "identity show", "identity update", "identity delete",
-             "identity federated-credential create", "identity federated-credential list", "identity federated-credential show", "identity federated-credential update", "identity federated-credential delete"],
-            [.. index.GetCommandKeys(ClientType.CLI)]);
-    }
-
-    [Fact]
-    public void PowerShellMetadata_ExposesIdentityCmdletCommandSet()
-    {
-        var index = new ExtensionIndex();
-
-        Assert.Equal(
-            ["New-AzUserAssignedIdentity", "Get-AzUserAssignedIdentity_List", "Get-AzUserAssignedIdentity_Get", "Update-AzUserAssignedIdentity", "Remove-AzUserAssignedIdentity",
-             "New-AzFederatedIdentityCredential", "Get-AzFederatedIdentityCredential_List", "Get-AzFederatedIdentityCredential_Get", "Update-AzFederatedIdentityCredential", "Remove-AzFederatedIdentityCredential"],
-            [.. index.GetCommandKeys(ClientType.PowerShell)]);
-    }
-
-    [Fact]
-    public void PowerShellMetadata_MapsCmdletParameters_ToProcessorProperties()
-    {
-        var metadata = new ExtensionIndex().GetCommandMetadata("Update-AzUserAssignedIdentity", ClientType.PowerShell);
-
-        Assert.Equal(typeof(UpdateIdentityProcessor), metadata.ProcessorType);
-        Assert.Equal("ResourceGroup", metadata.Parameters["ResourceGroupName"].Name);
-        Assert.Equal("ResourceName", metadata.Parameters["Name"].Name);
-        Assert.Equal("Location", metadata.Parameters["Location"].Name);
-        Assert.Equal("ResourceRestrictionProviders", metadata.Parameters["ResourceRestriction"].Name);
-        Assert.Equal(typeof(List<string>), metadata.Parameters["ResourceRestriction"].ParameterType);
-        Assert.Equal(typeof(Dictionary<string, string>), metadata.Parameters["Tags"].ParameterType);
-    }
-
-    [Fact]
-    public void CliMetadata_UsesLearnParameterNames_NotPowerShellNames()
-    {
-        var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
-
-        Assert.Contains("resource-group", metadata.Parameters.Keys);
-        Assert.Contains("resource-name", metadata.Parameters["name"].Aliases);
-        Assert.Contains("subscription", metadata.Parameters.Keys);
-        Assert.DoesNotContain("ResourceGroupName", metadata.Parameters.Keys);
-        Assert.DoesNotContain("SubscriptionId", metadata.Parameters.Keys);
-        Assert.Equal("ResourceGroup", metadata.Parameters["resource-group"].Name);
-        Assert.Equal("ResourceName", metadata.Parameters["name"].Name);
-        Assert.Equal("TagsInput", metadata.Parameters["tags"].Name);
-    }
-
-    [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public async Task CliProcess_AddressedIdentityCommandWithoutAddress_ThrowsInvalidInput(string commandName)
-    {
-        IProcessor processor = BindIdentityCommand(commandName, new());
-
-        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
-        Assert.Equal(MissingIdentityAddressMessage, error.Message);
-    }
-
-    [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public async Task CliProcess_AddressedIdentityCommandWithNameOnly_ThrowsInvalidInput(string commandName)
-    {
-        IProcessor processor = BindIdentityCommand(commandName, new() { ["name"] = "identity-name" });
-
-        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
-        Assert.Equal(MissingIdentityAddressMessage, error.Message);
-    }
-
-    [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public async Task CliProcess_AddressedIdentityCommandWithResourceGroupOnly_ThrowsInvalidInput(string commandName)
-    {
-        IProcessor processor = BindIdentityCommand(commandName, new() { ["resource-group"] = "test-rg" });
-
-        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
-        Assert.Equal(MissingIdentityAddressMessage, error.Message);
-    }
-
-    [Fact]
-    public void CliBinding_BindsDocumentedAliases_ToRefactoredProcessorProperties()
-    {
-        var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
-        var processor = (CreateIdentityProcessor_Orchestrator)metadata.GetInstance();
-        var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-
-        binder.BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                ["g"] = new List<List<string>> { new() { "rg1" } },
-                ["resource-name"] = new List<List<string>> { new() { "id1" } },
-                ["location"] = new List<List<string>> { new() { "eastus" } },
-                ["tags"] = new List<List<string>> { new() { "env=test" } },
-                ["resource-restriction"] = new List<List<string>> { new() { """{"providers":["Microsoft.Compute"]}""" } },
-            },
-            metadata,
-            new Profile(){SubscriptionId = "sub-1"});
-
-        Assert.Equal("rg1", processor.ResourceGroup);
-        Assert.Equal("id1", processor.ResourceName);
-        Assert.Equal("eastus", processor.Location);
-        Assert.NotNull(processor.TagsInput);
-        Assert.Equal(["env=test"], processor.TagsInput);
-        Assert.NotNull(processor.ResourceRestriction);
-        Assert.Equal(["""{"providers":["Microsoft.Compute"]}"""], processor.ResourceRestriction);
-    }
 
     [Fact]
     public async Task CreateProcessAsync_UsesPreviewApi_AndSerializesIdentityProperties()
@@ -777,22 +654,6 @@ public class IdentityExtensionTests
         await processor.ProcessAsync();
 
         Assert.Single(writtenValues);
-    }
-
-    private static IProcessor BindIdentityCommand(string commandName, Dictionary<string, string> arguments)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata(commandName, ClientType.CLI);
-        IProcessor processor = metadata.GetInstance();
-        var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(
-            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-
-        return binder.BindArgumentsToProcessor(
-            processor,
-            arguments.ToDictionary(kvp => kvp.Key, kvp => (object)new List<List<string>> { new() { kvp.Value } }),
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
     }
 
     private static T CreateProcessor<T>(IRuntimeHttpPipeline pipeline, IOutputHandler output, Profile? profile = null)
