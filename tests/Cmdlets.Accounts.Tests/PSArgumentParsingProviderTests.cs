@@ -7,7 +7,7 @@ using Core.ArgumentParsing;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Moq;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Accounts.Tests;
 
 /// <summary>
 /// Regression tests for <see cref="PSArgumentParsingProvider"/>. The parser bridges the

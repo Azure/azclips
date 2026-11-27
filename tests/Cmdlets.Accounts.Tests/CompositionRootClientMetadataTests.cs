@@ -5,7 +5,7 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Accounts.Tests;
 
 [Collection("Azclips Service Provider Tests")]
 public class CompositionRootClientMetadataTests
