@@ -1,0 +1,36 @@
+description: "[read/invalid-value] vm-list-bool-value"
+metadata:
+  mode: read
+  failureType: invalid-value
+vars:
+  case_id: vm-list-bool-value
+  command_group: vm
+  goal: List VMs with details.
+  command: vm list --show-details maybe
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm list
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List VMs with details."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - --show-details true or a bare switch is acceptable.

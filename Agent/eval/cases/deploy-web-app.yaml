@@ -1,4 +1,8 @@
 description: deployment command-group typo with a known template -> plan uses deployment group create
+metadata:
+  mode: mutate
+  failureType: group-typo
+  original: true
 vars:
   case_id: deployment-template-recovery
   command_group: deployment

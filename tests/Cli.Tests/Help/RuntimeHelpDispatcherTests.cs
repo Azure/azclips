@@ -369,11 +369,13 @@ public class RuntimeHelpDispatcherTests
         var engine = new Mock<IEngine>(MockBehavior.Strict);
         engine.Setup(engine => engine.OpenDiscoverySession(
                 It.IsAny<IList<string>>(), null, It.IsAny<OutputStreams>(), true, It.IsAny<CancellationToken>()))
-            .Returns((IList<string> _, string? _, OutputStreams streams, bool _, CancellationToken _) =>
+            .Returns((IList<string> names, string? _, OutputStreams streams, bool _, CancellationToken _) =>
             {
                 var session = new Mock<ISession>();
                 session.Setup(session => session.RunAsync())
-                    .Returns(() => streams.WriteOutput(infos.ToList(), CancellationToken.None));
+                    .Returns(() => streams.WriteOutput(
+                        infos.Where(info => names.Contains(info.PackageId, StringComparer.OrdinalIgnoreCase)).ToList(),
+                        CancellationToken.None));
                 return session.Object;
             });
 
@@ -390,7 +392,7 @@ public class RuntimeHelpDispatcherTests
             WriteInformation: (_, _) => Task.CompletedTask);
         return new RuntimeHelpDispatcher(engine.Object, hintTable ?? ExtensionHintTable.Default, renderer ?? new RuntimeHelpRenderer(), output, streams)
         {
-            SelectedPackageIds = () => infos.Select(info => info.PackageId).ToArray(),
+            SelectedPackageIds = _ => infos.Select(info => info.PackageId).ToArray(),
             Performance = performance,
         };
     }

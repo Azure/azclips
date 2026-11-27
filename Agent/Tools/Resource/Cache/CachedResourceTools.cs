@@ -9,7 +9,7 @@ namespace Core.Agent.Tools.Resource.Cache;
 /// <summary>
 /// Three AI agent tools that READ the local ARM cache (built and
 /// refreshed by another component — we never write to it):
-///   • find_resources       — fuzzy / substring search by name (cache-only)
+///   • find_resources       — name similarity search (cache-only)
 ///   • get_resource_tree    — hierarchical subtree from a node (cache-only)
 ///   • get_resource_details — exact identity from cache + live ARM properties
 /// </summary>
@@ -25,11 +25,21 @@ public sealed class CachedResourceTools
     private readonly ArmDetailsClient _armDetails;
     private readonly IProfileService _profileService;
     private readonly Func<string, IDisposable?>? _activityCreator;
+    private readonly ResourceCache? _cache;
 
     public CachedResourceTools(
         ArmDetailsClient armDetails, IProfileService profileService,
         Func<string, IDisposable?>? activityCreator = null)
+        : this(armDetails, profileService, activityCreator, cache: null)
     {
+    }
+
+    // cache: the cache the tools read; null reads ResourceCache.Current.
+    internal CachedResourceTools(
+        ArmDetailsClient armDetails, IProfileService profileService,
+        Func<string, IDisposable?>? activityCreator, ResourceCache? cache)
+    {
+        _cache = cache;
         _armDetails = armDetails;
         _profileService = profileService;
         _activityCreator = activityCreator;
@@ -43,7 +53,9 @@ public sealed class CachedResourceTools
                 "Use when the user mentions a name and you need to locate it (or " +
                 "get suggestions when an exact name doesn't exist — e.g. 'rg-foo " +
                 "not found, did you mean rg-foo-eastus?'). Returns up to N candidates " +
-                "ranked by match quality (exact > substring > fuzzy/Levenshtein). " +
+                "ranked by name similarity (1 - edit distance / longer name length, case-insensitive), " +
+                "keeping only candidates with similarity >= 0.75, ties ordered by name. " +
+                "Each candidate carries its score; score 1.0 means the name is identical. " +
                 "Cache-only, no network call.",
         });
 
@@ -54,7 +66,9 @@ public sealed class CachedResourceTools
                 $"`kind` is one of: {CacheKinds.KindList}, and identifies what type of node " +
                 "to root the tree at. Use to answer 'what's in subscription X' or " +
                 "'what's in RG Y'. maxDepth limits expansion to avoid returning " +
-                "megabytes. Resources are leaves with no further children in this view.",
+                "megabytes. Resources are leaves with no further children in this view. " +
+                "Resolves only an identical name (score 1.0, case-insensitive) or a full ARM id; " +
+                "call find_resources first to get the exact name.",
         });
 
         GetResourceDetails = AIFunctionFactory.Create(GetResourceDetailsAsync, new AIFunctionFactoryOptions
@@ -67,7 +81,9 @@ public sealed class CachedResourceTools
                 "aren't in the cache (e.g. properties, provisioningState, endpoints, " +
                 "encryption settings) — that triggers one extra ARM GET (~200-500ms). " +
                 "Default live=false; pick live=true when answering the user genuinely " +
-                "needs deeper detail.",
+                "needs deeper detail. Resolves only an identical name (score 1.0, " +
+                "case-insensitive) or a full ARM id; anything else returns not_found with " +
+                "find_resources candidates and their scores.",
         });
 
         All = new[] { FindResources, GetResourceTree, GetResourceDetails };
@@ -86,6 +102,15 @@ public sealed class CachedResourceTools
     public IReadOnlyList<AIFunction> All { get; }
 
     // ── tool implementations ──
+
+    private const string MissingNameJson = "{\"error\":\"missing_name\",\"hint\":\"Pass a resource name or ARM id.\"}";
+
+    private static string MissingName(ToolInvocationLog.Scope scope)
+    {
+        scope.SetResult("error=missing_name");
+        scope.RecordResponse("error");
+        return MissingNameJson;
+    }
 
     // Point the cache at the caller's current tenant before every read. The
     // active profile is the source of truth; reading it here (rather than
@@ -108,9 +133,9 @@ public sealed class CachedResourceTools
         }
     }
 
-    [Description("Search local cache for resources by name with fuzzy fallback.")]
+    [Description("Search local cache for resources by name similarity.")]
     private async Task<string> FindResourcesAsync(
-        [Description("Name pattern. Exact > substring > Levenshtein typo correction.")]
+        [Description("Name pattern. Candidates with similarity >= 0.75 (1 - edit distance / longer length), most similar first; score 1.0 means identical.")]
         string namePattern,
         [Description("Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched and results merged by score.")]
         string? kind = null,
@@ -125,6 +150,9 @@ public sealed class CachedResourceTools
         using var scope = ToolInvocationLog.Start("find_resources",
             $"pattern={namePattern} kind={kind} sub={subscription} rg={resourceGroup} top={top}", _activityCreator);
         scope.RecordRequest(RedactedKind(kind));
+
+        if (string.IsNullOrWhiteSpace(namePattern))
+            return MissingName(scope);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -146,8 +174,9 @@ public sealed class CachedResourceTools
             ? new ScopeFilter(subscription, resourceGroup)
             : null;
 
-        var stats = ResourceCache.Current.Stats();
-        var matches = ResourceCache.Current.FindResources(namePattern, kind, filter, top);
+        var cache = Cache;
+        var stats = cache.Stats();
+        var matches = cache.FindResources(namePattern, kind, filter, top);
 
         var result = new
         {
@@ -162,20 +191,19 @@ public sealed class CachedResourceTools
                 resourceGroup = m.Resource.ResourceGroup,
                 subscriptionId = m.Resource.SubscriptionId,
                 id = m.Resource.Id,
-                matchKind = m.Match,
                 score = Math.Round(m.Score, 3),
             }).ToArray(),
         };
         var json = JsonSerializer.Serialize(result, Json);
         var summary = matches.Count == 0
             ? "matchCount=0"
-            : $"matchCount={matches.Count} — top: {matches[0].Resource.Name} ({matches[0].Match}, score={Math.Round(matches[0].Score, 3)})";
+            : $"matchCount={matches.Count} — top: {matches[0].Resource.Name} (score={Math.Round(matches[0].Score, 3)})";
         scope.SetResult(summary);
         scope.RecordResponse(matches.Count == 0 ? "not_found" : "found");
         return json;
     }
 
-    [Description("Return cached subtree from a node.")]
+    [Description("Return cached subtree from a node. Returns not_found when the node is not in the cache.")]
     private async Task<string> GetResourceTreeAsync(
         [Description("Name, full ARM id, subscription id/name, or tenant id. Use kind to disambiguate.")]
         string nameOrId,
@@ -190,6 +218,9 @@ public sealed class CachedResourceTools
         using var scope = ToolInvocationLog.Start("get_resource_tree",
             $"id={nameOrId} kind={kind} depth={maxDepth}", _activityCreator);
         scope.RecordRequest(RedactedKind(kind));
+
+        if (string.IsNullOrWhiteSpace(nameOrId))
+            return MissingName(scope);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -212,7 +243,7 @@ public sealed class CachedResourceTools
         {
             var filter = subscription is { Length: > 0 } ? new ScopeFilter(subscription, null) : null;
 
-            (string id, string kindNorm, string name) root = kind.ToLowerInvariant() switch
+            (string id, string kindNorm, string name)? resolved = kind.ToLowerInvariant() switch
             {
                 "tenant" => ResolveTenant(nameOrId),
                 "subscription" => ResolveSub(nameOrId),
@@ -221,7 +252,14 @@ public sealed class CachedResourceTools
                 _ => throw new ArgumentException($"Unknown kind '{kind}'."),
             };
 
-            var tree = ResourceCache.Current.GetTree(root.id, root.kindNorm, root.name, maxDepth);
+            if (resolved is not { } root)
+            {
+                scope.SetResult("error=not_found");
+                scope.RecordResponse("not_found");
+                return JsonSerializer.Serialize(new { error = "not_found", nameOrId, kind }, Json);
+            }
+
+            var tree = Cache.GetTree(root.id, root.kindNorm, root.name, maxDepth);
             json = JsonSerializer.Serialize(new { root = root.kindNorm, maxDepth = maxDepth, tree }, Json);
             summary = $"root={root.kindNorm}:{root.name} depth={maxDepth}";
             scope.RecordResponse("found");
@@ -236,8 +274,7 @@ public sealed class CachedResourceTools
         {
             json = JsonSerializer.Serialize(new { error = ex.GetType().Name, message = ex.Message }, Json);
             summary = $"error={ex.GetType().Name}";
-            // Resolvers report a missing node as InvalidOperationException.
-            scope.RecordResponse(ex is InvalidOperationException ? "not_found" : "error");
+            scope.RecordResponse("error");
         }
         scope.SetResult(summary);
         return json;
@@ -245,7 +282,7 @@ public sealed class CachedResourceTools
 
     [Description("Return cache row + optionally one live ARM GET for one item.")]
     private async Task<string> GetResourceDetailsAsync(
-        [Description("Name or full ARM id. Use kind/scope to disambiguate.")]
+        [Description("Identical name (case-insensitive) or full ARM id. Use kind/scope to disambiguate.")]
         string nameOrId,
         [Description("Optional kind filter: tenant | subscription | resourceGroup | resource. When omitted, all kinds are searched.")]
         string? kind = null,
@@ -260,6 +297,9 @@ public sealed class CachedResourceTools
         using var scope = ToolInvocationLog.Start("get_resource_details",
             $"id={nameOrId} kind={kind} sub={subscription} rg={resourceGroup} live={live}", _activityCreator);
         scope.RecordRequest($"{RedactedKind(kind)} live={(live ? "true" : "false")}");
+
+        if (string.IsNullOrWhiteSpace(nameOrId))
+            return MissingName(scope);
 
         await SyncTenantAsync(ct).ConfigureAwait(false);
 
@@ -284,15 +324,15 @@ public sealed class CachedResourceTools
         string summary;
         try
         {
-            var hit = ResourceCache.Current.ResolveResource(nameOrId, kind, filter);
+            var hit = Cache.ResolveResource(nameOrId, kind, filter);
             if (hit is null)
             {
-                var suggestions = ResourceCache.Current.FindResources(nameOrId, kind, filter, top: 5);
+                var suggestions = Cache.FindResources(nameOrId, kind, filter, top: 5);
                 json = JsonSerializer.Serialize(new
                 {
                     error = "not_found",
                     nameOrId,
-                    suggestions = suggestions.Select(m => new { m.Resource.Name, m.Resource.Id, m.Match, score = Math.Round(m.Score, 3) }),
+                    suggestions = suggestions.Select(m => new { m.Resource.Name, m.Resource.Id, score = Math.Round(m.Score, 3) }),
                 }, Json);
                 summary = suggestions.Count == 0
                     ? "not_found, suggestions=0"
@@ -357,36 +397,34 @@ public sealed class CachedResourceTools
         string.IsNullOrWhiteSpace(kind) ? "kind=any"
         : CacheKinds.TryResolve(kind, out _) ? $"kind={kind.ToLowerInvariant()}" : "kind=invalid";
 
+    private ResourceCache Cache => _cache ?? ResourceCache.Current;
+
     // ── kind resolvers ──
 
-    private static (string id, string kind, string name) ResolveTenant(string nameOrId)
+    private (string id, string kind, string name)? ResolveTenant(string nameOrId)
     {
-        var t = ResourceCache.Current.Tenants
+        var t = Cache.Tenants
             .FirstOrDefault(t => string.Equals(t.TenantId, nameOrId, StringComparison.OrdinalIgnoreCase)
                               || string.Equals(t.DisplayName, nameOrId, StringComparison.OrdinalIgnoreCase)
                               || string.Equals(t.DefaultDomain, nameOrId, StringComparison.OrdinalIgnoreCase));
-        if (t is null) throw new InvalidOperationException($"tenant '{nameOrId}' not found in cache.");
-        return (t.TenantId, "tenant", t.DisplayName ?? t.TenantId);
+        return t is null ? null : (t.TenantId, "tenant", t.DisplayName ?? t.TenantId);
     }
 
-    private static (string id, string kind, string name) ResolveSub(string nameOrId)
+    private (string id, string kind, string name)? ResolveSub(string nameOrId)
     {
-        var s = ResourceCache.Current.ResolveSubscription(nameOrId)
-            ?? throw new InvalidOperationException($"subscription '{nameOrId}' not found in cache.");
-        return (s.SubscriptionId, "subscription", s.DisplayName ?? s.SubscriptionId);
+        var s = Cache.ResolveSubscription(nameOrId);
+        return s is null ? null : (s.SubscriptionId, "subscription", s.DisplayName ?? s.SubscriptionId);
     }
 
-    private static (string id, string kind, string name) ResolveRg(string nameOrId, ScopeFilter? scope)
+    private (string id, string kind, string name)? ResolveRg(string nameOrId, ScopeFilter? scope)
     {
-        var rg = ResourceCache.Current.ResolveResourceGroup(nameOrId, scope)
-            ?? throw new InvalidOperationException($"resource group '{nameOrId}' not found in cache.");
-        return (rg.Id, "resourceGroup", rg.Name);
+        var rg = Cache.ResolveResourceGroup(nameOrId, scope);
+        return rg is null ? null : (rg.Id, "resourceGroup", rg.Name);
     }
 
-    private static (string id, string kind, string name) ResolveRes(string nameOrId, ScopeFilter? scope)
+    private (string id, string kind, string name)? ResolveRes(string nameOrId, ScopeFilter? scope)
     {
-        var r = ResourceCache.Current.ResolveResource(nameOrId, kind: null, scope)
-            ?? throw new InvalidOperationException($"resource '{nameOrId}' not found in cache.");
-        return (r.Id, "resource", r.Name);
+        var r = Cache.ResolveResource(nameOrId, CacheKinds.Names.Resource, scope);
+        return r is null ? null : (r.Id, "resource", r.Name);
     }
 }

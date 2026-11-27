@@ -1,0 +1,45 @@
+description: "[mutate/flag-typo] vm-create-flag-typo"
+metadata:
+  mode: mutate
+  failureType: flag-typo
+vars:
+  case_id: vm-create-flag-typo
+  command_group: vm
+  goal: Create VM azclips-eval-vm2 with the supplied settings.
+  command: vm create --nmae azclips-eval-vm2 --resource-group azclips-test-rg --location eastus --size Standard_D2s_v5 --admin-username azureuser
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az vm create
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+            - --nmae
+          argumentValues:
+            --name: azclips-eval-vm2
+            --resource-group: azclips-test-rg
+            --location: eastus
+            --size: Standard_D2s_v5
+            --admin-username: azureuser
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm create
+        - az group show
+        - az group create
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Create VM azclips-eval-vm2 with the supplied settings."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - Credentials must be placeholders, not invented.

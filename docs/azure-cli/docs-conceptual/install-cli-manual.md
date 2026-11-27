@@ -1,9 +1,9 @@
 ---
-title: Install the Azure CLI public preview manually or offline
-description: Learn how to install the Azure CLI public preview manually or offline when the one-command installer isn't available.
+title: Install the Next-Generation Azure CLI public preview manually or offline
+description: Learn how to install the Next-Generation Azure CLI public preview manually or offline when the one-command installer isn't available.
 ---
 
-# Install the Azure CLI public preview manually or offline
+# Install the Next-Generation Azure CLI public preview manually or offline
 
 > **Most users should use the [one-command installer](./install-overview.md).** Use this guide for offline installs, when you already have the archive, or to understand the steps the installer performs.
 

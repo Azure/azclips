@@ -1,0 +1,37 @@
+description: "[read/group-typo] role-assignment-list-verb-typo"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: role-assignment-list-verb-typo
+  command_group: role
+  goal: List role assignments for azclips-test-rg.
+  command: role assignment lst --resource-group azclips-test-rg
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az role assignment list
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+          argumentValues:
+            --resource-group: azclips-test-rg
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az role assignment list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List role assignments for azclips-test-rg."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

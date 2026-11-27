@@ -7,19 +7,22 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!--
-      Common/CmdletOutputStreamsFactory.cs compiles into Cmdlets.Config, Cmdlets.Accounts and Cmdlets.Compute,
-      so its internal types reach this project more than once (CS0433). The aliases hide the Config and
-      Compute copies; a test needing one of their types must add `extern alias CmdletsConfig;` or
-      `extern alias CmdletsCompute;`.
-    -->
-    <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj">
-      <Aliases>CmdletsConfig</Aliases>
-    </ProjectReference>
-    <ProjectReference Include="../../src/PS/Compute/Cmdlets.Compute.csproj">
-      <Aliases>CmdletsCompute</Aliases>
-    </ProjectReference>
     <ProjectReference Include="../../src/PS/Accounts/Cmdlets.Accounts.csproj" />
+    <!--
+      Common/CmdletOutputStreamsFactory.cs compiles into Cmdlets.Accounts, Cmdlets.KeyVault and Cmdlets.MsGraph, so its
+      internal types reach this project more than once (CS0433). The aliases hide the KeyVault and MsGraph copies; a
+      test needing one of their types must add `extern alias CmdletsKeyVault;` or `extern alias CmdletsMsGraph;`.
+    -->
+    <ProjectReference Include="../../src/PS/KeyVault/Cmdlets.KeyVault.csproj">
+      <Aliases>CmdletsKeyVault</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="../../src/Extensions/KeyVault/Extensions.KeyVault.csproj" />
+    <ProjectReference Include="../../src/PS/MsGraph/Cmdlets.MsGraph.csproj">
+      <Aliases>CmdletsMsGraph</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="../../src/Extensions/MsGraph/Extensions.MsGraph.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
+    <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
     <ProjectReference Include="../../src/PS/ManagedServiceIdentity/Cmdlets.ManagedServiceIdentity.csproj" />
     <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
     <ProjectReference Include="../../src/Extensions/Accounts/Extensions.Accounts.csproj" />
@@ -29,10 +32,12 @@
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
     <ProjectReference Include="../../src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
     <ProjectReference Include="../../src/Core/Core.Telemetry/Core.Telemetry.csproj" />
+    <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
     <PackageReference Include="System.Management.Automation" />
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.7" />
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.13" />

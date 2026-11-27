@@ -24,7 +24,8 @@ All test projects are members of the solution `azclips.slnx` and split across th
 | Project                      | Location (slnx)      | What it covers                                                                                                                                       |
 | ---------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Cli.Tests`                  | `azclips.slnx:35`    | CLI integration — structured command dispatch, agent fallback, typo correction, extension add/pin/remove, profile CLI, REST processor URL validation |
-| `Cmdlets.Tests`              | `azclips.slnx:37`    | PowerShell cmdlet behavior                                                                                                                           |
+| `Cmdlets.Tests`              | `azclips.slnx:37`    | PowerShell host behavior and end-to-end cmdlet tests across modules                                                                                  |
+| `Cmdlets.Accounts.Tests`, `Cmdlets.Compute.Tests`, `Cmdlets.Config.Tests`, `Cmdlets.ManagedServiceIdentity.Tests`, `Cmdlets.Resources.Tests` | `azclips.slnx:37` | Module-specific cmdlet unit tests |
 | `Core.Extensions.Tests`      | `azclips.slnx:39`    | Extension resolution / compatibility guard / leaf index                                                                                              |
 | `Core.Telemetry.Tests`       | `azclips.slnx:40`    | Telemetry senders, filters, activity naming                                                                                                          |
 | `Tests.Common`               | `azclips.slnx:38`    | Shared stubs & utilities (not a test project — `IsPackable=false`, referenced by others)                                                             |
@@ -32,7 +33,7 @@ All test projects are members of the solution `azclips.slnx` and split across th
 | `Core.Agent.Tests`           | `azclips.slnx:31`    | Agent tools, approval prompt, plan validation, snapshot rendering                                                                                    |
 | `Azclips.Help.Tool.Tests`    | `azclips.slnx:41`    | Build-time help validators (frontmatter, completeness, example syntax)                                                                               |
 | `Core.Engine.Tests` | `tests/Core.Engine.Tests/Core.Engine.Tests.csproj:1` | Engine behavior |
-| `Extensions.Accounts.Tests`, `Extensions.Compute.Tests`, `Extensions.KeyVault.Tests`, `Extensions.MsGraph.Tests` | `azclips.slnx:49` | Extension-specific behavior |
+| `Extensions.Accounts.Tests`, `Extensions.Compute.Tests`, `Extensions.KeyVault.Tests`, `Extensions.ManagedServiceIdentity.Tests`, `Extensions.MsGraph.Tests`, `Extensions.Resources.Tests` | `azclips.slnx:49` | Extension-specific behavior |
 | `Scenario.Tests` | `tests/Scenario.Tests/README.md:1` | Real dispatch/binding/engine workflows against recordings or controlled fake backends |
 | `Tests.Recording` | `tests/Tests.Recording/RequestMatcher.cs:1` | Shared HTTP capture, matching, and playback infrastructure |
 

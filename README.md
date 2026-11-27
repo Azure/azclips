@@ -1,17 +1,16 @@
-# Azure CLI & Azure PowerShell — a unified command surface for Azure command line tools
+# Next-Generation Azure CLI & Azure PowerShell
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Build and Test](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/Azure/azclips/actions/workflows/build-and-test.yml)
-[![Published](https://img.shields.io/badge/status-published-green.svg)](#)
-<!-- NEEDS ENG REVIEW: confirm the Build and Test badge/workflow before publishing (private-repo badge only renders for members with access). -->
+[![Public preview](https://img.shields.io/badge/status-public%20preview-blue.svg)](#getting-started)
 
 > [!IMPORTANT]
-> **🔒 Limited Preview — This content is confidential and should only be discussed under NDA.**
-> This program is a closed, invitation-only preview shared under NDA with a small group. Access is provisioned through GitHub — you're here because your account was added to this **private** repository. **Do not share** builds, screenshots, benchmarks, command output, or any details publicly or with anyone outside the preview. The program runs through July to Sep 2026.
+> **Public preview**
+> Next-Generation Azure CLI & Azure PowerShell is in public preview. Commands, behavior, and packaging may change during the preview. See [Known limitations](#known-limitations) before getting started.
 
-## What is Azure CLI & Azure PowerShell?
+## What is Next-Generation Azure CLI & Azure PowerShell?
 
-This new generation of command line tools provides a lightweight, efficient and intelligent set of commands to manage Azure resources.
+Next-Generation Azure CLI & Azure PowerShell provides a lightweight, efficient and intelligent set of commands to manage Azure resources.
 Depending on preferences, scripting environment or other requirements, you can use the native command or its PowerShell equivalent to obtain identical outcomes.
 
 The architecture used for these commands allows execution in secure, constrained environments and provides faster execution or a smaller disk footprint.
@@ -19,21 +18,22 @@ The architecture used for these commands allows execution in secure, constrained
 ## Preview capabilities (<sub>[What's new](docs/azure-cli/docs-conceptual/whats-new.md)</sub>)
 
 - **Profile-based login** — sign in and manage which subscription and context your commands run against.
-- **Single sign-on (SSO)** — one `az login` is shared between Azure PowerShell and native `az` commands in the same session; no re-authentication when switching.
+- **Per-command subscription selection** — specify a different subscription on commands that expose `--subscription-id` (CLI) or `-SubscriptionId` (PowerShell).
 - **Faster tab completion** — press <kbd>Tab</kbd> to complete command groups, subcommands, and parameters, resolved against the installed CLI.
-- **AI-powered error recovery** — when a command fails, an integrated AI model explains what went wrong and suggests a guided fix. See [AI-based error recovery](./docs/azure-cli/docs-conceptual/ai-based-error-recovery.md).
+- **AI-assisted error recovery** — when a command fails, an integrated AI model explains what went wrong and suggests a guided fix. See [AI-based error recovery](./docs/azure-cli/docs-conceptual/ai-based-error-recovery.md).
 
 Plus the basics: install, `az --help`, `az --version` and `az config`.
 
 ## Getting started
 
-1. **Install** — see the [Azure CLI install overview](docs/azure-cli/docs-conceptual/install-overview.md) and the [Azure PowerShell modules install guide](docs/azure-powershell/docs-conceptual/install-powershell-modules.md) for the single-command install (Windows, Linux, macOS). Packages ship via [GitHub Releases](https://github.com/Azure/azclips/releases).
-2. **Verify** — run `az --version`.
-3. **Sign in** — run `az login`.
+1. **Install** — follow the [Azure CLI install overview](docs/azure-cli/docs-conceptual/install-overview.md) or the [Azure PowerShell install overview](docs/azure-powershell/docs-conceptual/install-overview.md) for Windows, Linux, and macOS. Packages ship via [GitHub Releases](https://github.com/Azure/azclips/releases). Scripted and manual download options are documented in the install guides. The PowerShell modules require **PowerShell 7.6+**.
+2. **Verify** — for the CLI, follow the install guide's session `PATH` instructions, then run `az --version` to check the preview build rather than an existing classic CLI installation. If you choose the full-path option instead, invoke the preview executable by full path with `--version` and use that full path for the CLI commands below. For PowerShell, follow the install guide's module verification steps.
+3. **Sign in** — run `az login` for the CLI or `Connect-AzAccount` for PowerShell.
 4. **Explore supported commands**
    - CLI: `config`, `deployment`, `disk`, `extension`, `group`, `login`, `logout`, `profile`, `rest`, and `vm`
    - PowerShell: **Accounts**, **Resources**, **Compute**, and **Config**
-   - Additional commands will continue to be added in weekly iterations.
+   - Use `az --help` and `Get-Command -Module Az.*` to explore installed commands.
+   - Additional commands will continue to be added in regular updates.
 
 > `az` installs side-by-side with the classic `azure-cli` and does **not** modify your `PATH` by default. See the [install overview](docs/azure-cli/docs-conceptual/install-overview.md) for PATH and offline options.
 
@@ -45,17 +45,6 @@ Plus the basics: install, `az --help`, `az --version` and `az config`.
 az login --subscription-id <id> --out-profile prod  # save a named profile
 az profile list                                     # list profiles
 az profile set prod                                 # switch the active profile
-```
-
-**Azure PowerShell ↔ native SSO** — sign in once, then use both surfaces in the same session, no re-auth:
-
-```bash
-az login --subscription-id <id>   # sign in once
-az group list       # native az command — already authenticated
-```
-
-```powershell
-Get-AzResourceGroup   # Azure PowerShell — same session, no re-login
 ```
 
 **Tab completion** — type a partial command and press <kbd>Tab</kbd>:
@@ -82,6 +71,7 @@ Start here, then follow the pointers into `./docs`.
 - [Manual / offline install](docs/azure-cli/docs-conceptual/install-cli-manual.md)
 - [Add-on CLI extensions](docs/azure-cli/docs-conceptual/install-cli-extensions.md)
 - [Tab completion](docs/azure-cli/docs-conceptual/install-cli-completions.md)
+- [Azure PowerShell install overview](docs/azure-powershell/docs-conceptual/install-overview.md)
 - [Azure PowerShell modules](docs/azure-powershell/docs-conceptual/install-powershell-modules.md)
 
 **Azure CLI**
@@ -97,27 +87,25 @@ Start here, then follow the pointers into `./docs`.
 
 ## Known limitations
 
-This is an early public preview — expect rough edges and change between builds.
+This is a public preview — expect rough edges and change between builds.
 
 - The preview focuses on **interactive user scenarios**. Non-interactive auth methods — Resource Owner Password Credentials (ROPC), service principals, and managed identities — aren't supported yet.
-- Supported shells are **PowerShell 7+, bash, and zsh**. Windows PowerShell 5.1 and the PowerShell ISE aren't supported.
-- Azure CLI & Azure PowerShell installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
+- Supported shells are **PowerShell 7.6+, bash, and zsh**. Windows PowerShell 5.1 and the PowerShell ISE aren't supported.
+- Next-Generation Azure CLI & Azure PowerShell installs side-by-side and doesn't replace your existing Azure CLI or Azure PowerShell — you can roll back at any time.
 - Commands, behavior, and packaging may change without notice during the preview.
 
-For the current list, see [Troubleshooting](https://github.com/Azure/azclips/blob/main/docs/azure-cli/docs-conceptual/troubleshooting.md).
+For known issues and workarounds, see [Troubleshooting](docs/azure-cli/docs-conceptual/troubleshooting.md).
 
 ## Feedback
 
 Please share early and often.
 
 - **[GitHub Issues](https://github.com/Azure/azclips/issues)** — primary channel for bugs, install problems, doc gaps, command issues, and feature requests (templates provided).
-- **[GitHub Discussions](https://github.com/Azure/azclips/discussions)** — questions and ideas.
-- **[Pulse survey](https://forms.cloud.microsoft/r/n0H7LqgM5e)** — short (~5 min) Microsoft Forms survey.
-- **Moderated sessions** — group and 1:1; details will be shared over email.
+- **[Support](SUPPORT.md)** — how to get help and what to expect during the preview.
 
-We review on a regular cadence. For quick collaboration with the Product Group, you will be added to a Microsoft Teams channel. Share your Teams ID on the invite email if you haven't been added yet.
+For security vulnerabilities, follow the [Security Policy](SECURITY.md) instead of opening a public issue.
 
-> Never include secrets, tokens, customer data, tenant IDs, or subscription IDs in issues or discussions.
+> Never include secrets, tokens, customer data, tenant IDs, or subscription IDs in feedback.
 
 ## Repository structure
 
@@ -158,7 +146,7 @@ azclips/
 - **Support** — [SUPPORT.md](SUPPORT.md)
 - **Code of Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - **Security Policy** — [SECURITY.md](SECURITY.md)
-- **Privacy & telemetry** — the preview collects limited telemetry with your consent (command names, parameter *names* only, success/failure, and basic environment data — never parameter values, URLs, or personal content). Telemetry is on by default; opt out with `az config set --key telemetry.enabled --value false` (Azure PowerShell equivalent: `Set-AzConfig -Key telemetry.enabled -Value false`). See [Configuration Management](docs/howto/config.md#valid-configuration-keys).
+- **Privacy & telemetry** — the preview collects limited telemetry with your consent (command names, parameter *names* only, success/failure, and basic environment data — never parameter values, URLs, or personal content). Telemetry is on by default; opt out with `az config set --key telemetry.enabled --value false` (Azure PowerShell equivalent: `Set-AzConfig -Key telemetry.enabled -Value false`). See [Configuration Management](docs/azure-cli/docs-conceptual/config.md#valid-configuration-keys).
 
 ### Data Collection
 

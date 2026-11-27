@@ -1,0 +1,37 @@
+description: "[read/missing-param] extension-show-missing-name"
+metadata:
+  mode: read
+  failureType: missing-param
+vars:
+  case_id: extension-show-missing-name
+  command_group: extension
+  goal: Show an extension; no name was supplied.
+  command: extension show
+assert:
+  - commandSet:
+      anyOf:
+        - - command: az extension list
+            match: all
+            forbiddenArguments:
+              - -n
+              - -g
+        - - command: az extension show
+            match: all
+            forbiddenArguments:
+              - -n
+              - -g
+            placeholders:
+              - --name
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az extension list
+        - az extension show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show an extension; no name was supplied."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

@@ -1,4 +1,8 @@
 description: group create without required --location -> plan adds a location
+metadata:
+  mode: mutate
+  failureType: missing-param
+  original: true
 vars:
   case_id: group-create-missing-location
   command_group: group

@@ -211,16 +211,38 @@ Run `az config info` to discover configuration keys and their constraints.
 ### List all configuration
 
 ```bash
-# List user config only
+# List all effective values, including defaults for unset keys
 az config list
 
-# List with defaults (shows all keys with their current values)
-az config list --all
+# List only values configured in the file or environment
+az config list --configured-only
 
 # Select a standard output format
-az config list --all --output json
-az config list --all --output table
+az config list --output json
+az config list --output table
 ```
+
+Environment overrides win over file settings, which win over built-in defaults.
+`--configured-only` removes default-sourced entries, not values equal to defaults.
+
+Each entry also includes `defaultValue`, the current version's typed built-in
+default, and `isDefaultValue`, which indicates whether the effective value equals
+that default. Explicitly setting a value to its default keeps `source` as
+`global config`; a matching environment override keeps `source` as `environment`.
+Comparison preserves JSON types and is case-sensitive for strings. A known null
+default can match a null value; for unknown keys accepted with `--force`, both
+fields are null because no built-in default is known.
+
+```bash
+az config set agent.provider builtin
+az config list --configured-only --output json
+# Entry: {"key":"agent.provider","value":"builtin","source":"global config","defaultValue":"builtin","isDefaultValue":true}
+
+# Find explicitly configured values that differ from known defaults
+az config list --configured-only --query '[?isDefaultValue == `false`]'
+```
+
+Defaults describe the currently installed version, not historical defaults.
 
 ### Delete a configuration value
 
@@ -291,14 +313,16 @@ az config get --key core.logging.level
 ### Workflow: Check all settings with defaults
 
 ```bash
-az config list --all
+az config list
 ```
 
 ### Workflow: Reset to defaults
 
 ```bash
-# Delete all user-set config
-az config list --query "[].key" --output tsv | while IFS= read -r key; do
+# Delete file settings that are not shadowed by environment overrides
+az config list --configured-only --query "[?source == 'global config'].key" --output tsv | while IFS= read -r key; do
   az config delete --key "$key" --force
 done
 ```
+
+Unset mapped environment variables first to also reset file settings they shadow.

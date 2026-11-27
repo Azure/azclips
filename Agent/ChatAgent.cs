@@ -287,7 +287,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var sessionConfig = await BuildSessionConfigAsync(
             options, auth, systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool,
             azExePath, profileService, approvalSink, eventRenderer, state, failedHelp, entrypoint, invocationContext, ct, preAcquiredAuth,
-            builtinEndpoint?.Url).ConfigureAwait(false);
+            builtinEndpoint?.Url, renderer is TraceAgentRenderer traceRenderer ? traceRenderer.Note : null).ConfigureAwait(false);
 
         sessionConfig.OnEvent = ev =>
         {
@@ -355,7 +355,9 @@ public sealed class ChatAgent : IAsyncDisposable
         CancellationToken ct,
         AuthResult? preAcquiredAuth = null,
         // The resolved gateway URL; null uses the West Europe gateway (unknown boundary).
-        string? builtinBaseUrl = null)
+        string? builtinBaseUrl = null,
+        // Records a diagnostics event in the trace; null when tracing is off.
+        Action<string, object?>? traceNote = null)
     {
         var reasoningEffort = options.ReasoningEffort?.ToLowerInvariant();
         if (reasoningEffort is not ("low" or "medium" or "high"))
@@ -366,28 +368,26 @@ public sealed class ChatAgent : IAsyncDisposable
         }
 
         // Customize the SDK's default system message. Our oneshot/inline prompt
-        // REPLACES the identity section so it leads the message (the agent knows
-        // it's the azclips error-recovery agent up front, not after the SDK's
-        // generic preamble). All modes strip: tone (we don't want the generic
-        // code-assistant voice), code_change_rules (azclips doesn't edit code),
-        // and custom_instructions (repo CLAUDE.md / commit / notify rules leak
-        // in here). oneshot additionally strips tool_instructions and
-        // runtime_instructions — a single-shot plan needs neither the per-tool
-        // usage guides nor the multi-turn runtime scaffolding; interactive
-        // (inline/tui) keeps them because it actually runs tools across turns.
-        // Kept in all modes: tool_efficiency, environment_context, guidelines,
-        // safety.
+        // replaces the identity group (preamble, tone, tool_efficiency) so it leads
+        // the message. All modes remove: tone, code_change_rules,
+        // custom_instructions, runtime_instructions, last_instructions. oneshot
+        // also removes tool_instructions, guidelines, environment_context.
+        // Kept in all modes: safety; inline/tui also keeps tool_instructions,
+        // guidelines, environment_context.
         var sections = new Dictionary<SystemMessageSection, SectionOverride>
         {
             [SystemMessageSection.Identity] = new() { Action = SectionOverrideAction.Replace, Content = systemPrompt },
             [SystemMessageSection.Tone] = new() { Action = SectionOverrideAction.Remove },
             [SystemMessageSection.CodeChangeRules] = new() { Action = SectionOverrideAction.Remove },
             [SystemMessageSection.CustomInstructions] = new() { Action = SectionOverrideAction.Remove },
+            [SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove },
+            [SystemMessageSection.LastInstructions] = new() { Action = SectionOverrideAction.Remove },
         };
         if (string.Equals(entrypoint, "oneshot", StringComparison.OrdinalIgnoreCase))
         {
             sections[SystemMessageSection.ToolInstructions] = new() { Action = SectionOverrideAction.Remove };
-            sections[SystemMessageSection.RuntimeInstructions] = new() { Action = SectionOverrideAction.Remove };
+            sections[SystemMessageSection.Guidelines] = new() { Action = SectionOverrideAction.Remove };
+            sections[SystemMessageSection.EnvironmentContext] = new() { Action = SectionOverrideAction.Remove };
         }
 
         var sessionConfig = new SessionConfig
@@ -396,6 +396,10 @@ public sealed class ChatAgent : IAsyncDisposable
             ConfigDirectory = HomePaths.GetDefaultAgentCopilotDirectory(),
             Streaming = true,
             ReasoningEffort = reasoningEffort,
+            // Tool results up to this size go to the model in full. Larger ones are saved to a temp file
+            // that the model must search, which costs extra turns; the largest results (the command
+            // catalog and a subscription resource tree) stay below it.
+            LargeOutput = new LargeToolOutputConfig { MaxSizeBytes = 256 * 1024 },
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Customize,
@@ -403,9 +407,14 @@ public sealed class ChatAgent : IAsyncDisposable
             },
             Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
                 .Concat(submitTool.All).Concat(planTool.All).Cast<AIFunctionDeclaration>().ToList(),
-            // All built-in tools available (bash, view, edit, grep, glob,
-            // web_fetch, web_search, todo, ...) plus our custom cache + help tools.
-            AvailableTools = null,
+            // Our custom tools plus the shell, file-view, search and web_fetch built-ins.
+            AvailableTools =
+            [
+                "custom:*",
+                "powershell", "read_powershell", "stop_powershell", "list_powershell",
+                "bash", "read_bash", "stop_bash", "list_bash",
+                "view", "rg", "web_fetch",
+            ],
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, _) => PreToolUseHook.HandleAsync(
@@ -413,7 +422,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnSessionStart = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct).ConfigureAwait(false);
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, helpTools.ReadCatalogAsync, ct).ConfigureAwait(false);
                     var ctx = EnvSnapshotFormatter.Format(envJson);
                     ctx = string.IsNullOrEmpty(ctx) ? AzclipsBoundary : $"{ctx}\n\n{AzclipsBoundary}";
                     // Append the pre-fetched help for the failed command (if any) so
@@ -430,13 +439,16 @@ public sealed class ChatAgent : IAsyncDisposable
                         if (!string.IsNullOrEmpty(loginHelp))
                             ctx = $"{ctx}\n\n{loginHelp}";
                     }
+                    traceNote?.Invoke("session_start_context", new { context = ctx });
                     return new SessionStartHookOutput { AdditionalContext = ctx };
                 },
                 OnUserPromptSubmitted = async (_, _) =>
                 {
                     var ct = invocationContext.CallbackCancellationToken;
-                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, ct).ConfigureAwait(false);
-                    return new UserPromptSubmittedHookOutput { AdditionalContext = EnvSnapshotFormatter.Format(envJson) };
+                    var envJson = await EnvSnapshotProvider.GetJsonAsync(profileService, azExePath, helpTools.ReadCatalogAsync, ct).ConfigureAwait(false);
+                    var promptCtx = EnvSnapshotFormatter.Format(envJson);
+                    traceNote?.Invoke("prompt_context", new { context = promptCtx });
+                    return new UserPromptSubmittedHookOutput { AdditionalContext = promptCtx };
                 },
             },
             OnPermissionRequest = async (req, invocation) =>

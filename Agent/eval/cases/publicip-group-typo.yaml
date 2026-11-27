@@ -1,0 +1,35 @@
+description: "[read/group-typo] publicip-group-typo"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: publicip-group-typo
+  command_group: network
+  goal: List public IP addresses.
+  command: network publicip list
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az network public-ip list
+          match: all
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az network public-ip list
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List public IP addresses."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.

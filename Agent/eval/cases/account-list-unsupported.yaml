@@ -1,0 +1,38 @@
+description: "[read/group-typo] account-list-unsupported"
+metadata:
+  mode: read
+  failureType: group-typo
+vars:
+  case_id: account-list-unsupported
+  command_group: account
+  goal: List accounts and subscriptions available to the user.
+  command: account list
+assert:
+  - type: javascript
+    value: file://assertions/command-set.js:commandSetAssertion
+    metric: command-set
+    config:
+      checkName: Required commands and parameters
+      source: metadata
+      path: plan.steps
+      expectedCommandSet:
+        - command: az profile list
+          match: any
+          forbiddenArguments:
+            - -n
+            - -g
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az profile list
+        - az profile show
+        - az rest
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: List accounts and subscriptions available to the user."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - This CLI has no account list. Listing profiles or a GET on the ARM subscriptions endpoint are acceptable. Do not invent account list.

@@ -127,7 +127,9 @@ hosted images use the `Azure Pipelines` pool.
 Every matrix leg publishes its own `Validate_PS_Sim_<ValidationKey>` pipeline
 artifact, for example `Validate_PS_Sim_ubuntu_26_04_ps7_6`. `ValidationKey` is the
 generator's unique matrix key, including the unsupported suffix for canaries.
-There is no consolidation job, and these diagnostics are separate from the input
+Re-running a failed job publishes `Validate_PS_Sim_<ValidationKey>_attempt<N>`
+instead, because a build cannot overwrite an existing artifact. There is no
+consolidation job, and these diagnostics are separate from the input
 `PSModules` artifact and the final release distribution.
 
 | Path | Contents |

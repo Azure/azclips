@@ -301,13 +301,12 @@ stages:
         output_directory: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
         update_root_notice: true
 
-    - task: PublishPipelineArtifact@1
-      displayName: Publish Stable Release NOTICE Evidence
-      condition: and(succeededOrFailed(), eq(variables['PrepareNoticeResults.Ready'], 'true'))
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
-        artifact: Compliance_Results_StableReleaseNotice
-        publishLocation: pipeline
+    - template: templates/dist/steps/publish-artifact.yml
+      parameters:
+        display_name: Publish Stable Release NOTICE Evidence
+        condition: and(succeededOrFailed(), eq(variables['PrepareNoticeResults.Ready'], 'true'))
+        target_path: '$(Build.ArtifactStagingDirectory)/security/StableReleaseNotice'
+        artifact_name: Compliance_Results_StableReleaseNotice
 
     - bash: |
         set -euo pipefail

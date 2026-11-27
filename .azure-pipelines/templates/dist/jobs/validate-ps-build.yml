@@ -127,10 +127,9 @@ jobs:
     condition: always()
     displayName: Finalize PS Validation Artifacts
 
-  - task: PublishPipelineArtifact@1
-    displayName: Publish PS Validation Artifacts
-    condition: always()
-    inputs:
-      targetPath: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)
-      artifact: Validate_PS_Sim_$(ValidationKey)
-      publishLocation: pipeline
+  - template: ../steps/publish-artifact.yml
+    parameters:
+      display_name: Publish PS Validation Artifacts
+      condition: always()
+      target_path: $(Agent.TempDirectory)/azclips-ps-validation-reports-$(System.JobId)
+      artifact_name: Validate_PS_Sim_$(ValidationKey)

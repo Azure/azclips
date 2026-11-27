@@ -59,7 +59,7 @@ public class Program
 
     private static async Task<int> RunCliAsync(string[] args, CommandTimingRecorder debugTiming, Action<Action<string>> setTimingWriter)
     {
-        var performance = new PerformanceTimeline("AzureCLI.Startup");
+        var performance = new PerformanceTimeline("AzureCLI.Startup", TimeProvider.System);
         using var startup = debugTiming.MeasureLocal("Init/startup");
         bool isBareInvocation = args.Length == 0;
 
@@ -489,9 +489,9 @@ public class Program
             var renderer = new RuntimeHelpDispatcher(engine, streams, output)
             {
                 Performance = debugTiming,
-                SelectedPackageIds = () => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
+                SelectedPackageIds = verb => CliExtensionServiceRegistration.GetRoutingSelectedPackageIds(
                     AzclipsServiceProvider.GetRequiredService<ExtensionDispatcher>(),
-                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>()),
+                    AzclipsServiceProvider.GetRequiredService<SelectedExtensionLocations>(), verb),
             };
             if (help.Path.Count == 0)
             {

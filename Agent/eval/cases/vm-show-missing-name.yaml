@@ -1,0 +1,42 @@
+description: "[read/missing-param] vm-show-missing-name"
+metadata:
+  mode: read
+  failureType: missing-param
+vars:
+  case_id: vm-show-missing-name
+  command_group: vm
+  goal: Show a VM in azclips-test-rg; the VM name was omitted.
+  command: vm show --resource-group azclips-test-rg
+assert:
+  - commandSet:
+      anyOf:
+        - - command: az vm list
+            match: any
+            forbiddenArguments:
+              - -n
+              - -g
+            argumentValues:
+              --resource-group: azclips-test-rg
+        - - command: az vm show
+            match: all
+            forbiddenArguments:
+              - -n
+              - -g
+            argumentValues:
+              --resource-group: azclips-test-rg
+            placeholders:
+              - --name
+  - type: javascript
+    value: file://assertions/plan-contract.js:planContractAssertion
+    metric: plan-contract
+    config:
+      checkName: Plan steps and scope
+      allowedCommands:
+        - az vm list
+        - az vm show
+      validateSubscription: true
+  - recoveryQuality:
+      criteria:
+        - "User goal: Show a VM in azclips-test-rg; the VM name was omitted."
+        - Preserve every user-supplied name, group, location and value except the one that caused the failure.
+        - The name is unknown, so listing VMs in the group or a clear <vm-name> placeholder is acceptable.

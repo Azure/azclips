@@ -5,6 +5,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Cmdlets.Tests;
 
@@ -20,7 +21,7 @@ public class ImportTelemetryTests
     public void Emit_TagsTheRootWithTheImportKind()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName, TimeProvider.System);
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
         }
@@ -35,18 +36,20 @@ public class ImportTelemetryTests
     public void Emit_NestsTheContainerPhaseUnderThePerformanceSpan()
     {
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        // A fake clock keeps the recorded duration exact; a real one would also count however
+        // long a loaded CI runner takes to reschedule this thread, which has exceeded 5 s.
+        var clock = new FakeTimeProvider();
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName, clock);
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
-            Thread.Sleep(20);
+            clock.Advance(TimeSpan.FromMilliseconds(20));
         }
 
-        ImportTelemetry.Emit(telemetry, timeline, ImportTelemetry.Cold, DateTime.UtcNow);
+        ImportTelemetry.Emit(telemetry, timeline, ImportTelemetry.Cold, clock.GetUtcNow().UtcDateTime);
 
         var container = Assert.Single(telemetry.Stopped, a => a.OperationName == ImportTelemetry.ContainerSpanName);
         Assert.Equal(ImportTelemetry.PerformanceSpanName, container.Parent?.OperationName);
-        // Sleep(20) can overshoot on Windows' ~15.6ms timer, so assert a floor, not equality.
-        Assert.InRange(container.Duration.TotalMilliseconds, 15d, 5000d);
+        Assert.Equal(TimeSpan.FromMilliseconds(20), container.Duration);
     }
 
     [Fact]
@@ -56,26 +59,26 @@ public class ImportTelemetryTests
         // normally would report a duration stretching to emit time, inflated by thread
         // scheduling and by the telemetry construction being measured against it.
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        var clock = new FakeTimeProvider();
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName, clock);
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
+            clock.Advance(TimeSpan.FromMilliseconds(20));
         }
 
-        var importEnd = DateTime.UtcNow;
-        Thread.Sleep(150); // stands in for the background scheduling + telemetry construction
+        var importEnd = clock.GetUtcNow().UtcDateTime;
+        clock.Advance(TimeSpan.FromMilliseconds(150)); // stands in for the background scheduling + telemetry construction
 
         ImportTelemetry.Emit(telemetry, timeline, ImportTelemetry.Cold, importEnd);
 
         var root = Assert.Single(telemetry.Stopped, a => a.OperationName == "Test.Activity.Root");
-        Assert.True(
-            root.Duration.TotalMilliseconds < 100,
-            $"root duration {root.Duration.TotalMilliseconds:N1}ms absorbed the 150ms emit delay");
+        Assert.Equal(TimeSpan.FromMilliseconds(20), root.Duration);
     }
 
     [Fact]
     public void Emit_WhenTelemetryIsDisabled_DoesNotThrow()
     {
-        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName, TimeProvider.System);
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
         }
@@ -93,7 +96,7 @@ public class ImportTelemetryTests
         // phase spans — this is exactly the bug class EmitInBackground's TenantId/DataBoundary
         // tagging depends on not having.
         using var telemetry = new RecordingTelemetryService();
-        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName);
+        var timeline = new PerformanceTimeline(ImportTelemetry.PerformanceSpanName, TimeProvider.System);
         using (timeline.Measure(ImportTelemetry.ContainerSpanName))
         {
         }

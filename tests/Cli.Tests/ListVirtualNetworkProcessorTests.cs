@@ -8,6 +8,7 @@ using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Network.Models;
 using Microsoft.Azure.Azclips.Extensions.Network.Processors;
 using Xunit;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 

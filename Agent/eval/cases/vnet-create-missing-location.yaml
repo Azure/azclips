@@ -1,4 +1,8 @@
 description: network vnet create without required --location -> preserve network settings and add a location
+metadata:
+  mode: mutate
+  failureType: missing-param
+  original: true
 vars:
   case_id: vnet-create-missing-location
   command_group: network

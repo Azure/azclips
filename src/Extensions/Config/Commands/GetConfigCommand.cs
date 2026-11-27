@@ -9,12 +9,26 @@ namespace Microsoft.Azure.Azclips.Extensions.Config.Commands;
 
 public sealed class GetConfigCommand : ConfigCommandBase
 {
-    [ArgumentInfo(Required = true, Description = @"Configuration key in dot notation.", SerializedName = @"Key")]
-    public string Key { get; set; } = string.Empty;
+    [ArgumentInfo(Required = false, Description = @"Configuration key in dot notation.", SerializedName = @"Key")]
+    public string? Key { get; set; }
+
+    [ArgumentInfo(Required = false, Description = @"Show only values configured in the configuration file or environment.", SerializedName = @"ConfiguredOnly")]
+    public bool ConfiguredOnly { get; set; }
 
     public override async Task ProcessAsync()
     {
         using var _ = StartActivity($"{nameof(GetConfigCommand)}.{nameof(ProcessAsync)}", ActivityKind.Internal);
+
+        if (Key is null)
+        {
+            await WriteEntriesAsync(includeDefaults: !ConfiguredOnly).ConfigureAwait(false);
+            return;
+        }
+
+        if (ConfiguredOnly)
+        {
+            throw AzclipsErrorException.UsageError("Configured-only filtering cannot be combined with a configuration key or section.");
+        }
 
         var entries = await GetResolvedEntriesAsync(includeDefaults: true).ConfigureAwait(false);
         var normalizedKey = NormalizeKey(Key);
@@ -38,10 +52,7 @@ public sealed class GetConfigCommand : ConfigCommandBase
         }
 
         var sectionEntries = matchingEntries
-            .Select(item => new ConfigEntry(
-                item.Key[(normalizedKey.Length + 1)..],
-                item.Value.Value,
-                item.Value.Source))
+            .Select(item => item.Value with { Key = item.Key[(normalizedKey.Length + 1)..] })
             .ToList();
 
         await WriteOutput(sectionEntries, CancellationToken).ConfigureAwait(false);

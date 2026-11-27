@@ -9,6 +9,7 @@ using Core.Abstractions.Runtime;
 using Microsoft.Azure.Azclips.Extensions.Network.Processors;
 using NetworkIndex = Microsoft.Azure.Azclips.Extensions.Network.ExtensionIndex;
 using Xunit;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 
