@@ -71,7 +71,13 @@ jobs:
           }
           $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$repo" -Headers $headers -SkipHttpErrorCheck
           if ($response.StatusCode -ne 200) {
-            Write-Host "$repo metadata request failed: HTTP $($response.StatusCode)."
+            $reason = 'unclassified'
+            $content = [string]$response.Content
+            if ($content -match 'rate limit') { $reason = 'rate limit' }
+            elseif ($content -match 'resource not accessible') { $reason = 'resource not accessible' }
+            elseif ($content -match 'SAML|single sign.on|SSO') { $reason = 'SSO authorization' }
+            elseif ($content -match 'IP allow list|IP address|IP restriction') { $reason = 'IP restriction' }
+            Write-Host "$repo metadata request failed: HTTP $($response.StatusCode), reason=$reason, SSO-header-present=$([bool]$response.Headers['X-GitHub-SSO']), rate-limit-remaining=$($response.Headers['X-RateLimit-Remaining'] -join ',')."
             $failures++
             continue
           }
