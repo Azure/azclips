@@ -250,7 +250,10 @@ internal sealed class ScenarioHost : IDisposable
     /// command name, and parameter dictionary shape as e.g. <c>NewResourceGroupCmdlet</c>)
     /// through the engine's synchronous session path, as PowerShell hosts do.
     /// </summary>
-    public IReadOnlyList<object> RunPowerShell(string commandName, IDictionary<string, object> parameters, string? extension = null)
+    public IReadOnlyList<object> RunPowerShell(string commandName, IDictionary<string, object> parameters, string? extension = null) =>
+        RunPowerShell(CancellationToken.None, commandName, parameters, extension);
+
+    internal IReadOnlyList<object> RunPowerShell(CancellationToken cancellationToken, string commandName, IDictionary<string, object> parameters, string? extension = null)
     {
         if (_clientType != ClientType.PowerShell)
         {
@@ -259,7 +262,7 @@ internal sealed class ScenarioHost : IDisposable
 
         var extensionName = extension ?? _extensions[0].Name;
         var invocation = new CommandInvocation(extensionName, commandName, parameters, IsTransient: false, ModuleName: extensionName);
-        return Execute(invocation, useAsyncSession: false);
+        return Execute(invocation, useAsyncSession: false, cancellationToken);
     }
 
     /// <summary>

@@ -388,7 +388,8 @@ explicit test-host substitution of its Network index selects the adapter;
 normal product commands and public metadata remain unchanged.
 
 ```powershell
-dotnet test tests\Scenario.Tests\Scenario.Tests.csproj --no-restore --filter "FullyQualifiedName~PublicIpBicepPilotScenarioTests|FullyQualifiedName~PublicIpScenarioTests|FullyQualifiedName~ScenarioHostTests" --verbosity quiet
+$env:AZURE_TEST_MODE = "Playback"
+dotnet test tests\Scenario.Tests\Scenario.Tests.csproj --no-restore --filter "FullyQualifiedName~PublicIpBicepLiveScenarioTests|FullyQualifiedName~PublicIpBicepPilotScenarioTests|FullyQualifiedName~PublicIpScenarioTests|FullyQualifiedName~ScenarioHostTests" --verbosity quiet
 ```
 
 The adapter preserves customization, validates inputs/assets before HTTP,
@@ -398,10 +399,16 @@ recordings body-match CLI, PowerShell argument binding and the actual cmdlet.
 Failures/cancellation cannot produce deployment-object/resource fallbacks or a
 direct-create retry.
 
-This is **offline fixture evidence, not live readiness or newly generated March
-C# qualification**. Preflight is not atomic race protection; deployment
-permissions/history differ from direct creation. Live quota/cost/owned-resource
-cleanup still require explicit authorization. See the [evidence and limitations](../openspec/changes/pilot-public-ip-bicep-create/design.md#completed-isolated-runtime-and-offline-regression-gates).
+Two explicitly authorized **real-service create/read/delete lifecycles** now pass
+in Australia East, with sanitized body-matched recordings replayed by the command
+above. Owned Public IPs/deployment records were removed; the separately authorized
+empty test group is retained. The fixture omits unset deployment fields through
+the existing serializer hook; normal Resources serialization is unchanged.
+This is **not production activation or newly generated March C# qualification**.
+Preflight is not atomic race protection; deployment permissions/history differ
+from direct creation. Restricted-principal/least-privilege live behavior remains
+unverified, and further live provisioning requires scoped authorization. See the
+[live evidence and limitations](../openspec/changes/pilot-public-ip-bicep-create/design.md#completed-authorized-live-gates).
 To stay on the default path, use the normal Network assembly without fixture
 host options. No product backend selector or runtime compiler is added.
 

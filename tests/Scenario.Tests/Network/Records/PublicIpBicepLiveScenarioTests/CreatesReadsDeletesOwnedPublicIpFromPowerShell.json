@@ -1,0 +1,816 @@
+{
+  "version": 1,
+  "metadata": {
+    "scenario": "PublicIpBicepLiveScenarioTests/CreatesReadsDeletesOwnedPublicIpFromPowerShell"
+  },
+  "entries": [
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "8c04a358-4564-4814-99a6-a64374db7e9b"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 404,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-failure-cause": [
+            "gateway"
+          ],
+          "x-ms-request-id": [
+            "9816322f-1dfe-481b-bc3b-617a201076dd"
+          ],
+          "x-ms-correlation-request-id": [
+            "9816322f-1dfe-481b-bc3b-617a201076dd"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032538Z:9816322f-1dfe-481b-bc3b-617a201076dd"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: CB489633544F4284A3DB583A88F04A48 Ref B: SYD281080708023 Ref C: 2026-11-27T03:25:38Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:25:38 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022error\u0022:{\u0022code\u0022:\u0022ResourceNotFound\u0022,\u0022message\u0022:\u0022The Resource \u0027Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps\u0027 under resource group \u0027scenario-public-ip-bicep-rg\u0027 was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-public-ip-bicep-rg/providers/Microsoft.Resources/deployments/scenario-public-ip-bicep-deployment-ps?api-version=2025-04-01",
+        "headers": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "x-ms-client-request-id": [
+            "39568f75-f109-4eee-b506-13f8ad7c3818"
+          ]
+        },
+        "body": "{\u0022properties\u0022:{\u0022template\u0022:{\u0022$schema\u0022:\u0022https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#\u0022,\u0022languageVersion\u0022:\u00222.0\u0022,\u0022contentVersion\u0022:\u00221.0.0.0\u0022,\u0022metadata\u0022:{\u0022_generator\u0022:{\u0022name\u0022:\u0022bicep\u0022,\u0022version\u0022:\u00220.49.2.45890\u0022,\u0022templateHash\u0022:\u00222721754458351379404\u0022}},\u0022parameters\u0022:{\u0022publicIpAddressName\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022metadata\u0022:{\u0022__bicep_resource_derived_type!\u0022:{\u0022source\u0022:\u0022Microsoft.Network/publicIPAddresses@2026-03-01#properties/name\u0022}}},\u0022location\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022metadata\u0022:{\u0022__bicep_resource_derived_type!\u0022:{\u0022source\u0022:\u0022Microsoft.Network/publicIPAddresses@2026-03-01#properties/location\u0022}}},\u0022tags\u0022:{\u0022type\u0022:\u0022object\u0022,\u0022metadata\u0022:{\u0022__bicep_resource_derived_type!\u0022:{\u0022source\u0022:\u0022Microsoft.Network/publicIPAddresses@2026-03-01#properties/tags\u0022}}},\u0022publicIPAllocationMethod\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022metadata\u0022:{\u0022__bicep_resource_derived_type!\u0022:{\u0022source\u0022:\u0022Microsoft.Network/publicIPAddresses@2026-03-01#properties/properties/properties/publicIPAllocationMethod\u0022}}},\u0022publicIPAddressVersion\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022metadata\u0022:{\u0022__bicep_resource_derived_type!\u0022:{\u0022source\u0022:\u0022Microsoft.Network/publicIPAddresses@2026-03-01#properties/properties/properties/publicIPAddressVersion\u0022}}},\u0022idleTimeoutInMinutes\u0022:{\u0022type\u0022:\u0022int\u0022,\u0022metadata\u0022:{\u0022__bicep_resource_derived_type!\u0022:{\u0022source\u0022:\u0022Microsoft.Network/publicIPAddresses@2026-03-01#properties/properties/properties/idleTimeoutInMinutes\u0022}},\u0022minValue\u0022:-2147483648,\u0022maxValue\u0022:2147483647},\u0022skuName\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022metadata\u0022:{\u0022__bicep_resource_derived_type!\u0022:{\u0022source\u0022:\u0022Microsoft.Network/publicIPAddresses@2026-03-01#properties/sku/properties/name\u0022}}},\u0022skuTier\u0022:{\u0022type\u0022:\u0022string\u0022,\u0022metadata\u0022:{\u0022__bicep_resource_derived_type!\u0022:{\u0022source\u0022:\u0022Microsoft.Network/publicIPAddresses@2026-03-01#properties/sku/properties/tier\u0022}},\u0022nullable\u0022:true}},\u0022resources\u0022:{\u0022publicIp\u0022:{\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022apiVersion\u0022:\u00222026-03-01\u0022,\u0022name\u0022:\u0022[parameters(\\u0027publicIpAddressName\\u0027)]\u0022,\u0022location\u0022:\u0022[parameters(\\u0027location\\u0027)]\u0022,\u0022tags\u0022:\u0022[parameters(\\u0027tags\\u0027)]\u0022,\u0022properties\u0022:{\u0022publicIPAllocationMethod\u0022:\u0022[parameters(\\u0027publicIPAllocationMethod\\u0027)]\u0022,\u0022publicIPAddressVersion\u0022:\u0022[parameters(\\u0027publicIPAddressVersion\\u0027)]\u0022,\u0022idleTimeoutInMinutes\u0022:\u0022[parameters(\\u0027idleTimeoutInMinutes\\u0027)]\u0022},\u0022sku\u0022:\u0022[shallowMerge(createArray(createObject(\\u0027name\\u0027, parameters(\\u0027skuName\\u0027)), if(not(equals(parameters(\\u0027skuTier\\u0027), null())), createObject(\\u0027tier\\u0027, parameters(\\u0027skuTier\\u0027)), createObject())))]\u0022}}},\u0022parameters\u0022:{\u0022publicIpAddressName\u0022:{\u0022value\u0022:\u0022scenario-public-ip-bicep-ps\u0022},\u0022location\u0022:{\u0022value\u0022:\u0022australiaeast\u0022},\u0022tags\u0022:{\u0022value\u0022:{\u0022purpose\u0022:\u0022bicep-pilot\u0022}},\u0022publicIPAllocationMethod\u0022:{\u0022value\u0022:\u0022Static\u0022},\u0022publicIPAddressVersion\u0022:{\u0022value\u0022:\u0022IPv4\u0022},\u0022idleTimeoutInMinutes\u0022:{\u0022value\u0022:30},\u0022skuName\u0022:{\u0022value\u0022:\u0022Standard\u0022},\u0022skuTier\u0022:{\u0022value\u0022:\u0022Regional\u0022}},\u0022mode\u0022:\u0022Incremental\u0022}}"
+      },
+      "response": {
+        "statusCode": 201,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-public-ip-bicep-rg/providers/Microsoft.Resources/deployments/scenario-public-ip-bicep-deployment-ps/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639313467399708153\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-deployment-engine-version": [
+            "1.822.1"
+          ],
+          "x-ms-ratelimit-remaining-subscription-writes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-writes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "2e02ccf0-181a-4127-81e8-747498dd0b12"
+          ],
+          "x-ms-correlation-request-id": [
+            "2e02ccf0-181a-4127-81e8-747498dd0b12"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032539Z:2e02ccf0-181a-4127-81e8-747498dd0b12"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: B3BAEFF0D4CB420A8C4D525835B2F023 Ref B: SYD281080708023 Ref C: 2026-11-27T03:25:39Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:25:39 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Resources/deployments/scenario-public-ip-bicep-deployment-ps\u0022,\u0022name\u0022:\u0022scenario-public-ip-bicep-deployment-ps\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222721754458351379404\u0022,\u0022parameters\u0022:{\u0022publicIpAddressName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-public-ip-bicep-ps\u0022},\u0022location\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022australiaeast\u0022},\u0022tags\u0022:{\u0022type\u0022:\u0022Object\u0022,\u0022value\u0022:{\u0022purpose\u0022:\u0022bicep-pilot\u0022}},\u0022publicIPAllocationMethod\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022Static\u0022},\u0022publicIPAddressVersion\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022IPv4\u0022},\u0022idleTimeoutInMinutes\u0022:{\u0022type\u0022:\u0022Int\u0022,\u0022value\u0022:30},\u0022skuName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022Standard\u0022},\u0022skuTier\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022Regional\u0022}},\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Accepted\u0022,\u0022timestamp\u0022:\u00222026-11-27T03:25:39.6114311Z\u0022,\u0022duration\u0022:\u0022PT0.0009004S\u0022,\u0022correlationId\u0022:\u00222e02ccf0-181a-4127-81e8-747498dd0b12\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Network\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022publicIPAddresses\u0022,\u0022locations\u0022:[\u0022australiaeast\u0022]}]}],\u0022dependencies\u0022:[]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-public-ip-bicep-rg/providers/Microsoft.Resources/deployments/scenario-public-ip-bicep-deployment-ps/operationStatuses/sanitized-operation-token?api-version=2025-04-01\u0026t=639313467399708153\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "b942fb18-d9a0-4414-850e-4ef3c763c81a"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "63c715f2-ccfc-4614-8990-43619b79c2bb"
+          ],
+          "x-ms-correlation-request-id": [
+            "63c715f2-ccfc-4614-8990-43619b79c2bb"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032555Z:63c715f2-ccfc-4614-8990-43619b79c2bb"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 6181751A69CC4486ACD33B892209B064 Ref B: SYD281080708023 Ref C: 2026-11-27T03:25:55Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:25:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-public-ip-bicep-rg/providers/Microsoft.Resources/deployments/scenario-public-ip-bicep-deployment-ps?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "b81ead54-b283-40de-b152-fed52e4fdcb7"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "beaa3669-e0b9-4552-a531-77dc8a73572f"
+          ],
+          "x-ms-correlation-request-id": [
+            "beaa3669-e0b9-4552-a531-77dc8a73572f"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032555Z:beaa3669-e0b9-4552-a531-77dc8a73572f"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 31735A5982B64B70BA633E5E52FEFC2A Ref B: SYD281080708023 Ref C: 2026-11-27T03:25:55Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:25:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Resources/deployments/scenario-public-ip-bicep-deployment-ps\u0022,\u0022name\u0022:\u0022scenario-public-ip-bicep-deployment-ps\u0022,\u0022type\u0022:\u0022Microsoft.Resources/deployments\u0022,\u0022properties\u0022:{\u0022templateHash\u0022:\u00222721754458351379404\u0022,\u0022parameters\u0022:{\u0022publicIpAddressName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022scenario-public-ip-bicep-ps\u0022},\u0022location\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022australiaeast\u0022},\u0022tags\u0022:{\u0022type\u0022:\u0022Object\u0022,\u0022value\u0022:{\u0022purpose\u0022:\u0022bicep-pilot\u0022}},\u0022publicIPAllocationMethod\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022Static\u0022},\u0022publicIPAddressVersion\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022IPv4\u0022},\u0022idleTimeoutInMinutes\u0022:{\u0022type\u0022:\u0022Int\u0022,\u0022value\u0022:30},\u0022skuName\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022Standard\u0022},\u0022skuTier\u0022:{\u0022type\u0022:\u0022String\u0022,\u0022value\u0022:\u0022Regional\u0022}},\u0022extensions\u0022:[],\u0022mode\u0022:\u0022Incremental\u0022,\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022timestamp\u0022:\u00222026-11-27T03:25:43.3842703Z\u0022,\u0022duration\u0022:\u0022PT3.7728392S\u0022,\u0022correlationId\u0022:\u00222e02ccf0-181a-4127-81e8-747498dd0b12\u0022,\u0022providers\u0022:[{\u0022namespace\u0022:\u0022Microsoft.Network\u0022,\u0022resourceTypes\u0022:[{\u0022resourceType\u0022:\u0022publicIPAddresses\u0022,\u0022locations\u0022:[\u0022australiaeast\u0022]}]}],\u0022dependencies\u0022:[],\u0022outputResources\u0022:[{\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps\u0022,\u0022resourceType\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022}]}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "2ea7c411-0341-4a11-96dc-189bc1302730"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022befd4266-2452-4cb6-ab0f-b84bb0aab8bb\u0022"
+          ],
+          "x-ms-request-id": [
+            "b8126d63-b1d6-4c86-afb2-b6ad3e9d51a5"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "d0f8747f-35b0-47b4-805c-8503a707df4d"
+          ],
+          "x-ms-arm-service-request-id": [
+            "cde5b263-e6b2-4881-8f19-3ec7af981a3b"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032555Z:d0f8747f-35b0-47b4-805c-8503a707df4d"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: D1B6D0C00D32438EACDB7E402C792449 Ref B: SYD281080708023 Ref C: 2026-11-27T03:25:55Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:25:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-public-ip-bicep-ps\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps\u0022,\u0022etag\u0022:\u0022W/\\\u0022befd4266-2452-4cb6-ab0f-b84bb0aab8bb\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022tags\u0022:{\u0022purpose\u0022:\u0022bicep-pilot\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022ed746f48-216f-4bc5-88e8-b0536e7cbf34\u0022,\u0022ipAddress\u0022:\u002220.28.181.230\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:30,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps?api-version=2025-07-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "482e25b4-aa26-45c8-ad75-a637d23ed81d"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022befd4266-2452-4cb6-ab0f-b84bb0aab8bb\u0022"
+          ],
+          "x-ms-request-id": [
+            "58933c9b-648b-4d8d-ab02-100eff20d594"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.2, operationConcurrencyPct=0.5, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "7c263ee9-ee0d-4f26-a8d4-7065dec50cd1"
+          ],
+          "x-ms-arm-service-request-id": [
+            "ad06a5ad-c7b6-4a8d-8cb2-0f5bad26d5dc"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032555Z:7c263ee9-ee0d-4f26-a8d4-7065dec50cd1"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 9A90A4E59D2F47D4840B782EFB126FBD Ref B: SYD281080708023 Ref C: 2026-11-27T03:25:55Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:25:54 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-public-ip-bicep-ps\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps\u0022,\u0022etag\u0022:\u0022W/\\\u0022befd4266-2452-4cb6-ab0f-b84bb0aab8bb\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022tags\u0022:{\u0022purpose\u0022:\u0022bicep-pilot\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022ed746f48-216f-4bc5-88e8-b0536e7cbf34\u0022,\u0022ipAddress\u0022:\u002220.28.181.230\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:30,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps?api-version=2026-03-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "bde726dd-a56e-44e7-baab-c3545c31e446"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "ETag": [
+            "W/\u0022befd4266-2452-4cb6-ab0f-b84bb0aab8bb\u0022"
+          ],
+          "x-ms-request-id": [
+            "02f71700-4896-456b-9b09-26997a1187cc"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.3, operationConcurrencyPct=0.5, subscriptionReadRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "a6873d72-a5f3-4796-a304-f61115a4dd16"
+          ],
+          "x-ms-arm-service-request-id": [
+            "401873f4-83dc-48f2-8318-b15555f1b5e4"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032555Z:a6873d72-a5f3-4796-a304-f61115a4dd16"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 3B3586D62C574ACAB8EB3095EE8959EC Ref B: SYD281080708023 Ref C: 2026-11-27T03:25:55Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:25:55 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022name\u0022:\u0022scenario-public-ip-bicep-ps\u0022,\u0022id\u0022:\u0022/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps\u0022,\u0022etag\u0022:\u0022W/\\\u0022befd4266-2452-4cb6-ab0f-b84bb0aab8bb\\\u0022\u0022,\u0022location\u0022:\u0022australiaeast\u0022,\u0022tags\u0022:{\u0022purpose\u0022:\u0022bicep-pilot\u0022},\u0022properties\u0022:{\u0022provisioningState\u0022:\u0022Succeeded\u0022,\u0022resourceGuid\u0022:\u0022ed746f48-216f-4bc5-88e8-b0536e7cbf34\u0022,\u0022ipAddress\u0022:\u002220.28.181.230\u0022,\u0022publicIPAddressVersion\u0022:\u0022IPv4\u0022,\u0022publicIPAllocationMethod\u0022:\u0022Static\u0022,\u0022idleTimeoutInMinutes\u0022:30,\u0022ipTags\u0022:[],\u0022ddosSettings\u0022:{\u0022protectionMode\u0022:\u0022VirtualNetworkInherited\u0022}},\u0022type\u0022:\u0022Microsoft.Network/publicIPAddresses\u0022,\u0022sku\u0022:{\u0022name\u0022:\u0022Standard\u0022,\u0022tier\u0022:\u0022Regional\u0022}}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/scenario-public-ip-bicep-rg/providers/Microsoft.Network/publicIPAddresses/scenario-public-ip-bicep-ps?api-version=2025-07-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "a80e5470-e020-4551-a524-d20a9f6ee28a"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639313467560730643\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "10"
+          ],
+          "x-ms-request-id": [
+            "20a8dd0f-49a9-491f-9e15-937f6123397a"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/20a8dd0f-49a9-491f-9e15-937f6123397a?api-version=2025-07-01\u0026t=639313467560574418\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationRatePct=0.1, operationConcurrencyPct=0.3, subscriptionWriteRatePct=0.2, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "6cc6af41-ce1c-4bc6-b687-2e057ad08e54"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "00c4092b-3373-4f76-9152-9e6673c9c164"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032556Z:6cc6af41-ce1c-4bc6-b687-2e057ad08e54"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 46524B618F0A4CBDA507EBFEE8AF876E Ref B: SYD281080708023 Ref C: 2026-11-27T03:25:55Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:25:55 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ],
+          "Content-Length": [
+            "0"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/20a8dd0f-49a9-491f-9e15-937f6123397a?api-version=2025-07-01\u0026t=639313467560574418\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "ae159609-1f1e-4537-b888-4c6c9cc9c147"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-request-id": [
+            "d256419a-3e73-4592-a758-66225c6fc632"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "5a751c86-eeb6-40b1-8aff-0b6c31be8817"
+          ],
+          "x-ms-arm-service-request-id": [
+            "8ac67622-1846-4459-ad16-b4b8ef197760"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIASOUTHEAST:20261127T032606Z:5a751c86-eeb6-40b1-8aff-0b6c31be8817"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 444490A2A4F044EC92632C105183C6D4 Ref B: SYD281080708023 Ref C: 2026-11-27T03:26:06Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:26:05 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": "{\u0022status\u0022:\u0022Succeeded\u0022}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639313467560730643\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "d94e48c6-c380-4988-9863-6ce62d1ec761"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operationResults/sanitized-operation-token?api-version=2025-07-01\u0026t=639313467663307500\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-request-id": [
+            "20a8dd0f-49a9-491f-9e15-937f6123397a"
+          ],
+          "Azure-AsyncOperation": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/locations/australiaeast/operations/20a8dd0f-49a9-491f-9e15-937f6123397a?api-version=2025-07-01\u0026t=639313467663307500\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "x-ms-throttle-levels": [
+            "operationConcurrencyPct=0.5, subscriptionReadRatePct=0.1, etc"
+          ],
+          "x-ms-correlation-request-id": [
+            "6cc6af41-ce1c-4bc6-b687-2e057ad08e54"
+          ],
+          "Azure-AsyncNotification": [
+            "Enabled"
+          ],
+          "x-ms-arm-service-request-id": [
+            "00c4092b-3373-4f76-9152-9e6673c9c164"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032606Z:425200ad-cf6f-488d-b599-5402d67caf1a"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: FA288A7AE27347E2A8233DED103591A7 Ref B: SYD281080708023 Ref C: 2026-11-27T03:26:06Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:26:05 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Content-Type": [
+            "application/json; charset=utf-8"
+          ],
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/scenario-public-ip-bicep-rg/providers/Microsoft.Resources/deployments/scenario-public-ip-bicep-deployment-ps?api-version=2025-04-01",
+        "headers": {
+          "x-ms-client-request-id": [
+            "683a301e-b6d0-4c28-8e7c-3d1ba69f4d36"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 202,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "Location": [
+            "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639313467668730098\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]"
+          ],
+          "Retry-After": [
+            "15"
+          ],
+          "x-ms-ratelimit-remaining-subscription-deletes": [
+            "199"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-deletes": [
+            "2999"
+          ],
+          "x-ms-request-id": [
+            "2f0f40c6-e28c-400b-8bb5-b29823d3494e"
+          ],
+          "x-ms-correlation-request-id": [
+            "2f0f40c6-e28c-400b-8bb5-b29823d3494e"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIAEAST:20261127T032606Z:2f0f40c6-e28c-400b-8bb5-b29823d3494e"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 9B005AF9A5B941B3BA231954B9B2B845 Ref B: SYD281080708023 Ref C: 2026-11-27T03:26:06Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:26:06 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ],
+          "Content-Length": [
+            "0"
+          ]
+        },
+        "body": ""
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/operationresults/sanitized-operation-token?api-version=2025-04-01\u0026t=639313467668730098\u0026c=[redacted]\u0026s=[redacted]\u0026h=[redacted]",
+        "headers": {
+          "x-ms-client-request-id": [
+            "e01a4325-020e-4dbe-9eaa-d05b4d30118b"
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 204,
+        "headers": {
+          "Cache-Control": [
+            "no-cache"
+          ],
+          "Pragma": [
+            "no-cache"
+          ],
+          "x-ms-ratelimit-remaining-subscription-reads": [
+            "249"
+          ],
+          "x-ms-ratelimit-remaining-subscription-global-reads": [
+            "3749"
+          ],
+          "x-ms-request-id": [
+            "2c347a46-6bb5-4b52-ba0d-d1af21918eff"
+          ],
+          "x-ms-correlation-request-id": [
+            "2c347a46-6bb5-4b52-ba0d-d1af21918eff"
+          ],
+          "x-ms-routing-request-id": [
+            "AUSTRALIACENTRAL2:20261127T032622Z:2c347a46-6bb5-4b52-ba0d-d1af21918eff"
+          ],
+          "Strict-Transport-Security": [
+            "max-age=31536000; includeSubDomains"
+          ],
+          "X-Content-Type-Options": [
+            "nosniff"
+          ],
+          "X-Cache": [
+            "CONFIG_NOCACHE"
+          ],
+          "X-MSEdge-Ref": [
+            "Ref A: 120D8A8FB65B4DA79E1F1BF15B66A327 Ref B: SYD281080708023 Ref C: 2026-11-27T03:26:21Z"
+          ],
+          "Date": [
+            "Fri, 27 Nov 2026 03:26:21 GMT"
+          ]
+        },
+        "contentHeaders": {
+          "Expires": [
+            "-1"
+          ]
+        },
+        "body": ""
+      }
+    }
+  ]
+}

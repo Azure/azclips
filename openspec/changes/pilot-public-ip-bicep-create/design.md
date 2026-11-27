@@ -654,7 +654,7 @@ Execution:
 4. Invoke `NewResourceGroupDeploymentProcessor` in Incremental mode at `2025-04-01`, sharing normal auth/tracing/polling. Capture and require a successful deployment result; cancellation, missing/failed state or an error cannot become resource output.
 5. Invoke the existing typed Public IP GET/deserializer at March through an explicit fixture-only query-version override, preserving generated path escaping and other query construction. Capture and validate returned identity/name, then emit exactly one real Public IP model. Escaped resource-group paths are decoded for ARM-ID comparison; incomplete/different or failed retrieval is explicit failure. No direct PUT retry occurs.
 
-This qualifies existing customization/models with the experimental template/GET URI in the fixture. **It does not claim newly generated March C# execution**, whole-Network qualification, exact API/Bicep schema identity or live service acceptance.
+This offline evidence qualifies existing customization/models with the experimental template/GET URI in the fixture. **It does not claim newly generated March C# execution**, whole-Network qualification, exact API/Bicep schema identity or, by itself, live service acceptance.
 
 [Dedicated scenarios](../../../tests/Scenario.Tests/Network/PublicIpBicepPilotScenarioTests.cs) record real fixture traffic in memory against a [fake deployment backend](../../../tests/Scenario.Tests/Network/FakePublicIpDeploymentBackend.cs). The fake returns independently evaluated frozen resource bodies after checking the actual immutable template and parameter values; it does not interpret ARM expressions or pretend to be Azure validation. Expected transport is preflight GET, deployment PUT, operation GET, final deployment GET and final Public IP GET. Both minimal/default and explicit tags/tier/timeout recordings replay with exact body matching through CLI, the real PS argument provider and the actual `NewPublicIpAddressCmdlet` in a runspace. Test scope uses the recording sanitizer's synthetic zero subscription; final identity checks were retained, not weakened for sanitized responses.
 
@@ -673,11 +673,45 @@ Negative cases cover unsupported zone/SKU/IP-tag inputs and missing assets befor
 
 The final focused selections contain **133 passing tests** (92 native, 28 scenario/host and 13 tooling). The native selection was repeated successfully after the final solution build.
 
-#### Limitations, live gate and rollback
+### Completed authorized live gates
 
-- **Live authorization is absent.** No Azure provisioning, real quota/cost validation, permission-restricted live scenario, owned-resource cleanup or live service parity is claimed. Tasks 4.6/4.7 remain unchecked; do not archive.
-- Preflight GET is **not atomic create-only protection**. Another caller could create the target between preflight and deployment; Incremental deployment may then update it. Offline rejection tests demonstrate detected-existing behavior, not elimination of that race.
-- Additional deployment read/write permissions and deployment history are required, alongside Public IP read/write and explicitly authorized cleanup permissions. The host must provide a fresh owned deployment name; fixture tests' fixed name is synthetic and is not a live naming policy. No role assignments or resource-group creation are included.
+The user explicitly authorized the subscription, a **new** test resource group, Australia East (`australiaeast`), Public IP costs and deletion of owned Public IPs/deployment records. This new-group setup authorization superseded the earlier existing-group-only test setup restriction; the adapter/template still creates no resource group. The Network provider was Registered and regional Public IP usage was 0 of 10 before the run. No role assignments were created or changed. The empty new test group is retained for subsequent Bicep tests.
+
+[Live lifecycle scenarios](../../../tests/Scenario.Tests/Network/PublicIpBicepLiveScenarioTests.cs) use the same explicitly selected fixture through real CLI parsing and the PowerShell argument-provider/synchronous engine path. Existing real-cmdlet runspace proof remains in the offline scenarios. Each live operation is bounded by a ten-minute cancellation deadline; independent five-minute cleanup deadlines delete only exact run-scoped Public IP and deployment names, including after failure. Cleanup failures are aggregated and surfaced, not suppressed as success; only a specific 404 is accepted as already absent.
+
+The already-signed-in installed Azure CLI supplies a fresh ARM token in an ephemeral environment variable. A fixture-only auth override feeds it into the existing shared authentication/pipeline, with a stub profile for command context. This does not qualify AzCLIPS interactive sign-in, change persistent profiles or introduce a separate provisioning client. Tokens and actual subscription/tenant/account identity are not persisted in the committed evidence.
+
+The first live attempt failed explicitly on both surfaces, before provisioning: the `2025-04-01` deployment API rejected an unset `properties.externalInputDefinitions` serialized as null (`InvalidRequestContent`, unknown member of `DeploymentPropertiesContent`). The fixture now subclasses the existing atomic deployment processor and uses its supported `AfterInit` serializer hook to omit null fields. The normal Resources transport and its native null-field serialization assertions remain unchanged. The fake backend checks that submitted properties are exactly `mode`, `parameters`, `template` and each parameter has only `value`, so reverting this fixture fix fails existing offline tests. PowerShell cleanup uses the canonical `Name` binding key rather than the rejected `DeploymentName` key.
+
+The corrected live run passed **both** create/read/existing-target-rejection/delete lifecycles in 86 seconds:
+
+- CLI minimal input: Standard, static IPv4, returned Regional tier/default timeout 4, no command-supplied tags.
+- PowerShell explicit input: returned Regional tier, `purpose=bicep-pilot` tag and timeout 30.
+- Each create returns one real `PublicIPAddress` in Succeeded state, with an allocated IP; a separate normal show retrieves the same identity.
+- A second create against the newly owned existing target fails explicitly instead of submitting another deployment.
+- Immutable templates declare `2026-03-01`; preflight/final GET uses that version and deployment transport remains `2025-04-01`. Normal read/delete commands retain their existing generated API.
+- Independent Azure CLI queries after cleanup returned empty resource and deployment lists for the authorized group.
+
+The successful caller actually exercised deployment write/read/poll/delete and Public IP read/write/delete permissions. The initial real-service transport rejection is failure evidence, not a simulated permissions failure. **No restricted-principal/403 or least-privilege live test was performed**; those activation questions remain unverified. Denied preflight/submission, cancellation and failed deployment/retrieval behavior remain separately proven offline. No failure is relabeled successful, and no direct-backend retry is introduced.
+
+| Command / check | Result |
+| --- | --- |
+| `dotnet test tests\Scenario.Tests\Scenario.Tests.csproj --no-restore --no-build --filter FullyQualifiedName~PublicIpBicepLiveScenarioTests --verbosity minimal` with scoped record authorization and an ephemeral token | 2 live lifecycles passed; owned resources/deployment records removed |
+| `dotnet build azclips.slnx --no-restore --verbosity quiet` | Passed, zero errors; 16 unrelated existing nullable, test-analyzer and Windows API warnings |
+| `dotnet test tests\Scenario.Tests\Scenario.Tests.csproj --no-restore --no-build --filter 'FullyQualifiedName~PublicIpBicepLiveScenarioTests\|FullyQualifiedName~PublicIpBicepPilotScenarioTests\|FullyQualifiedName~PublicIpScenarioTests\|FullyQualifiedName~ScenarioHostTests' --verbosity quiet` with `AZURE_TEST_MODE=Playback` | 30 passed, including returned default/explicit timeout, tier and tags; committed live records match request bodies without Azure access |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --no-build --filter 'FullyQualifiedName~PublicIpAddressParameterTests\|FullyQualifiedName~PublicIpBicepAssetTests' --verbosity quiet` | 92 passed; direct-input, asset and normal serializer behavior preserved |
+| `node --test toolkit\tools\typespec-bicep\test\compiler.test.mjs toolkit\tools\typespec-bicep\test\template.test.mjs toolkit\tools\typespec-bicep\test\package.test.mjs toolkit\tools\typespec-bicep\test\snapshot.test.mjs` | 13 passed; strict compiler diagnostics, unchanged immutable assets and snapshot association |
+| `openspec validate pilot-public-ip-bicep-create --strict` and `git diff --check` | Passed; 33/33 implementation tasks complete |
+| Installed Azure CLI `resource list` and `deployment group list`, restricted to the authorized group/subscription | Both lists empty after the failed attempt and after the successful run |
+| Targeted recording scan for actual subscription, bearer-token material and account-identity fields | No matches; existing recording sanitizers preserve placeholder scope and credential redaction |
+
+Final focused validation comprises 92 native, 30 scenario/host and 13 compiler/template/package/snapshot tests (**135 tests**), plus the two actual live lifecycles. All 33 implementation tasks are complete. This is a bounded fixture experiment, not production activation or unrestricted contract/least-privilege certification.
+
+#### Limitations and rollback
+
+- Live service acceptance is established only for the two authorized eligible cases. Restricted-principal denial and least-privilege qualification remain unverified; no production default activation or automatic archive follows.
+- Preflight GET is **not atomic create-only protection**. Another caller could create the target between preflight and deployment; Incremental deployment may then update it. Offline/live rejection tests demonstrate detected-existing behavior, not elimination of that race.
+- Additional deployment read/write permissions and deployment history are required, alongside Public IP read/write and explicitly authorized cleanup permissions. The host must provide a fresh owned deployment name; live scenarios use deterministic run-scoped names. The adapter does not create groups or assign roles; the new group was separately authorized test setup.
 - The existing shared LRO transport is reused, not redesigned. The pilot requires final deployment success and uses the publisher's cancellation token; it does not roll back a submitted deployment or delete a resource automatically on command failure/cancellation.
 - Original 2025 and historical May evidence, the full March unsupported audit (four diagnostics), normal source/API/toolchain pins and compiler/asset provenance are unchanged. Independent snapshot evaluator version remains unverified.
 - **Rollback/default-off path:** use the normal Network assembly instead of the explicitly substituted fixture assembly, and omit pilot host options. Normal public commands continue direct execution at their existing API. No product feature flag, default activation or runtime compiler exists to revert.
@@ -698,7 +732,7 @@ Default-path recordings remain unchanged. Bicep-path HTTP recordings necessarily
 
 Validate the normalized body versus template parameters/declaration, deployment mode/API versions/polling and final resource GET/output. Replay each pilot recording through both CLI and PowerShell with request-body matching. Keep aliases, parameter metadata, defaults and resource output contracts unchanged.
 
-Live work requires separate authorization of subscription, existing resource group, location, quota, cost and cleanup ownership. Test additional deployment permissions and failure behavior; a fake backend cannot establish Azure authorization or provisioning parity.
+Live work requires separate authorization of subscription, resource-group setup, location, quota, cost and cleanup ownership. The completed run's new-group authorization is not blanket permission for subsequent provisioning. Test additional deployment permissions and failure behavior; a fake backend cannot establish Azure authorization or provisioning parity.
 
 ## Risks / Trade-offs
 

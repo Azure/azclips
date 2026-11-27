@@ -3,6 +3,7 @@
 
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Web;
 using Cli.Tests.Fixtures;
 using Core.Abstractions;
@@ -56,7 +57,7 @@ public sealed class PublicIpBicepCreateProcessor : CreateOrUpdatePublicIPAddress
             Publisher.Token.ThrowIfCancellationRequested();
 
             var deploymentOutput = new CapturedOutput<DeploymentExtended>();
-            var deploy = new NewResourceGroupDeploymentProcessor
+            var deploy = new PilotDeploymentProcessor
             {
                 SubscriptionId = SubscriptionId,
                 ResourceGroupName = ResourceGroupName,
@@ -91,6 +92,12 @@ public sealed class PublicIpBicepCreateProcessor : CreateOrUpdatePublicIPAddress
     }
 
     private ProcessorContext ChildContext(IOutputHandler output) => new(HttpPipeline, Publisher, AuthHandler, output, ResolvedProfile);
+
+    private sealed class PilotDeploymentProcessor : NewResourceGroupDeploymentProcessor
+    {
+        protected override void AfterInit() =>
+            JsonOptions = new(JsonOptions) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+    }
 
     private sealed class CapturedOutput<T> : IOutputHandler where T : class
     {

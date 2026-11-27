@@ -58,6 +58,8 @@ internal sealed class FakePublicIpDeploymentBackend(string scenario = "Default",
             SubmissionCount++;
             using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
             JsonElement properties = body.RootElement.GetProperty("properties");
+            Assert.Equal(new[] { "mode", "parameters", "template" },
+                properties.EnumerateObject().Select(property => property.Name).Order());
             Assert.Equal("Incremental", properties.GetProperty("mode").GetString());
             string variant = recorded.GetProperty("variant").GetString()!;
             using Stream asset = PublicIpBicepAssets.OpenResource($"PublicIpBicepCreate.{variant}.json")!;
@@ -68,8 +70,11 @@ internal sealed class FakePublicIpDeploymentBackend(string scenario = "Default",
             Assert.Equal(expectedParameters.EnumerateObject().Select(parameter => parameter.Name).Order(),
                 parameters.EnumerateObject().Select(parameter => parameter.Name).Order());
             foreach (JsonProperty parameter in parameters.EnumerateObject())
+            {
+                Assert.Equal(new[] { "value" }, parameter.Value.EnumerateObject().Select(property => property.Name));
                 Assert.True(JsonElement.DeepEquals(expectedParameters.GetProperty(parameter.Name).GetProperty("value"),
                     parameter.Value.GetProperty("value")));
+            }
             if (fault == "SubmissionForbidden") return Json("""{"error":{"code":"AuthorizationFailed"}}""", HttpStatusCode.Forbidden);
             submitted = true;
             var accepted = Json("""{"status":"Running"}""", HttpStatusCode.Accepted);
