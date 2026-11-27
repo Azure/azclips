@@ -12,6 +12,7 @@
     <ProjectReference Include="../../src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <ProjectReference Include="../../src/Core/Core.Abstractions/Core.Abstractions.csproj" />
     <ProjectReference Include="../../src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
+    <!-- Cmdlets.Accounts references Core.Telemetry with ExcludeAssets=runtime, so the host telemetry tests must bring it. -->
     <ProjectReference Include="../../src/Core/Core.Telemetry/Core.Telemetry.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
   </ItemGroup>

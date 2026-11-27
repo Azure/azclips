@@ -3,7 +3,6 @@
 
 using Core.Abstractions.Recovery;
 using Core.Authentication.Recovery;
-using Cli.Tests.Recovery;
 using Tmds.DBus.Protocol;
 
 namespace Core.Authentication.Tests;
@@ -103,7 +102,7 @@ public sealed class LinuxFailureHistoryKeyStorageTests
             Search = new(["/item"], []),
             Secret = new(session, hasParameters ? [1] : [], new byte[32], LinuxFailureHistoryKeyStorage.ContentType),
         };
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => CreateStorage(client));
 
         Assert.Equal("failure_history_key_unavailable",
