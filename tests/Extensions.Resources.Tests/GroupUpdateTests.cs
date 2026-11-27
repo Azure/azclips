@@ -6,88 +6,17 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.ArgumentParsing;
-using Core.Cli;
-using Core.Runtime;
-using Core.Runtime.Persistence;
-using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 public class GroupUpdateTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
 
     private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
-
-    [Fact]
-    public void CliMetadata_ExposesLegacyVisibleSurfaceOnly()
-    {
-        var index = new ExtensionIndex();
-        CommandMetadata metadata = index.GetCommandMetadata("group update", ClientType.CLI);
-
-        Assert.Equal(typeof(UpdateResourceGroupProcessor_Orchestrator), metadata.ProcessorType);
-        Assert.Equal(["n", "resource-group", "g"], metadata.Parameters["name"].Aliases);
-        Assert.True(metadata.Parameters["name"].IsRequired);
-        Assert.Equal(typeof(string[]), metadata.Parameters["tags"].ParameterType);
-        Assert.Equal(typeof(string[]), metadata.Parameters["set"].ParameterType);
-        Assert.Equal(typeof(bool), metadata.Parameters["force-string"].ParameterType);
-        Assert.DoesNotContain("add", metadata.Parameters.Keys);
-        Assert.DoesNotContain("remove", metadata.Parameters.Keys);
-    }
-
-    [Fact]
-    public void PowerShellMetadata_ExposesLegacyTagReplacementSurface()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata(
-            "Set-AzResourceGroup",
-            ClientType.PowerShell);
-
-        Assert.Equal(typeof(SetResourceGroupProcessor_Orchestrator), metadata.ProcessorType);
-        Assert.Equal("ResourceGroupName", metadata.Parameters["Name"].Name);
-        Assert.Equal(["ResourceGroupName"], metadata.Parameters["Name"].Aliases);
-        Assert.Equal(["ResourceGroupId", "ResourceId"], metadata.Parameters["Id"].Aliases);
-        Assert.Equal("Tags", metadata.Parameters["Tag"].Name);
-        Assert.Equal(typeof(Dictionary<string, string>), metadata.Parameters["Tag"].ParameterType);
-        Assert.True(metadata.Parameters["Tag"].IsRequired);
-        Assert.DoesNotContain("Set", metadata.Parameters.Keys);
-        Assert.DoesNotContain("ForceString", metadata.Parameters.Keys);
-    }
-
-    [Theory]
-    [InlineData("name")]
-    [InlineData("n")]
-    [InlineData("resource-group")]
-    [InlineData("g")]
-    public void CliBinding_BindsNameAliasesAndUpdateArguments(string nameArgument)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("group update", ClientType.CLI);
-        var processor = (UpdateResourceGroupProcessor_Orchestrator)metadata.GetInstance();
-        var binder = CreateBinder();
-
-        binder.BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                [nameArgument] = Value("test-rg"),
-                ["tags"] = Value("Owner=team-a"),
-                ["set"] = Value("tags.CostCenter=42"),
-                ["force-string"] = new List<List<string>>(),
-            },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.Equal("test-rg", processor.ResourceGroupName);
-        Assert.Equal(TestSubscriptionId, processor.SubscriptionId);
-        Assert.NotNull(processor.TagsInput);
-        Assert.Equal(["Owner=team-a"], processor.TagsInput);
-        Assert.NotNull(processor.Set);
-        Assert.Equal(["tags.CostCenter=42"], processor.Set);
-        Assert.True(processor.ForceString);
-    }
 
     [Fact]
     public async Task ProcessAsync_WithTags_SendsPatchWithoutGet()
@@ -188,7 +117,7 @@ public class GroupUpdateTests
     [Fact]
     public async Task PowerShellProcessAsync_NameAndId_ThrowsInvalidInput()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
         {
             ResourceGroupName = "test-rg",
             Id = "/subscriptions/sub-1/resourceGroups/test-rg",
@@ -206,7 +135,7 @@ public class GroupUpdateTests
     [InlineData("   ")]
     public async Task PowerShellProcessAsync_BlankId_ThrowsInvalidInput(string id)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
         {
             Id = id,
             Tags = new Dictionary<string, string> { ["Owner"] = "team-b" },
@@ -220,7 +149,7 @@ public class GroupUpdateTests
     [Fact]
     public async Task PowerShellProcessAsync_MalformedId_ThrowsInvalidInput()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new SetResourceGroupProcessor_Orchestrator
         {
             Id = "not-a-resource-id",
             Tags = new Dictionary<string, string> { ["Owner"] = "team-b" },
@@ -305,7 +234,7 @@ public class GroupUpdateTests
     [InlineData("   =value")]
     public async Task ProcessAsync_EmptyTagKey_ThrowsInvalidInput(string entry)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new UpdateResourceGroupProcessor_Orchestrator { ResourceGroupName = "test-rg", TagsInput = [entry] }, _mockPipeline);
+        var processor = ResourcesProcessorTestHelpers.Initialize(new UpdateResourceGroupProcessor_Orchestrator { ResourceGroupName = "test-rg", TagsInput = [entry] }, _mockPipeline);
 
         Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
@@ -317,7 +246,7 @@ public class GroupUpdateTests
     [InlineData("=westus")]
     public async Task ProcessAsync_MalformedSetExpression_ThrowsInvalidInput(string expression)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new UpdateResourceGroupProcessor_Orchestrator { ResourceGroupName = "test-rg", Set = [expression] }, _mockPipeline);
+        var processor = ResourcesProcessorTestHelpers.Initialize(new UpdateResourceGroupProcessor_Orchestrator { ResourceGroupName = "test-rg", Set = [expression] }, _mockPipeline);
 
         Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
@@ -326,16 +255,6 @@ public class GroupUpdateTests
 
     private static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-
-    private static ArgumentParsingService CreateBinder()
-    {
-        var logging = new ConsoleLoggingService();
-        return new ArgumentParsingService(
-            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-    }
-
-    private static List<List<string>> Value(string value) => [new() { value }];
 
     private static UpdateResourceGroupProcessor_Orchestrator CreateProcessor(
         FakeHttpPipeline pipeline,

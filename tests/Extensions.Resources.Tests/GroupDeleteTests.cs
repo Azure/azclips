@@ -4,77 +4,14 @@
 using System.Net;
 using System.Text;
 using Core.Abstractions;
-using Core.ArgumentParsing;
-using Core.Cli;
-using Core.Runtime;
-using Core.Runtime.Persistence;
-using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 public class GroupDeleteTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
-
-    [Fact]
-    public void CliMetadata_ExposesGroupDeleteCompatibilitySurface()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("group delete", ClientType.CLI);
-
-        Assert.Equal(typeof(DeleteResourceGroupProcessor_Orchestrator), metadata.ProcessorType);
-        Assert.Equal(["n", "resource-group", "g"], metadata.Parameters["name"].Aliases);
-        Assert.Equal(["f"], metadata.Parameters["force-deletion-types"].Aliases);
-        Assert.True(metadata.Parameters["name"].IsRequired);        
-        Assert.Equal(
-            [
-                "Microsoft.Compute/virtualMachines",
-                "Microsoft.Compute/virtualMachineScaleSets",
-                "Microsoft.Databricks/workspaces",
-            ],
-            metadata.Parameters["force-deletion-types"].AllowedValues);
-    }
-
-    [Fact]
-    public void PowerShellMetadata_ExposesNameAndIdShapes()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata(
-            "Remove-AzResourceGroup",
-            ClientType.PowerShell);
-
-        Assert.Equal(typeof(DeleteResourceGroupProcessor_Orchestrator), metadata.ProcessorType);
-        Assert.Equal("ResourceGroupName", metadata.Parameters["Name"].Name);
-        Assert.Equal(["ResourceGroupName"], metadata.Parameters["Name"].Aliases);
-        Assert.Equal(["ResourceGroupId", "ResourceId"], metadata.Parameters["Id"].Aliases);
-        Assert.Equal("ForceDeletionTypes", metadata.Parameters["ForceDeletionType"].Name);
-    }
-
-    [Theory]
-    [InlineData("name")]
-    [InlineData("n")]
-    [InlineData("resource-group")]
-    [InlineData("g")]
-    public void CliBinding_BindsDeleteAliases(string nameArgument)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("group delete", ClientType.CLI);
-        var processor = (DeleteResourceGroupProcessor_Orchestrator)metadata.GetInstance();
-        var binder = CreateBinder();
-
-        binder.BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                [nameArgument] = Value("test-rg"),
-                ["f"] = Value("Microsoft.Compute/virtualMachines"),
-            },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.Equal("test-rg", processor.ResourceGroupName);
-        Assert.Equal(TestSubscriptionId, processor.SubscriptionId);
-        Assert.Equal("Microsoft.Compute/virtualMachines", processor.ForceDeletionTypes);
-    }
 
     [Fact]
     public async Task ProcessAsync_DeletesByNameWithoutOptionalQueryOrOutput()
@@ -195,16 +132,6 @@ public class GroupDeleteTests
 
         Assert.Equal(HttpStatusCode.InternalServerError, exception.StatusCode);
     }
-
-    private static ArgumentParsingService CreateBinder()
-    {
-        var logging = new ConsoleLoggingService();
-        return new ArgumentParsingService(
-            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-    }
-
-    private static List<List<string>> Value(string value) => [new() { value }];
 
     private static DeleteResourceGroupProcessor_Orchestrator CreateProcessor(
         FakeHttpPipeline pipeline,

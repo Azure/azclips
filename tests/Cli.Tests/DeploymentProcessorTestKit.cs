@@ -5,7 +5,6 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Tests.Common.Stubs;
-using static Cli.Tests.ResourceGroupDeploymentCliTests;
 
 namespace Cli.Tests;
 
@@ -40,6 +39,19 @@ internal static class DeploymentProcessorTestKit
     {
         CreateProcessor(processor, pipeline, output);
         configure(processor);
+        return processor;
+    }
+
+    internal static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
+        where T : IProcessor
+    {
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = SubscriptionId };
+        processor.Init(new ProcessorContext(
+            pipeline,
+            new FakeEventPublisher(),
+            new FakeAuthHandler(profile),
+            output,
+            Profile: profile));
         return processor;
     }
 }

@@ -3,61 +3,14 @@
 
 using System.Net;
 using Core.Abstractions;
-using Core.ArgumentParsing;
-using Core.Cli;
-using Core.Runtime;
-using Core.Runtime.Persistence;
-using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 public class GroupExistsTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
-
-    [Fact]
-    public void CliMetadata_ExposesGroupExistsWithLegacyAliases()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("group exists", ClientType.CLI);
-
-        Assert.Equal(typeof(ExistsResourceGroupProcessor_Orchestrator), metadata.ProcessorType);
-        ParameterMetadata name = metadata.Parameters["name"];
-        Assert.Equal("ResourceGroupName", name.Name);
-        Assert.True(name.IsRequired);
-        Assert.Equal(["n", "resource-group", "g"], name.Aliases);
-        Assert.Equal("name", metadata.ParameterAliases["n"]);
-        Assert.Equal("name", metadata.ParameterAliases["resource-group"]);
-        Assert.Equal("name", metadata.ParameterAliases["g"]);
-    }
-
-    [Theory]
-    [InlineData("name")]
-    [InlineData("n")]
-    [InlineData("resource-group")]
-    [InlineData("g")]
-    public void CliBinding_BindsResourceGroupNameAliases(string argumentName)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("group exists", ClientType.CLI);
-        var processor = (ExistsResourceGroupProcessor_Orchestrator)metadata.GetInstance();
-        var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(
-            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-
-        binder.BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                [argumentName] = new List<List<string>> { new() { "test-rg" } },
-            },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.Equal("test-rg", processor.ResourceGroupName);
-        Assert.Equal(TestSubscriptionId, processor.SubscriptionId);
-    }
 
     [Theory]
     [InlineData(HttpStatusCode.NoContent, true)]

@@ -5,17 +5,12 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.ArgumentParsing;
-using Core.Cli;
-using Core.Runtime;
-using Core.Runtime.Persistence;
-using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// Offline tests for <c>az role assignment delete</c> and <c>Remove-AzRoleAssignment</c>. Delete
@@ -30,31 +25,6 @@ public class RoleAssignmentDeleteTests
     private const string AssignmentName = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
     private readonly Mock<IRuntimeHttpPipeline> _mockPipeline = new(MockBehavior.Strict);
-
-    [Fact]
-    public void CliMetadata_ExposesRoleAssignmentDelete()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment delete", ClientType.CLI);
-
-        Assert.Equal(typeof(DeleteRoleAssignmentProcessor_Orchestrator), metadata.ProcessorType);
-        Assert.False(metadata.Parameters["scope"].IsRequired);
-        Assert.True(metadata.Parameters["name"].IsRequired);
-        Assert.Equal("Name", metadata.Parameters["name"].Name);
-        Assert.Equal("ResourceGroupName", metadata.Parameters["resource-group"].Name);
-        Assert.Equal("name", metadata.ParameterAliases["n"]);
-        Assert.Equal("resource-group", metadata.ParameterAliases["g"]);
-    }
-
-    [Fact]
-    public void PowerShellMetadata_ExposesRemoveAzRoleAssignment()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("Remove-AzRoleAssignment", ClientType.PowerShell);
-
-        Assert.Equal(typeof(DeleteRoleAssignmentProcessor_Orchestrator), metadata.ProcessorType);
-        Assert.True(metadata.Parameters["Name"].IsRequired);
-        Assert.False(metadata.Parameters["Scope"].IsRequired);
-        Assert.False(metadata.Parameters["ResourceGroupName"].IsRequired);
-    }
 
     [Fact]
     public async Task Delete_SendsDeleteToScopedRoleAssignment()
@@ -202,44 +172,6 @@ public class RoleAssignmentDeleteTests
         }, "Resource group must not be empty.");
     }
 
-    [Theory]
-    [InlineData("resource-group")]
-    [InlineData("g")]
-    public void CliBinding_BindsResourceGroupAliases(string argumentName)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment delete", ClientType.CLI);
-        var processor = (DeleteRoleAssignmentProcessor_Orchestrator)metadata.GetInstance();
-
-        CreateBinder().BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                [argumentName] = Value("test-rg"),
-                ["name"] = Value(AssignmentName),
-            },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.Equal("test-rg", processor.ResourceGroupName);
-    }
-
-    [Theory]
-    [InlineData("name")]
-    [InlineData("n")]
-    public void CliBinding_BindsNameAliases(string argumentName)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment delete", ClientType.CLI);
-        var processor = (DeleteRoleAssignmentProcessor_Orchestrator)metadata.GetInstance();
-
-        CreateBinder().BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object> { [argumentName] = Value(AssignmentName) },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.Equal(AssignmentName, processor.Name);
-    }
-
     [Fact]
     public async Task Delete_NoContentResponse_WritesNothing()
     {
@@ -298,7 +230,7 @@ public class RoleAssignmentDeleteTests
     [InlineData("   ")]
     public async Task ProcessAsync_BlankName_ThrowsMissingRequiredArgument(string name)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new DeleteRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, Name = name }, _mockPipeline);
+        var processor = ResourcesProcessorTestHelpers.Initialize(new DeleteRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, Name = name }, _mockPipeline);
 
         Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
@@ -333,16 +265,6 @@ public class RoleAssignmentDeleteTests
             Profile: profile));
         return processor;
     }
-
-    private static ArgumentParsingService CreateBinder()
-    {
-        var logging = new ConsoleLoggingService();
-        return new ArgumentParsingService(
-            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-    }
-
-    private static List<List<string>> Value(string value) => [new() { value }];
 
     private static HttpResponseMessage JsonResponse(string body) =>
         new(HttpStatusCode.OK)
