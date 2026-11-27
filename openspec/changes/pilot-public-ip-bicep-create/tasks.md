@@ -39,19 +39,21 @@ A separate [supported-toolchain reproduction](design.md#supported-toolchain-gene
 
 ## 3. Isolated execution adapter and opt-in
 
-- [ ] 3.1 Establish the isolated integration fixture referencing Network and Resources, explicitly registering their runtime services and verifying existing factory/visibility seams without new product feature dependencies.
-- [ ] 3.2 Add an internal default-off pilot registration override that preserves public command metadata and routes only explicitly selected fixture invocations to the adapter.
-- [ ] 3.3 Wire the generated bridge and tested eligibility policy into the pilot adapter after existing customization normalization and before HTTP; reject advanced/different inputs and detected existing targets before deployment submission.
-- [ ] 3.4 Compose the existing atomic RG deployment transport in Incremental mode at its separate transport version, retain repository polling/authentication/error helpers, and avoid copying public deployment orchestration.
-- [ ] 3.5 Retrieve the final Public IP through the existing generated GET/output path; surface deployment failure, cancellation and final-GET errors without a fabricated result or direct-backend retry.
+- [x] 3.1 Establish the isolated integration fixture referencing Network and Resources, explicitly registering shared core/runtime services and verifying existing factory/visibility seams without new product feature dependencies. Neither feature declares separate runtime service registrations.
+- [x] 3.2 Add an internal default-off pilot registration override that preserves public command metadata and routes only explicitly selected fixture invocations to the adapter.
+- [x] 3.3 Wire the generated bridge and tested eligibility policy into the pilot adapter after existing customization normalization and before HTTP; reject advanced/different inputs and detected existing targets before deployment submission.
+- [x] 3.4 Compose the existing atomic RG deployment transport in Incremental mode at its separate transport version, retain repository polling/authentication/error helpers, and avoid copying public deployment orchestration.
+- [x] 3.5 Retrieve the final Public IP through the existing generated GET/output path; surface deployment failure, cancellation and final-GET errors without a fabricated result or direct-backend retry.
 
 ## 4. Regression and activation evidence
 
-- [ ] 4.1 Prove default-disabled request/artifact/parameter/output behavior remains unchanged using existing Public IP parameter and scenario fixtures.
-- [ ] 4.2 Add dedicated pilot transport recordings/assertions for deployment submission, parameter bodies, polling, final GET and resource output; do not replay direct-PUT recordings as deployment proof.
-- [ ] 4.3 Replay the same eligible pilot recording through both CLI and PowerShell with body matching, preserving existing names, aliases, defaults and output shape.
-- [ ] 4.4 Cover unsupported pilot inputs, existing target, missing asset, failed/cancelled deployment and failed retrieval with explicit errors/no unintended mutations.
-- [ ] 4.5 Run targeted toolkit/runtime/fixture builds and tests, schema/dependency checks when changed, and strict OpenSpec validation; document exact commands/results and any unchecked gates.
+- [x] 4.1 Prove default-disabled request/artifact/parameter/output behavior remains unchanged using existing Public IP parameter and scenario fixtures.
+- [x] 4.2 Add dedicated pilot transport recordings/assertions for deployment submission, parameter bodies, polling, final GET and resource output; do not replay direct-PUT recordings as deployment proof.
+- [x] 4.3 Replay the same eligible pilot recording through both CLI and PowerShell with body matching, preserving existing names, aliases, defaults and output shape.
+- [x] 4.4 Cover unsupported pilot inputs, existing target, missing asset, failed/cancelled deployment and failed retrieval with explicit errors/no unintended mutations.
+- [x] 4.5 Run targeted toolkit/runtime/fixture builds and tests, schema/dependency checks when changed, and strict OpenSpec validation; document exact commands/results and any unchecked gates.
 - [ ] 4.6 Obtain explicit live subscription/resource-group/location/quota/cost/cleanup authorization before provisioning; leave live tasks blocked until provided.
 - [ ] 4.7 After authorization, run bounded owned-resource create/read/delete scenarios for both surfaces and verify additional deployment permissions/failures, existing-resource protection and cleanup ownership.
-- [ ] 4.8 Publish evidence, known race/permission/transport limitations and the default-off rollback path for review; do not activate the product default or archive incomplete live gates automatically.
+- [x] 4.8 Publish evidence, known race/permission/transport limitations and the default-off rollback path for review; do not activate the product default or archive incomplete live gates automatically.
+
+Offline gates are complete. Tasks 4.6 and 4.7 remain blocked on explicit live authorization; no Azure provisioning has occurred. Default product registration remains unchanged, and the change must not be archived while those gates are incomplete.

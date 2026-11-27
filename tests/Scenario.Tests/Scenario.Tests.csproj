@@ -29,6 +29,7 @@
     <ProjectReference Include="../../src/PS/Network/Cmdlets.Network.csproj" />
     <ProjectReference Include="../../src/PS/Resources/Cmdlets.Resources.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
+    <ProjectReference Include="..\Fixtures\PublicIpBicepPilot\Azclips.Tests.Fixtures.PublicIpBicepPilot.csproj" />
   </ItemGroup>
 
 </Project>

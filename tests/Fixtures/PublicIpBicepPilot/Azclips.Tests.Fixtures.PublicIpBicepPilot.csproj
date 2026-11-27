@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Azclips.Tests.Fixtures.PublicIpBicepPilot</AssemblyName>
+    <RootNamespace>Azclips.Tests.Fixtures.PublicIpBicepPilot</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Extensions\Network\Extensions.Network.csproj" />
+    <ProjectReference Include="..\..\..\src\Extensions\Resources\Extensions.Resources.csproj" />
+    <ProjectReference Include="..\..\..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
+    <Compile Include="..\..\Cli.Tests\Fixtures\PublicIpBicepAssets.cs" Link="PublicIpBicepAssets.cs" />
+    <Compile Include="..\..\Cli.Tests\Fixtures\PublicIpBicepInputBinding.cs" Link="PublicIpBicepInputBinding.cs" />
+    <EmbeddedResource Include="..\..\Cli.Tests\Fixtures\PublicIpBicepBindings.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepBindings.json" />
+    <EmbeddedResource Include="..\..\Cli.Tests\Fixtures\PublicIpBicepCreate.TagsAbsent.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.TagsAbsent.json" />
+    <EmbeddedResource Include="..\..\Cli.Tests\Fixtures\PublicIpBicepCreate.TagsPresent.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.TagsPresent.json" />
+    <EmbeddedResource Include="..\..\Cli.Tests\Fixtures\PublicIpBicepCreate.Assets.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.Assets.json" />
+    <EmbeddedResource Include="..\..\Cli.Tests\Fixtures\PublicIpBicepSnapshots.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepSnapshots.json" />
+    <EmbeddedResource Include="..\..\..\toolkit\tools\typespec-bicep\compiler.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCompilerPin.json" />
+    <EmbeddedResource Include="..\..\..\toolkit\tools\typespec-bicep\compiler-config.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCompilerConfig.json" />
+  </ItemGroup>
+</Project>

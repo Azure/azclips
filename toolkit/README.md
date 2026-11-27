@@ -380,6 +380,31 @@ explicitly, not treated as value differences or silently ignored. Asset digests
 bind the evidence to both immutable variants. No handwritten ARM expression
 evaluator, runtime compiler or new structural mapping is added.
 
+### Default-off execution fixture
+
+The non-packable [Public IP pilot fixture](../tests/Fixtures/PublicIpBicepPilot/Azclips.Tests.Fixtures.PublicIpBicepPilot.csproj)
+reuses the same linked binder/asset reader for native and scenario tests. Only an
+explicit test-host substitution of its Network index selects the adapter;
+normal product commands and public metadata remain unchanged.
+
+```powershell
+dotnet test tests\Scenario.Tests\Scenario.Tests.csproj --no-restore --filter "FullyQualifiedName~PublicIpBicepPilotScenarioTests|FullyQualifiedName~PublicIpScenarioTests|FullyQualifiedName~ScenarioHostTests" --verbosity quiet
+```
+
+The adapter preserves customization, validates inputs/assets before HTTP,
+rejects detected existing targets, composes existing Incremental deployment
+transport and returns the final typed Public IP GET result. Dedicated in-memory
+recordings body-match CLI, PowerShell argument binding and the actual cmdlet.
+Failures/cancellation cannot produce deployment-object/resource fallbacks or a
+direct-create retry.
+
+This is **offline fixture evidence, not live readiness or newly generated March
+C# qualification**. Preflight is not atomic race protection; deployment
+permissions/history differ from direct creation. Live quota/cost/owned-resource
+cleanup still require explicit authorization. See the [evidence and limitations](../openspec/changes/pilot-public-ip-bicep-create/design.md#completed-isolated-runtime-and-offline-regression-gates).
+To stay on the default path, use the normal Network assembly without fixture
+host options. No product backend selector or runtime compiler is added.
+
 ## Orchestration
 
 The **compiler owns the workflow**. `STAGE_CATALOG` in

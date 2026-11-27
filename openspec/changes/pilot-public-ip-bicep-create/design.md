@@ -632,11 +632,55 @@ Parameterization must preserve missing versus explicit values. The compiled decl
 
 ### 4. Keep the first execution adapter in an opt-in integration fixture
 
-The initial adapter and registration override live in an opt-in integration fixture that can reference both Network and Resources; the product Network project must not gain a dependency on the Resources feature module. Both feature runtimes are explicitly registered by that fixture, avoiding an implicit module-loading requirement.
+The initial adapter and registration override live in an opt-in integration fixture that can reference both Network and Resources; the product Network project must not gain a dependency on the Resources feature module. The host explicitly loads both assemblies and registers shared core/runtime services. Neither feature has separate runtime service registrations.
 
 Use the existing extended-processor/execution mechanism to compose the existing atomic resource-group deployment transport and generated Public IP GET. Do not call the public deployment orchestrator: its command-specific parameter parsing, default naming and validation policies are not the Public IP command contract. Do not copy polling, authentication or error transport into a second implementation.
 
-The experimental adapter submits compiled template plus canonical parameters in `Incremental` mode, polls the deployment to terminal success and obtains the final resource through the existing GET/output mechanism at the matching experimental API `2026-05-01`. The deployment transport version remains `2025-04-01`. It returns the same Public IP model and existing output adapters, not a deployment object or fabricated template output.
+The experimental adapter submits compiled template plus canonical parameters in `Incremental` mode, polls the deployment to terminal success and obtains the final resource through the existing GET/output mechanism at the matching experimental API `2026-03-01`. The deployment transport version remains `2025-04-01`. It returns the same Public IP model and existing output adapters, not a deployment object or fabricated template output.
+
+### Completed isolated runtime and offline regression gates
+
+Sections 3 and the offline Section 4 gates are implemented in the non-packable [fixture assembly](../../../tests/Fixtures/PublicIpBicepPilot/Azclips.Tests.Fixtures.PublicIpBicepPilot.csproj). The existing binder/asset reader are linked into that single fixture assembly rather than duplicated or made product dependencies; their existing embedded resource names remain stable. Both native and scenario tests reference the fixture.
+
+The existing assembly loader expects an assembly-owned `ExtensionIndex`, so explicitly supplying this fixture assembly for Network is the opt-in. Its public discovery table delegates unchanged to the real Network index; only execution metadata for Public IP create substitutes the fixture processor type. Names, aliases, parameter dictionaries and other commands remain unchanged. The normal Network assembly never registers the adapter. A fixture-host-only service supplies the bounded owned deployment name; no public CLI/PowerShell selector or public deployment naming/default policy is introduced.
+
+The feature-specific `CreateExtendedProcessor<T>` constraints cannot cross from Network to Resources. The adapter instead uses the existing public `IProcessor.Init(ProcessorContext)` with the same pipeline, publisher/cancellation token, auth handler and resolved profile, substituting only captured child output. No product-wide execution abstraction, copied transport, polling implementation or feature dependency is needed. Shared services remain those registered by `ScenarioHost`; its optional per-extension fixture registrations add only the pilot host options.
+
+Execution:
+
+1. Run existing pre-processing/customization and serialize its actual canonical body.
+2. Apply the existing generated binder/eligibility policy and validate/load the immutable selected asset before any HTTP.
+3. Build preflight through the existing generated GET request seam. A specifically handled 404 means absence, without publishing a false command error; other failures use the existing HTTP error helper. Any successful preflight means a detected existing target and blocks deployment.
+4. Invoke `NewResourceGroupDeploymentProcessor` in Incremental mode at `2025-04-01`, sharing normal auth/tracing/polling. Capture and require a successful deployment result; cancellation, missing/failed state or an error cannot become resource output.
+5. Invoke the existing typed Public IP GET/deserializer at March through an explicit fixture-only query-version override, preserving generated path escaping and other query construction. Capture and validate returned identity/name, then emit exactly one real Public IP model. Escaped resource-group paths are decoded for ARM-ID comparison; incomplete/different or failed retrieval is explicit failure. No direct PUT retry occurs.
+
+This qualifies existing customization/models with the experimental template/GET URI in the fixture. **It does not claim newly generated March C# execution**, whole-Network qualification, exact API/Bicep schema identity or live service acceptance.
+
+[Dedicated scenarios](../../../tests/Scenario.Tests/Network/PublicIpBicepPilotScenarioTests.cs) record real fixture traffic in memory against a [fake deployment backend](../../../tests/Scenario.Tests/Network/FakePublicIpDeploymentBackend.cs). The fake returns independently evaluated frozen resource bodies after checking the actual immutable template and parameter values; it does not interpret ARM expressions or pretend to be Azure validation. Expected transport is preflight GET, deployment PUT, operation GET, final deployment GET and final Public IP GET. Both minimal/default and explicit tags/tier/timeout recordings replay with exact body matching through CLI, the real PS argument provider and the actual `NewPublicIpAddressCmdlet` in a runspace. Test scope uses the recording sanitizer's synthetic zero subscription; final identity checks were retained, not weakened for sanitized responses.
+
+Negative cases cover unsupported zone/SKU/IP-tag inputs and missing assets before any HTTP, existing target, denied preflight/submission, failed/canceled/missing deployment state, failed/empty final retrieval and client cancellation during polling. They require no resource output, no direct-create retry and no unintended deletion. Existing direct Public IP scenarios and generic host tests retain their behavior.
+
+| Command / check | Result |
+| --- | --- |
+| `dotnet restore tests\Cli.Tests\Cli.Tests.csproj --verbosity quiet` and `dotnet restore tests\Scenario.Tests\Scenario.Tests.csproj --verbosity quiet` | Passed after adding the new project references; no new NuGet package dependency |
+| `dotnet build azclips.slnx --no-restore --verbosity quiet` | Passed, zero errors; four unrelated existing Agent test analyzer warnings |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter 'FullyQualifiedName~PublicIpAddressParameterTests\|FullyQualifiedName~PublicIpBicepAssetTests' --verbosity quiet` | 92 passed after linking shared fixture code/resources; existing unrelated generated/analyzer warnings |
+| `dotnet test tests\Scenario.Tests\Scenario.Tests.csproj --no-restore --filter 'FullyQualifiedName~PublicIpBicepPilotScenarioTests\|FullyQualifiedName~PublicIpScenarioTests\|FullyQualifiedName~ScenarioHostTests' --verbosity quiet` | 28 passed, including real cmdlet replay, cancellation and escaped ARM identity; one unrelated existing analyzer warning |
+| `node --test toolkit\tools\typespec-bicep\test\compiler.test.mjs toolkit\tools\typespec-bicep\test\template.test.mjs toolkit\tools\typespec-bicep\test\package.test.mjs toolkit\tools\typespec-bicep\test\snapshot.test.mjs` | 13 passed; official compiler, strict diagnostics, immutable byte reproduction and JSON-backed parameter evidence |
+| `dotnet list tests\Fixtures\PublicIpBicepPilot\Azclips.Tests.Fixtures.PublicIpBicepPilot.csproj reference` | Only explicit Network, Resources and shared Core.DependencyInjection references |
+| `openspec validate pilot-public-ip-bicep-create --strict` and `git diff --check` | Passed; implementation progress is 31/33, only live authorization/execution remain |
+| `git diff --exit-code` for product Network/Resources source, upstream patch, compiler pins/configuration, bridge and immutable ARM assets | Passed; no product dependency, source/version pin, asset or raw-audit change |
+
+The final focused selections contain **133 passing tests** (92 native, 28 scenario/host and 13 tooling). The native selection was repeated successfully after the final solution build.
+
+#### Limitations, live gate and rollback
+
+- **Live authorization is absent.** No Azure provisioning, real quota/cost validation, permission-restricted live scenario, owned-resource cleanup or live service parity is claimed. Tasks 4.6/4.7 remain unchecked; do not archive.
+- Preflight GET is **not atomic create-only protection**. Another caller could create the target between preflight and deployment; Incremental deployment may then update it. Offline rejection tests demonstrate detected-existing behavior, not elimination of that race.
+- Additional deployment read/write permissions and deployment history are required, alongside Public IP read/write and explicitly authorized cleanup permissions. The host must provide a fresh owned deployment name; fixture tests' fixed name is synthetic and is not a live naming policy. No role assignments or resource-group creation are included.
+- The existing shared LRO transport is reused, not redesigned. The pilot requires final deployment success and uses the publisher's cancellation token; it does not roll back a submitted deployment or delete a resource automatically on command failure/cancellation.
+- Original 2025 and historical May evidence, the full March unsupported audit (four diagnostics), normal source/API/toolchain pins and compiler/asset provenance are unchanged. Independent snapshot evaluator version remains unverified.
+- **Rollback/default-off path:** use the normal Network assembly instead of the explicitly substituted fixture assembly, and omit pilot host options. Normal public commands continue direct execution at their existing API. No product feature flag, default activation or runtime compiler exists to revert.
 
 The exact fixture factory/visibility seam is an implementation detail to verify against existing helpers. If composing the existing transports requires a new product-wide execution abstraction or feature dependency, stop for design review instead of widening this pilot.
 

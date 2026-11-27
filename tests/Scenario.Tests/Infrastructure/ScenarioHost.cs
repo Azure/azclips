@@ -15,7 +15,8 @@ using Tests.Common.Utilities;
 namespace Scenario.Tests;
 
 /// <summary>The extension a scenario drives: its short name, index assembly, and CLI leaves.</summary>
-internal sealed record ExtensionUnderTest(string Name, string PackageId, System.Reflection.Assembly Assembly, string Verb, string[] Leaves)
+internal sealed record ExtensionUnderTest(string Name, string PackageId, System.Reflection.Assembly Assembly, string Verb, string[] Leaves,
+    Action<IServiceCollection>? RegisterServices = null)
 {
     public static readonly ExtensionUnderTest KeyVault = new(
         "KeyVault", "Microsoft.Azure.Azclips.Extensions.KeyVault",
@@ -138,6 +139,7 @@ internal sealed class ScenarioHost : IDisposable
     private readonly ClientType _clientType;
     private readonly ExtensionUnderTest[] _extensions;
     private readonly List<object> _outputs = [];
+    internal IReadOnlyList<object> Outputs => _outputs;
     private readonly Dictionary<string, string?> _originalEnvironment = new(StringComparer.OrdinalIgnoreCase);
 
     private sealed class BackendHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
@@ -198,6 +200,8 @@ internal sealed class ScenarioHost : IDisposable
             {
                 services.AddSingleton<IArgumentParsingProvider, Microsoft.Azure.Azclips.Cmdlets.Accounts.PSArgumentParsingProvider>();
             }
+            foreach (var extension in _extensions.DistinctBy(extension => extension.Name))
+                extension.RegisterServices?.Invoke(services);
         });
         // MSAL scopes cached accounts by client id, so live auth must use the id the surface signs in with.
         var firstPartyApplicationId = !useLiveAuth ? "00000000-0000-0000-0000-000000000000"
@@ -211,7 +215,9 @@ internal sealed class ScenarioHost : IDisposable
     /// in-memory registry built from the scenario's extensions, and runs the resulting invocation
     /// the way <c>Program.Main</c> does.
     /// </summary>
-    public IReadOnlyList<object> RunCli(params string[] args)
+    public IReadOnlyList<object> RunCli(params string[] args) => RunCli(CancellationToken.None, args);
+
+    internal IReadOnlyList<object> RunCli(CancellationToken cancellationToken, params string[] args)
     {
         if (_clientType != ClientType.CLI)
         {
@@ -223,7 +229,7 @@ internal sealed class ScenarioHost : IDisposable
             new ExtensionResolver(new InMemoryRegistryStore(registry)),
             () => LeafIndex.Build(registry));
         var invocation = dispatcher.Parse(args);
-        return Execute(invocation, useAsyncSession: true);
+        return Execute(invocation, useAsyncSession: true, cancellationToken);
     }
 
     /// <summary>
@@ -279,7 +285,7 @@ internal sealed class ScenarioHost : IDisposable
         return results.Select(result => result.BaseObject).ToArray();
     }
 
-    private IReadOnlyList<object> Execute(CommandInvocation invocation, bool useAsyncSession)
+    private IReadOnlyList<object> Execute(CommandInvocation invocation, bool useAsyncSession, CancellationToken cancellationToken = default)
     {
         _outputs.Clear();
 
@@ -296,7 +302,7 @@ internal sealed class ScenarioHost : IDisposable
             WriteError: (_, _) => Task.CompletedTask,
             WriteInformation: (_, _) => Task.CompletedTask);
 
-        using ISession session = engine.OpenExecutionSession(invocation, streams, CancellationToken.None);
+        using ISession session = engine.OpenExecutionSession(invocation, streams, cancellationToken);
         if (useAsyncSession)
         {
             session.RunAsync().GetAwaiter().GetResult();
