@@ -7,7 +7,7 @@ using Core.Authentication.Recovery;
 using Moq;
 using Tests.Common.Utilities;
 
-namespace Cli.Tests.Recovery;
+namespace Core.Authentication.Tests;
 
 public sealed class MacOsFailureHistoryKeyStorageTests
 {

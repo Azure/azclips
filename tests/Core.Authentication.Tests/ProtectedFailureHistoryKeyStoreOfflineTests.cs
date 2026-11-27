@@ -4,8 +4,9 @@
 using System.Security.Cryptography;
 using Core.Abstractions.Recovery;
 using Core.Authentication.Recovery;
+using Cli.Tests.Recovery;
 
-namespace Cli.Tests.Recovery;
+namespace Core.Authentication.Tests;
 
 public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
 {

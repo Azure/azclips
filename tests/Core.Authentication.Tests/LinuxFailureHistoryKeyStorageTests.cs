@@ -3,9 +3,10 @@
 
 using Core.Abstractions.Recovery;
 using Core.Authentication.Recovery;
+using Cli.Tests.Recovery;
 using Tmds.DBus.Protocol;
 
-namespace Cli.Tests.Recovery;
+namespace Core.Authentication.Tests;
 
 public sealed class LinuxFailureHistoryKeyStorageTests
 {

@@ -10,7 +10,7 @@ using Core.Runtime.Recovery;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
-namespace Cli.Tests.Recovery;
+namespace Core.Authentication.Tests;
 
 [Trait("Category", "NativeKeyStore")]
 public sealed class ProtectedFailureHistoryKeyStoreTests : IDisposable

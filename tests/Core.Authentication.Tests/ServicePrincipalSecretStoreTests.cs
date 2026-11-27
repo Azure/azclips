@@ -7,7 +7,7 @@ using Core.Runtime.Persistence;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Core.Authentication.Tests;
 
 /// <summary>
 /// The service principal credential outlives the tokens minted from it, which is why it is stored apart

@@ -3,7 +3,7 @@ using Core.Authentication;
 using Moq;
 using Xunit;
 
-namespace Cli.Tests;
+namespace Core.Authentication.Tests;
 
 /// <summary>Tests Azclips-owned managed identity credential behavior.</summary>
 public sealed class ManagedIdentityCredentialTests
