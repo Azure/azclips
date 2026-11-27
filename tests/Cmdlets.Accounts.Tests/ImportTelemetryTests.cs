@@ -7,7 +7,7 @@ using Core.Telemetry;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts.Telemetry;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Accounts.Tests;
 
 /// <summary>
 /// ImportTelemetry turns timestamps recorded during module import into a trace, once the

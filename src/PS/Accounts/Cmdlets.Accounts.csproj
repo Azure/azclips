@@ -10,9 +10,11 @@
 
     <ItemGroup Condition="'$(Configuration)' == 'Release'">
         <InternalsVisibleTo Include="Cmdlets.Tests" Key="$(MSSharedLibPublicKey)" />
+        <InternalsVisibleTo Include="Cmdlets.Accounts.Tests" Key="$(MSSharedLibPublicKey)" />
     </ItemGroup>
     <ItemGroup Condition="'$(Configuration)' != 'Release'">
         <InternalsVisibleTo Include="Cmdlets.Tests" />
+        <InternalsVisibleTo Include="Cmdlets.Accounts.Tests" />
     </ItemGroup>
 
     <ItemGroup>

@@ -7,7 +7,7 @@ using Microsoft.Azure.Azclips.Cmdlets.Accounts;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Trace;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Accounts.Tests;
 
 /// <summary>
 /// Locks the registration-phase contract that lets a host — PSBenchmarkBase — supply its own
