@@ -1,25 +1,16 @@
-name: docs-feed-identity-read-test-$(Date:yyyyMMdd)$(Rev:.r)
+name: docs-github-app-identity-test-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
 jobs:
-- job: CheckFeedRead
-  displayName: Test CLI2Yaml package restore
+- job: CheckGitHubApp
+  displayName: Test Learn GitHub App access
   pool:
     name: pool-ubuntu-2404
   steps:
-  - checkout: self
-    clean: true
-    fetchDepth: 0
-    fetchTags: true
-  - task: UseDotNet@2
-    inputs:
-      packageType: sdk
-      useGlobalJson: true
-  - task: NuGetAuthenticate@1
-    displayName: Install NuGet credential provider
+  - checkout: none
   - task: AzureCLI@2
-    displayName: Restore CLI2Yaml with existing workload identity
+    displayName: Test GitHub App token requests
     inputs:
       azureSubscription: DocsReference_WIF
       scriptType: pscore
@@ -29,28 +20,53 @@ jobs:
         if ($env:SYSTEM_TEAMPROJECT -ne 'release') {
           throw 'This test must run in the release project.'
         }
-        $token = az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken --output tsv
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
-          throw 'Could not obtain an Azure DevOps access token for the workload identity.'
+        $serviceToken = az account get-access-token --resource 6befca88-4c28-430a-957e-f870b267bcfc --query accessToken --output tsv
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($serviceToken)) {
+          throw 'Could not obtain an access token for the Learn build service.'
         }
-        $feed = 'https://apidrop.pkgs.visualstudio.com/_packaging/ReferenceAutomation/nuget/v3/index.json'
+        $failures = 0
         try {
-          $credentials = @{ endpointCredentials = @(@{ endpoint = $feed; username = 'workload-identity'; password = $token }) } | ConvertTo-Json -Depth 4 -Compress
-          $env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS = $credentials
-          $env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS = $credentials
-          $env:ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED = 'false'
-          $env:NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED = 'false'
-          $env:AZCLIPS_CLI_SYNC_LOAD_ONLY = '1'
-          . (Join-Path $env:BUILD_SOURCESDIRECTORY 'build/Sync-AzClipsCliDocs.ps1')
-          $dll = Get-Cli2YamlDllPath -PackageName 'CLI2Yaml' -Feed $feed -FetchIfMissing
-          if (-not (Test-Path -LiteralPath $dll)) { throw 'Restored CLI2Yaml DLL was not found.' }
-          Write-Host 'Restored CLI2Yaml successfully using the workload identity.'
+          foreach ($repo in @('MicrosoftDocs/azure-docs-cli', 'MicrosoftDocs/azure-docs-powershell')) {
+            foreach ($mode in @('read', 'pr-write')) {
+              $permissions = if ($mode -eq 'read') {
+                @{ contents = 'Read' }
+              } else {
+                @{ contents = 'Write'; pull_requests = 'Write' }
+              }
+              $body = @{ repoUrl = "https://github.com/$repo"; permissions = $permissions } | ConvertTo-Json -Compress
+              $response = Invoke-WebRequest -Method Post -Uri 'https://buildapi.docs.microsoft.com/v2/authentication/profile/token' `
+                -Headers @{ Authorization = "Bearer $serviceToken" } -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
+              if ($response.StatusCode -ne 200) {
+                Write-Host "$repo $mode token request failed: HTTP $($response.StatusCode)."
+                $failures++
+                continue
+              }
+              $githubToken = ($response.Content | ConvertFrom-Json).access_token
+              $response = $null
+              if ([string]::IsNullOrWhiteSpace($githubToken)) {
+                Write-Host "$repo $mode token request returned no token."
+                $failures++
+                continue
+              }
+              try {
+                $check = Invoke-WebRequest -Uri "https://api.github.com/repos/$repo" `
+                  -Headers @{ Authorization = "Bearer $githubToken"; 'User-Agent' = 'azclips-docs-app-test'; Accept = 'application/vnd.github+json' } `
+                  -SkipHttpErrorCheck
+                if ($check.StatusCode -ne 200) {
+                  Write-Host "$repo $mode GitHub check failed: HTTP $($check.StatusCode)."
+                  $failures++
+                } else {
+                  Write-Host "$repo $mode token request and GitHub read succeeded."
+                }
+              } finally {
+                $githubToken = $null
+                $check = $null
+              }
+            }
+          }
+        } finally {
+          $serviceToken = $null
+          $response = $null
         }
-        finally {
-          $token = $null
-          $credentials = $null
-          Remove-Item Env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS, Env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS, Env:AZCLIPS_CLI_SYNC_LOAD_ONLY -ErrorAction SilentlyContinue
-        }
-    env:
-      NUGET_PACKAGES: $(Agent.TempDirectory)/azclips-feed-test-packages-$(System.JobId)
-      NUGET_HTTP_CACHE_PATH: $(Agent.TempDirectory)/azclips-feed-test-http-$(System.JobId)
+        if ($failures -ne 0) { throw "$failures GitHub App access check(s) failed." }
+        Write-Host 'No repository changes were made. Write permissions have not been exercised.'
