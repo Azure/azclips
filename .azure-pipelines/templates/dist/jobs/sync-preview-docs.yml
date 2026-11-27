@@ -1,0 +1,194 @@
+parameters:
+- name: job_name
+  type: string
+- name: display_name
+  type: string
+- name: ubuntu_pool
+  type: string
+- name: sync_script
+  type: string
+- name: target_repository
+  type: string
+- name: head_repository
+  type: string
+  default: ''
+- name: fetch_cli2yaml
+  type: boolean
+  default: false
+- name: release_tag
+  type: string
+- name: sync_mode
+  type: string
+- name: cli2yaml_feed_service_connection
+  type: string
+
+jobs:
+- job: ${{ parameters.job_name }}
+  displayName: ${{ parameters.display_name }}
+  dependsOn: CheckDocsSetup
+  variables:
+    DocsCommit: $[ dependencies.CheckDocsSetup.outputs['ValidateTag.DocsCommit'] ]
+  pool:
+    name: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+    fetchTags: true
+
+  - task: UseDotNet@2
+    displayName: Install Pinned .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - ${{ if eq(parameters.sync_mode, 'create-pr') }}:
+    - template: ../steps/get-github-pat-token.yml
+      parameters:
+        azureSubscription: Azure CLI release
+        keyVaultName: $(CliDocsGitHubPatKeyVault)
+        secretName: $(CliDocsGitHubPatSecretName)
+
+  - ${{ if eq(parameters.fetch_cli2yaml, true) }}:
+    - task: NuGetAuthenticate@1
+      displayName: Install NuGet Credential Provider
+
+    - task: AzureCLI@2
+      displayName: Restore CLI2Yaml With Workload Identity
+      inputs:
+        azureSubscription: ${{ parameters.cli2yaml_feed_service_connection }}
+        scriptType: pscore
+        scriptLocation: inlineScript
+        inlineScript: |
+          $ErrorActionPreference = 'Stop'
+          $feed = 'https://apidrop.pkgs.visualstudio.com/_packaging/ReferenceAutomation/nuget/v3/index.json'
+          $configJson = & git show "${env:DOCS_COMMIT}:build/cli-docs-sync.config.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the CLI docs configuration from the validated tag.' }
+          $config = $configJson | ConvertFrom-Json
+          if ($config.cli2yamlFeed -ne $feed -or $config.cli2yamlPackage -ne 'CLI2Yaml') {
+            throw 'The tagged CLI docs configuration does not use the approved CLI2Yaml feed and package.'
+          }
+          $token = az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken --output tsv
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
+            throw 'Could not obtain an Azure DevOps access token for the workload identity.'
+          }
+          try {
+            $credentials = @{ endpointCredentials = @(@{ endpoint = $feed; username = 'workload-identity'; password = $token }) } | ConvertTo-Json -Depth 4 -Compress
+            $env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS = $credentials
+            $env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS = $credentials
+            $env:ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED = 'false'
+            $env:NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED = 'false'
+            $env:AZCLIPS_CLI_SYNC_LOAD_ONLY = '1'
+            . (Join-Path $env:BUILD_SOURCESDIRECTORY 'build/Sync-AzClipsCliDocs.ps1')
+            $dll = Get-Cli2YamlDllPath -PackageName $config.cli2yamlPackage -Feed $feed -FetchIfMissing
+            if (-not (Test-Path -LiteralPath $dll)) { throw 'Restored CLI2Yaml DLL was not found.' }
+          }
+          finally {
+            $token = $null
+            $credentials = $null
+            Remove-Item Env:ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS, Env:VSS_NUGET_EXTERNAL_FEED_ENDPOINTS, Env:AZCLIPS_CLI_SYNC_LOAD_ONLY -ErrorAction SilentlyContinue
+          }
+      env:
+        DOCS_COMMIT: $(DocsCommit)
+        NUGET_PACKAGES: $(Agent.TempDirectory)/azclips-docs-nuget-$(System.JobId)
+        NUGET_HTTP_CACHE_PATH: $(Agent.TempDirectory)/azclips-docs-http-$(System.JobId)
+
+  - ${{ if and(eq(parameters.sync_mode, 'dry-run'), eq(parameters.fetch_cli2yaml, false)) }}:
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $configJson = & git show "${env:DOCS_COMMIT}:build/ps-docs-sync.config.json"
+        if ($LASTEXITCODE -ne 0) { throw 'Could not read the PowerShell docs configuration from the validated tag.' }
+        $moniker = ($configJson | ConvertFrom-Json).moniker
+        if ($moniker -notmatch '^[a-zA-Z0-9][a-zA-Z0-9._-]*$') { throw 'Invalid PowerShell docs moniker.' }
+        $target = Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-docs-dry-run-target'
+        & git -c credential.helper= clone --depth 1 --filter=blob:none --sparse --branch main -- "https://github.com/$($env:DOCS_REPOSITORY).git" $target
+        if ($LASTEXITCODE -ne 0) { throw 'Could not clone the PowerShell docs target.' }
+        & git -C $target sparse-checkout set -- $moniker mapping
+        if ($LASTEXITCODE -ne 0) { throw 'Could not check out the PowerShell docs moniker and mapping.' }
+        if (-not (Test-Path -LiteralPath (Join-Path $target $moniker) -PathType Container)) {
+          throw "PowerShell docs target does not contain moniker '$moniker'."
+        }
+        $targetCommit = & git -C $target rev-parse HEAD
+        if ($LASTEXITCODE -ne 0) { throw 'Could not resolve the PowerShell docs target commit.' }
+        Write-Host "PowerShell docs target: $($env:DOCS_REPOSITORY) main at $targetCommit."
+      displayName: Check Out PowerShell Docs For Comparison
+      env:
+        DOCS_COMMIT: $(DocsCommit)
+        DOCS_REPOSITORY: ${{ parameters.target_repository }}
+        GIT_TERMINAL_PROMPT: '0'
+
+  - task: PowerShell@2
+    displayName: Run Tagged Docs Sync
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $commit = & git rev-parse --verify --quiet "refs/tags/$($env:RELEASE_TAG)^{commit}"
+        if ($LASTEXITCODE -ne 0 -or -not $commit -or $commit.Trim() -ne $env:DOCS_COMMIT) {
+          throw 'The docs source tag no longer matches the validated commit.'
+        }
+        $syncArgs = @{
+          ReleaseTag = $env:RELEASE_TAG
+        }
+        if ($env:SYNC_MODE -eq 'create-pr') {
+          if ($env:FETCH_CLI2YAML -ne 'True') {
+            throw 'PR creation is currently enabled only for CLI docs.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw 'GitHub token is required for docs branch push and PR creation.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:DOCS_HEAD_REPOSITORY)) {
+            throw 'A docs head repository is required for PR creation.'
+          }
+          $syncArgs.Push = $true
+          $syncArgs.TargetBranch = 'main'
+          $syncArgs.HeadRepository = $env:DOCS_HEAD_REPOSITORY
+          $syncArgs.TargetRepository = $env:DOCS_REPOSITORY
+          $syncArgs.CommitAuthor = 'Azclips Release Automation'
+          $syncArgs.CommitEmail = 'azclips-release-automation@microsoft.com'
+        } else {
+          $syncArgs.TargetRepoPath = Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-docs-dry-run-target'
+        }
+        if ($env:FETCH_CLI2YAML -eq 'True') {
+          $syncArgs.FetchIfMissing = $true
+          if ($env:SYNC_MODE -eq 'dry-run') {
+            $syncArgs.OutputManifest = Join-Path $env:AGENT_TEMPDIRECTORY 'azclips-cli-docs-manifest.json'
+          }
+        }
+        $script = Join-Path "$(Build.SourcesDirectory)/build" $env:SYNC_SCRIPT
+        & $script @syncArgs
+        if ($syncArgs.ContainsKey('OutputManifest')) {
+          $manifest = Get-Content -Raw -LiteralPath $syncArgs.OutputManifest | ConvertFrom-Json
+          if ($manifest.mode -ne 'dry-run' -or -not $manifest.outputLocation -or
+              -not (Test-Path -LiteralPath (Join-Path $manifest.outputLocation 'latest/TOC.yml') -PathType Leaf)) {
+            throw 'CLI docs dry-run did not produce the expected output.'
+          }
+          $artifact = Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY 'cli-docs-dry-run'
+          New-Item -ItemType Directory -Path $artifact -Force | Out-Null
+          Copy-Item -LiteralPath $manifest.outputLocation -Destination (Join-Path $artifact 'docs') -Recurse
+          Copy-Item -LiteralPath $syncArgs.OutputManifest -Destination (Join-Path $artifact 'manifest.json')
+        }
+    env:
+      ${{ if eq(parameters.sync_mode, 'create-pr') }}:
+        GH_TOKEN: $(GH_TOKEN)
+        GIT_CONFIG_COUNT: '1'
+        GIT_CONFIG_KEY_0: credential.https://github.com.helper
+        GIT_CONFIG_VALUE_0: '!gh auth git-credential'
+      ${{ if eq(parameters.fetch_cli2yaml, true) }}:
+        NUGET_PACKAGES: $(Agent.TempDirectory)/azclips-docs-nuget-$(System.JobId)
+      RELEASE_TAG: ${{ parameters.release_tag }}
+      DOCS_COMMIT: $(DocsCommit)
+      SYNC_MODE: ${{ parameters.sync_mode }}
+      DOCS_REPOSITORY: ${{ parameters.target_repository }}
+      DOCS_HEAD_REPOSITORY: ${{ parameters.head_repository }}
+      SYNC_SCRIPT: ${{ parameters.sync_script }}
+      FETCH_CLI2YAML: ${{ parameters.fetch_cli2yaml }}
+      GIT_TERMINAL_PROMPT: '0'
+
+  - ${{ if and(eq(parameters.sync_mode, 'dry-run'), eq(parameters.fetch_cli2yaml, true)) }}:
+    - task: PublishPipelineArtifact@1
+      displayName: Publish CLI Docs Dry-Run
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/cli-docs-dry-run
+        artifact: CliDocsDryRun_$(System.JobAttempt)
