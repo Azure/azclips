@@ -23,7 +23,7 @@ BeforeAll {
     $targetMatch = [regex]::Match($jobYaml, '(?m)^    - pwsh: \|\r?\n(?<body>(?: {8}[^\r\n]*\r?\n)+?)      displayName: Check Out PowerShell Docs For Comparison')
     if (-not $targetMatch.Success) { throw 'Cannot find PowerShell docs target checkout script' }
     $script:CheckoutTarget = [scriptblock]::Create([regex]::Replace($targetMatch.Groups['body'].Value, '(?m)^ {8}', ''))
-    $script:EnvironmentNames = @('RELEASE_TAG', 'EXPECTED_COMMIT', 'DOCS_COMMIT', 'DOCS_REPOSITORY', 'SYNC_MODE', 'FETCH_CLI2YAML', 'SYNC_SCRIPT', 'AGENT_TEMPDIRECTORY', 'BUILD_ARTIFACTSTAGINGDIRECTORY', 'FAKE_BUILD_DIR', 'BUILD_SOURCESDIRECTORY', 'ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS', 'VSS_NUGET_EXTERNAL_FEED_ENDPOINTS', 'ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'AZCLIPS_CLI_SYNC_LOAD_ONLY')
+    $script:EnvironmentNames = @('RELEASE_TAG', 'EXPECTED_COMMIT', 'DOCS_COMMIT', 'DOCS_REPOSITORY', 'DOCS_HEAD_REPOSITORY', 'GH_TOKEN', 'SYNC_MODE', 'FETCH_CLI2YAML', 'SYNC_SCRIPT', 'AGENT_TEMPDIRECTORY', 'BUILD_ARTIFACTSTAGINGDIRECTORY', 'FAKE_BUILD_DIR', 'BUILD_SOURCESDIRECTORY', 'ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS', 'VSS_NUGET_EXTERNAL_FEED_ENDPOINTS', 'ARTIFACTS_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'NUGET_CREDENTIALPROVIDER_SESSIONTOKENCACHE_ENABLED', 'AZCLIPS_CLI_SYNC_LOAD_ONLY')
 }
 
 Describe 'Standalone docs pipeline orchestration' {
@@ -130,6 +130,40 @@ param([string]$ReleaseTag, [string]$TargetRepoPath, [string]$OutputManifest, [sw
         Push-Location $script:Repo
         try { { & $script:RunSync } | Should -Throw '*did not produce the expected output*' }
         finally { Pop-Location }
+    }
+
+    It 'passes CLI PR arguments and rejects missing credentials or non-CLI PRs' {
+        Set-Content -LiteralPath (Join-Path $script:Repo 'build/fake.ps1') -Value @'
+param([string]$ReleaseTag, [switch]$Push, [string]$TargetBranch, [string]$TargetRepository, [string]$HeadRepository, [string]$CommitAuthor, [string]$CommitEmail, [switch]$FetchIfMissing)
+$global:CapturedSyncArgs = $PSBoundParameters
+'@
+        $env:DOCS_COMMIT = $script:Commit
+        $env:SYNC_MODE = 'create-pr'
+        $env:FETCH_CLI2YAML = 'True'
+        $env:SYNC_SCRIPT = 'fake.ps1'
+        $env:FAKE_BUILD_DIR = Join-Path $script:Repo 'build'
+        $env:DOCS_REPOSITORY = 'MicrosoftDocs/azure-docs-cli'
+        $env:DOCS_HEAD_REPOSITORY = 'azclibot/azure-docs-cli'
+        $env:GH_TOKEN = 'test-token'
+        Push-Location $script:Repo
+        try {
+            & $script:RunSync
+            $global:CapturedSyncArgs.Push | Should -BeTrue
+            $global:CapturedSyncArgs.FetchIfMissing | Should -BeTrue
+            $global:CapturedSyncArgs.TargetBranch | Should -Be 'main'
+            $global:CapturedSyncArgs.TargetRepository | Should -Be 'MicrosoftDocs/azure-docs-cli'
+            $global:CapturedSyncArgs.HeadRepository | Should -Be 'azclibot/azure-docs-cli'
+            $env:GH_TOKEN = ''
+            { & $script:RunSync } | Should -Throw '*GitHub token is required*'
+            $env:GH_TOKEN = 'test-token'
+            $env:DOCS_HEAD_REPOSITORY = ''
+            { & $script:RunSync } | Should -Throw '*head repository is required*'
+            $env:FETCH_CLI2YAML = 'False'
+            { & $script:RunSync } | Should -Throw '*only for CLI docs*'
+        } finally {
+            Pop-Location
+            Remove-Variable -Name CapturedSyncArgs -Scope Global -ErrorAction SilentlyContinue
+        }
     }
 
     It 'checks out the tagged moniker and fails if the target is missing it' {

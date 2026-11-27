@@ -9,6 +9,9 @@ parameters:
   type: string
 - name: target_repository
   type: string
+- name: head_repository
+  type: string
+  default: ''
 - name: fetch_cli2yaml
   type: boolean
   default: false
@@ -42,9 +45,9 @@ jobs:
   - ${{ if eq(parameters.sync_mode, 'create-pr') }}:
     - template: ../steps/get-github-pat-token.yml
       parameters:
-        azureSubscription: $(AzureSubscription)
-        keyVaultName: $(DocsGitHubPatKeyVault)
-        secretName: $(DocsGitHubPatSecretName)
+        azureSubscription: Azure CLI release
+        keyVaultName: $(CliDocsGitHubPatKeyVault)
+        secretName: $(CliDocsGitHubPatSecretName)
 
   - ${{ if eq(parameters.fetch_cli2yaml, true) }}:
     - task: NuGetAuthenticate@1
@@ -129,12 +132,18 @@ jobs:
           ReleaseTag = $env:RELEASE_TAG
         }
         if ($env:SYNC_MODE -eq 'create-pr') {
+          if ($env:FETCH_CLI2YAML -ne 'True') {
+            throw 'PR creation is currently enabled only for CLI docs.'
+          }
           if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
             throw 'GitHub token is required for docs branch push and PR creation.'
           }
+          if ([string]::IsNullOrWhiteSpace($env:DOCS_HEAD_REPOSITORY)) {
+            throw 'A docs head repository is required for PR creation.'
+          }
           $syncArgs.Push = $true
           $syncArgs.TargetBranch = 'main'
-          $syncArgs.HeadRepository = $env:DOCS_REPOSITORY
+          $syncArgs.HeadRepository = $env:DOCS_HEAD_REPOSITORY
           $syncArgs.TargetRepository = $env:DOCS_REPOSITORY
           $syncArgs.CommitAuthor = 'Azclips Release Automation'
           $syncArgs.CommitEmail = 'azclips-release-automation@microsoft.com'
@@ -172,6 +181,7 @@ jobs:
       DOCS_COMMIT: $(DocsCommit)
       SYNC_MODE: ${{ parameters.sync_mode }}
       DOCS_REPOSITORY: ${{ parameters.target_repository }}
+      DOCS_HEAD_REPOSITORY: ${{ parameters.head_repository }}
       SYNC_SCRIPT: ${{ parameters.sync_script }}
       FETCH_CLI2YAML: ${{ parameters.fetch_cli2yaml }}
       GIT_TERMINAL_PROMPT: '0'

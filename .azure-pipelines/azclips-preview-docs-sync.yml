@@ -13,7 +13,7 @@ parameters:
   type: string
   default: none
 - name: sync_mode
-  displayName: Sync mode
+  displayName: Sync mode (create-pr is CLI only)
   type: string
   default: validate
   values:
@@ -28,8 +28,6 @@ parameters:
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
-- ${{ if eq(parameters.sync_mode, 'create-pr') }}:
-  - group: 'get-github-pat-token'
 
 stages:
 - template: templates/dist/stages/sync-preview-docs.yml

@@ -22,14 +22,14 @@ guide in the same PR so it stays accurate.
 | `azclips-beta-sign.yml` | Daily scheduled `main` run (`cron '0 0 * * *'`, `always: true`) + pipeline resource `betaBuild` tagged `sign-beta` | release | Scheduled/manual runs default to the latest successful `main` beta build without requiring a tag; ESRP-signs the selected build, verifies signatures/content, runs the full native lifecycle matrix, and builds/validates signed PowerShell Docker images without registry publication. |
 | `azclips-trigger-stable-release.yml` | Manual (guarded) opens the PR; path-trigger on `src/CLI/Core.Cli.csproj` | release | Manual run bumps CLI and changed extension/PowerShell module versions, then opens the release PR via `gh` (Key Vault PAT). After the PR merges, a CI run of the same pipeline (`CreateStableTag`) creates the stable tag via `git tag`/`git push`. |
 | `azclips-stable-release.yml` | Stable tag `v*.*.*.*T*Z` | release | Full build (in `release`) → ESRP sign → verify → signed lifecycle validation → publish GitHub release. In parallel after verify, signed PowerShell images are built/validated and CLI + PowerShell images are published to the ACR repositories configured by the `Docker*Registry*`/`Docker*Repository` variables in the entry pipeline, then verified from ACR and from MCR after a 10-minute delay. |
-| `azclips-preview-docs-sync.yml` | Manual | release | Standalone, tag-selected preview docs sync scaffold. Default `validate` mode checks the tag and source scripts; `dry-run` publishes CLI output and reports the PowerShell copy plan against a docs checkout without pushing. |
+| `azclips-preview-docs-sync.yml` | Manual | release | Standalone, tag-selected preview docs sync scaffold. `validate` checks the tag; `dry-run` publishes CLI output and reports the PowerShell copy plan; `create-pr` tests a CLI draft PR only. |
 
 ## Template Layout (`templates/`)
 - The standalone pipeline defaults to `validate` and has no automatic trigger.
   Manual runs select a tag via `release_tag`; the optional `expected_commit`
   detects an unexpected tag target.
-  Its `dry-run` mode requires authorization to the `DocsReference_WIF` Azure
-  service connection, whose workload identity reads the CLI2Yaml feed. The CLI
+  Its CLI job in `dry-run` and `create-pr` modes requires authorization to the
+  `DocsReference_WIF` Azure service connection, whose workload identity reads the CLI2Yaml feed. The CLI
   job uses `NuGetAuthenticate` to install the credential provider and restores
   the tagged configuration's approved package into a job-specific cache using a
   short-lived, process-scoped Azure DevOps token; it does not persist the token.
@@ -38,12 +38,13 @@ guide in the same PR so it stays accurate.
   the target repo's `main` branch, records its commit, and reports the copy plan,
   stale files, and service-map status. This is not a full content diff.
   Runs require the selected tag to contain the tag-aware sync scripts.
-  `create-pr` mode is not operational: `templates/dist/stages/sync-preview-docs.yml`
-  deliberately fails its setup job before sync. PAT vault/secret and reviewer
-  variables are placeholders; notification, structured
-  results, and safe reruns are not implemented. Do not remove the setup stop
-  until approved configuration and those behaviors are implemented and validated.
-  No promotion to `live` or manual-merge gate is implemented.
+  `create-pr` is a manual CLI-only test: it fetches `azclibot-pat` from
+  `kv-azuresdk` using the `Azure CLI release` service connection, pushes a branch
+  to `azclibot/azure-docs-cli`, and opens a draft PR against MicrosoftDocs `main`.
+  The service connection must be authorized for this pipeline. PowerShell PRs,
+  notifications, structured results, and safe reruns are not implemented; repeated
+  runs can create multiple draft PRs. Review and close test PRs and their branches
+  manually. No promotion to `live` or manual-merge gate is implemented.
 - `templates/variables.yml` — top-level shared variables (pools, project names, repo, service connections, pipeline names).
 - `templates/dist/variables/` — `common.yml`, `packaging.yml` (script/out roots, RIDs), `release.yml` (ESRP keycodes).
 - `templates/dist/stages/` — stage-level composition (`build-unsigned-distribution.yml`, `sign-with-esrp.yml`, `validate-pull-request.yml`, `validate-signed-distribution.yml`, `component-governance.yml`, `init-resolve-version.yml`, `build-signed-docker.yml`, `publish-docker-to-acr.yml`, `publish-to-github-release.yml`, `verify-signed-distribution.yml`, `build-ps-modules.yml`). The PR validation stage checks title/history conventions, blocks manual root changelog or project-version edits, and restricts release-bot stable PRs to generated metadata paths and version-only project changes.

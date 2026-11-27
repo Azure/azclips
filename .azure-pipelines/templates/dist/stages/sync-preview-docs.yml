@@ -14,13 +14,10 @@ stages:
 - stage: SyncPreviewDocs
   displayName: Sync Microsoft Learn Preview Docs
   variables:
-  # Configuration stubs only. Replace with approved pipeline configuration before enabling.
-  - name: DocsGitHubPatKeyVault
-    value: CONFIGURE_DOCS_PAT_VAULT
-  - name: DocsGitHubPatSecretName
-    value: CONFIGURE_DOCS_PAT_SECRET
-  - name: DocsMailRecipients
-    value: CONFIGURE_AZCLIPS_REVIEWERS
+  - name: CliDocsGitHubPatKeyVault
+    value: kv-azuresdk
+  - name: CliDocsGitHubPatSecretName
+    value: azclibot-pat
   jobs:
   - job: CheckDocsSetup
     displayName: Check Docs Integration Setup
@@ -56,11 +53,6 @@ stages:
       env:
         RELEASE_TAG: ${{ parameters.release_tag }}
         EXPECTED_COMMIT: ${{ parameters.expected_commit }}
-    - ${{ if eq(parameters.sync_mode, 'create-pr') }}:
-      - pwsh: |
-          throw 'Docs CI is a scaffold: configure GitHub/feed access, structured PR results, and approved email delivery before enabling it.'
-        displayName: Stop Until Docs Setup Is Complete
-
   - ${{ if ne(parameters.sync_mode, 'validate') }}:
     - template: ../jobs/sync-preview-docs.yml
       parameters:
@@ -69,11 +61,13 @@ stages:
         ubuntu_pool: ${{ parameters.ubuntu_pool }}
         sync_script: Sync-AzClipsCliDocs.ps1
         target_repository: MicrosoftDocs/azure-docs-cli
+        head_repository: azclibot/azure-docs-cli
         fetch_cli2yaml: true
         release_tag: ${{ parameters.release_tag }}
         sync_mode: ${{ parameters.sync_mode }}
         cli2yaml_feed_service_connection: ${{ parameters.cli2yaml_feed_service_connection }}
 
+  - ${{ if eq(parameters.sync_mode, 'dry-run') }}:
     - template: ../jobs/sync-preview-docs.yml
       parameters:
         job_name: SyncPowerShellDocs
@@ -84,19 +78,3 @@ stages:
         release_tag: ${{ parameters.release_tag }}
         sync_mode: ${{ parameters.sync_mode }}
         cli2yaml_feed_service_connection: ${{ parameters.cli2yaml_feed_service_connection }}
-
-  - ${{ if eq(parameters.sync_mode, 'create-pr') }}:
-    - job: NotifyDocsReviewers
-      displayName: Notify AzClips Docs Reviewers
-      dependsOn:
-      - CheckDocsSetup
-      - SyncCliDocs
-      - SyncPowerShellDocs
-      condition: and(not(canceled()), eq(dependencies.CheckDocsSetup.result, 'Succeeded'))
-      pool:
-        name: ${{ parameters.ubuntu_pool }}
-      steps:
-      - checkout: none
-      - pwsh: |
-          throw 'Notification stub: collect both PR URLs or no-change/failure results and send review instructions using the approved mail service.'
-        displayName: Send PR Links And Review Instructions (Not Implemented)
