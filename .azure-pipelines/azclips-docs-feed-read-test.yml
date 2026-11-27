@@ -1,19 +1,19 @@
-name: docs-classic-cli-pat-read-test-$(Date:yyyyMMdd)$(Rev:.r)
+name: docs-powershell-pat-read-test-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
 jobs:
 - job: CheckGitHubPat
-  displayName: Test classic CLI release GitHub credential
+  displayName: Test PowerShell release GitHub credential
   pool:
     name: pool-ubuntu-2404
   steps:
   - checkout: self
   - template: templates/dist/steps/get-github-pat-token.yml
     parameters:
-      azureSubscription: Azure CLI release
-      keyVaultName: kv-azuresdk
-      secretName: azclibot-pat
+      azureSubscription: azureps-infra-sp
+      keyVaultName: azurepsdev
+      secretName: azpsbot-github-pat
   - pwsh: |
       $ErrorActionPreference = 'Stop'
       if ($env:SYSTEM_TEAMPROJECT -ne 'release') {
@@ -37,10 +37,13 @@ jobs:
           elseif ($content -match 'resource not accessible') { $reason = 'resource not accessible' }
           elseif ($content -match 'SAML|single sign.on|SSO') { $reason = 'SSO authorization' }
           elseif ($content -match 'IP allow list|IP address|IP restriction') { $reason = 'IP restriction' }
-          Write-Host "GitHub user endpoint: HTTP $($identity.StatusCode), reason=$reason."
+          $anonymous = Invoke-WebRequest -Uri 'https://api.github.com' -Headers @{ 'User-Agent' = 'azclips-docs-pat-test' } -SkipHttpErrorCheck
+          Write-Host "GitHub auth response: HTTP $($identity.StatusCode), reason=$reason, GitHub-request-id-present=$([bool]$identity.Headers['X-GitHub-Request-Id']), rate-limit-remaining=$($identity.Headers['X-RateLimit-Remaining'] -join ',')."
+          Write-Host "Anonymous GitHub API response: HTTP $($anonymous.StatusCode)."
           if ($identity.StatusCode -ne 403 -or $reason -ne 'resource not accessible') {
             throw "GitHub authentication failed: HTTP $($identity.StatusCode)."
           }
+          Write-Host 'The user endpoint is unavailable to this credential; checking installation access instead.'
         } else {
           Write-Host "Authenticated GitHub account: $(($identity.Content | ConvertFrom-Json).login)."
         }
@@ -62,7 +65,7 @@ jobs:
           if ($identity.StatusCode -ne 200) { throw 'Unable to verify an authenticated user or installation.' }
         }
         $failures = 0
-        foreach ($repo in @('MicrosoftDocs/azure-docs-cli', 'MicrosoftDocs/azure-docs-powershell', 'azclibot/azure-docs-cli')) {
+        foreach ($repo in @('MicrosoftDocs/azure-docs-cli', 'MicrosoftDocs/azure-docs-powershell')) {
           if ($installation.StatusCode -eq 200) {
             Write-Host "$repo listed in installation: $($repo -in $installationNames)."
           }
