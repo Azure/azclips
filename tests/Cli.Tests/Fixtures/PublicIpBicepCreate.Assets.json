@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0.0",
+  "resourceType": "Microsoft.Network/publicIPAddresses@2026-03-01",
+  "bridgeSha256": "e8aefaafabdbe2eae1c65eb7ccaf38a33baea9ba125446cc3e56b96fd43b36a1",
+  "source": {
+    "sourceCommit": "965a33b4c632fb1aaf5f2ea02e6d603e1c81baa6",
+    "upstreamRevision": "754a33f2ddc902afe583acb6e46316afbd59bc5d",
+    "toolchainLockSha256": "78fd25723a37ce2f0d656e7f86d9af662f0460df5bc090dfba4f46c30d3897b5",
+    "schemaSha256": "fbc5b3487025d1852c09f044e6e7310ae21ed12b77cd8e07377fa4da07a00227",
+    "bindingSha256": "cf9bc5224840fd6c1104fc93286426abe2ea8a7b0358fcdf8a2eda2757448c4a"
+  },
+  "compiler": {
+    "version": "Bicep CLI version 0.49.2 (b34271ac51)",
+    "sha256": "acfff0453c9bcf442aa97103acbcd845ef366634e6ea2a2ba5734514409ce9c3",
+    "revision": "b34271ac51d820e7d448555fe7a6c1dbdb9e82c8",
+    "asset": "https://github.com/Azure/bicep/releases/download/v0.49.2/bicep-win-x64.exe"
+  },
+  "catalogue": {
+    "package": "Azure.Bicep.Types.Az",
+    "version": "0.2.972",
+    "independentAssemblySha256": "ce08193659d798083d99611f2d2895e8cc8bd27986f72d8b7b8180c77cf42066",
+    "typesVersion": "0.6.144",
+    "source": "https://github.com/Azure/bicep/blob/b34271ac51d820e7d448555fe7a6c1dbdb9e82c8/src/Directory.Packages.props"
+  },
+  "compilerConfigSha256": "a0f951a5163f70ced9abb3469225b10bb0b97d78a6b04fe495c6224add60cf02",
+  "compilerAssociationSha256": "18e178dcd354110e01416369dcdad3c58111205d7aa6f5711a8b3513f86cee85",
+  "textHashNormalization": "utf8-lf",
+  "compilerConfigHashNormalization": "raw-bytes",
+  "assets": {
+    "TagsAbsent": {
+      "fileName": "PublicIpBicepCreate.TagsAbsent.json",
+      "sha256": "1e4b65f4810c8dc1a1e1014b005f2e9b565a36ba5ad9031dd9022134dc270363",
+      "sourceSha256": "658887e8d9e14a1ec86d4d9d43e7597079f304dbf1a4f92fa8e148f3552b592e",
+      "compilation": {
+        "exitCode": 0,
+        "diagnostics": []
+      }
+    },
+    "TagsPresent": {
+      "fileName": "PublicIpBicepCreate.TagsPresent.json",
+      "sha256": "c0070e44327dbde789c3256f682f16c563f925671b72602bd5be62d1b3685fae",
+      "sourceSha256": "6ce7240ebead71bd567d7c3d410172feaeb4e722507425d0c74026a3af7b64ce",
+      "compilation": {
+        "exitCode": 0,
+        "diagnostics": []
+      }
+    }
+  }
+}

@@ -9,6 +9,11 @@
   <ItemGroup>
     <PackageReference Include="Moq" Version="4.20.72" />
     <EmbeddedResource Include="Fixtures\PublicIpBicepBindings.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepBindings.json" />
+    <EmbeddedResource Include="Fixtures\PublicIpBicepCreate.TagsAbsent.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.TagsAbsent.json" />
+    <EmbeddedResource Include="Fixtures\PublicIpBicepCreate.TagsPresent.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.TagsPresent.json" />
+    <EmbeddedResource Include="Fixtures\PublicIpBicepCreate.Assets.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCreate.Assets.json" />
+    <EmbeddedResource Include="..\..\toolkit\tools\typespec-bicep\compiler.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCompilerPin.json" />
+    <EmbeddedResource Include="..\..\toolkit\tools\typespec-bicep\compiler-config.json" LogicalName="Cli.Tests.Fixtures.PublicIpBicepCompilerConfig.json" />
   </ItemGroup>
 
   <ItemGroup>

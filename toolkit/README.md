@@ -317,6 +317,44 @@ Tests verify regeneration, exact compiled assignments and both direct/nested
 wrong-type compiler rejection. This is build-only template evidence, not
 immutable ARM packaging, runtime variant selection or live deployment proof.
 
+## Packaged Public IP pilot assets
+
+The [packager](tools/typespec-bicep/package-template.mjs) verifies both checked-in
+sources against the bridge before publishing either asset, verifies the pinned
+CLI against the separate association evidence, compiles with the fixed config
+and rejects every diagnostic. It validates exactly one March Public IP per
+resource-group template, no dependencies/alternate scope/nested resources,
+exact generated parameter coverage and source-derived types, no resource
+defaults and retained Int32 bounds.
+
+From the repository root, after compiler setup:
+
+```powershell
+node toolkit\tools\typespec-bicep\package-template.mjs tests\Cli.Tests\Fixtures
+npm --prefix toolkit\tools\typespec-bicep run test:package
+dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter "FullyQualifiedName~PublicIpBicepAssetTests|FullyQualifiedName~PublicIpAddressParameterTests" --verbosity quiet
+```
+
+It emits [tags-absent ARM JSON](../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.TagsAbsent.json),
+[tags-present ARM JSON](../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.TagsPresent.json)
+and a [provenance manifest](../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.Assets.json),
+published last. The manifest records source/bridge/compiler/catalogue/config/
+association identities, source and compiled digests, and zero-diagnostic results.
+Bridge/Bicep/association text digests normalize to UTF-8/LF; config identity
+retains the association gate's **raw-byte** digest. Compiled JSON hashes cover
+exact UTF-8 bytes, with scoped Git attributes preserving LF checkouts.
+
+The fixture-only [asset reader](../tests/Cli.Tests/Fixtures/PublicIpBicepAssets.cs)
+loads embedded immutable JSON by normalized tags **presence** (including `{}`),
+checks hashes, bridge/source/compiler/catalogue/config provenance and resource
+boundaries, and fails explicitly for missing or invalid selected assets.
+It neither invokes/acquires a compiler nor modifies the template. Eligibility
+still belongs to the existing binder and must run before deployment.
+The recorded association/source digests are build evidence, not runtime
+recompilation or independent verification of an embedded CLI catalogue.
+No product registration or feature dependency is added. Evaluated declaration,
+transport, both-surface and live gates remain separate.
+
 ## Orchestration
 
 The **compiler owns the workflow**. `STAGE_CATALOG` in

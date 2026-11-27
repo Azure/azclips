@@ -1,0 +1,3 @@
+PublicIpBicepBindings.json text eol=lf
+PublicIpBicepCreate.*.bicep text eol=lf
+PublicIpBicepCreate.*.json text eol=lf

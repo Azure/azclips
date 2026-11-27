@@ -208,6 +208,14 @@ Eligible experimental pilot execution SHALL deploy exactly one Public IP declara
 - **THEN** the command SHALL report an explicit error before deployment submission
 - **AND** it SHALL NOT install or compile Bicep at runtime
 
+#### Scenario: Immutable build assets and provenance
+- **WHEN** both pilot variants are packaged
+- **THEN** all Bicep sources SHALL match the generated bridge before any asset is published, and each compiled template SHALL pass the zero-diagnostic compiler gate
+- **AND** each asset SHALL declare exactly one matching Public IP at resource-group scope, without dependencies, nested resources, resource-group creation or extra orchestration
+- **AND** the manifest SHALL bind compiled bytes to source/bridge/compiler/catalogue/configuration and separate compiler-association evidence
+- **AND** runtime fixture loading SHALL reject missing assets, stale bridge/source provenance, wrong compiler/configuration identity, digest mismatch or invalid resource boundaries
+- **AND** loading SHALL return unchanged immutable JSON without invoking a compiler, changing the compiled asset or retrying another backend
+
 ### Requirement: Explicit failure and existing-resource protection
 
 The create-only pilot SHALL reject a detected existing target before deployment submission, preserve actionable deployment/polling/retrieval failures and never turn a failed deployment into a successful resource result. It MUST NOT use Complete mode, silently retry through the direct backend or automatically delete unrelated resources.

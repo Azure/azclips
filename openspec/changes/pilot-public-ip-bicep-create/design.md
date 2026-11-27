@@ -533,6 +533,35 @@ Both real generated templates compile with **exit 0 and zero diagnostics**. The 
 
 There are **86 distinct targeted tests**. Task 2.3 remains next: package both immutable ARM assets with provenance and explicit asset/variant validation. The future adapter must select by normalized tags **presence**, not tag count. Full canonical-body versus evaluated-declaration proof, runtime selection/transport, newly generated March C# execution, both-surface playback and authorized live gates are not claimed here.
 
+### Immutable ARM assets and fixture-only loading
+
+Task 2.3 is complete. The [packager](../../../toolkit/tools/typespec-bicep/package-template.mjs) first regenerates both expected sources from the bridge in memory and checks both persisted Bicep files. It verifies the actual official executable and its identity/catalogue/configuration against the separate compiler association, then uses the existing strict zero-diagnostic compile helper for each variant. No source generation, normal product configuration or historical report changes are required.
+
+The build validates resource-group symbolic-name template format, exactly one matching March Public IP, only generated root fields/parameters, source-derived parameter metadata, no customization defaults and retained Int32 bounds. Unexpected scope, dependencies, nested resources, extra resource-group/resource declarations and additional orchestration sections fail explicitly.
+
+Both compiled JSON files and the [manifest](../../../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.Assets.json) are checked in and embedded only in the existing integration test assembly. The manifest is published last, after both variants compile and validate; incomplete writes cannot satisfy its digest checks. The actual CLI stale-second-source test confirms failure leaves all existing assets/manifest bytes unchanged.
+
+| Asset | Compiled UTF-8 byte SHA-256 |
+| --- | --- |
+| [Tags absent](../../../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.TagsAbsent.json) | `1e4b65f4810c8dc1a1e1014b005f2e9b565a36ba5ad9031dd9022134dc270363` |
+| [Tags present](../../../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.TagsPresent.json) | `c0070e44327dbde789c3256f682f16c563f925671b72602bd5be62d1b3685fae` |
+
+The manifest records the source commit/upstream/toolchain/schema/binding identities, normalized bridge digest `e8aefaafabdbe2eae1c65eb7ccaf38a33baea9ba125446cc3e56b96fd43b36a1`, both Bicep source digests, official compiler/catalogue identity, configuration/association digests and exit-zero/no-diagnostic results. Bridge/Bicep/association **text** digests normalize UTF-8/LF; compiled JSON is hashed byte-exact, and [scoped Git attributes](../../../tests/Cli.Tests/Fixtures/.gitattributes) preserve LF on checkout. Configuration intentionally retains the association gate's **raw-byte** digest `a0f951a5163f70ced9abb3469225b10bb0b97d78a6b04fe495c6224add60cf02`: the first attempt to normalize that digest failed before asset publication and was corrected, not waived.
+
+The unregistered [fixture reader](../../../tests/Cli.Tests/Fixtures/PublicIpBicepAssets.cs) selects by root-tags presence, not emptiness, and returns detached read-only `JsonElement` data from the embedded compiled asset. It checks bridge/source provenance, compiler/catalogue/configuration identity, digest and resource boundaries; missing/invalid selected assets fail explicitly without a compiler, download, template mutation or alternate-backend retry. The compiler pin/config JSON are embedded as provenance data only, not runtime compiler libraries. Existing input eligibility remains in the binder and must precede future deployment.
+
+[Reader tests](../../../tests/Cli.Tests/PublicIpBicepAssetTests.cs) cover absent/empty/nonempty tags, invalid input before asset reads, missing manifest/selected asset, byte tampering, malformed JSON, missing provenance and compiler/config/source mismatch. Extra resources, dependencies and wrong API versions still fail after their test manifest hashes are updated. No HTTP or product registration is added.
+
+| Command / check | Result |
+| --- | --- |
+| `node toolkit\tools\typespec-bicep\package-template.mjs tests\Cli.Tests\Fixtures` | Passed; both variants compiled with zero diagnostics and validated; immutable JSON/manifest produced |
+| `npm --prefix toolkit\tools\typespec-bicep run test:package` | 3 passed; byte reproduction, exact resource/parameter boundaries and actual CLI stale-source/no-replacement failure |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter 'FullyQualifiedName~PublicIpBicepAssetTests\|FullyQualifiedName~PublicIpAddressParameterTests' --verbosity quiet` | 87 passed before the final config-tampering case; 71 existing Public IP behavior tests plus 16 asset tests |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~PublicIpBicepAssetTests --verbosity quiet` | Final 17 passed, including config tampering; pinned SDK 10.0.404; unrelated existing CS8602/CA1416 warnings |
+| `node --check toolkit\tools\typespec-bicep\package-template.mjs`, `git diff --check`, LF attribute checks and unchanged source/bridge/Bicep/pins/raw reports/association checks | Passed |
+
+There are **91 distinct targeted tests** (the final reader run repeats the initial 16 cases). Task 2.4 remains next: compare existing canonical normalized bodies/parameters against evaluated declaration semantics. This packaging/loading gate is not adapter registration, deployment transport, both-surface playback, newly generated March C# execution, schema identity or live provisioning evidence.
+
 ## Goals / Non-Goals
 
 **Goals:**

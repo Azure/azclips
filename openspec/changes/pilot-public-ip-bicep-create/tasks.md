@@ -34,7 +34,7 @@ A separate [supported-toolchain reproduction](design.md#supported-toolchain-gene
 
 - [x] 2.1 After 1.16, pin an official Bicep CLI and verify its identity/resource type association separately from upstream type generation and the catalogue-only report.
 - [x] 2.2 Generate the approved tags-absent/present resource-group-scoped experimental Public IP template variants' field/parameter assignments from the same source-aware bridge, preserving normalized body values, omission semantics and resource API `2026-03-01`; each variant declares exactly one resource, without a second handwritten structural mapping.
-- [ ] 2.3 Build-compile/package both immutable ARM JSON variants with provenance; select by normalized root-tags presence (including an explicitly empty object), validate exactly one declared Public IP per asset, no dependencies/resource group, and explicit failure for missing/invalid assets without runtime compilation.
+- [x] 2.3 Build-compile/package both immutable ARM JSON variants with provenance; select by normalized root-tags presence (including an explicitly empty object), validate exactly one declared Public IP per asset, no dependencies/resource group, and explicit failure for missing/invalid assets without runtime compilation.
 - [ ] 2.4 Add focused minimal/default and tags/explicit-timeout tests comparing existing canonical request body semantics to template parameters/declaration, including absent optional values.
 
 ## 3. Isolated execution adapter and opt-in

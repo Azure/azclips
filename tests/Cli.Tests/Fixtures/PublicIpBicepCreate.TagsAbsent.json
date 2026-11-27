@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.49.2.45890",
+      "templateHash": "13400550547168076754"
+    }
+  },
+  "parameters": {
+    "publicIpAddressName": {
+      "type": "string",
+      "metadata": {
+        "__bicep_resource_derived_type!": {
+          "source": "Microsoft.Network/publicIPAddresses@2026-03-01#properties/name"
+        }
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "__bicep_resource_derived_type!": {
+          "source": "Microsoft.Network/publicIPAddresses@2026-03-01#properties/location"
+        }
+      }
+    },
+    "publicIPAllocationMethod": {
+      "type": "string",
+      "metadata": {
+        "__bicep_resource_derived_type!": {
+          "source": "Microsoft.Network/publicIPAddresses@2026-03-01#properties/properties/properties/publicIPAllocationMethod"
+        }
+      }
+    },
+    "publicIPAddressVersion": {
+      "type": "string",
+      "metadata": {
+        "__bicep_resource_derived_type!": {
+          "source": "Microsoft.Network/publicIPAddresses@2026-03-01#properties/properties/properties/publicIPAddressVersion"
+        }
+      }
+    },
+    "idleTimeoutInMinutes": {
+      "type": "int",
+      "metadata": {
+        "__bicep_resource_derived_type!": {
+          "source": "Microsoft.Network/publicIPAddresses@2026-03-01#properties/properties/properties/idleTimeoutInMinutes"
+        }
+      },
+      "minValue": -2147483648,
+      "maxValue": 2147483647
+    },
+    "skuName": {
+      "type": "string",
+      "metadata": {
+        "__bicep_resource_derived_type!": {
+          "source": "Microsoft.Network/publicIPAddresses@2026-03-01#properties/sku/properties/name"
+        }
+      }
+    },
+    "skuTier": {
+      "type": "string",
+      "metadata": {
+        "__bicep_resource_derived_type!": {
+          "source": "Microsoft.Network/publicIPAddresses@2026-03-01#properties/sku/properties/tier"
+        }
+      },
+      "nullable": true
+    }
+  },
+  "resources": {
+    "publicIp": {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2026-03-01",
+      "name": "[parameters('publicIpAddressName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "[parameters('publicIPAllocationMethod')]",
+        "publicIPAddressVersion": "[parameters('publicIPAddressVersion')]",
+        "idleTimeoutInMinutes": "[parameters('idleTimeoutInMinutes')]"
+      },
+      "sku": "[shallowMerge(createArray(createObject('name', parameters('skuName')), if(not(equals(parameters('skuTier'), null())), createObject('tier', parameters('skuTier')), createObject())))]"
+    }
+  }
+}
