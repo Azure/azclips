@@ -53,6 +53,12 @@ parameters:
 - name: skip_ps_version_check
   type: boolean
   default: false
+- name: run_benchmarks
+  type: boolean
+  default: false
+- name: benchmark_pool
+  type: string
+  default: ''
 
 stages:
 - template: init-resolve-version.yml
@@ -193,6 +199,8 @@ stages:
   - template: ../jobs/benchmark-suite.yml
     parameters:
       ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      benchmark_pool: ${{ parameters.benchmark_pool }}
+      run_benchmarks: ${{ parameters.run_benchmarks }}
 
 - stage: ValidateLinux
   displayName: Validate (CLI) Linux

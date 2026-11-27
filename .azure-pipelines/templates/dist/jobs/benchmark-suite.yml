@@ -1,17 +1,220 @@
+# Jobs of the Benchmark stage in stages/build-unsigned-distribution.yml.
+#
+# With run_benchmarks, DetectBenchmarks picks the benchmark families a change affects
+# (devops/scripts/benchmark/detect_benchmark_changes.py), BuildBenchmarks builds the
+# solution once, the CLI and PS legs of every selected extension and the startup leg
+# run on the fixed-hardware benchmark_pool, and CollectBenchmarks compares the results
+# with main, attaches the comparison to the build summary and publishes
+# Benchmark_Results for the GitHub comment and dashboard workflows. Without
+# run_benchmarks (stable releases) a no-op job keeps the stage, which Finalize
+# requires, succeeding.
 parameters:
 - name: ubuntu_pool
   type: string
+- name: benchmark_pool
+  type: string
+  default: ''
+- name: run_benchmarks
+  type: boolean
+  default: false
 
 jobs:
-- job: BenchmarkSuite
-  displayName: Benchmark Suite (Dummy)
-  timeoutInMinutes: 10
-  pool:
-    name: ${{ parameters.ubuntu_pool }}
-  steps:
-  - checkout: none
+- ${{ if eq(parameters.run_benchmarks, true) }}:
+  - job: DetectBenchmarks
+    displayName: Detect Benchmarks
+    timeoutInMinutes: 10
+    pool:
+      name: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
 
-  - script: |
-      echo "##vso[task.logissue type=warning]Benchmark stage is temporarily disabled. Running dummy benchmark job."
-      echo "Pipeline will continue successfully."
-    displayName: Benchmark Disabled Warning
+    - bash: |
+        set -euo pipefail
+        python3 devops/scripts/benchmark/detect_benchmark_changes.py
+      name: detect
+      displayName: Select Benchmarks
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+  - job: BuildBenchmarks
+    displayName: Build Benchmarks
+    dependsOn: DetectBenchmarks
+    condition: |
+      and(
+        succeeded(),
+        or(
+          eq(dependencies.DetectBenchmarks.outputs['detect.hasExtensionWork'], 'true'),
+          eq(dependencies.DetectBenchmarks.outputs['detect.runStartup'], 'true')
+        )
+      )
+    timeoutInMinutes: 30
+    pool:
+      name: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - bash: |
+        set -euo pipefail
+        dotnet build azclips.slnx --configuration Release -p:CopilotSkipCliDownload=true
+      displayName: Build Solution
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Benchmark Build Outputs
+      inputs:
+        targetPath: $(Build.SourcesDirectory)/artifacts/Release
+        artifact: Benchmark_Build_Outputs
+        publishLocation: pipeline
+
+  - job: RunCliBenchmarks
+    displayName: CLI Benchmarks
+    dependsOn:
+    - DetectBenchmarks
+    - BuildBenchmarks
+    condition: and(succeeded(), eq(dependencies.DetectBenchmarks.outputs['detect.hasExtensionWork'], 'true'))
+    timeoutInMinutes: 150
+    pool:
+      name: ${{ parameters.benchmark_pool }}
+    strategy:
+      matrix: $[ dependencies.DetectBenchmarks.outputs['detect.extensionMatrix'] ]
+    steps:
+    - template: ../steps/run-benchmark-leg.yml
+      parameters:
+        product: CLI
+        extension: $(Extension)
+        artifact_name: Benchmark_CLI_$(Extension)
+        attempt_timeout: 60m
+
+  - job: RunPsBenchmarks
+    displayName: PS Benchmarks
+    dependsOn:
+    - DetectBenchmarks
+    - BuildBenchmarks
+    condition: and(succeeded(), eq(dependencies.DetectBenchmarks.outputs['detect.hasExtensionWork'], 'true'))
+    timeoutInMinutes: 150
+    pool:
+      name: ${{ parameters.benchmark_pool }}
+    strategy:
+      matrix: $[ dependencies.DetectBenchmarks.outputs['detect.extensionMatrix'] ]
+    steps:
+    - template: ../steps/run-benchmark-leg.yml
+      parameters:
+        product: PS
+        extension: $(Extension)
+        artifact_name: Benchmark_PS_$(Extension)
+        attempt_timeout: 60m
+
+  - job: RunStartupBenchmarks
+    displayName: Startup Benchmarks
+    dependsOn:
+    - DetectBenchmarks
+    - BuildBenchmarks
+    condition: and(succeeded(), eq(dependencies.DetectBenchmarks.outputs['detect.runStartup'], 'true'))
+    timeoutInMinutes: 60
+    pool:
+      name: ${{ parameters.benchmark_pool }}
+    steps:
+    - template: ../steps/run-benchmark-leg.yml
+      parameters:
+        product: STARTUP
+        artifact_name: Benchmark_STARTUP
+        attempt_timeout: 20m
+
+  # Runs after leg failures too, so the summary and the PR comment show partial results.
+  - job: CollectBenchmarks
+    displayName: Collect Benchmark Results
+    dependsOn:
+    - DetectBenchmarks
+    - BuildBenchmarks
+    - RunCliBenchmarks
+    - RunPsBenchmarks
+    - RunStartupBenchmarks
+    condition: |
+      and(
+        not(canceled()),
+        eq(dependencies.DetectBenchmarks.result, 'Succeeded'),
+        or(
+          eq(dependencies.DetectBenchmarks.outputs['detect.hasExtensionWork'], 'true'),
+          eq(dependencies.DetectBenchmarks.outputs['detect.runStartup'], 'true')
+        )
+      )
+    timeoutInMinutes: 30
+    pool:
+      name: ${{ parameters.ubuntu_pool }}
+    variables:
+      BenchmarkExtensions: $[ dependencies.DetectBenchmarks.outputs['detect.extensions'] ]
+      BenchmarkStartup: $[ dependencies.DetectBenchmarks.outputs['detect.runStartup'] ]
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Benchmark Leg Results
+      inputs:
+        buildType: current
+        itemPattern: |
+          Benchmark_CLI_*/**
+          Benchmark_PS_*/**
+          Benchmark_STARTUP*/**
+        targetPath: $(Agent.TempDirectory)/benchmark-legs
+
+    - bash: |
+        set -euo pipefail
+        legs="$AGENT_TEMPDIRECTORY/benchmark-legs"
+        work="$AGENT_TEMPDIRECTORY/benchmark-work"
+        out="$AGENT_TEMPDIRECTORY/Benchmark_Results"
+        scripts=devops/scripts/benchmark
+        mkdir -p "$legs" "$out"
+
+        python3 "$scripts/collect_benchmark_results.py" --legs "$legs" --merged "$work/merged" --out "$out"
+
+        baseline="$work/gh-pages/dev/bench"
+        if ! git clone --quiet --depth 1 --branch gh-pages --filter=blob:none --sparse \
+            "https://github.com/${REPOSITORY_NAME}.git" "$work/gh-pages" \
+          || ! git -C "$work/gh-pages" sparse-checkout set dev/bench; then
+          echo "##vso[task.logissue type=warning]Could not read main's benchmark results from gh-pages, so there is no baseline."
+          rm -rf "$work/gh-pages"
+          mkdir -p "$baseline"
+        fi
+
+        python3 "$scripts/compare_benchmarks.py" --format summary --results "$out/reports" \
+          --baseline "$baseline" --build-info "$out/metadata.json" --output "$out/summary.md"
+        python3 "$scripts/aggregate_benchmark_traces.py" --input "$work/merged" --baseline "$baseline/traces" \
+          --sidecar-out "$out/sidecars" --commit "$BUILD_SOURCEVERSION" --ref "$BUILD_SOURCEBRANCH" \
+          --run-id "$BUILD_BUILDID" --summary-out "$out/summary.md"
+        echo "##vso[task.uploadsummary]$out/summary.md"
+      displayName: Compare With Main
+      condition: succeededOrFailed()
+      env:
+        REPOSITORY_NAME: $(Build.Repository.Name)
+        BENCHMARK_EXTENSIONS: $(BenchmarkExtensions)
+        BENCHMARK_STARTUP: $(BenchmarkStartup)
+
+    - template: ../steps/publish-artifact.yml
+      parameters:
+        display_name: Publish Benchmark Results
+        artifact_name: Benchmark_Results
+        target_path: $(Agent.TempDirectory)/Benchmark_Results
+        condition: succeededOrFailed()
+
+- ${{ else }}:
+  - job: BenchmarksDisabled
+    displayName: Benchmarks Disabled
+    timeoutInMinutes: 5
+    pool:
+      name: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+
+    - bash: echo "This pipeline does not run benchmarks."
+      displayName: Skip Benchmarks

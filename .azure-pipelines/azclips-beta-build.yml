@@ -30,6 +30,8 @@ stages:
     release_channel: beta
     limit_ps_testing: false
     skip_ps_version_check: false
+    run_benchmarks: true
+    benchmark_pool: ${{ variables.benchmark_pool }}
     build_docker_images: true
     release_date: auto
     pr_number: auto

@@ -34,6 +34,8 @@ stages:
     release_channel: pr-alpha
     limit_ps_testing: true
     skip_ps_version_check: true
+    run_benchmarks: true
+    benchmark_pool: ${{ variables.benchmark_pool }}
     build_docker_images: true
     release_date: auto
     pr_number: auto

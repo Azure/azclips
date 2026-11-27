@@ -11,7 +11,7 @@ outline: deep
 Azclips ships as a re-implementation of the Azure CLI/PowerShell experience, so a regression in argument parsing, extension loading, or HTTP request shaping is a regression in a tool people script against. The test strategy therefore optimizes for two properties that matter more than raw count:
 
 - **Deterministic defaults** — unit tests use fakes or stub registrations, and scenario tests default to committed HTTP playback. Explicit record-mode runs are different: they contact Azure with test credentials and may create billable resources (`tests/Scenario.Tests/README.md:7`).
-- **Speed as a merge gate** — correctness (xUnit) _and_ performance (BenchmarkDotNet) both block merges. A change that keeps the tests green but makes `az` start 20% slower is treated as a failure.
+- **Speed checked on every PR** — correctness (xUnit) blocks merges, and every PR into `main` also runs the BenchmarkDotNet benchmarks its change affects. A change that keeps the tests green but makes a benchmark more than 15% slower is flagged in a PR comment, but regressions never fail the build.
 
 Every test project targets `net10.0` and pulls its framework/coverage packages from a single `Directory.Build.props`, so the toolchain (xUnit 2.9.3, Coverlet 6.0.4, Test SDK 17.14.1) is uniform across the solution (`tests/Directory.Build.props:17`).
 
@@ -174,9 +174,13 @@ flowchart LR
     style AUTH fill:#2d4a3e,stroke:#4aba8a,color:#e6edf3
 ```
 
-### Performance as a merge gate
+### Performance regression reporting
 
-Benchmarks run on every PR and every push to `main`. On a PR, if any benchmark exceeds **115%** of the historical baseline the check fails and a comment is posted; on push to `main`, new numbers are published to GitHub Pages and become the next baseline (`eng-docs/spec/benchmark-workflows.md:5-8`). The dashboards live at `azure.github.io/azclips/dev/bench/cli/` and `.../ps/`. See [Build & CI/CD](./build-cicd.md) for how `benchmark.yml` wires this into the pipeline.
+Benchmarks run in the `Benchmark` stage of two Azure DevOps pipelines — `azclips-alpha-build` for PRs into `main` and `azclips-beta-build` for merges to `main` — with every benchmark leg on the fixed-hardware `pool-ubuntu-fixed` pool. Each change selects the benchmarks it can affect: shared changes (such as `src/Core/**`, `tests/Common/**` or the benchmark base classes) run every extension's benchmarks plus startup, while extension-only changes run just the extensions they touch (`eng-docs/spec/benchmark-workflows.md:5-8,23-24,27`).
+
+On a PR, the **Post Benchmark Comment** workflow (`benchmark-comment.yml`) runs when the Azure Pipelines check suite completes. It compares the results with `main`'s gh-pages numbers and creates or updates one PR comment listing every benchmark's percent change, for same-repo and fork PRs alike. A benchmark is flagged when its displayed change, rounded to one decimal, is above **+15.0%** (`devops/scripts/benchmark/compare_benchmarks.py:97-98`); cold startup is informational and never flagged. Regressions never fail a build, though the `Benchmark` stage itself must succeed: a benchmark that still crashes after its retry does fail the build (`eng-docs/spec/benchmark-workflows.md:7,13,33-37`).
+
+On `main`, the **Publish Benchmark Dashboard** workflow (`benchmark-publish.yml`) appends the results to gh-pages `dev/bench/`, where they become the baseline for later comparisons, and dispatches `build-wiki.yml` to redeploy GitHub Pages (`eng-docs/spec/benchmark-workflows.md:8,39-41`). The dashboards live at `azure.github.io/azclips/dev/bench/cli/` and `.../ps/`. See [Build & CI/CD](./build-cicd.md) for how these workflows fit into CI.
 
 ### Command-surface coverage reporting
 
@@ -213,7 +217,7 @@ Coverlet is wired in via the `coverlet.collector` package reference in the share
 - `tests/Benchmark/BenchmarkBase.cs` — stub DI registration and real `ProfileService` wiring for benchmarks
 - `tests/Common/Utilities/BenchmarkProfileStore.cs` — isolated, seeded profile store used by benchmarks
 - [`src/CLI/Parser/GlobalArgParser.cs`](../../src/CLI/Parser/GlobalArgParser.cs), `src/CLI/Program.cs` (`SpawnTelemetryUploader`) — `--no-cache` and in-process benchmark hooks
-- `eng-docs/spec/benchmark-workflows.md:5-8` — 115% regression gate and dashboards
+- `eng-docs/spec/benchmark-workflows.md:5-13,23-24,27,33-41` — Azure DevOps `Benchmark` stage, benchmark selection, 15% PR-comment flag, and dashboard publishing
 - `tests/Scenario.Tests/README.md:7` — default playback and explicit record mode
 - `tests/Tests.Recording/RequestMatcher.cs:25` — default method/URI matching
 - `.github/workflows/extension-test-coverage.yml:33` — advisory command-surface coverage

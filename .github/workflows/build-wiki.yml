@@ -7,7 +7,7 @@ on:
       - 'wiki/**'
       - '.github/workflows/build-wiki.yml'
   workflow_run:
-    workflows: ["Performance Benchmarks", "Extension Test Coverage"]
+    workflows: ["Extension Test Coverage"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -26,8 +26,8 @@ concurrency:
 
 jobs:
   deploy-wiki:
-    # Skip the deploy when triggered by a failed/cancelled benchmark run;
-    # always run on push and workflow_dispatch.
+    # Skip the deploy when triggered by a failed or cancelled coverage run;
+    # always run on push and workflow_dispatch (benchmark-publish.yml dispatches it).
     if: >
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
