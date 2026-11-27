@@ -33,6 +33,7 @@ All test projects are members of the solution `azclips.slnx` and split across th
 | `Core.Agent.Tests`           | `azclips.slnx:31`    | Agent tools, approval prompt, plan validation, snapshot rendering                                                                                    |
 | `Azclips.Help.Tool.Tests`    | `azclips.slnx:41`    | Build-time help validators (frontmatter, completeness, example syntax)                                                                               |
 | `Core.Engine.Tests` | `tests/Core.Engine.Tests/Core.Engine.Tests.csproj:1` | Engine behavior |
+| `Core.ArgumentParsing.Tests` | `tests/Core.ArgumentParsing.Tests/Core.ArgumentParsing.Tests.csproj:1` | Argument binding shared by every host (profile defaults, parameter sets) |
 | `Extensions.Accounts.Tests`, `Extensions.Compute.Tests`, `Extensions.KeyVault.Tests`, `Extensions.ManagedServiceIdentity.Tests`, `Extensions.MsGraph.Tests`, `Extensions.Resources.Tests` | `azclips.slnx:49` | Extension-specific behavior |
 | `Scenario.Tests` | `tests/Scenario.Tests/README.md:1` | Real dispatch/binding/engine workflows against recordings or controlled fake backends |
 | `Tests.Recording` | `tests/Tests.Recording/RequestMatcher.cs:1` | Shared HTTP capture, matching, and playback infrastructure |

@@ -5,7 +5,6 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.ArgumentParsing;
 using Microsoft.Azure.Azclips.Cmdlets.Accounts;
-using Moq;
 
 namespace Cmdlets.Accounts.Tests;
 
@@ -21,39 +20,6 @@ public class PSArgumentParsingProviderTests
 {
     private static ParameterMetadata Meta(string processorProperty, string invocationName, Type type, string[]? aliases = null) =>
         new(processorProperty, invocationName, type, "test", IsRequired: false, aliases ?? [], AllowedValues: []);
-
-    [Fact]
-    public void BindArguments_ProfileDefaultDoesNotExcludeTheExplicitParameterSet()
-    {
-        var profile = new Profile { SubscriptionId = "profile-subscription" };
-        var profileService = new Mock<IProfileService>();
-        profileService.Setup(service => service.GetProfileKeysForDefault()).Returns(["SubscriptionId"]);
-        profileService.Setup(service => service.GetProfileValueByKey(profile, "SubscriptionId"))
-            .Returns(profile.SubscriptionId);
-        var metadata = new CommandMetadata("Test", "Test-Command", [], typeof(TestProcessor).FullName!,
-            typeof(TestProcessor).Assembly.GetName().Name!, typeof(TestProcessor),
-            new Dictionary<string, ParameterMetadata>
-            {
-                ["Name"] = Meta("Name", "Name", typeof(string)),
-                ["SubscriptionId"] = Meta("SubscriptionId", "SubscriptionId", typeof(string)),
-            },
-            new Dictionary<string, string>(),
-            new Dictionary<string, ParameterSetMetadata>
-            {
-                ["ByName"] = new("ByName", Parameters: new Dictionary<string, ParameterReference>
-                {
-                    ["Name"] = new("Name", IsRequired: true),
-                }),
-            });
-        var processor = new TestProcessor();
-
-        new ArgumentParsingService(new PSArgumentParsingProvider(), profileService.Object)
-            .BindArgumentsToProcessor(processor, new Dictionary<string, object> { ["Name"] = "example" },
-                metadata, profile);
-
-        Assert.Equal("example", processor.Name);
-        Assert.Equal(profile.SubscriptionId, processor.SubscriptionId);
-    }
 
     [Fact]
     public void ParseArguments_TranslatesKeyToProcessorPropertyName()
@@ -135,14 +101,5 @@ public class PSArgumentParsingProviderTests
 
         var value = Assert.IsType<List<object>>(result["Items"].Item2);
         Assert.Same(item, Assert.Single(value));
-    }
-
-    private sealed class TestProcessor : IProcessor
-    {
-        public string Name { get; set; } = string.Empty;
-        public string SubscriptionId { get; set; } = string.Empty;
-
-        public Task ProcessAsync() => Task.CompletedTask;
-        public IProcessor Init(ProcessorContext context) => this;
     }
 }

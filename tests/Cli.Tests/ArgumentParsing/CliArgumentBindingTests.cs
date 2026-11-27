@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -10,7 +12,7 @@ using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Runtime;
 using Moq;
-using static Cli.Tests.DeploymentProcessorTestKit;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests.ArgumentParsing;
 
@@ -33,7 +35,7 @@ public class CliArgumentBindingTests
             .GetCommandMetadata(command, ClientType.CLI);
         var (pipeline, output, sent) = Fake(_ => Status(System.Net.HttpStatusCode.OK,
             """{"name":"azuredeploy","status":"Succeeded","properties":{"provisioningState":"Succeeded","changes":[]}}"""));
-        var processor = Configure(metadata.GetInstance(), pipeline, output, _ => { });
+        var processor = CreateProcessor(metadata.GetInstance(), pipeline, output);
         var args = new List<string>
         {
             $"--{scopeFlag}", scopeValue, "--template-uri", "https://example.com/templates/azuredeploy.json"
@@ -109,7 +111,7 @@ public class CliArgumentBindingTests
         var metadata = index.GetCommandMetadata(command, ClientType.CLI);
         var (pipeline, output, sent) = Fake(_ => Status(System.Net.HttpStatusCode.NotFound,
             """{"message":"No HTTP resource was found that matches the request URI."}"""));
-        var processor = Configure(metadata.GetInstance(), pipeline, output, _ => { });
+        var processor = CreateProcessor(metadata.GetInstance(), pipeline, output);
         var args = explicitSubscription
             ? Arguments("--subscription-id", SubscriptionId)
             : new Dictionary<string, object>();
@@ -277,6 +279,36 @@ public class CliArgumentBindingTests
 
         Assert.Contains("Invalid parameter set", error.Message);
         Assert.False(error.HasMissingRequiredParameters);
+    }
+
+    private const string SubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
+
+    private sealed record Sent(HttpMethod Method, string Uri, string? Body);
+
+    private static HttpResponseMessage Status(HttpStatusCode code, string body) =>
+        new(code) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+
+    private static (FakeHttpPipeline Pipeline, FakeOutputHandler Output, List<Sent> Sent) Fake(Func<HttpRequestMessage, HttpResponseMessage> responder)
+    {
+        var sent = new List<Sent>();
+        var pipeline = new FakeHttpPipeline((request, _) =>
+        {
+            sent.Add(new Sent(request.Method, request.RequestUri!.AbsoluteUri, request.Content?.ReadAsStringAsync().Result));
+            return responder(request);
+        });
+        return (pipeline, new FakeOutputHandler(), sent);
+    }
+
+    private static IProcessor CreateProcessor(IProcessor processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
+    {
+        var profile = new Profile { TenantId = "test-tenant", SubscriptionId = SubscriptionId };
+        processor.Init(new ProcessorContext(
+            pipeline,
+            new FakeEventPublisher(),
+            new FakeAuthHandler(profile),
+            output,
+            Profile: profile));
+        return processor;
     }
 
     private static ArgumentParsingService CreateBinder()
