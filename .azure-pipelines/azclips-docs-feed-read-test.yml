@@ -32,7 +32,19 @@ jobs:
       }
       try {
         $identity = Invoke-WebRequest -Uri 'https://api.github.com/user' -Headers $headers -SkipHttpErrorCheck
-        if ($identity.StatusCode -ne 200) { throw "GitHub authentication failed: HTTP $($identity.StatusCode)." }
+        if ($identity.StatusCode -ne 200) {
+          $reason = 'unclassified'
+          $content = [string]$identity.Content
+          if ($content -match 'rate limit') { $reason = 'rate limit' }
+          elseif ($content -match 'bad credentials') { $reason = 'bad credentials' }
+          elseif ($content -match 'resource not accessible') { $reason = 'resource not accessible' }
+          elseif ($content -match 'SAML|single sign.on|SSO') { $reason = 'SSO authorization' }
+          elseif ($content -match 'IP allow list|IP address|IP restriction') { $reason = 'IP restriction' }
+          $anonymous = Invoke-WebRequest -Uri 'https://api.github.com' -Headers @{ 'User-Agent' = 'azclips-docs-pat-test' } -SkipHttpErrorCheck
+          Write-Host "GitHub auth response: HTTP $($identity.StatusCode), reason=$reason, GitHub-request-id-present=$([bool]$identity.Headers['X-GitHub-Request-Id']), rate-limit-remaining=$($identity.Headers['X-RateLimit-Remaining'] -join ',')."
+          Write-Host "Anonymous GitHub API response: HTTP $($anonymous.StatusCode)."
+          throw "GitHub authentication failed: HTTP $($identity.StatusCode)."
+        }
         Write-Host "Authenticated GitHub account: $(($identity.Content | ConvertFrom-Json).login)."
         $failures = 0
         foreach ($repo in @('MicrosoftDocs/azure-docs-cli', 'MicrosoftDocs/azure-docs-powershell')) {
