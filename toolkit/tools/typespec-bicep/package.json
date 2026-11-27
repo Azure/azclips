@@ -10,7 +10,9 @@
     "repro:generic-scope": "node --test test/generic-resource-scope.test.mjs",
     "compiler:setup": "node compiler.mjs --install",
     "compiler:verify": "node compiler.mjs --verify",
-    "test:compiler": "node --test test/compiler.test.mjs"
+    "test:compiler": "node --test test/compiler.test.mjs",
+    "template:generate": "node generate-template.mjs",
+    "test:template": "node --test test/template.test.mjs"
   },
   "dependencies": {
     "@azure/bicep-types": "0.6.129",

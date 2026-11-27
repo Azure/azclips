@@ -253,10 +253,11 @@ export function createAuditContract(input, provenance) {
 }
 
 export function classifyPublicIpEligibility(bridge) {
-  const allowed = new Set([
-    ["location"], ["tags"], ["sku", "name"], ["sku", "tier"], ["properties", "publicIPAllocationMethod"],
-    ["properties", "publicIPAddressVersion"], ["properties", "idleTimeoutInMinutes"],
-  ].map((path) => JSON.stringify(path)));
+  const allowed = new Map([
+    [["location"], true], [["tags"], false], [["sku", "name"], true], [["sku", "tier"], false],
+    [["properties", "publicIPAllocationMethod"], true], [["properties", "publicIPAddressVersion"], true],
+    [["properties", "idleTimeoutInMinutes"], true],
+  ].map(([path, required]) => [JSON.stringify(path), required]));
   return {
     ...bridge,
     bindings: bridge.bindings.map((binding) => ({
@@ -264,6 +265,8 @@ export function classifyPublicIpEligibility(bridge) {
       eligibility: binding.role === "field"
         ? (allowed.has(JSON.stringify(binding.wirePath)) ? "eligible" : "excluded")
         : binding.role === "computedIdentity" || binding.role === "readOnly" ? "reject" : "structural",
+      ...(binding.role === "field" && allowed.has(JSON.stringify(binding.wirePath))
+        ? { normalizedRequired: allowed.get(JSON.stringify(binding.wirePath)) } : {}),
     })),
   };
 }

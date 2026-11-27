@@ -504,6 +504,35 @@ Prior raw audits and their `compilerAssociation: "unverified"` fields are preser
 
 The Windows x64 compiler tests/setup are opt-in; the normal supported upstream suite does not acquire a CLI. **Task 2.2 remains next**: generate the actual command-specific resource/parameter assignments from the existing bridge. Packaging/omission/default proof, product adapter/transport, both-surface playback and authorized live gates are still pending.
 
+### Bridge-derived templates and approved root-omission variants
+
+Task 2.2 is complete. The actual pinned compiler exposed a resource-root restriction, not a missing source association: conditional root spreads fail with **BCP401**, while nested conditional spreads are supported. Nullable resource-derived parameters require the `?` type modifier; `| null` produced BCP293, and explicitly assigning their implicit null default produced BCP326. None of these diagnostics was waived.
+
+The user explicitly approved **two generated immutable variants**, tags absent/present, in place of the original one-template design. Each variant still declares exactly one selected Public IP. This does not authorize substituting null or `{}` for absent tags, mutating compiled assets at runtime, creating a second resource, or changing the official compiler pin.
+
+The [generator](../../../toolkit/tools/typespec-bicep/generate-template.mjs) consumes the same [generated bridge](../../../tests/Cli.Tests/Fixtures/PublicIpBicepBindings.json) used by the offline binder. Existing field eligibility now also records normalized requiredness in that one policy table: location, SKU name, allocation, IP version and timeout are required after customization; tags and SKU tier are optional. This is pilot normalization policy, not a change to canonical source requiredness.
+
+The real exact-March source producer regenerated all 43 bindings. Compared with the previous persisted fixture, only seven `normalizedRequired` hints and the bridge digest changed. Schema/source/version/toolchain identities, source paths, parameter names, exclusion policy and values are unchanged. The new binding SHA-256 is `cf9bc5224840fd6c1104fc93286426abe2ea8a7b0358fcdf8a2eda2757448c4a`; the schema SHA remains `fbc5b3487025d1852c09f044e6e7310ae21ed12b77cd8e07377fa4da07a00227` (556 types, 532 correspondence records).
+
+- [Tags-absent template](../../../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.TagsAbsent.bicep): no tags parameter and no root tags assignment.
+- [Tags-present template](../../../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.TagsPresent.bicep): required resource-derived tags parameter forwarded unchanged, including an explicitly empty object.
+- Both templates require the existing normalized ordinary values without template defaults, derive every field/type/identifier from bridge paths, and preserve source Int32 timeout bounds.
+- SKU tier is nullable only as an omission sentinel for a non-nullable source input. The compiled SKU expression uses `shallowMerge` with a conditional empty object when tier is absent, rather than supplying null or Regional.
+- Missing normalization policy, ambiguous identifiers/paths, source-nullable or read-only inputs, unaccounted roles and additional unsupported source constraints fail explicitly. No `any`/untyped body bypass or separate structural mapping is added.
+
+Both real generated templates compile with **exit 0 and zero diagnostics**. The [four focused template tests](../../../toolkit/tools/typespec-bicep/test/template.test.mjs) assert exact compiled resource/parameter shapes, true tags omission, no resource defaults, Int32 bounds and consumed renamed identifiers. Wrong ordinary timeout and wrong conditional nested tier assignments still trigger BCP036 and fail qualification; dynamic nested assignment does not suppress schema type checking.
+
+| Command / check | Result |
+| --- | --- |
+| `node toolkit\tools\typespec-bicep\project-public-ip.mjs toolkit\tools\typespec-bicep\dist\newer-network-probe toolkit\tools\typespec-bicep\dist\newer-network-probe\source tests\Cli.Tests\Fixtures\PublicIpBicepBindings.json` | Passed; real exact-version source projection, unchanged schema and 43 accounted inputs |
+| `node toolkit\tools\typespec-bicep\generate-template.mjs tests\Cli.Tests\Fixtures\PublicIpBicepBindings.json tests\Cli.Tests\Fixtures` | Generated both variants from the same bridge |
+| `npm --prefix toolkit\tools\typespec-bicep run test:template` | 4 passed; pinned compiler, exact compiled shape/omission, renamed bindings and schema rejection |
+| `node --test toolkit\tools\typespec-bicep\test\projected-create.test.mjs` | 11 passed; source correspondence, policy, ordinary IR and audit safeguards |
+| `dotnet test tests\Cli.Tests\Cli.Tests.csproj --no-restore --filter FullyQualifiedName~PublicIpAddressParameterTests --verbosity quiet` | 71 passed on SDK 10.0.404; existing normalization/direct-ID/Int32/omission behavior retained; unrelated existing CS8602/CA1416 warnings |
+| `node --check` for `generate-template.mjs` / `create-bindings.mjs`, `git diff --check`, unchanged normal pins/raw audits/association report | Passed |
+
+There are **86 distinct targeted tests**. Task 2.3 remains next: package both immutable ARM assets with provenance and explicit asset/variant validation. The future adapter must select by normalized tags **presence**, not tag count. Full canonical-body versus evaluated-declaration proof, runtime selection/transport, newly generated March C# execution, both-surface playback and authorized live gates are not claimed here.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -548,9 +577,9 @@ The first fixture compares minimal/default and tags/explicit-timeout bodies. Adv
 
 The fixture establishes the reviewed policy boundary for root ID and integer differences. Replace its structural mapping with the generated bridge before the eventual adapter consumes it, and enforce eligibility before preflight or deployment HTTP. Keep the whole raw schema audit; require proof for each bridged/excluded difference instead of changing its result or pruning canonical models. No root `id` parameter is emitted, supplied non-null root IDs are rejected, and only exact normalized Int32 timeout values enter deployment parameters.
 
-### 3. Build-compile and package one version-fixed template
+### 3. Build-compile and package two single-resource version-fixed variants
 
-Generate one resource-group-scoped experimental Bicep resource at `2026-03-01` with parameter/field assignments derived from the verified bridge, not a second handwritten structural mapping. Compose only the necessary command/pilot policy around it. Compile with a pinned official CLI during build, record executable/version/template provenance and verify the compiler's resource type association separately from upstream generation and the catalogue-only audit. Package the compiled ARM JSON as an immutable pilot asset; do not install or invoke Bicep at command runtime.
+Generate tags-absent/present resource-group-scoped experimental Bicep variants at `2026-03-01`, each with one resource and parameter/field assignments derived from the same verified bridge, not a second handwritten structural mapping. This user-approved split preserves root-field omission without prohibited resource-root spreads or a null-tags substitute. Compose only the necessary command/pilot policy around it. Compile with a pinned official CLI during build, record executable/version/template provenance and verify the compiler's resource type association separately from upstream generation and the catalogue-only audit. Package both compiled ARM JSON variants as immutable pilot assets; select by normalized root-tags presence (including `{}`), and do not install or invoke Bicep or modify compiled assets at command runtime.
 
 Parameterization must preserve missing versus explicit values. The compiled declaration must contain exactly the selected Public IP, no resource-group or dependency creation, and no additional resource API version. Dynamic object assignment is not permission to bypass typed compiler checks or the contract gate.
 

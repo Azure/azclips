@@ -109,6 +109,14 @@ The pilot SHALL reuse pinned upstream `@azure-tools/typespec-bicep` code to inte
 - **AND** existing customization, root-ID rejection, Int32 preservation, optional omission and unsupported-input checks SHALL remain effective
 - **AND** the eventual adapter/template SHALL consume the generated correspondence rather than a second manually maintained mapping table
 
+#### Scenario: Root-field omission requires template variants
+- **WHEN** the official compiler cannot conditionally spread properties at the resource root
+- **THEN** the build SHALL generate tags-absent and tags-present variants from the same source-aware bridge, each declaring exactly one Public IP
+- **AND** the absent variant SHALL contain no root tags assignment or tags parameter, while the present variant SHALL require the normalized tags value, including an explicitly empty object
+- **AND** variant selection SHALL depend on normalized tags presence, not emptiness, without substituting null or empty tags for an absent input
+- **AND** optional nested SKU tier SHALL remain conditionally omitted; existing customization SHALL remain the only source of defaults
+- **AND** resource-derived parameter types and actual nested assignments SHALL retain compiler schema checking
+
 #### Scenario: Upstream output differs from API IR or compiler catalogue
 - **WHEN** an upstream-generated type differs from canonical API IR or the independently pinned Bicep compiler catalogue
 - **THEN** evidence SHALL distinguish source/version selection, intentional API/Bicep normalization, local integration errors and upstream limitations or defects

@@ -285,6 +285,38 @@ Historical raw audits remain unsupported and retain their original
 `compilerAssociation: "unverified"` field; this separate selected-resource
 evidence does not relabel those reports or qualify runtime/live behavior.
 
+## Bridge-derived Public IP templates
+
+The [generator](tools/typespec-bicep/generate-template.mjs) consumes the
+generated [bridge fixture](../tests/Cli.Tests/Fixtures/PublicIpBicepBindings.json),
+including its separate pilot eligibility/normalized-requiredness metadata.
+It does not infer assignments from command names or apply customization defaults.
+
+From the repository root:
+
+```powershell
+node toolkit\tools\typespec-bicep\generate-template.mjs tests\Cli.Tests\Fixtures\PublicIpBicepBindings.json tests\Cli.Tests\Fixtures
+npm --prefix toolkit\tools\typespec-bicep run test:template
+```
+
+The pinned compiler forbids resource-root spread (`BCP401`). The approved
+design therefore generates two variants, each declaring exactly one March
+Public IP: [tags absent](../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.TagsAbsent.bicep)
+and [tags present](../tests/Cli.Tests/Fixtures/PublicIpBicepCreate.TagsPresent.bicep).
+The absent variant has neither a tags parameter nor a tags assignment; the
+present variant requires the unchanged normalized tags object, including `{}`.
+The future adapter must select by **presence**, not tag count.
+
+An omitted nested SKU tier uses a nullable resource-derived parameter and
+conditional object assignment. Other fields remain required by the existing
+normalized-input policy. Source Int32 bounds are emitted for the timeout;
+all field types come from the exact resource-derived compiler schema.
+Unknown policy, ambiguous paths, nullable source inputs and additional
+unsupported constraints fail explicitly. No `any` or untyped body bypass is used.
+Tests verify regeneration, exact compiled assignments and both direct/nested
+wrong-type compiler rejection. This is build-only template evidence, not
+immutable ARM packaging, runtime variant selection or live deployment proof.
+
 ## Orchestration
 
 The **compiler owns the workflow**. `STAGE_CATALOG` in

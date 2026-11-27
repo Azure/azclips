@@ -220,6 +220,8 @@ test("pilot field eligibility keeps exact path segments and explicit identity re
   assert.deepEqual(bridge.bindings.map(({ eligibility }) => eligibility), [
     "eligible", "excluded", "excluded", "reject", "reject", "structural",
   ]);
+  assert.equal(bridge.bindings[0].normalizedRequired, true);
+  assert.ok(!Object.hasOwn(bridge.bindings[1], "normalizedRequired"));
 });
 
 test("offline fixture preserves source bindings and generates only permitted deployment parameter names", () => {
