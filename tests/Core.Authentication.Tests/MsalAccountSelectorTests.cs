@@ -7,7 +7,7 @@ using Microsoft.Identity.Client;
 using Moq;
 using Xunit;
 
-namespace Cli.Tests;
+namespace Core.Authentication.Tests;
 
 // Guards the reported bug where a stale personal account from the shared MSAL cache was used for
 // a work profile, causing 403 AuthorizationFailed on ARM. Selection mirrors Azure PowerShell:

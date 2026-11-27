@@ -5,7 +5,7 @@ using Core.Abstractions;
 using Core.Authentication;
 using Moq;
 
-namespace Cli.Tests;
+namespace Core.Authentication.Tests;
 
 public class ServicePrincipalSecretAuthenticatorTests
 {

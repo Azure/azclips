@@ -9,7 +9,7 @@ using Microsoft.Identity.Client;
 using Tests.Common.Stubs;
 using Xunit;
 
-namespace Cli.Tests;
+namespace Core.Authentication.Tests;
 
 // Guards the benchmark seam: MsalAuthService must honour the injected cache directory and
 // MSAL HTTP factory, while production caches live alongside profiles in the Azclips home.

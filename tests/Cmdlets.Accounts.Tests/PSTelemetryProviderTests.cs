@@ -10,7 +10,7 @@ using OpenTelemetry;
 using OpenTelemetry.Trace;
 using System.Management.Automation;
 
-namespace Cmdlets.Tests;
+namespace Cmdlets.Accounts.Tests;
 
 public class PSTelemetryProviderTests
 {

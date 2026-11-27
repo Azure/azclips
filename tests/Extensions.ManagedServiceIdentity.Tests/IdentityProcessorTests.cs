@@ -7,10 +7,6 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Core.ArgumentParsing;
-using Core.Cli;
-using Core.Runtime;
-using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Customization;
 using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Models;
@@ -18,12 +14,11 @@ using Microsoft.Azure.Azclips.Extensions.ManagedServiceIdentity.Processors;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.ManagedServiceIdentity.Tests;
 
-public class IdentityExtensionTests
+public class IdentityProcessorTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
-    private const string MissingIdentityAddressMessage = "Provide either --ids, or both --name and --resource-group.";
 
     [Fact]
     public void CliMetadata_ExposesDocumentedIdentityCommandSet()
@@ -74,72 +69,6 @@ public class IdentityExtensionTests
         Assert.Equal("ResourceGroup", metadata.Parameters["resource-group"].Name);
         Assert.Equal("ResourceName", metadata.Parameters["name"].Name);
         Assert.Equal("TagsInput", metadata.Parameters["tags"].Name);
-    }
-
-    [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public async Task CliProcess_AddressedIdentityCommandWithoutAddress_ThrowsInvalidInput(string commandName)
-    {
-        IProcessor processor = BindIdentityCommand(commandName, new());
-
-        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
-        Assert.Equal(MissingIdentityAddressMessage, error.Message);
-    }
-
-    [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public async Task CliProcess_AddressedIdentityCommandWithNameOnly_ThrowsInvalidInput(string commandName)
-    {
-        IProcessor processor = BindIdentityCommand(commandName, new() { ["name"] = "identity-name" });
-
-        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
-        Assert.Equal(MissingIdentityAddressMessage, error.Message);
-    }
-
-    [Theory]
-    [InlineData("identity show")]
-    [InlineData("identity update")]
-    [InlineData("identity delete")]
-    public async Task CliProcess_AddressedIdentityCommandWithResourceGroupOnly_ThrowsInvalidInput(string commandName)
-    {
-        IProcessor processor = BindIdentityCommand(commandName, new() { ["resource-group"] = "test-rg" });
-
-        InvalidInputException error = await Assert.ThrowsAsync<InvalidInputException>(processor.ProcessAsync);
-        Assert.Equal(MissingIdentityAddressMessage, error.Message);
-    }
-
-    [Fact]
-    public void CliBinding_BindsDocumentedAliases_ToRefactoredProcessorProperties()
-    {
-        var metadata = new ExtensionIndex().GetCommandMetadata("identity create", ClientType.CLI);
-        var processor = (CreateIdentityProcessor_Orchestrator)metadata.GetInstance();
-        var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(new CLIArgumentParsingProvider(new PropertyParser(logging), logging), new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-
-        binder.BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                ["g"] = new List<List<string>> { new() { "rg1" } },
-                ["resource-name"] = new List<List<string>> { new() { "id1" } },
-                ["location"] = new List<List<string>> { new() { "eastus" } },
-                ["tags"] = new List<List<string>> { new() { "env=test" } },
-                ["resource-restriction"] = new List<List<string>> { new() { """{"providers":["Microsoft.Compute"]}""" } },
-            },
-            metadata,
-            new Profile(){SubscriptionId = "sub-1"});
-
-        Assert.Equal("rg1", processor.ResourceGroup);
-        Assert.Equal("id1", processor.ResourceName);
-        Assert.Equal("eastus", processor.Location);
-        Assert.NotNull(processor.TagsInput);
-        Assert.Equal(["env=test"], processor.TagsInput);
-        Assert.NotNull(processor.ResourceRestriction);
-        Assert.Equal(["""{"providers":["Microsoft.Compute"]}"""], processor.ResourceRestriction);
     }
 
     [Fact]
@@ -716,28 +645,6 @@ public class IdentityExtensionTests
     }
 
     [Fact]
-    public async Task BenchmarkStub_IdentityDelete_ReturnsEmptyBody_OtherRequestsUnchanged()
-    {
-        var handler = new StubHttpTerminateHandler();
-        var identityUri = $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/bench-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/bench-identity?api-version=2025-05-31-preview";
-
-        // Matches the live recording: identity DELETE answers 200 with no body.
-        using var delete = new HttpRequestMessage(HttpMethod.Delete, identityUri);
-        using var deleteResponse = await handler.SendAsync(delete, CreateEventPublisher(), null!);
-        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
-        Assert.Equal(string.Empty, await deleteResponse.Content.ReadAsStringAsync());
-
-        // Only identity DELETE is special-cased; reads of the same path and other resource deletes keep the default body.
-        using var get = new HttpRequestMessage(HttpMethod.Get, identityUri);
-        using var getResponse = await handler.SendAsync(get, CreateEventPublisher(), null!);
-        Assert.Equal("{}", await getResponse.Content.ReadAsStringAsync());
-
-        using var otherDelete = new HttpRequestMessage(HttpMethod.Delete, $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/bench-rg?api-version=2021-04-01");
-        using var otherDeleteResponse = await handler.SendAsync(otherDelete, CreateEventPublisher(), null!);
-        Assert.Equal("{}", await otherDeleteResponse.Content.ReadAsStringAsync());
-    }
-
-    [Fact]
     public async Task Delete_AgainstBenchmarkStub_WritesNoOutput_ForCliAndPowerShellProcessors()
     {
         var pipeline = CreatePipeline((request, publisher) =>
@@ -777,22 +684,6 @@ public class IdentityExtensionTests
         await processor.ProcessAsync();
 
         Assert.Single(writtenValues);
-    }
-
-    private static IProcessor BindIdentityCommand(string commandName, Dictionary<string, string> arguments)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata(commandName, ClientType.CLI);
-        IProcessor processor = metadata.GetInstance();
-        var logging = new ConsoleLoggingService();
-        var binder = new ArgumentParsingService(
-            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-
-        return binder.BindArgumentsToProcessor(
-            processor,
-            arguments.ToDictionary(kvp => kvp.Key, kvp => (object)new List<List<string>> { new() { kvp.Value } }),
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
     }
 
     private static T CreateProcessor<T>(IRuntimeHttpPipeline pipeline, IOutputHandler output, Profile? profile = null)

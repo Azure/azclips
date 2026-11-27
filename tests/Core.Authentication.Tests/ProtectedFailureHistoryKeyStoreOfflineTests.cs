@@ -5,14 +5,14 @@ using System.Security.Cryptography;
 using Core.Abstractions.Recovery;
 using Core.Authentication.Recovery;
 
-namespace Cli.Tests.Recovery;
+namespace Core.Authentication.Tests;
 
 public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
 {
     [Fact]
     public async Task FakeProtectedBackend_RoundTripsOwnedCopies()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var storage = new FakeStorage();
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => storage);
         var first = await store.GetKeyAsync(true);
@@ -36,7 +36,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task MissingKey_IsReportedForReadsAndCreatedForWrites()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage();
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         Assert.Equal("failure_history_key_missing",
@@ -50,7 +50,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task SwallowedPersistenceFailure_IsDetectedByReadBack()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage { DropWrites = true };
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         Assert.Equal("failure_history_key_unavailable",
@@ -61,7 +61,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task ConfirmedKeyLoss_CreatesANewKey()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage();
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         var first = await store.GetKeyAsync(true);
@@ -83,7 +83,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task UnavailableStorage_NeverCreatesAKey()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage { Unavailable = true };
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         Assert.Equal("failure_history_key_unavailable",
@@ -103,7 +103,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task PreCancelledRequest_NeverConstructsAProtectedBackend()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var called = false;
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () =>
         {
@@ -123,7 +123,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [InlineData(33)]
     public async Task InvalidKey_IsReplacedOnlyWhenCreating(int length)
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage(Enumerable.Repeat((byte)0x55, length).ToArray());
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
 
@@ -151,7 +151,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task InvalidKeyReportedByTheBackend_IsReplaced()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage { ReportInvalid = true };
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
 
@@ -165,7 +165,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task ValidOrMissingKey_IsNeverDeletedAndNeverReportsAReplacement()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage();
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         var replaced = 0;
@@ -180,7 +180,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task InvalidKeyThatCannotBeDeleted_StaysInvalidAndIsNotRecreated()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage([1, 2, 3]) { DeleteFails = true };
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         var replaced = 0;
@@ -196,7 +196,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task ReplacementThatFailsAfterTheDelete_IsStillReported()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage([1, 2, 3]) { DropWrites = true };
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
         var replaced = 0;
@@ -213,7 +213,7 @@ public sealed class ProtectedFailureHistoryKeyStoreOfflineTests
     [Fact]
     public async Task UnavailableStorage_IsNeverDeleted()
     {
-        using var scope = new FailureHistoryTestScope();
+        using var scope = new KeyStoreTestDirectory();
         var backend = new FakeStorage { Unavailable = true };
         var store = new ProtectedFailureHistoryKeyStore(scope.DirectoryPath, () => backend);
 

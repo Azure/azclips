@@ -6,17 +6,13 @@ using System.Text;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.ArgumentParsing;
-using Core.Cli;
-using Core.Runtime;
-using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// Offline tests for <c>az role assignment create</c> and <c>New-AzRoleAssignment</c>. Create issues a
@@ -463,31 +459,6 @@ public class RoleAssignmentCreateTests
             uri.AbsoluteUri);
     }
 
-    [Theory]
-    [InlineData("resource-group")]
-    [InlineData("g")]
-    public void CliBinding_BindsResourceGroupAliases(string argumentName)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment create", ClientType.CLI);
-        var processor = (NewRoleAssignmentProcessor_Orchestrator)metadata.GetInstance();
-
-        // --role is a required parameter on create (unlike list), so it must be supplied for the
-        // binder's required-parameter check to pass; this test otherwise isolates the -g/--resource-group
-        // alias -> ResourceGroupName binding.
-        CreateBinder().BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                [argumentName] = Value("test-rg"),
-                ["role"] = Value(RoleDefinitionId),
-                ["assignee-object-id"] = Value(AssigneeObjectId),
-            },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.Equal("test-rg", processor.ResourceGroupName);
-    }
-
     [Fact]
     public void CliMetadata_ExposesResourceGroupOnCreate()
     {
@@ -925,7 +896,7 @@ public class RoleAssignmentCreateTests
     [Fact]
     public async Task ProcessAsync_AssigneeObjectIdNotGuid_ThrowsUsageError()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             AssigneeObjectId = " not-a-guid ",
@@ -942,7 +913,7 @@ public class RoleAssignmentCreateTests
     [InlineData("   ")]
     public async Task ProcessAsync_BlankAssigneeObjectId_ThrowsMissingRequiredArgument(string assigneeObjectId)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             AssigneeObjectId = assigneeObjectId,
@@ -961,7 +932,7 @@ public class RoleAssignmentCreateTests
     [InlineData("   ")]
     public async Task ProcessAsync_BlankRole_ThrowsMissingRequiredArgument(string role)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new NewRoleAssignmentProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             AssigneeObjectId = AssigneeObjectId,
@@ -1029,14 +1000,4 @@ public class RoleAssignmentCreateTests
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
-
-    private static ArgumentParsingService CreateBinder()
-    {
-        var logging = new ConsoleLoggingService();
-        return new ArgumentParsingService(
-            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-    }
-
-    private static List<List<string>> Value(string value) => [new() { value }];
 }

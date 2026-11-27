@@ -50,6 +50,7 @@
     <Project Path="tests/Common/Tests.Common.csproj" />
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
+    <Project Path="tests/Core.Authentication.Tests/Core.Authentication.Tests.csproj" />
     <Project Path="tests/Core.Engine.Tests/Core.Engine.Tests.csproj" />
     <Project Path="tests/Extensions.MsGraph.Tests/Extensions.MsGraph.Tests.csproj" />
     <Project Path="tests/Extensions.KeyVault.Tests/Extensions.KeyVault.Tests.csproj" />

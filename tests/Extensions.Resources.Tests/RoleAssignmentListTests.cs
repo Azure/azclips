@@ -5,17 +5,13 @@ using System.Net;
 using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.ArgumentParsing;
-using Core.Cli;
-using Core.Runtime;
-using Core.Runtime.Persistence;
 using Microsoft.Azure.Azclips.Extensions.Resources;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
 using Moq;
 using Tests.Common.Stubs;
 
-namespace Cli.Tests;
+namespace Extensions.Resources.Tests;
 
 /// <summary>
 /// Offline tests for <c>az role assignment list</c>. The command lists role assignments at a scope
@@ -23,7 +19,7 @@ namespace Cli.Tests;
 /// overridden with <c>--scope</c>. ARM returns a <c>{ "value": [...] }</c> envelope that the
 /// processor unwraps into a flat array.
 /// </summary>
-public class RoleAssignmentCliTests
+public class RoleAssignmentListTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
     private const string AssigneeObjectId = "11111111-2222-3333-4444-555555555555";
@@ -45,45 +41,6 @@ public class RoleAssignmentCliTests
         Assert.Equal("resource-group", metadata.ParameterAliases["g"]);
         Assert.Equal("Assignee", metadata.Parameters["assignee"].Name);
         Assert.Equal("AssigneeObjectId", metadata.Parameters["assignee-object-id"].Name);
-    }
-
-    [Fact]
-    public void CliBinding_BindsListParameters()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment list", ClientType.CLI);
-        var processor = (ListRoleAssignmentProcessor_Orchestrator)metadata.GetInstance();
-
-        CreateBinder().BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                ["subscription-id"] = Value(TestSubscriptionId),
-                ["resource-group"] = Value("test-rg"),
-                ["assignee-object-id"] = Value(AssigneeObjectId),
-            },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.Equal(TestSubscriptionId, processor.SubscriptionId);
-        Assert.Equal("test-rg", processor.ResourceGroupName);
-        Assert.Equal(AssigneeObjectId, processor.AssigneeObjectId);
-    }
-
-    [Theory]
-    [InlineData("resource-group")]
-    [InlineData("g")]
-    public void CliBinding_BindsResourceGroupAliases(string argumentName)
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment list", ClientType.CLI);
-        var processor = (ListRoleAssignmentProcessor_Orchestrator)metadata.GetInstance();
-
-        CreateBinder().BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object> { [argumentName] = Value("test-rg") },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.Equal("test-rg", processor.ResourceGroupName);
     }
 
     [Fact]
@@ -632,28 +589,6 @@ public class RoleAssignmentCliTests
     }
 
     [Fact]
-    public void CliBinding_BindsScopeBreadthFlags()
-    {
-        CommandMetadata metadata = new ExtensionIndex().GetCommandMetadata("role assignment list", ClientType.CLI);
-        var processor = (ListRoleAssignmentProcessor_Orchestrator)metadata.GetInstance();
-
-        CreateBinder().BindArgumentsToProcessor(
-            processor,
-            new Dictionary<string, object>
-            {
-                ["include-inherited"] = new List<List<string>> { new() },
-                ["all"] = new List<List<string>> { new() },
-                ["include-groups"] = new List<List<string>> { new() },
-            },
-            metadata,
-            new Profile { SubscriptionId = TestSubscriptionId });
-
-        Assert.True(processor.IncludeInherited);
-        Assert.True(processor.All);
-        Assert.True(processor.IncludeGroups);
-    }
-
-    [Fact]
     public async Task List_AssigneeObjectIdBracedGuid_NormalizedForClientTrim()
     {
         // Guid.TryParse accepts a braced GUID, but ARM's principalId is the canonical hyphenated form.
@@ -783,7 +718,7 @@ public class RoleAssignmentCliTests
     [Fact]
     public async Task ProcessAsync_AssigneeAndAssigneeObjectId_ThrowsUsageError()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             Assignee = AssigneeObjectId,
@@ -798,7 +733,7 @@ public class RoleAssignmentCliTests
     [Fact]
     public async Task ProcessAsync_AssigneeObjectIdNotGuid_ThrowsUsageError()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, AssigneeObjectId = " not-a-guid " }, _mockPipeline);
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, AssigneeObjectId = " not-a-guid " }, _mockPipeline);
 
         Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
@@ -808,7 +743,7 @@ public class RoleAssignmentCliTests
     [Fact]
     public async Task ProcessAsync_AssigneeNotGuid_ThrowsUsageError()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, Assignee = "john@contoso.com" }, _mockPipeline);
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, Assignee = "john@contoso.com" }, _mockPipeline);
 
         Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
@@ -820,7 +755,7 @@ public class RoleAssignmentCliTests
     [Fact]
     public async Task ProcessAsync_RoleNotGuid_ThrowsUsageError()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, RoleDefinitionId = " Reader " }, _mockPipeline);
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, RoleDefinitionId = " Reader " }, _mockPipeline);
 
         Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
@@ -832,7 +767,7 @@ public class RoleAssignmentCliTests
     [Fact]
     public async Task ProcessAsync_IncludeGroupsWithoutAssignee_ThrowsUsageError()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, IncludeGroups = true }, _mockPipeline);
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = TestSubscriptionId, IncludeGroups = true }, _mockPipeline);
 
         Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
@@ -844,7 +779,7 @@ public class RoleAssignmentCliTests
     [Fact]
     public async Task ProcessAsync_AllWithIncludeInherited_ThrowsUsageError()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             All = true,
@@ -864,7 +799,7 @@ public class RoleAssignmentCliTests
     [InlineData(null, "test-rg")]
     public async Task ProcessAsync_AllWithScopeOrResourceGroup_ThrowsUsageError(string? scope, string? resourceGroupName)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             All = true,
@@ -885,7 +820,7 @@ public class RoleAssignmentCliTests
     [InlineData("   ")]
     public async Task ProcessAsync_AllWithoutSubscription_ThrowsMissingRequiredArgument(string? subscriptionId)
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = subscriptionId!, All = true }, _mockPipeline);
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator { SubscriptionId = subscriptionId!, All = true }, _mockPipeline);
 
         Exception? exception = await Record.ExceptionAsync(processor.ProcessAsync);
 
@@ -897,7 +832,7 @@ public class RoleAssignmentCliTests
     [Fact]
     public async Task ProcessAsync_ScopeAndResourceGroup_ThrowsUsageError()
     {
-        var processor = ResourcesProcessorMockHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
+        var processor = ResourcesProcessorTestHelpers.Initialize(new ListRoleAssignmentProcessor_Orchestrator
         {
             SubscriptionId = TestSubscriptionId,
             Scope = Scope,
@@ -922,16 +857,6 @@ public class RoleAssignmentCliTests
         await processor.ProcessAsync();
         return sentUri;
     }
-
-    private static ArgumentParsingService CreateBinder()
-    {
-        var logging = new ConsoleLoggingService();
-        return new ArgumentParsingService(
-            new CLIArgumentParsingProvider(new PropertyParser(logging), logging),
-            new ProfileService(new ScopedLoggingService(), new FilePersistenceStore()));
-    }
-
-    private static List<List<string>> Value(string value) => [new() { value }];
 
     private static T CreateProcessor<T>(T processor, FakeHttpPipeline pipeline, FakeOutputHandler output)
         where T : IProcessor

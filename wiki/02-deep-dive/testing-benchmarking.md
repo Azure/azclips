@@ -28,6 +28,7 @@ All test projects are members of the solution `azclips.slnx` and split across th
 | `Cmdlets.Accounts.Tests`, `Cmdlets.Compute.Tests`, `Cmdlets.Config.Tests`, `Cmdlets.ManagedServiceIdentity.Tests`, `Cmdlets.Resources.Tests` | `azclips.slnx:37` | Module-specific cmdlet unit tests |
 | `Core.Extensions.Tests`      | `azclips.slnx:39`    | Extension resolution / compatibility guard / leaf index                                                                                              |
 | `Core.Telemetry.Tests`       | `azclips.slnx:40`    | Telemetry senders, filters, activity naming                                                                                                          |
+| `Core.Authentication.Tests` | `tests/Core.Authentication.Tests/Core.Authentication.Tests.csproj:1` | MSAL options and account selection, managed identity, service principal secrets, failure-history key storage |
 | `Tests.Common`               | `azclips.slnx:38`    | Shared stubs & utilities (not a test project — `IsPackable=false`, referenced by others)                                                             |
 | `SharedAlpha` / `SharedBeta` | `azclips.slnx:44-45` | Fixture extension assemblies for assembly-loading / multi-version tests                                                                              |
 | `Core.Agent.Tests`           | `azclips.slnx:31`    | Agent tools, approval prompt, plan validation, snapshot rendering                                                                                    |
