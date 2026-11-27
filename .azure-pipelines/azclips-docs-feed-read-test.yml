@@ -43,11 +43,35 @@ jobs:
           $anonymous = Invoke-WebRequest -Uri 'https://api.github.com' -Headers @{ 'User-Agent' = 'azclips-docs-pat-test' } -SkipHttpErrorCheck
           Write-Host "GitHub auth response: HTTP $($identity.StatusCode), reason=$reason, GitHub-request-id-present=$([bool]$identity.Headers['X-GitHub-Request-Id']), rate-limit-remaining=$($identity.Headers['X-RateLimit-Remaining'] -join ',')."
           Write-Host "Anonymous GitHub API response: HTTP $($anonymous.StatusCode)."
-          throw "GitHub authentication failed: HTTP $($identity.StatusCode)."
+          if ($identity.StatusCode -ne 403 -or $reason -ne 'resource not accessible') {
+            throw "GitHub authentication failed: HTTP $($identity.StatusCode)."
+          }
+          Write-Host 'The user endpoint is unavailable to this credential; checking installation access instead.'
+        } else {
+          Write-Host "Authenticated GitHub account: $(($identity.Content | ConvertFrom-Json).login)."
         }
-        Write-Host "Authenticated GitHub account: $(($identity.Content | ConvertFrom-Json).login)."
+        $installation = Invoke-WebRequest -Uri 'https://api.github.com/installation/repositories?per_page=100&page=1' -Headers $headers -SkipHttpErrorCheck
+        $installationNames = @()
+        if ($installation.StatusCode -eq 200) {
+          $data = $installation.Content | ConvertFrom-Json
+          $installationNames = @($data.repositories | ForEach-Object full_name)
+          for ($page = 2; $installationNames.Count -lt $data.total_count; $page++) {
+            $next = Invoke-WebRequest -Uri "https://api.github.com/installation/repositories?per_page=100&page=$page" -Headers $headers -SkipHttpErrorCheck
+            if ($next.StatusCode -ne 200) { throw "GitHub installation listing failed on page $page : HTTP $($next.StatusCode)." }
+            $names = @(($next.Content | ConvertFrom-Json).repositories | ForEach-Object full_name)
+            if ($names.Count -eq 0) { throw 'GitHub installation listing ended before the reported total.' }
+            $installationNames += $names
+          }
+          Write-Host 'GitHub installation repository listing succeeded.'
+        } else {
+          Write-Host "GitHub installation repository listing unavailable: HTTP $($installation.StatusCode)."
+          if ($identity.StatusCode -ne 200) { throw 'Unable to verify an authenticated user or installation.' }
+        }
         $failures = 0
         foreach ($repo in @('MicrosoftDocs/azure-docs-cli', 'MicrosoftDocs/azure-docs-powershell')) {
+          if ($installation.StatusCode -eq 200) {
+            Write-Host "$repo listed in installation: $($repo -in $installationNames)."
+          }
           $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$repo" -Headers $headers -SkipHttpErrorCheck
           if ($response.StatusCode -ne 200) {
             Write-Host "$repo metadata request failed: HTTP $($response.StatusCode)."
@@ -66,6 +90,7 @@ jobs:
       } finally {
         $headers = $null
         $identity = $null
+        $installation = $null
         $response = $null
         Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
       }
