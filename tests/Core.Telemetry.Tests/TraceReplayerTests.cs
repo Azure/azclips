@@ -412,6 +412,21 @@ public class TraceReplayerTests
     }
 
     [Fact]
+    public void ReplayEntries_ShouldRestoreStatusDescription_WhenTheEntryHasOne()
+    {
+        using var harness = new ReplayHarness();
+        var entry = MakeEntry(SampleTraceId, "1111111111111111", parentSpanId: null, name: "op");
+        entry.Status = "Error";
+        entry.StatusDescription = "status detail";
+
+        TraceReplayer.ReplayEntries(harness.Source, new[] { entry });
+
+        var activity = Assert.Single(harness.Stopped);
+        Assert.Equal(ActivityStatusCode.Error, activity.Status);
+        Assert.Equal("status detail", activity.StatusDescription);
+    }
+
+    [Fact]
     public void ReplayEntries_ShouldRestoreDurationFromStartAndDurationFields()
     {
         using var harness = new ReplayHarness();

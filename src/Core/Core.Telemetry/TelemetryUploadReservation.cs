@@ -7,10 +7,17 @@ using Core.Abstractions;
 
 namespace Core.Telemetry;
 
-public sealed class TelemetryUploadReservation(IPersistenceStore persistence)
+public sealed class TelemetryUploadReservation
 {
-    private readonly TraceUploadReservationStore _store =
-        new(persistence.GetFilePath(HomePaths.TraceDirectoryName));
+    private readonly TraceUploadReservationStore _store;
+
+    public TelemetryUploadReservation(IPersistenceStore persistence)
+        : this(persistence, TelemetryTargetResolver.BypassesRules)
+    {
+    }
+
+    internal TelemetryUploadReservation(IPersistenceStore persistence, bool bypassRules) =>
+        _store = new(persistence.GetFilePath(TelemetryTargetResolver.TraceDirectoryNameFor(bypassRules)));
 
     public bool Begin(TelemetryInvocationContext context)
     {

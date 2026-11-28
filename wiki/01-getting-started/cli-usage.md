@@ -102,7 +102,7 @@ Commands accept a `--profile` override; `az profile set <name>` changes the acti
 used by subsequent commands. Definitions live in `profiles.json`, with the active name in
 `active-profile`, under the LocalApplicationData `.azclips` root. `AZCLIPS_HOME` overrides
 that root (`src/Core/Core.Abstractions/HomePaths.cs:19`,
-`src/Core/Core.Abstractions/HomePaths.cs:36`). PowerShell exposes the corresponding
+`src/Core/Core.Abstractions/HomePaths.cs:38`). PowerShell exposes the corresponding
 `Get-AzProfile` / `Set-AzProfile` cmdlets.
 
 ## The AI Agent-Mode Fallback

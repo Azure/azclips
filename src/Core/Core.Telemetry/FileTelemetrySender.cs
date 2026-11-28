@@ -13,10 +13,17 @@ namespace Core.Telemetry;
 public class FileTelemetrySender : ITelemetrySender
 {
     private readonly ITraceDirectoryProvider _traceDirectory;
+    private readonly bool _bypassRules;
 
     public FileTelemetrySender(ITraceDirectoryProvider traceDirectory)
+        : this(traceDirectory, TelemetryTargetResolver.BypassesRules)
+    {
+    }
+
+    internal FileTelemetrySender(ITraceDirectoryProvider traceDirectory, bool bypassRules)
     {
         _traceDirectory = traceDirectory;
+        _bypassRules = bypassRules;
     }
 
     public void ConfigureExporter(TracerProviderBuilder builder)
@@ -24,6 +31,6 @@ public class FileTelemetrySender : ITelemetrySender
         // Resolved per export, so the destination can differ between exports from one sender.
         builder.AddProcessor(
             new SimpleActivityExportProcessor(
-                new FileExporter(_traceDirectory.GetTraceDirectory())));
+                new FileExporter(_traceDirectory.GetTraceDirectory(), keepAllData: _bypassRules)));
     }
 }

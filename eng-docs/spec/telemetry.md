@@ -104,6 +104,11 @@ a confirmed ARM boundary. Internal routing and process-handoff contexts retain t
 `UploadRegion` (`ROW` or `EU`); producers convert it before tagging or recording.
 Neither `uploadRegion` nor `dataBoundaryOutcome` is allowed in new trace tags.
 
+Debug builds whose only target is the local collector (`AZCLIPS_TELEMETRY_TARGET=local`) skip
+the allowlist and the other privacy rules in the CLI, TUI and PowerShell pipelines. Agent-layer
+telemetry keeps its own allowlists. See
+[local mode](../../wiki/02-deep-dive/telemetry.md#local-mode).
+
 | Tag                       | Source | Description |
 |---------------------------|--------|-------------|
 | `installationId`          | All | Stable per-machine identifier (hashed) |
@@ -480,6 +485,9 @@ Traces are saved to:
 ~/.azclips/traces/traces-{traceId}.log
 ~/.azclips/traces/traces-agent-{guid}.partial
 ```
+
+In [local mode](../../wiki/02-deep-dive/telemetry.md#local-mode), Debug builds use
+`~/.azclips/traces-local` instead. Only local-mode uploaders read that folder.
 
 On Windows, `~` is `%USERPROFILE%`. Confirmed tenant boundaries are cached in
 `~/.azclips/data-boundary-cache.json`, alongside profiles and authentication state.

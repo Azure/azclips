@@ -48,6 +48,10 @@ public static class HttpActivityEnricher
         }
     }
 
+    // With the rules bypassed, the local collector is the only destination and keeps the text.
+    internal static bool ShouldSanitizeException(Activity activity, bool bypassRules) =>
+        !bypassRules && HasAzclipsInvocation(activity);
+
     private static ActivityListener CreateExceptionSanitizer()
     {
         var listener = new ActivityListener
@@ -58,7 +62,7 @@ public static class HttpActivityEnricher
                 Exception exception,
                 ref TagList tags) =>
             {
-                if (!HasAzclipsInvocation(activity))
+                if (!ShouldSanitizeException(activity, TelemetryTargetResolver.BypassesRules))
                     return;
 
                 // .NET 10 records HTTP exceptions in the runtime before OpenTelemetry's

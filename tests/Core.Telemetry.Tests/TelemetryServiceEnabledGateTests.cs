@@ -194,6 +194,21 @@ public class TelemetryServiceEnabledGateTests : IDisposable
         Assert.Equal(ambient.SpanId, root.ParentSpanId);
     }
 
+    [Fact]
+    public void TagInvocation_MasksParameterValues_WhenRulesAreNotBypassed()
+    {
+        using var root = _telemetryService.StartRootActivity();
+        Assert.NotNull(root);
+        var parameters = new Dictionary<string, object>
+        {
+            ["name"] = new List<List<string>> { new() { "secret-rg" } },
+        };
+
+        _telemetryService.TagInvocation(new CommandInvocation("group", "group show", parameters));
+
+        Assert.Equal("-name ***", root.GetTagItem(TelemetryTags.CommandParameters));
+    }
+
     /// <summary>Minimal ITelemetryProvider exposing a caller-supplied ActivitySource.</summary>
     private sealed class StubTelemetryProvider : ITelemetryProvider
     {
